@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
-import { query, queryWithSession } from "@/lib/db"
+import { query } from "@/lib/db"
 
 export async function GET() {
   try {
@@ -10,8 +10,8 @@ export async function GET() {
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "pharmacy", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const { rows } = await queryWithSession(
-      { role: auth.role, userId: auth.userId },
+
+    const { rows } = await query(
       `SELECT id,
               name,
               generic_name,
@@ -29,6 +29,7 @@ export async function GET() {
     )
     return NextResponse.json({ medications: rows })
   } catch (err: any) {
+    console.error("Error fetching medications:", err)
     return NextResponse.json({ error: "Failed to fetch medications" }, { status: 500 })
   }
 }
