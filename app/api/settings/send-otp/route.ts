@@ -9,46 +9,64 @@ import { rateLimitPg } from "@/lib/rate-limit-pg"
 
 const Schema = z.object({ email: z.string().email() })
 
+async function ensureEmailVerificationTable() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS email_verification_tokens (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      token VARCHAR(255) UNIQUE NOT NULL,
+      new_email VARCHAR(255) NOT NULL,
+      expires_at TIMESTAMP NOT NULL,
+      used BOOLEAN DEFAULT false,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+    )
+  `)
+}
+
 export async function POST(req: Request) {
-  const ip = (req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1").split(",")[0]
-  if (!(await rateLimitPg(`settings:otp:${ip}`, 5, 60))) {
-    return NextResponse.json({ error: "Too many requests" }, { status: 429 })
-  }
-  
-  const cookieStore = await cookies()
-  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
-  const auth = token ? verifyToken(token) : null
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  try {
+    const ip = (req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1").split(",")[0]
+    if (!(await rateLimitPg(`settings:otp:${ip}`, 5, 60))) {
+      return NextResponse.json({ error: "Too many requests" }, { status: 429 })
+    }
 
-  const body = await req.json()
-  const { email } = Schema.parse(body)
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    const auth = token ? verifyToken(token) : null
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-  // Always generate a NEW code and replace the old one
-  const otp = crypto.randomInt(100000, 999999).toString()
-  const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
-  
-  console.log(`[OTP] Current time (UTC): ${new Date().toISOString()}`)
-  console.log(`[OTP] Expires at (UTC): ${expiresAt.toISOString()}`)
-  console.log(`[OTP] Code: ${otp}, Expires in: ${(expiresAt.getTime() - Date.now()) / 1000} seconds`)
-  
-  // Delete ALL existing OTPs for this user (including valid ones) - this invalidates the old code
-  await query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [auth.userId])
-  
-  // Store the new OTP in database - use toISOString() to ensure UTC storage
-  await query(
-    `INSERT INTO email_verification_tokens (user_id, token, new_email, expires_at, used) 
-     VALUES ($1, $2, $3, $4, false)`,
-    [auth.userId, otp, email, expiresAt.toISOString()]
-  )
-  
-  console.log(`[OTP] Generated new code ${otp} for user ${auth.userId}`)
+    const body = await req.json()
+    const { email } = Schema.parse(body)
 
-  // Fetch user details for personalization
-  const { rows: userRows } = await query(`SELECT name FROM users WHERE id = $1`, [auth.userId])
-  const userName = userRows[0]?.name || "there"
+    // Ensure backing table exists (for environments where migrations didn't create it)
+    await ensureEmailVerificationTable()
 
-  // Send OTP email with personalized and professional template
-  const template = {
+    // Always generate a NEW code and replace the old one
+    const otp = crypto.randomInt(100000, 999999).toString()
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
+
+    console.log(`[OTP] Current time (UTC): ${new Date().toISOString()}`)
+    console.log(`[OTP] Expires at (UTC): ${expiresAt.toISOString()}`)
+    console.log(`[OTP] Code: ${otp}, Expires in: ${(expiresAt.getTime() - Date.now()) / 1000} seconds`)
+
+    // Delete ALL existing OTPs for this user (including valid ones) - this invalidates the old code
+    await query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [auth.userId])
+
+    // Store the new OTP in database - use toISOString() to ensure UTC storage
+    await query(
+      `INSERT INTO email_verification_tokens (user_id, token, new_email, expires_at, used) 
+       VALUES ($1, $2, $3, $4, false)`,
+      [auth.userId, otp, email, expiresAt.toISOString()],
+    )
+
+    console.log(`[OTP] Generated new code ${otp} for user ${auth.userId}`)
+
+    // Fetch user details for personalization
+    const { rows: userRows } = await query(`SELECT name FROM users WHERE id = $1`, [auth.userId])
+    const userName = userRows[0]?.name || "there"
+
+    // Send OTP email with personalized and professional template
+    const template = {
     subject: "Email Verification Code - Dayspring Medical Center",
     html: `
       <!DOCTYPE html>
@@ -163,14 +181,25 @@ export async function POST(req: Request) {
         </table>
       </body>
       </html>
-    `
+    `,
+    }
+
+    // Send the email with the new code (errors are logged inside sendEmailServer)
+    await sendEmailServer(email, template)
+    await query(`INSERT INTO audit_logs (user_id, action, entity_type, details) VALUES ($1,$2,$3,$4)`, [
+      auth.userId,
+      "otp_sent",
+      "user",
+      JSON.stringify({ email }),
+    ])
+
+    return NextResponse.json({ success: true, message: "Verification code sent" })
+  } catch (err: any) {
+    if (err?.name === "ZodError") {
+      return NextResponse.json({ error: "Invalid email", details: err.issues }, { status: 400 })
+    }
+    console.error("Error in /api/settings/send-otp:", err)
+    return NextResponse.json({ error: "Failed to send verification code" }, { status: 500 })
   }
-
-  // Send the email with the new code
-  await sendEmailServer(email, template)
-  await query(`INSERT INTO audit_logs (user_id, action, entity_type, details) VALUES ($1,$2,$3,$4)`,
-    [auth.userId, 'otp_sent', 'user', JSON.stringify({ email })])
-
-  return NextResponse.json({ success: true, message: "Verification code sent" })
 }
 
