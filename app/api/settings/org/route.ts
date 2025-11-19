@@ -37,7 +37,8 @@ export async function POST(req: Request) {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
-    if (!can(auth.role, 'settings', 'update') && !can(auth.role, 'admin', 'update')) {
+    // Only Hospital Admin should be able to change organization-level settings
+    if (auth.role !== 'Hospital Admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     await ensure()
@@ -56,4 +57,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Failed to update settings', details: e?.message }, { status: 500 })
   }
 }
-
