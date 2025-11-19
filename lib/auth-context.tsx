@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, useRef, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 
 export type UserRole =
   | "Receptionist"
@@ -60,26 +60,18 @@ const initializeSystemUsers = () => {
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
-  const hasCheckedCookie = useRef(false)
 
   useEffect(() => {
     initializeSystemUsers()
     ;(async () => {
       try {
-        // Avoid unauthenticated call when there is no session cookie
-        const hasCookie = typeof document !== "undefined" && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
-        if (!hasCookie) {
-          setIsLoading(false)
-          return
-        }
         const res = await fetch("/api/auth/me", { credentials: "include" })
         if (res.ok) {
           const data = await res.json()
           if (data?.user) {
-            // Map email_verified_at to emailVerified boolean
             setUser({
               ...data.user,
-              emailVerified: !!data.user.email_verified_at
+              emailVerified: !!data.user.email_verified_at,
             })
           }
         }
@@ -87,26 +79,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       setIsLoading(false)
     })()
   }, [])
-
-  // If no user but auth cookie exists (e.g., cookie set after first check), refetch once
-  useEffect(() => {
-    if (user || hasCheckedCookie.current) return
-    try {
-      const hasCookie = typeof document !== "undefined" && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
-      if (!isLoading && hasCookie) {
-        hasCheckedCookie.current = true
-        ;(async () => {
-          try {
-            const res = await fetch("/api/auth/me", { credentials: "include" })
-            if (res.ok) {
-              const data = await res.json()
-              if (data?.user) setUser(data.user)
-            }
-          } catch {}
-        })()
-      }
-    } catch {}
-  }, [isLoading])
 
   const login = async (email: string, password: string, role: UserRole): Promise<{ success: boolean; error?: string }> => {
     try {

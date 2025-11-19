@@ -23,11 +23,6 @@ export default function DashboardPage() {
 
   useEffect(() => {
     if (isLoading) return
-    const hasCookie = typeof document !== "undefined" && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
-    if (!user && hasCookie) {
-      // Auth cookie exists but context not hydrated yet; wait
-      return
-    }
     if (!user) {
       router.push("/")
       return
@@ -41,7 +36,7 @@ export default function DashboardPage() {
   if (!isLoading && !user) {
     return null
   }
-  
+
   if (isLoading || !user) {
     return (
       <div className="flex min-h-screen items-center justify-center">
