@@ -1,0 +1,341 @@
+"use client"
+
+import { useState } from "react"
+import { useMedical } from "@/lib/medical-context"
+import { usePatients } from "@/lib/patient-context"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { FileText, Pill, TestTube, Upload, Syringe, AlertTriangle, Activity, Download, Calendar } from "lucide-react"
+import { DocumentUploadDialog } from "./document-upload-dialog"
+import { AllergyDialog } from "./allergy-dialog"
+import { ImmunizationDialog } from "./immunization-dialog"
+
+interface PatientTimelineProps {
+  patientId: string
+}
+
+export function PatientTimeline({ patientId }: PatientTimelineProps) {
+  const { getPatientTimeline, getPatientAllergies, getPatientImmunizations, getPatientChronicConditions } = useMedical()
+  const { getPatient } = usePatients()
+  const [showUploadDialog, setShowUploadDialog] = useState(false)
+  const [showAllergyDialog, setShowAllergyDialog] = useState(false)
+  const [showImmunizationDialog, setShowImmunizationDialog] = useState(false)
+
+  const patient = getPatient(patientId)
+  const timeline = getPatientTimeline(patientId)
+  const allergies = getPatientAllergies(patientId)
+  const immunizations = getPatientImmunizations(patientId)
+  const chronicConditions = getPatientChronicConditions(patientId)
+
+  const getTimelineIcon = (type: string) => {
+    switch (type) {
+      case "consultation":
+        return <Activity className="h-4 w-4" />
+      case "prescription":
+        return <Pill className="h-4 w-4" />
+      case "lab-result":
+        return <TestTube className="h-4 w-4" />
+      case "document":
+        return <FileText className="h-4 w-4" />
+      case "immunization":
+        return <Syringe className="h-4 w-4" />
+      default:
+        return <FileText className="h-4 w-4" />
+    }
+  }
+
+  const getTimelineColor = (type: string) => {
+    switch (type) {
+      case "consultation":
+        return "bg-blue-500"
+      case "prescription":
+        return "bg-green-500"
+      case "lab-result":
+        return "bg-purple-500"
+      case "document":
+        return "bg-orange-500"
+      case "immunization":
+        return "bg-pink-500"
+      default:
+        return "bg-gray-500"
+    }
+  }
+
+  if (!patient) {
+    return <div>Patient not found</div>
+  }
+
+  return (
+    <div className="space-y-4">
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>
+                Medical History - {patient.firstName} {patient.lastName}
+              </CardTitle>
+              <CardDescription>Complete medical timeline and records</CardDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button size="sm" onClick={() => setShowUploadDialog(true)}>
+                <Upload className="h-4 w-4 mr-2" />
+                Upload Document
+              </Button>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent>
+          <Tabs defaultValue="timeline">
+            <TabsList>
+              <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="allergies">
+                Allergies
+                {allergies.length > 0 && (
+                  <Badge variant="destructive" className="ml-2">
+                    {allergies.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
+              <TabsTrigger value="immunizations">Immunizations</TabsTrigger>
+              <TabsTrigger value="chronic">Chronic Conditions</TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="timeline" className="space-y-4">
+              {timeline.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No medical history available</p>
+              ) : (
+                <div className="relative">
+                  <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-border" />
+                  <div className="space-y-4">
+                    {timeline.map((item, index) => (
+                      <div key={index} className="relative pl-10">
+                        <div
+                          className={`absolute left-2 w-5 h-5 rounded-full ${getTimelineColor(item.type)} flex items-center justify-center text-white`}
+                        >
+                          {getTimelineIcon(item.type)}
+                        </div>
+                        <Card>
+                          <CardContent className="pt-4">
+                            <div className="flex items-start justify-between">
+                              <div className="flex-1">
+                                <div className="flex items-center gap-2 mb-2">
+                                  <Badge variant="outline">{item.type}</Badge>
+                                  <span className="text-sm text-muted-foreground">{item.date}</span>
+                                </div>
+                                {item.type === "consultation" && (
+                                  <div>
+                                    <p className="font-medium text-foreground">
+                                      Consultation with {item.data.doctorName}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground mt-1">
+                                      <strong>Diagnosis:</strong> {item.data.diagnosis}
+                                    </p>
+                                    <p className="text-sm text-muted-foreground">
+                                      <strong>Treatment:</strong> {item.data.treatment}
+                                    </p>
+                                  </div>
+                                )}
+                                {item.type === "prescription" && (
+                                  <div>
+                                    <p className="font-medium text-foreground">
+                                      Prescription by {item.data.doctorName}
+                                    </p>
+                                    <div className="mt-2 space-y-1">
+                                      {item.data.medications.map((med: any, idx: number) => (
+                                        <p key={idx} className="text-sm text-muted-foreground">
+                                          • {med.name} - {med.dosage} ({med.frequency})
+                                        </p>
+                                      ))}
+                                    </div>
+                                  </div>
+                                )}
+                                {item.type === "lab-result" && (
+                                  <div>
+                                    <p className="font-medium text-foreground">{item.data.testType}</p>
+                                    <p className="text-sm text-muted-foreground">Ordered by {item.data.orderedBy}</p>
+                                    {item.data.results && (
+                                      <p className="text-sm text-muted-foreground mt-1">
+                                        <strong>Results:</strong> {item.data.results}
+                                      </p>
+                                    )}
+                                  </div>
+                                )}
+                                {item.type === "document" && (
+                                  <div>
+                                    <p className="font-medium text-foreground">{item.data.fileName}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Uploaded by {item.data.uploadedBy} - {item.data.documentType}
+                                    </p>
+                                    <Button size="sm" variant="outline" className="mt-2 bg-transparent">
+                                      <Download className="h-3 w-3 mr-1" />
+                                      Download
+                                    </Button>
+                                  </div>
+                                )}
+                                {item.type === "immunization" && (
+                                  <div>
+                                    <p className="font-medium text-foreground">{item.data.vaccineName}</p>
+                                    <p className="text-sm text-muted-foreground">
+                                      Administered by {item.data.administeredBy}
+                                    </p>
+                                    {item.data.nextDueDate && (
+                                      <p className="text-sm text-muted-foreground">Next due: {item.data.nextDueDate}</p>
+                                    )}
+                                  </div>
+                                )}
+                              </div>
+                            </div>
+                          </CardContent>
+                        </Card>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="allergies" className="space-y-4">
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => setShowAllergyDialog(true)}>
+                  <AlertTriangle className="h-4 w-4 mr-2" />
+                  Add Allergy
+                </Button>
+              </div>
+              {allergies.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No allergies recorded</p>
+              ) : (
+                <div className="grid gap-4">
+                  {allergies.map((allergy) => (
+                    <Card key={allergy.id}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <AlertTriangle className="h-4 w-4 text-red-500" />
+                              <p className="font-medium text-foreground">{allergy.allergen}</p>
+                              <Badge
+                                variant={
+                                  allergy.severity === "severe"
+                                    ? "destructive"
+                                    : allergy.severity === "moderate"
+                                      ? "default"
+                                      : "secondary"
+                                }
+                              >
+                                {allergy.severity}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground mt-1">Reaction: {allergy.reaction}</p>
+                            <p className="text-sm text-muted-foreground">Diagnosed: {allergy.diagnosedDate}</p>
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="immunizations" className="space-y-4">
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => setShowImmunizationDialog(true)}>
+                  <Syringe className="h-4 w-4 mr-2" />
+                  Add Immunization
+                </Button>
+              </div>
+              {immunizations.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No immunizations recorded</p>
+              ) : (
+                <div className="grid gap-4">
+                  {immunizations.map((immunization) => (
+                    <Card key={immunization.id}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <p className="font-medium text-foreground">{immunization.vaccineName}</p>
+                            <p className="text-sm text-muted-foreground">
+                              Administered: {immunization.dateAdministered}
+                            </p>
+                            <p className="text-sm text-muted-foreground">By: {immunization.administeredBy}</p>
+                            {immunization.nextDueDate && (
+                              <div className="flex items-center gap-1 mt-2">
+                                <Calendar className="h-3 w-3" />
+                                <p className="text-sm text-muted-foreground">Next due: {immunization.nextDueDate}</p>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="chronic" className="space-y-4">
+              {chronicConditions.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No chronic conditions recorded</p>
+              ) : (
+                <div className="grid gap-4">
+                  {chronicConditions.map((condition) => (
+                    <Card key={condition.id}>
+                      <CardContent className="pt-4">
+                        <div className="flex items-start justify-between">
+                          <div>
+                            <div className="flex items-center gap-2">
+                              <p className="font-medium text-foreground">{condition.condition}</p>
+                              <Badge
+                                variant={
+                                  condition.status === "active"
+                                    ? "destructive"
+                                    : condition.status === "managed"
+                                      ? "default"
+                                      : "secondary"
+                                }
+                              >
+                                {condition.status}
+                              </Badge>
+                            </div>
+                            <p className="text-sm text-muted-foreground">Diagnosed: {condition.diagnosedDate}</p>
+                            {condition.medications && condition.medications.length > 0 && (
+                              <div className="mt-2">
+                                <p className="text-sm font-medium text-foreground">Medications:</p>
+                                <ul className="text-sm text-muted-foreground list-disc list-inside">
+                                  {condition.medications.map((med, idx) => (
+                                    <li key={idx}>{med}</li>
+                                  ))}
+                                </ul>
+                              </div>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
+        </CardContent>
+      </Card>
+
+      <DocumentUploadDialog
+        open={showUploadDialog}
+        onOpenChange={setShowUploadDialog}
+        patientId={patientId}
+        patientName={`${patient.firstName} ${patient.lastName}`}
+      />
+
+      <AllergyDialog open={showAllergyDialog} onOpenChange={setShowAllergyDialog} patientId={patientId} />
+
+      <ImmunizationDialog
+        open={showImmunizationDialog}
+        onOpenChange={setShowImmunizationDialog}
+        patientId={patientId}
+      />
+    </div>
+  )
+}
+

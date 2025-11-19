@@ -1,0 +1,3 @@
+-- Intentionally left blank.
+-- This project no longer seeds any default or sample data.
+-- Use the admin portal or SQL scripts you control to create users, medications, and patients explicitly.

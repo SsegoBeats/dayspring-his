@@ -1,0 +1,16 @@
+
+> my-v0-project@0.1.0 dev
+> next dev
+
+   ▲ Next.js 16.0.0 (Turbopack)
+   - Local:        http://localhost:3000
+   - Network:      http://192.168.192.4:3000
+   - Environments: .env.local, .env
+
+ ✓ Starting...
+ ✓ Ready in 16.8s
+ ○ Compiling /api/notifications ...
+[slow-query] 1056ms :: CREATE EXTENSION IF NOT EXISTS "uuid-ossp"...
+[slow-query] 151ms :: SELECT column_name FROM information_schema.columns WHERE table_name='users'...
+[slow-query] 336ms :: SELECT column_name FROM information_schema.columns WHERE table_name='notifications'...
+ GET /api/notifications 200 in 18.9s (compile: 16.3s, proxy.ts: 850ms, render: 1765ms)

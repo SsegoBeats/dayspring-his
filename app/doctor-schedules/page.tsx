@@ -1,0 +1,188 @@
+"use client"
+
+import { useEffect, useState } from "react"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Button } from "@/components/ui/button"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Input } from "@/components/ui/input"
+
+type Doctor = { id: string; name: string }
+type Schedule = {
+  id: string
+  doctor_id: string
+  doctor_name: string
+  day_of_week: number
+  start_time: string
+  end_time: string
+  slot_duration: number
+  max_patients_per_slot: number
+}
+
+export default function DoctorSchedulesPage() {
+  const [doctors, setDoctors] = useState<Doctor[]>([])
+  const [schedules, setSchedules] = useState<Schedule[]>([])
+  const [doctorId, setDoctorId] = useState("")
+  const [day, setDay] = useState<number | undefined>(undefined)
+  const [start, setStart] = useState("")
+  const [end, setEnd] = useState("")
+  const [duration, setDuration] = useState(30)
+  const [capacity, setCapacity] = useState(1)
+  const [saving, setSaving] = useState(false)
+
+  const loadData = async () => {
+    const [drs, sch] = await Promise.all([
+      fetch("/api/users/clinicians").then((r) => r.json()),
+      fetch("/api/doctor-schedules").then((r) => r.json()),
+    ])
+    const list = (drs.clinicians || drs.doctors || []) as any[]
+    setDoctors(list.map((d: any) => ({ id: d.id, name: d.name })))
+    setSchedules(sch.schedules || [])
+  }
+
+  useEffect(() => {
+    void loadData()
+  }, [])
+
+  const save = async () => {
+    if (!doctorId || day === undefined || !start || !end) return
+    setSaving(true)
+    try {
+      const body = {
+        doctorId,
+        dayOfWeek: day,
+        startTime: start,
+        endTime: end,
+        slotDuration: duration,
+        maxPatientsPerSlot: capacity,
+      }
+      const res = await fetch("/api/doctor-schedules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
+      if (res.ok) {
+        await loadData()
+      }
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <div className="container mx-auto p-6 space-y-6">
+      <Card>
+        <CardHeader>
+          <CardTitle>Clinician Schedules</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-6">
+          <div className="grid gap-4 md:grid-cols-5">
+            <div className="space-y-2">
+              <Label>Clinician</Label>
+              <Select value={doctorId} onValueChange={setDoctorId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select clinician" />
+                </SelectTrigger>
+                <SelectContent>
+                  {doctors.map((d) => (
+                    <SelectItem key={d.id} value={d.id}>
+                      {d.name}
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Day</Label>
+              <Select value={day?.toString() ?? ""} onValueChange={(v) => setDay(parseInt(v))}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select day" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="0">Sunday</SelectItem>
+                  <SelectItem value="1">Monday</SelectItem>
+                  <SelectItem value="2">Tuesday</SelectItem>
+                  <SelectItem value="3">Wednesday</SelectItem>
+                  <SelectItem value="4">Thursday</SelectItem>
+                  <SelectItem value="5">Friday</SelectItem>
+                  <SelectItem value="6">Saturday</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label>Start</Label>
+              <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>End</Label>
+              <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Slot / Capacity</Label>
+              <div className="grid grid-cols-2 gap-2">
+                <Select value={duration.toString()} onValueChange={(v) => setDuration(parseInt(v))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="10">10m</SelectItem>
+                    <SelectItem value="15">15m</SelectItem>
+                    <SelectItem value="20">20m</SelectItem>
+                    <SelectItem value="30">30m</SelectItem>
+                    <SelectItem value="60">60m</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={capacity.toString()} onValueChange={(v) => setCapacity(parseInt(v))}>
+                  <SelectTrigger>
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {[1, 2, 3, 4, 5].map((c) => (
+                      <SelectItem key={c} value={c.toString()}>
+                        {c}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            </div>
+          </div>
+          <Button onClick={save} disabled={saving || !doctorId || day === undefined || !start || !end}>
+            {saving ? "Saving..." : "Save Schedule"}
+          </Button>
+
+          <div className="space-y-3">
+            <h3 className="font-semibold">Existing Schedules</h3>
+            <div className="grid gap-2 md:grid-cols-2">
+              {schedules.map((s) => (
+                <Card key={s.id}>
+                  <CardContent className="p-4">
+                    <div className="flex items-center justify-between">
+                      <div>
+                        <div className="font-medium">{s.doctor_name}</div>
+                        <div className="text-sm text-muted-foreground">
+                          {[
+                            "Sunday",
+                            "Monday",
+                            "Tuesday",
+                            "Wednesday",
+                            "Thursday",
+                            "Friday",
+                            "Saturday",
+                          ][s.day_of_week]}{" "}
+                          {String(s.start_time).slice(0, 5)} - {String(s.end_time).slice(0, 5)}
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">
+                        {s.slot_duration}m • cap {s.max_patients_per_slot}
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              ))}
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+    </div>
+  )
+}
+
+
+

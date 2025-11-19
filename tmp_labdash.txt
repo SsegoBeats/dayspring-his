@@ -1,0 +1,95 @@
+"use client"
+
+import { useState } from "react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { useMedical } from "@/lib/medical-context"
+import { LabTestQueue } from "@/components/lab/lab-test-queue"
+import { LabTestDetails } from "@/components/lab/lab-test-details"
+import { TestTube, Clock, CheckCircle, XCircle } from "lucide-react"
+
+export function LabTechDashboard() {
+  const { labResults } = useMedical()
+  const [selectedTestId, setSelectedTestId] = useState<string | null>(null)
+
+  const pendingTests = labResults.filter((lr) => lr.status === "pending")
+  const completedTests = labResults.filter((lr) => lr.status === "completed")
+  const cancelledTests = labResults.filter((lr) => lr.status === "cancelled")
+
+  if (selectedTestId) {
+    return <LabTestDetails testId={selectedTestId} onBack={() => setSelectedTestId(null)} />
+  }
+
+  return (
+    <div className="space-y-6">
+      <div>
+        <h2 className="text-2xl font-bold tracking-tight text-foreground">Lab Technician Dashboard</h2>
+        <p className="text-muted-foreground">Manage laboratory tests and results</p>
+      </div>
+
+      <div className="grid gap-4 md:grid-cols-4">
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Total Tests</CardTitle>
+            <TestTube className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{labResults.length}</div>
+            <p className="text-xs text-muted-foreground">All time</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Pending Tests</CardTitle>
+            <Clock className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{pendingTests.length}</div>
+            <p className="text-xs text-muted-foreground">Awaiting results</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Completed</CardTitle>
+            <CheckCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{completedTests.length}</div>
+            <p className="text-xs text-muted-foreground">Results submitted</p>
+          </CardContent>
+        </Card>
+        <Card>
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-sm font-medium">Cancelled</CardTitle>
+            <XCircle className="h-4 w-4 text-muted-foreground" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold">{cancelledTests.length}</div>
+            <p className="text-xs text-muted-foreground">Cancelled tests</p>
+          </CardContent>
+        </Card>
+      </div>
+
+      <Tabs defaultValue="pending">
+        <TabsList>
+          <TabsTrigger value="pending">Pending Tests</TabsTrigger>
+          <TabsTrigger value="completed">Completed</TabsTrigger>
+          <TabsTrigger value="all">All Tests</TabsTrigger>
+        </TabsList>
+
+        <TabsContent value="pending">
+          <LabTestQueue tests={pendingTests} onSelectTest={setSelectedTestId} emptyMessage="No pending tests" />
+        </TabsContent>
+
+        <TabsContent value="completed">
+          <LabTestQueue tests={completedTests} onSelectTest={setSelectedTestId} emptyMessage="No completed tests" />
+        </TabsContent>
+
+        <TabsContent value="all">
+          <LabTestQueue tests={labResults} onSelectTest={setSelectedTestId} emptyMessage="No tests available" />
+        </TabsContent>
+      </Tabs>
+    </div>
+  )
+}
+

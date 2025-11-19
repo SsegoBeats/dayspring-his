@@ -1,0 +1,14 @@
+{
+  "name": "Dayspring Medical Center HIS",
+  "short_name": "Dayspring HIS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    { "src": "/placeholder-logo.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/placeholder-logo.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+
+
