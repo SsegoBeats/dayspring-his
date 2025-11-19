@@ -27,6 +27,9 @@ export async function GET(req: Request) {
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+    // Ensure extended lab_tests schema exists (priority, assigned_radiologist_id, etc.)
+    await ensureSchema()
+
     const url = new URL(req.url)
     const status = url.searchParams.get('status')
     const q = (url.searchParams.get('q') || '').trim()
@@ -96,6 +99,7 @@ export async function GET(req: Request) {
     }))
     return NextResponse.json({ tests })
   } catch (e:any) {
+    console.error("Error in /api/lab-tests GET:", e)
     return NextResponse.json({ error: 'Failed to load lab tests', details: e.message }, { status: 500 })
   }
 }
