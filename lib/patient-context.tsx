@@ -139,6 +139,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
         gender: (p.gender || 'Other').toString().toLowerCase(),
         phone: p.phone || '',
         address: p.address || '',
+        bloodGroup: p.blood_group || undefined,
         registrationDate: p.created_at?.slice(0,10) || new Date().toISOString().slice(0,10),
         status: (p.current_status || 'active').toString().toLowerCase() as any,
         triageCategory: p.latest_triage_category || null,

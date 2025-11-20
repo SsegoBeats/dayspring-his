@@ -21,6 +21,7 @@ export interface EditPatientDialogProps {
     gender: string
     phone: string
     address?: string
+    bloodGroup?: string | null
     emergencyContact?: string
     emergencyPhone?: string
     nextOfKinName?: string | null
@@ -42,6 +43,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
     gender: "other",
     phone: "",
     address: "",
+    bloodGroup: "",
     emergencyContactName: "",
     emergencyContactPhone: "",
     nextOfKinFirstName: "",
@@ -61,6 +63,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
       gender: (patient.gender || 'other').toLowerCase(),
       phone: patient.phone || "",
       address: patient.address || "",
+      bloodGroup: patient.bloodGroup || "",
       emergencyContactName: patient.emergencyContact || "",
       emergencyContactPhone: patient.emergencyPhone || "",
       nextOfKinFirstName: nokSplit[0] || "",
@@ -84,6 +87,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
         gender: form.gender === 'male' ? 'Male' : form.gender === 'female' ? 'Female' : 'Other',
         phone: form.phone.trim() || undefined,
         address: form.address.trim() || null,
+        bloodGroup: form.bloodGroup.trim() || null,
         emergencyContactName: form.emergencyContactName.trim() || null,
         emergencyContactPhone: form.emergencyContactPhone.trim() || null,
         nextOfKinFirstName: form.nextOfKinFirstName.trim() || null,
@@ -116,6 +120,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
           gender: (p.gender || 'Other').toString().toLowerCase(),
           phone: p.phone || '',
           address: p.address || '',
+          bloodGroup: p.blood_group || undefined,
           emergencyContact: p.emergency_contact_name || '',
           emergencyPhone: p.emergency_contact_phone || '',
           nextOfKinName: (p.next_of_kin_name ? p.next_of_kin_name : [p.next_of_kin_first_name, p.next_of_kin_last_name].filter(Boolean).join(' ').trim()) || null,
@@ -185,6 +190,14 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
             <Label>Address</Label>
             <Input value={form.address} onChange={(e)=>setForm({ ...form, address: e.target.value })} />
           </div>
+          <div className="space-y-2">
+            <Label>Blood Group</Label>
+            <Input
+              value={form.bloodGroup}
+              onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}
+              placeholder="e.g., O+"
+            />
+          </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Emergency Contact Name</Label>
@@ -214,7 +227,22 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
               </div>
               <div className="space-y-2">
                 <Label>Relationship</Label>
-                <Input value={form.nextOfKinRelation} onChange={(e)=>setForm({ ...form, nextOfKinRelation: e.target.value })} />
+                <Select
+                  value={form.nextOfKinRelation || ""}
+                  onValueChange={(value) => setForm({ ...form, nextOfKinRelation: value })}
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select relationship" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Spouse">Spouse</SelectItem>
+                    <SelectItem value="Parent">Parent</SelectItem>
+                    <SelectItem value="Child">Child</SelectItem>
+                    <SelectItem value="Sibling">Sibling</SelectItem>
+                    <SelectItem value="Guardian">Guardian</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="space-y-2">
                 <Label>Residence</Label>

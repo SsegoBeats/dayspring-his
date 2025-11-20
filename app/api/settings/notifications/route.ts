@@ -12,30 +12,57 @@ const NotificationsSchema = z.object({
   emergencyAlerts: z.boolean(),
 })
 
+async function ensureUserSettingsNotifications() {
+  try {
+    await query(`
+      CREATE TABLE IF NOT EXISTS user_settings (
+        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+        theme VARCHAR(20) DEFAULT 'system',
+        locale VARCHAR(10) DEFAULT 'en-UG',
+        currency VARCHAR(10) DEFAULT 'UGX',
+        timezone VARCHAR(100) DEFAULT 'Africa/Kampala',
+        notify_email_reminders BOOLEAN DEFAULT true,
+        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+        UNIQUE (user_id)
+      )
+    `)
+    await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS appointment_alerts BOOLEAN DEFAULT true")
+    await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lab_results BOOLEAN DEFAULT true")
+    await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS system_updates BOOLEAN DEFAULT false")
+    await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS emergency_alerts BOOLEAN DEFAULT true")
+    await query("CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id)")
+  } catch {
+    // ignore; main query will surface real errors if any
+  }
+}
+
 export async function GET() {
   try {
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    
+
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+    await ensureUserSettingsNotifications()
+
     const { rows } = await query(
       "SELECT notify_email_reminders, appointment_alerts, lab_results, system_updates, emergency_alerts FROM user_settings WHERE user_id = $1",
-      [payload.userId]
+      [payload.userId],
     )
 
     if (rows.length === 0) {
-      // Return defaults if no settings exist
       return NextResponse.json({
         notifications: {
           emailReminders: true,
           appointmentAlerts: true,
           labResults: true,
           systemUpdates: false,
-          emergencyAlerts: true
-        }
+          emergencyAlerts: true,
+        },
       })
     }
 
@@ -45,8 +72,8 @@ export async function GET() {
         appointmentAlerts: rows[0].appointment_alerts ?? true,
         labResults: rows[0].lab_results ?? true,
         systemUpdates: rows[0].system_updates ?? false,
-        emergencyAlerts: rows[0].emergency_alerts ?? true
-      }
+        emergencyAlerts: rows[0].emergency_alerts ?? true,
+      },
     })
   } catch (error) {
     console.error("Error fetching notifications:", error)
@@ -59,14 +86,15 @@ export async function POST(req: Request) {
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    
+
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    await ensureUserSettingsNotifications()
 
     const body = await req.json()
     const notifications = NotificationsSchema.parse(body)
 
-    // Upsert notification settings
     await query(
       `INSERT INTO user_settings (user_id, notify_email_reminders, appointment_alerts, lab_results, system_updates, emergency_alerts, updated_at)
        VALUES ($1, $2, $3, $4, $5, $6, CURRENT_TIMESTAMP)
@@ -84,8 +112,8 @@ export async function POST(req: Request) {
         notifications.appointmentAlerts,
         notifications.labResults,
         notifications.systemUpdates,
-        notifications.emergencyAlerts
-      ]
+        notifications.emergencyAlerts,
+      ],
     )
 
     return NextResponse.json({ success: true, message: "Notification preferences updated successfully" })

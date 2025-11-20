@@ -15,7 +15,7 @@ import { PatientDetails } from "./patient-details"
 import { formatPatientDigits } from "@/lib/patients"
 
 export function PatientList({ initialSelectedPatientId }: { initialSelectedPatientId?: string }) {
-  const { patients, searchPatients } = usePatients()
+  const { patients, searchPatients, refreshPatients } = usePatients()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(initialSelectedPatientId || null)
   const [deleteOpen, setDeleteOpen] = useState(false)
@@ -167,7 +167,15 @@ export function PatientList({ initialSelectedPatientId }: { initialSelectedPatie
           <DialogHeader>
             <DialogTitle>Register Patient</DialogTitle>
           </DialogHeader>
-          <PatientRegistration onSuccess={(id)=>{ try { setRegisterOpen(false) } catch {}; if (id) setSelectedPatientId(id) }} />
+          <PatientRegistration
+            onSuccess={async (id) => {
+              try {
+                setRegisterOpen(false)
+                await refreshPatients()
+              } catch {}
+              if (id) setSelectedPatientId(id)
+            }}
+          />
         </DialogContent>
       </Dialog>
     </Card>
