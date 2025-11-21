@@ -119,7 +119,8 @@ export async function POST(req: Request) {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, 'medical', 'create') && !can(auth.role, 'patients', 'update')) {
+    // Allow roles that can order labs via medical create, patient update, or lab create
+    if (!can(auth.role, 'medical', 'create') && !can(auth.role, 'patients', 'update') && !can(auth.role, 'lab', 'create')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     await ensureSchema()
