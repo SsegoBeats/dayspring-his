@@ -20,15 +20,28 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
   const [specimenType, setSpecimenType] = useState("Blood")
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(false)
+  const [statusMsg, setStatusMsg] = useState("")
 
   useEffect(() => {
     const ctrl = new AbortController()
     const load = async () => {
-      if (!search.trim()) { setCatalog([]); return }
+      if (!search.trim()) { setCatalog([]); setStatusMsg(""); return }
+      setLoading(true)
+      setStatusMsg("")
       const res = await fetch(`/api/lab-catalog?q=${encodeURIComponent(search)}`, { signal: ctrl.signal, credentials: "include" }).catch(()=>null)
-      if (!res || !res.ok) return
+      if (!res || !res.ok) {
+        setCatalog([])
+        setStatusMsg("Search failed. Check network or session.")
+        setLoading(false)
+        return
+      }
       const data = await res.json().catch(()=> ({}))
-      setCatalog(Array.isArray(data.items) ? data.items : [])
+      const items = Array.isArray(data.items) ? data.items : []
+      setCatalog(items)
+      if (!items.length) setStatusMsg("No matches found. Try another term or add a custom test.")
+      else setStatusMsg("")
+      setLoading(false)
     }
     const t = setTimeout(load, 250)
     return () => { clearTimeout(t); ctrl.abort() }
@@ -84,6 +97,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
           <div className="space-y-1">
             <Label>Search LOINC Catalog</Label>
             <Input placeholder="Type test name or LOINC code" value={search} onChange={(e)=> setSearch(e.target.value)} />
+            {loading && <div className="text-xs text-muted-foreground">Searching…</div>}
             {catalog.length > 0 && (
               <ScrollArea className="max-h-56 rounded-md border">
                 <div className="p-2 space-y-2">
@@ -99,10 +113,17 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
                 </div>
               </ScrollArea>
             )}
+            {!loading && statusMsg && <div className="text-xs text-muted-foreground">{statusMsg}</div>}
             <div className="text-xs text-muted-foreground">Can’t find it? Add a custom test name below.</div>
             <div className="flex gap-2">
               <Input placeholder="Custom test name" value={manualName} onChange={(e)=> setManualName(e.target.value)} />
               <Button variant="outline" onClick={addManual} disabled={!manualName.trim()}>Add</Button>
+            </div>
+            <div className="text-xs text-muted-foreground">Quick picks:</div>
+            <div className="flex flex-wrap gap-2">
+              {["Complete blood count (CBC)", "Basic metabolic panel", "Comprehensive metabolic panel", "Liver function tests", "Renal panel", "CRP", "ESR", "Malaria RDT", "HIV rapid", "Urinalysis", "Troponin", "D-Dimer"].map((q)=> (
+                <Button key={q} size="sm" variant="secondary" onClick={()=> setSearch(q)}>{q}</Button>
+              ))}
             </div>
           </div>
 
