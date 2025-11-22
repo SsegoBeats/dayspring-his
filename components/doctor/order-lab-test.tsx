@@ -89,7 +89,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-3xl w-[720px] max-h-[80vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Order Laboratory Test</DialogTitle>
         </DialogHeader>
@@ -99,13 +99,15 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
             <Input placeholder="Type test name or LOINC code" value={search} onChange={(e)=> setSearch(e.target.value)} />
             {loading && <div className="text-xs text-muted-foreground">Searching…</div>}
             {catalog.length > 0 && (
-              <ScrollArea className="max-h-56 rounded-md border">
+              <ScrollArea className="max-h-[320px] rounded-md border">
                 <div className="p-2 space-y-2">
                   {catalog.map((item)=> (
-                    <div key={item.loincCode} className="flex items-start justify-between gap-2 border-b pb-2 last:border-0">
-                      <div className="text-sm">
-                        <div className="font-medium">{item.name}</div>
-                        <div className="text-xs text-muted-foreground">{item.loincCode} · {item.component} · {item.property} · {item.system}</div>
+                    <div key={item.loincCode} className="flex items-start justify-between gap-3 border-b pb-2 last:border-0">
+                      <div className="text-sm leading-snug overflow-hidden">
+                        <div className="font-medium break-words">{item.name}</div>
+                        <div className="text-xs text-muted-foreground break-words">
+                          {item.loincCode} · {item.component} · {item.property} · {item.system}
+                        </div>
                       </div>
                       <Button size="sm" variant="outline" onClick={()=> addTest(item)}>Add</Button>
                     </div>
