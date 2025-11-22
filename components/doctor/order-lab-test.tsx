@@ -145,14 +145,14 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
             </div>
           </div>
 
-          <div className="space-y-3">
+          <div className="space-y-3 min-h-0">
             <div className="space-y-2">
               <Label>Search LOINC Catalog</Label>
               <Input placeholder="Type test name or LOINC code" value={search} onChange={(e)=> setSearch(e.target.value)} />
               {loading && <div className="text-xs text-muted-foreground">Searching…</div>}
               {catalog.length > 0 && (
-                <div className="rounded-md border bg-white/95">
-                  <ScrollArea className="max-h-[70vh]">
+                <div className="rounded-md border bg-white/95 h-[70vh]">
+                  <ScrollArea className="h-full">
                     <div className="p-3 space-y-3">
                       {catalog.map((item)=> (
                         <div key={item.loincCode} className="flex items-start justify-between gap-4 border-b pb-2 last:border-0">
