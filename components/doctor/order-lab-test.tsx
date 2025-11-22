@@ -137,7 +137,6 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
               </Select>
             </div>
           </div>
-          <div className="space-y-1">
           <div className="flex justify-end gap-2">
             <Button variant="outline" onClick={()=> onOpenChange(false)}>Cancel</Button>
             <Button onClick={submit} disabled={saving || !selected.length}>{saving? 'Ordering...':'Order Test(s)'}</Button>
