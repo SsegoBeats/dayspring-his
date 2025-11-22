@@ -11,8 +11,10 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
 import { PhoneInput } from "@/components/ui/phone-input"
+import { Printer, X } from "lucide-react"
 
 interface PatientRegistrationProps {
   onSuccess?: (patientId?: string) => void
@@ -23,6 +25,7 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
   const [isSubmitting, setIsSubmitting] = useState(false)
   const [errors, setErrors] = useState<{ [k: string]: string }>({})
   const [formError, setFormError] = useState<string>("")
+  const [tokenId, setTokenId] = useState<string | null>(null)
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -159,7 +162,8 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
             const ck = await fetch('/api/checkins', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ patientId, department: formData.department }) })
             if (ck.ok) {
               const c = await ck.json()
-              try { window.open(`/api/queue/token/${c.id}`, '_blank') } catch {}
+              // Persist a print banner instead of auto-redirecting
+              if (c?.id) setTokenId(c.id)
               // Notify department panel
               try {
                 await fetch('/api/notify/department', {
@@ -231,6 +235,26 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
         <CardDescription>Enter patient information to create a new registration</CardDescription>
       </CardHeader>
       <CardContent>
+        {tokenId && (
+          <Alert className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
+            <div>
+              <AlertTitle>Queue token ready</AlertTitle>
+              <AlertDescription>Token {tokenId}. Click print to open/print the token. This will stay until you close it.</AlertDescription>
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => { try { window.open(`/api/queue/token/${tokenId}`, '_blank') } catch {} }}
+              >
+                <Printer className="mr-2 h-4 w-4" /> Print token
+              </Button>
+              <Button variant="ghost" size="icon" onClick={() => setTokenId(null)}>
+                <X className="h-4 w-4" />
+              </Button>
+            </div>
+          </Alert>
+        )}
         {formError && (
           <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
         )}
@@ -539,7 +563,6 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
     </Card>
   )
 }
-
 
 
 
