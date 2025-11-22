@@ -89,7 +89,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-5xl w-[900px] max-h-[85vh] overflow-y-auto px-6">
+      <DialogContent className="max-w-6xl w-[980px] max-h-[85vh] overflow-y-auto px-6">
         <DialogHeader>
           <DialogTitle>Order Laboratory Test</DialogTitle>
         </DialogHeader>
@@ -99,7 +99,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
             <Input placeholder="Type test name or LOINC code" value={search} onChange={(e)=> setSearch(e.target.value)} />
             {loading && <div className="text-xs text-muted-foreground">Searching…</div>}
             {catalog.length > 0 && (
-              <div className="rounded-md border bg-white/80">
+              <div className="rounded-md border bg-white/90">
                 <ScrollArea className="max-h-[360px]">
                   <div className="p-3 space-y-3">
                     {catalog.map((item)=> (
