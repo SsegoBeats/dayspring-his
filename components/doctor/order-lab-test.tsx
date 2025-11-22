@@ -89,28 +89,28 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-4xl w-[840px] max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-5xl w-[900px] max-h-[85vh] overflow-y-auto px-6">
         <DialogHeader>
           <DialogTitle>Order Laboratory Test</DialogTitle>
         </DialogHeader>
-        <div className="space-y-3">
-          <div className="space-y-1">
+        <div className="space-y-4">
+          <div className="space-y-2">
             <Label>Search LOINC Catalog</Label>
             <Input placeholder="Type test name or LOINC code" value={search} onChange={(e)=> setSearch(e.target.value)} />
             {loading && <div className="text-xs text-muted-foreground">Searching…</div>}
             {catalog.length > 0 && (
-              <div className="rounded-md border">
+              <div className="rounded-md border bg-white/80">
                 <ScrollArea className="max-h-[360px]">
                   <div className="p-3 space-y-3">
                     {catalog.map((item)=> (
-                      <div key={item.loincCode} className="flex items-start justify-between gap-3 border-b pb-2 last:border-0">
-                        <div className="text-sm leading-snug overflow-hidden">
+                      <div key={item.loincCode} className="flex items-start justify-between gap-4 border-b pb-2 last:border-0">
+                        <div className="text-sm leading-snug overflow-hidden flex-1 min-w-0">
                           <div className="font-medium break-words">{item.name}</div>
-                          <div className="text-xs text-muted-foreground break-words">
+                          <div className="text-xs text-muted-foreground break-words line-clamp-2">
                             {item.loincCode} · {item.component} · {item.property} · {item.system}
                           </div>
                         </div>
-                        <Button size="sm" variant="outline" onClick={()=> addTest(item)}>Add</Button>
+                        <Button size="sm" variant="outline" className="shrink-0" onClick={()=> addTest(item)}>Add</Button>
                       </div>
                     ))}
                   </div>
