@@ -15,6 +15,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
   const [search, setSearch] = useState("")
   const [catalog, setCatalog] = useState<any[]>([])
   const [selected, setSelected] = useState<any[]>([])
+  const [manualName, setManualName] = useState("")
   const [priority, setPriority] = useState("Routine")
   const [specimenType, setSpecimenType] = useState("Blood")
   const [notes, setNotes] = useState("")
@@ -38,8 +39,15 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
     setSelected((prev)=> [...prev, item])
   }
 
-  const removeTest = (code:string) => {
-    setSelected((prev)=> prev.filter((t)=> t.loincCode !== code))
+  const addManual = () => {
+    const name = manualName.trim()
+    if (!name) return
+    setSelected((prev)=> [...prev, { loincCode: null, name, class: "Lab" }])
+    setManualName("")
+  }
+
+  const removeTest = (code:string | null) => {
+    setSelected((prev)=> prev.filter((t)=> t.loincCode !== code || (code === null && t.loincCode !== null)))
   }
 
   const submit = async () => {
@@ -91,14 +99,19 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
                 </div>
               </ScrollArea>
             )}
+            <div className="text-xs text-muted-foreground">Can’t find it? Add a custom test name below.</div>
+            <div className="flex gap-2">
+              <Input placeholder="Custom test name" value={manualName} onChange={(e)=> setManualName(e.target.value)} />
+              <Button variant="outline" onClick={addManual} disabled={!manualName.trim()}>Add</Button>
+            </div>
           </div>
 
           {selected.length > 0 && (
             <div className="space-y-2">
               <Label>Selected tests</Label>
               <div className="flex flex-wrap gap-2">
-                {selected.map((t)=> (
-                  <Badge key={t.loincCode} variant="secondary" className="flex items-center gap-1">
+                {selected.map((t, idx)=> (
+                  <Badge key={`${t.loincCode || 'custom'}-${idx}`} variant="secondary" className="flex items-center gap-1">
                     {t.name}
                     <button aria-label="Remove" onClick={()=> removeTest(t.loincCode)} className="ml-1 text-xs">×</button>
                   </Badge>
