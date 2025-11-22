@@ -19,7 +19,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
               lt.lab_tech_id, t.name AS lab_tech_name,
               lt.ordered_at, lt.completed_at, lt.priority, lt.specimen_type, lt.accession_number, lt.collected_at, lt.collected_by,
               lt.reviewed_by, rb.name AS reviewed_by_name, lt.reviewed_at,
-              lt.assigned_radiologist_id, ar.name AS assigned_radiologist_name, lt.assigned_at
+              lt.assigned_radiologist_id, ar.name AS assigned_radiologist_name, lt.assigned_at,
+              lt.loinc_code, lt.loinc_long_name, lt.loinc_property, lt.loinc_scale, lt.loinc_system, lt.loinc_time_aspct, lt.loinc_class, lt.loinc_units, lt.result_json
          FROM lab_tests lt
          LEFT JOIN patients p ON p.id = lt.patient_id
          LEFT JOIN users d ON d.id = lt.doctor_id
@@ -55,6 +56,15 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       assignedToId: r.assigned_radiologist_id || null,
       assignedToName: r.assigned_radiologist_name || null,
       assignedAt: r.assigned_at || null,
+      loincCode: r.loinc_code || null,
+      loincLongName: r.loinc_long_name || null,
+      loincProperty: r.loinc_property || null,
+      loincScale: r.loinc_scale || null,
+      loincSystem: r.loinc_system || null,
+      loincTimeAspct: r.loinc_time_aspct || null,
+      loincClass: r.loinc_class || null,
+      loincUnits: r.loinc_units || null,
+      resultJson: r.result_json || {},
     }
     return NextResponse.json({ test })
   } catch (e) {
@@ -82,6 +92,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       priority?: string
       rejectionReason?: string
       assignedRadiologistId?: string | null
+      resultJson?: any
     }
     const reviewed = body.reviewed
 
@@ -122,6 +133,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       if (body.specimenType !== undefined) { fields.push(`specimen_type = $${fields.length+1}`); params2.push(body.specimenType) }
       if (body.priority !== undefined) { fields.push(`priority = $${fields.length+1}`); params2.push(body.priority) }
       if (body.rejectionReason !== undefined) { fields.push(`rejection_reason = $${fields.length+1}`); params2.push(body.rejectionReason) }
+      if (body.resultJson !== undefined) { fields.push(`result_json = $${fields.length+1}`); params2.push(body.resultJson || {}) }
       if (body.collectedAt !== undefined) { fields.push(`collected_at = $${fields.length+1}, collected_by = $${fields.length+2}`); params2.push(new Date(body.collectedAt).toISOString()); params2.push(auth.userId) }
       if (body.assignedRadiologistId !== undefined) {
         fields.push(`assigned_radiologist_id = $${fields.length + 1}`)

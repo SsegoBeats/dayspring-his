@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { useLab } from "@/lib/lab-context"
 import { useAuth } from "@/lib/auth-context"
 import { usePatients } from "@/lib/patient-context"
@@ -29,13 +29,16 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
   const [notes, setNotes] = useState(test?.notes || "")
   const role = (user?.role || '').toLowerCase()
   const isLabTech = role.includes('lab')
-  const [usePanel, setUsePanel] = useState(true)
-  const [panel, setPanel] = useState<any>({
-    hb: '', wbc: '', plt: '', hct: '', mcv: '', neut: '', lymph: '', mono: '', eos: '', baso: '',
-    rbs: '', alt: '', ast: '', alp: '', tbili: '', dbili: '', alb: '', tp: '',
-    malaria: 'Negative', crp: '', hiv1: 'Negative', hiv2: 'Negative',
-    ua_nitrite: 'Negative', ua_leuk: 'Negative', ua_blood: 'Negative', ua_protein: 'Negative', ua_glucose: 'Negative', ua_ketone: 'Negative', ua_ph: '', ua_sg: ''
-  })
+  const [structured, setStructured] = useState<any>(() => test?.resultJson || { value: '', units: test?.loincUnits || '', interpretation: '', reference: '' })
+
+  useEffect(() => {
+    setStructured((prev:any) => ({
+      ...prev,
+      units: prev.units || test?.loincUnits || '',
+    }))
+  }, [test?.loincUnits])
+
+  const loincTitle = useMemo(() => test?.loincLongName || test?.testName, [test])
 
   if (!test) {
     return (
@@ -102,62 +105,27 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
 
           {isLabTech && test.status.toLowerCase() !== 'completed' ? (
             <div className="space-y-4">
-              <div className="flex items-center justify-between">
-                <div className="font-medium">Structured Panel</div>
-                <label className="text-sm flex items-center gap-2"><input type="checkbox" checked={usePanel} onChange={(e)=> setUsePanel(e.target.checked)} /> Use structured form</label>
-              </div>
-              {usePanel && (
-                <div className="rounded-md border p-3 space-y-3">
-                  <div className="grid md:grid-cols-4 gap-2">
-                    {['hb','wbc','plt','hct','mcv','neut','lymph','mono','eos','baso'].map((k)=> (
-                      <label key={k} className="text-xs">
-                        {k.toUpperCase()}
-                        <input className="border rounded px-2 py-1 text-sm w-full" value={panel[k]||''} onChange={(e)=> setPanel({ ...panel, [k]: e.target.value })} />
-                      </label>
-                    ))}
-                  </div>
-                  <div className="grid md:grid-cols-3 gap-2">
-                    {['rbs','alt','ast','alp','tbili','dbili','alb','tp'].map((k)=> (
-                      <label key={k} className="text-xs">
-                        {k.toUpperCase()}
-                        <input className="border rounded px-2 py-1 text-sm w-full" value={panel[k]||''} onChange={(e)=> setPanel({ ...panel, [k]: e.target.value })} />
-                      </label>
-                    ))}
-                  </div>
-                  <div className="grid md:grid-cols-3 gap-2">
-                    <label className="text-xs">Malaria RDT
-                      <select className="border rounded px-2 py-1 text-sm w-full" value={panel.malaria} onChange={(e)=> setPanel({...panel, malaria: e.target.value})}>
-                        {['Negative','Positive','Invalid'].map(o=> <option key={o} value={o}>{o}</option>)}
-                      </select>
-                    </label>
-                    <label className="text-xs">CRP (mg/L)
-                      <input className="border rounded px-2 py-1 text-sm w-full" value={panel.crp} onChange={(e)=> setPanel({...panel, crp: e.target.value})} />
-                    </label>
-                    <label className="text-xs">HIV Rapid
-                      <div className="grid grid-cols-2 gap-2">
-                        <select className="border rounded px-2 py-1 text-sm w-full" value={panel.hiv1} onChange={(e)=> setPanel({...panel, hiv1: e.target.value})}>
-                          {['Negative','Positive','Invalid'].map(o=> <option key={o} value={o}>{o}</option>)}
-                        </select>
-                        <select className="border rounded px-2 py-1 text-sm w-full" value={panel.hiv2} onChange={(e)=> setPanel({...panel, hiv2: e.target.value})}>
-                          {['Negative','Positive','Invalid'].map(o=> <option key={o} value={o}>{o}</option>)}
-                        </select>
-                      </div>
-                    </label>
-                  </div>
-                  <div className="grid md:grid-cols-4 gap-2">
-                    {[
-                      ['Nitrite','ua_nitrite'],['Leukocyte','ua_leuk'],['Blood','ua_blood'],['Protein','ua_protein'],
-                      ['Glucose','ua_glucose'],['Ketone','ua_ketone'],['pH','ua_ph'],['SG','ua_sg']
-                    ].map(([labelKey, stateKey]) => (
-                      <label key={stateKey} className="text-xs">
-                        {labelKey}
-                        <input className="border rounded px-2 py-1 text-sm w-full" value={panel[stateKey]||''} onChange={(e)=> setPanel({ ...panel, [stateKey]: e.target.value })} />
-                      </label>
-                    ))}
-                  </div>
+              <div className="rounded-md border p-3 space-y-3">
+                <div className="text-sm text-muted-foreground">Structured entry for {loincTitle}</div>
+                <div className="grid md:grid-cols-3 gap-2">
+                  <label className="text-xs">
+                    Value
+                    <input className="border rounded px-2 py-1 text-sm w-full" value={structured.value || ''} onChange={(e)=> setStructured({ ...structured, value: e.target.value })} />
+                  </label>
+                  <label className="text-xs">
+                    Units
+                    <input className="border rounded px-2 py-1 text-sm w-full" value={structured.units || ''} onChange={(e)=> setStructured({ ...structured, units: e.target.value })} placeholder={test.loincUnits || ''} />
+                  </label>
+                  <label className="text-xs">
+                    Reference Range
+                    <input className="border rounded px-2 py-1 text-sm w-full" value={structured.reference || ''} onChange={(e)=> setStructured({ ...structured, reference: e.target.value })} />
+                  </label>
                 </div>
-              )}
-
+                <label className="text-xs block">
+                  Interpretation
+                  <Textarea rows={3} value={structured.interpretation || ''} onChange={(e)=> setStructured({ ...structured, interpretation: e.target.value })} />
+                </label>
+              </div>
               <div className="space-y-2">
                 <Label>Results (free text)</Label>
                 <Textarea rows={6} value={results} onChange={(e)=> setResults(e.target.value)} />
@@ -165,65 +133,22 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
 
               <div className="flex gap-2">
                 <Button onClick={async ()=>{
-                  let compiled = results
-                  if (usePanel) {
-                    const lines: string[] = []
-                    const cbc: [string,string, string][] = [
-                      ['Hb', panel.hb, 'g/dL'], ['WBC', panel.wbc, 'x10^9/L'], ['Platelets', panel.plt, 'x10^9/L'], ['HCT', panel.hct, '%'], ['MCV', panel.mcv, 'fL'],
-                    ]
-                    if (cbc.some(([_,v])=> v)) {
-                      lines.push('CBC:')
-                      for (const [k,v,u] of cbc) if (v) lines.push(`  ${k}: ${v} ${u}`)
-                      const diff: [string,string][] = [['Neut',panel.neut],['Lymph',panel.lymph],['Mono',panel.mono],['Eos',panel.eos],['Baso',panel.baso]]
-                      if (diff.some(([_,v])=> v)) lines.push('  Differential:')
-                      for (const [k,v] of diff) if (v) lines.push(`    ${k}: ${v} %`)
-                    }
-                    if (panel.rbs) lines.push(`RBS: ${panel.rbs} mmol/L`)
-                    const lft: [string,string][] = [['ALT',panel.alt],['AST',panel.ast],['ALP',panel.alp],['T. Bilirubin',panel.tbili],['D. Bilirubin',panel.dbili],['Albumin',panel.alb],['Total Protein',panel.tp]]
-                    if (lft.some(([_,v])=> v)) { lines.push('LFT:'); for (const [k,v] of lft) if (v) lines.push(`  ${k}: ${v}`) }
-                    if (/malaria|rdt/i.test(test.testName)) lines.push(`Malaria RDT: ${panel.malaria}`)
-                    if (/crp/i.test(test.testName) && panel.crp) lines.push(`CRP: ${panel.crp} mg/L`)
-                    if (/hiv/i.test(test.testName)) { lines.push('HIV Rapid:'); lines.push(`  Test 1: ${panel.hiv1}`); lines.push(`  Test 2: ${panel.hiv2}`) }
-                    if (/urinalysis|urine/i.test(test.testName)) {
-                      lines.push('Urinalysis (Dipstick):')
-                      const ua: [string,string][] = [['Nitrite', panel.ua_nitrite],['Leukocyte', panel.ua_leuk],['Blood', panel.ua_blood],['Protein', panel.ua_protein],['Glucose', panel.ua_glucose],['Ketone', panel.ua_ketone],['pH', panel.ua_ph],['SG', panel.ua_sg]]
-                      for (const [k,v] of ua) if (v) lines.push(`  ${k}: ${v}`)
-                    }
-                    compiled = [lines.join('\n'), results].filter(Boolean).join('\n\n')
-                    setResults(compiled)
-                  }
-                  const interpretations: string[] = []
-                  if (/malaria|rdt/i.test(test.testName)) {
-                    if (panel.malaria === 'Positive') interpretations.push('Malaria parasite detected (RDT Positive).')
-                    else if (panel.malaria === 'Negative') interpretations.push('No malaria parasite detected (RDT Negative).')
-                    else interpretations.push('Malaria RDT invalid. Repeat test recommended.')
-                  }
-                  if (/crp/i.test(test.testName)) {
-                    const v = parseFloat(panel.crp)
-                    if (isFinite(v)) {
-                      if (v >= 100) interpretations.push('CRP very high - consider severe bacterial infection/sepsis.')
-                      else if (v >= 10) interpretations.push('CRP elevated - suggests inflammation/infection.')
-                      else interpretations.push('CRP within normal limits.')
-                    }
-                  }
-                  if (/hiv/i.test(test.testName)) {
-                    const a = panel.hiv1, b = panel.hiv2
-                    if (a === 'Positive' && b === 'Positive') interpretations.push('HIV Rapid: Positive (dual algorithm).')
-                    else if (a === 'Negative' && b === 'Negative') interpretations.push('HIV Rapid: Negative.')
-                    else interpretations.push('HIV Rapid: Discordant/Inconclusive - repeat or perform ELISA/confirmatory testing.')
-                  }
-                  if (/urinalysis|urine/i.test(test.testName)) {
-                    const nit = panel.ua_nitrite !== 'Negative'
-                    const leu = panel.ua_leuk !== 'Negative'
-                    if (nit || leu) interpretations.push('Urinalysis suggests possible UTI (nitrite/leukocyte positive). Correlate clinically and consider culture.')
-                    if (panel.ua_blood !== 'Negative') interpretations.push('Hematuria present on dipstick; confirm with microscopy.')
-                    if (panel.ua_protein !== 'Negative') interpretations.push('Proteinuria detected; quantify and consider renal evaluation.')
-                  }
-                  if (interpretations.length) {
-                    const block = 'Interpretation:\n' + interpretations.map(x=> '- ' + x).join('\n')
-                    setResults(prev => [prev, block].filter(Boolean).join('\n\n'))
-                  }
-                  await handleSubmitResults()
+                  const parts: string[] = []
+                  if (structured.value) parts.push(`Value: ${structured.value}${structured.units ? ' ' + structured.units : ''}`)
+                  if (structured.reference) parts.push(`Reference: ${structured.reference}`)
+                  if (structured.interpretation) parts.push(`Interpretation: ${structured.interpretation}`)
+                  const summary = parts.join('\n')
+                  const compiled = [summary, results].filter(Boolean).join('\n\n')
+                  setResults(compiled)
+                  await fetch(`/api/lab-tests/${test.id}`, {
+                    method: 'PATCH',
+                    credentials: 'include',
+                    headers: { 'Content-Type': 'application/json' },
+                    body: JSON.stringify({ status: 'Completed', results: compiled, notes, resultJson: structured })
+                  }).catch(()=>{})
+                  updateTest(test.id, { status: 'Completed' as any, completedAt: new Date().toISOString(), results: compiled, resultJson: structured })
+                  alert('Test results submitted successfully!')
+                  onBack()
                 }} className="flex-1">
                   <Save className="mr-2 h-4 w-4" />
                   Submit Results
@@ -282,4 +207,3 @@ function AttachmentForm({ patientId }: { patientId: string }) {
     </div>
   )
 }
-

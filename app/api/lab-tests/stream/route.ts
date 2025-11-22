@@ -21,7 +21,8 @@ export async function GET(req: Request) {
       `SELECT lt.id, lt.patient_id, p.first_name, p.last_name, p.gender, p.date_of_birth, lt.doctor_id, d.name AS doctor_name,
               lt.test_name, lt.test_type, lt.status, lt.results, lt.notes, lt.lab_tech_id, t.name AS lab_tech_name,
               lt.ordered_at, lt.completed_at, lt.priority, lt.specimen_type, lt.accession_number, lt.collected_at, lt.collected_by,
-              lt.reviewed_by, lt.reviewed_at
+              lt.reviewed_by, lt.reviewed_at,
+              lt.loinc_code, lt.loinc_long_name, lt.loinc_property, lt.loinc_scale, lt.loinc_system, lt.loinc_time_aspct, lt.loinc_class, lt.loinc_units, lt.result_json
          FROM lab_tests lt
          LEFT JOIN patients p ON p.id = lt.patient_id
          LEFT JOIN users d ON d.id = lt.doctor_id
@@ -53,6 +54,15 @@ export async function GET(req: Request) {
       reviewedAt: r.reviewed_at || null,
       patientGender: r.gender || null,
       patientDob: r.date_of_birth || null,
+      loincCode: r.loinc_code || null,
+      loincLongName: r.loinc_long_name || null,
+      loincProperty: r.loinc_property || null,
+      loincScale: r.loinc_scale || null,
+      loincSystem: r.loinc_system || null,
+      loincTimeAspct: r.loinc_time_aspct || null,
+      loincClass: r.loinc_class || null,
+      loincUnits: r.loinc_units || null,
+      resultJson: r.result_json || {},
     }))
     const payload = JSON.stringify({ tests })
     const hash = String(payload.length) // quick hash

@@ -28,13 +28,22 @@ export interface LabTest {
   assignedToId?: string | null
   assignedToName?: string | null
   assignedAt?: string | null
+  loincCode?: string | null
+  loincLongName?: string | null
+  loincProperty?: string | null
+  loincScale?: string | null
+  loincSystem?: string | null
+  loincTimeAspct?: string | null
+  loincClass?: string | null
+  loincUnits?: string | null
+  resultJson?: any
 }
 
 interface LabContextType {
   tests: LabTest[]
   loading: boolean
   refresh: (params?: { status?: string; q?: string; patientId?: string }) => Promise<void>
-  orderTest: (input: { patientId: string; testName: string; testType?: string; priority?: string; specimenType?: string; notes?: string }) => Promise<{ id: string } | null>
+  orderTest: (input: { patientId: string; tests?: any[]; testName?: string; testType?: string; priority?: string; specimenType?: string; notes?: string; loincCode?: string }) => Promise<{ ids: string[] } | null>
   updateTest: (id: string, updates: Partial<LabTest>) => void
 }
 
@@ -86,7 +95,9 @@ export function LabProvider({ children }: { children: ReactNode }) {
       if (!res.ok) return null
       const data = await res.json()
       await refresh()
-      return { id: data.id }
+      if (Array.isArray(data.tests)) return { ids: data.tests.map((t:any)=> t.id) }
+      if (data.id) return { ids: [data.id] }
+      return { ids: [] }
     } catch { return null }
   }
 

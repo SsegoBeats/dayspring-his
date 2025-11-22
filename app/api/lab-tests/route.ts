@@ -14,9 +14,19 @@ async function ensureSchema() {
     await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS rejection_reason TEXT")
     await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS assigned_radiologist_id UUID REFERENCES users(id)")
     await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP")
+    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_code VARCHAR(20)")
+    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_long_name TEXT")
+    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_property TEXT")
+    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_scale TEXT")
+    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_system TEXT")
+    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_time_aspct TEXT")
+    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_class TEXT")
+    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_units TEXT")
+    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS result_json JSONB DEFAULT '{}'::jsonb")
     await query("CREATE INDEX IF NOT EXISTS idx_lab_tests_ordered ON lab_tests(ordered_at DESC)")
     await query("CREATE INDEX IF NOT EXISTS idx_lab_tests_accession ON lab_tests(accession_number)")
     await query("CREATE INDEX IF NOT EXISTS idx_lab_tests_assigned_radiologist ON lab_tests(assigned_radiologist_id)")
+    await query("CREATE INDEX IF NOT EXISTS idx_lab_tests_loinc ON lab_tests(loinc_code)")
   } catch {}
 }
 
@@ -96,6 +106,15 @@ export async function GET(req: Request) {
       assignedToId: r.assigned_radiologist_id || null,
       assignedToName: r.assigned_radiologist_name || null,
       assignedAt: r.assigned_at || null,
+      loincCode: r.loinc_code || null,
+      loincLongName: r.loinc_long_name || null,
+      loincProperty: r.loinc_property || null,
+      loincScale: r.loinc_scale || null,
+      loincSystem: r.loinc_system || null,
+      loincTimeAspct: r.loinc_time_aspct || null,
+      loincClass: r.loinc_class || null,
+      loincUnits: r.loinc_units || null,
+      resultJson: r.result_json || {},
     }))
     return NextResponse.json({ tests })
   } catch (e:any) {
@@ -119,30 +138,87 @@ export async function POST(req: Request) {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    // Allow roles that can order labs via medical create, patient update, or lab create
-    if (!can(auth.role, 'medical', 'create') && !can(auth.role, 'patients', 'update') && !can(auth.role, 'lab', 'create')) {
+    const forbiddenOrderRoles = ["Receptionist", "Lab Tech"]
+    if (forbiddenOrderRoles.includes(auth.role)) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    // Allow roles that can order labs via medical create or patient update (lab tech cannot create orders)
+    if (!can(auth.role, 'medical', 'create') && !can(auth.role, 'patients', 'update')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     await ensureSchema()
     const body = await req.json().catch(()=> ({}))
     const patientId = String(body.patientId||'')
-    const testName = String(body.testName||'')
-    const testType = String(body.testType||'General')
-    const priority = String(body.priority||'Routine')
-    const specimenType = body.specimenType ? String(body.specimenType) : null
     const notes = body.notes ? String(body.notes) : null
-    if (!patientId || !testName) return NextResponse.json({ error: 'patientId and testName are required' }, { status: 400 })
+    const priorityDefault = String(body.priority||'Routine')
+    const specimenDefault = body.specimenType ? String(body.specimenType) : null
+    const incomingTests = Array.isArray(body.tests) && body.tests.length
+      ? body.tests
+      : [{ testName: body.testName, testType: body.testType, priority: body.priority, specimenType: body.specimenType, loincCode: body.loincCode }]
 
-    const accession = generateAccession()
-    const { rows } = await queryWithSession(
-      { role: auth.role, userId: auth.userId },
-      `INSERT INTO lab_tests (
-         patient_id, doctor_id, test_name, test_type, status,
-         notes, priority, specimen_type, accession_number, ordered_at
-       ) VALUES ($1,$2,$3,$4,'Pending',$5,$6,$7,$8, NOW())
-       RETURNING id, accession_number, ordered_at`,
-      [patientId, auth.userId, testName, testType, notes, priority, specimenType, accession]
-    )
+    if (!patientId) return NextResponse.json({ error: 'patientId is required' }, { status: 400 })
+
+    const created: any[] = []
+    for (const t of incomingTests) {
+      const loincCode = t?.loincCode ? String(t.loincCode) : null
+      const specimenType = t?.specimenType ? String(t.specimenType) : specimenDefault
+      const priority = t?.priority ? String(t.priority) : priorityDefault
+      let testName = t?.testName ? String(t.testName) : ''
+      let testType = t?.testType ? String(t.testType) : 'General'
+      let loinc: any = null
+      if (loincCode) {
+        const { rows: lrows } = await query("SELECT * FROM loinc_tests WHERE loinc_code = $1", [loincCode])
+        loinc = lrows[0] || null
+        if (loinc) {
+          if (!testName) testName = loinc.long_common_name || loinc.shortname || loinc.loinc_code
+          testType = loinc.class || testType
+        }
+      }
+      if (!testName) continue
+      const accession = generateAccession()
+      const { rows } = await queryWithSession(
+        { role: auth.role, userId: auth.userId },
+        `INSERT INTO lab_tests (
+           patient_id, doctor_id, test_name, test_type, status,
+           notes, priority, specimen_type, accession_number, ordered_at,
+           loinc_code, loinc_long_name, loinc_property, loinc_scale, loinc_system, loinc_time_aspct, loinc_class, loinc_units
+         ) VALUES ($1,$2,$3,$4,'Pending',$5,$6,$7,$8, NOW(),
+                   $9,$10,$11,$12,$13,$14,$15,$16)
+         RETURNING id, accession_number, ordered_at`,
+        [
+          patientId,
+          auth.userId,
+          testName,
+          testType,
+          notes,
+          priority,
+          specimenType,
+          accession,
+          loincCode,
+          loinc?.long_common_name || null,
+          loinc?.property || null,
+          loinc?.scale_typ || null,
+          loinc?.system || null,
+          loinc?.time_aspct || null,
+          loinc?.class || null,
+          loinc?.units || loinc?.example_units || null,
+        ]
+      )
+      const createdRow = rows[0]
+      created.push({ id: createdRow.id, accessionNumber: createdRow.accession_number, orderedAt: createdRow.ordered_at, testName })
+
+      try {
+        await writeAuditLog({
+          userId: auth.userId,
+          action: "CREATE",
+          entityType: "LabTest",
+          entityId: createdRow.id,
+          details: { patientId, testName, testType, priority, specimenType, loincCode },
+        })
+      } catch {}
+    }
+
+    if (!created.length) return NextResponse.json({ error: "No tests were created. Ensure testName or LOINC code is provided." }, { status: 400 })
 
     // Notify Lab department
     try {
@@ -150,12 +226,11 @@ export async function POST(req: Request) {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify({ department: 'lab', title: 'New Lab Test Ordered', message: `${testName} ordered`, payload: { testId: rows[0].id, patientId } })
+        body: JSON.stringify({ department: 'lab', title: 'New Lab Tests Ordered', message: `${created.length} test(s) ordered`, payload: { patientId } })
       })
     } catch {}
 
-    try { await writeAuditLog({ userId: auth.userId, action: 'CREATE', entityType: 'LabTest', entityId: rows[0].id, details: { patientId, testName, testType, priority, specimenType } }) } catch {}
-    return NextResponse.json({ id: rows[0].id, accessionNumber: rows[0].accession_number, orderedAt: rows[0].ordered_at })
+    return NextResponse.json({ tests: created })
   } catch (e:any) {
     return NextResponse.json({ error: 'Failed to order lab test', details: e.message }, { status: 500 })
   }
