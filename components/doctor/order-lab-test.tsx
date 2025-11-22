@@ -89,7 +89,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent className="max-w-3xl w-[720px] max-h-[80vh] overflow-y-auto">
+      <DialogContent className="max-w-4xl w-[840px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Order Laboratory Test</DialogTitle>
         </DialogHeader>
@@ -99,21 +99,23 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
             <Input placeholder="Type test name or LOINC code" value={search} onChange={(e)=> setSearch(e.target.value)} />
             {loading && <div className="text-xs text-muted-foreground">Searching…</div>}
             {catalog.length > 0 && (
-              <ScrollArea className="max-h-[320px] rounded-md border">
-                <div className="p-2 space-y-2">
-                  {catalog.map((item)=> (
-                    <div key={item.loincCode} className="flex items-start justify-between gap-3 border-b pb-2 last:border-0">
-                      <div className="text-sm leading-snug overflow-hidden">
-                        <div className="font-medium break-words">{item.name}</div>
-                        <div className="text-xs text-muted-foreground break-words">
-                          {item.loincCode} · {item.component} · {item.property} · {item.system}
+              <div className="rounded-md border">
+                <ScrollArea className="max-h-[360px]">
+                  <div className="p-3 space-y-3">
+                    {catalog.map((item)=> (
+                      <div key={item.loincCode} className="flex items-start justify-between gap-3 border-b pb-2 last:border-0">
+                        <div className="text-sm leading-snug overflow-hidden">
+                          <div className="font-medium break-words">{item.name}</div>
+                          <div className="text-xs text-muted-foreground break-words">
+                            {item.loincCode} · {item.component} · {item.property} · {item.system}
+                          </div>
                         </div>
+                        <Button size="sm" variant="outline" onClick={()=> addTest(item)}>Add</Button>
                       </div>
-                      <Button size="sm" variant="outline" onClick={()=> addTest(item)}>Add</Button>
-                    </div>
-                  ))}
-                </div>
-              </ScrollArea>
+                    ))}
+                  </div>
+                </ScrollArea>
+              </div>
             )}
             {!loading && statusMsg && <div className="text-xs text-muted-foreground">{statusMsg}</div>}
             <div className="text-xs text-muted-foreground">Can’t find it? Add a custom test name below.</div>
