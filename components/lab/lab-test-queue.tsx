@@ -88,6 +88,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
   const anyFilters = q.trim() || status !== 'all' || prio !== 'all'
 
   return (
+    <>
     <Card>
       <CardHeader>
         <CardTitle>Laboratory Tests</CardTitle>
@@ -261,5 +262,6 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
         </div>
       </DialogContent>
     </Dialog>
+    </>
   )
 }
