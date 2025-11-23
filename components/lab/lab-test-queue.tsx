@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { FileText } from "lucide-react"
+import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 
 interface LabTestQueueProps {
   tests: LabTest[]
@@ -18,6 +19,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
   const [status, setStatus] = (require('react') as any).useState<'all'|'pending'|'inprogress'|'completed'|'cancelled'>('all')
   const [prio, setPrio] = (require('react') as any).useState<'all'|'routine'|'stat'>('all')
   const [showSuggestions, setShowSuggestions] = (require('react') as any).useState(false)
+  const [viewPatient, setViewPatient] = (require('react') as any).useState<{ id: string; name: string } | null>(null)
   const filtered = tests.filter(t => {
     const s = (t.status || '').toLowerCase()
     const p = (t.priority || '').toLowerCase()
@@ -220,9 +222,9 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                       </Badge>
                     </td>
                     <td className="py-2 px-2 text-right">
-                      <Button variant="outline" size="sm" onClick={() => onSelectTest(test.id)}>
+                      <Button variant="outline" size="sm" onClick={() => setViewPatient({ id: test.patientId, name: test.patientName || "Patient" })}>
                         <FileText className="mr-2 h-4 w-4" />
-                        {test.status.toLowerCase() === "pending" ? "Process" : "View"}
+                        View Ordered
                       </Button>
                     </td>
                   </tr>
@@ -233,5 +235,31 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
         )}
       </CardContent>
     </Card>
+
+    <Dialog open={!!viewPatient} onOpenChange={(o)=> !o && setViewPatient(null)}>
+      <DialogContent className="max-w-3xl w-full">
+        <DialogHeader>
+          <DialogTitle>Ordered tests - {viewPatient?.name || "Patient"}</DialogTitle>
+        </DialogHeader>
+        <div className="space-y-3 max-h-[70vh] overflow-y-auto">
+          {viewPatient && tests.filter(t => t.patientId === viewPatient.id).map((t)=> (
+            <div key={t.id} className="rounded-md border p-3 flex flex-col gap-2">
+              <div className="flex items-start justify-between gap-3">
+                <div className="text-sm">
+                  <div className="font-semibold">{t.testName}</div>
+                  <div className="text-xs text-muted-foreground">{t.accessionNumber} · {t.priority || 'Routine'} · {t.specimenType || '-'}</div>
+                  <div className="text-xs text-muted-foreground">Ordered: {new Date(t.orderedAt).toLocaleString()}</div>
+                  <div className="text-xs text-muted-foreground">Status: {t.status}</div>
+                </div>
+                <Button size="sm" onClick={()=> onSelectTest(t.id)}>Process</Button>
+              </div>
+            </div>
+          ))}
+          {viewPatient && tests.filter(t => t.patientId === viewPatient.id).length === 0 && (
+            <div className="text-sm text-muted-foreground">No tests for this patient.</div>
+          )}
+        </div>
+      </DialogContent>
+    </Dialog>
   )
 }
