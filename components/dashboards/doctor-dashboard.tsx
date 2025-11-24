@@ -60,8 +60,13 @@ export function DoctorDashboard({ title }: DoctorDashboardProps) {
   }, [selectedPatientId, pendingNotifId])
 
   return (
-    <div className="space-y-6">
-      <div>
+    <div className="space-y-6 relative">
+      <div className="pointer-events-none absolute inset-0 opacity-70 blur-3xl">
+        <div className="absolute -left-20 top-0 h-48 w-48 rounded-full bg-gradient-to-br from-sky-300/40 via-indigo-300/30 to-purple-300/30" />
+        <div className="absolute right-10 top-10 h-52 w-52 rounded-full bg-gradient-to-br from-emerald-200/40 via-teal-200/30 to-sky-200/30" />
+      </div>
+
+      <div className="relative z-10">
         <h2 className="text-2xl font-bold tracking-tight text-foreground">
           {title || "Clinician Dashboard"}
         </h2>
@@ -69,56 +74,56 @@ export function DoctorDashboard({ title }: DoctorDashboardProps) {
       </div>
 
       <Tabs defaultValue="overview">
-        <TabsList>
+        <TabsList className="relative z-10 bg-white/70 backdrop-blur">
           <TabsTrigger value="overview">Overview</TabsTrigger>
           <TabsTrigger value="patients">Patient Queue</TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
           <div className="grid gap-4 md:grid-cols-4">
-            <Card>
+            <Card className="bg-gradient-to-br from-sky-50 via-white to-indigo-50 border-sky-100 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Patients</CardTitle>
-                <Users className="h-4 w-4 text-muted-foreground" />
+                <Users className="h-4 w-4 text-sky-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{patients.length}</div>
-                <p className="text-xs text-muted-foreground">Registered patients</p>
+                <div className="text-3xl font-bold text-sky-900">{patients.length}</div>
+                <p className="text-xs text-sky-700">Registered patients</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-amber-50 via-white to-orange-50 border-amber-100 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Today's Consultations</CardTitle>
-                <FileText className="h-4 w-4 text-muted-foreground" />
+                <FileText className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{todayRecords.length}</div>
-                <p className="text-xs text-muted-foreground">Completed today</p>
+                <div className="text-3xl font-bold text-amber-900">{todayRecords.length}</div>
+                <p className="text-xs text-amber-700">Completed today</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-emerald-50 via-white to-teal-50 border-emerald-100 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Active Prescriptions</CardTitle>
-                <Pill className="h-4 w-4 text-muted-foreground" />
+                <Pill className="h-4 w-4 text-emerald-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{activePrescriptions.length}</div>
-                <p className="text-xs text-muted-foreground">Currently active</p>
+                <div className="text-3xl font-bold text-emerald-900">{activePrescriptions.length}</div>
+                <p className="text-xs text-emerald-700">Currently active</p>
               </CardContent>
             </Card>
-            <Card>
+            <Card className="bg-gradient-to-br from-indigo-50 via-white to-purple-50 border-indigo-100 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
                 <CardTitle className="text-sm font-medium">Total Records</CardTitle>
-                <Activity className="h-4 w-4 text-muted-foreground" />
+                <Activity className="h-4 w-4 text-indigo-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-bold">{medicalRecords.length}</div>
-                <p className="text-xs text-muted-foreground">Medical records</p>
+                <div className="text-3xl font-bold text-indigo-900">{medicalRecords.length}</div>
+                <p className="text-xs text-indigo-700">Medical records</p>
               </CardContent>
             </Card>
           </div>
 
-          <Card>
+          <Card className="border-indigo-50 bg-white/80 backdrop-blur">
             <CardHeader>
               <CardTitle>Recent Medical Records</CardTitle>
               <CardDescription>Latest patient consultations</CardDescription>
@@ -132,7 +137,7 @@ export function DoctorDashboard({ title }: DoctorDashboardProps) {
                     .slice(-5)
                     .reverse()
                     .map((record) => (
-                      <div key={record.id} className="rounded-lg border border-border p-3">
+                      <div key={record.id} className="rounded-lg border border-indigo-100/80 bg-indigo-50/40 p-3 shadow-sm">
                         <div className="flex items-center justify-between">
                           <div>
                             <p className="font-medium text-foreground">{record.patientName}</p>

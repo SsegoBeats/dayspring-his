@@ -20,10 +20,10 @@ export function PatientQueue({ onSelectPatient }: PatientQueueProps) {
   const displayedPatients = searchQuery ? searchPatients(searchQuery) : patients
 
   return (
-    <Card>
+    <Card className="border-0 shadow-md bg-gradient-to-br from-slate-50 via-white to-sky-50">
       <CardHeader>
-        <CardTitle>Patient Queue</CardTitle>
-        <CardDescription>Select a patient to begin consultation</CardDescription>
+        <CardTitle className="text-sky-900">Patient Queue</CardTitle>
+        <CardDescription className="text-sky-700">Select a patient to begin consultation</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="relative">
@@ -32,7 +32,7 @@ export function PatientQueue({ onSelectPatient }: PatientQueueProps) {
             placeholder="Search patients by name, ID, or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 bg-white/80"
           />
         </div>
 
@@ -41,10 +41,10 @@ export function PatientQueue({ onSelectPatient }: PatientQueueProps) {
             No patients match your search
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-md border">
+          <div className="overflow-x-auto rounded-md border border-sky-100 bg-white/70 shadow-sm">
             <table className="w-full text-sm">
               <thead>
-                <tr className="border-b bg-muted/40 text-left text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                <tr className="border-b bg-sky-50 text-left text-xs font-medium uppercase tracking-wide text-sky-800">
                   <th className="py-3 px-3">P.ID</th>
                   <th className="py-3 px-3">Name</th>
                   <th className="py-3 px-3">Age</th>
@@ -65,7 +65,7 @@ export function PatientQueue({ onSelectPatient }: PatientQueueProps) {
                   return (
                     <tr
                       key={patient.id}
-                      className="border-b last:border-0 hover:bg-muted/40"
+                      className="border-b last:border-0 hover:bg-sky-50/60"
                     >
                       <td className="py-3 px-3 font-mono text-foreground">{pid ? `P.${pid}` : "—"}</td>
                       <td className="py-3 px-3">
