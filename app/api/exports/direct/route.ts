@@ -72,6 +72,8 @@ export async function POST(req: Request) {
       if ((input.dataset === 'reception_register' || input.dataset === 'reception_register_detailed' || input.dataset === 'queue_events' || input.dataset === 'reception_dashboard') && typeof f.department === 'string' && f.department) info['Department'] = f.department
       if (input.dataset === 'reception_register' && typeof f.department === 'string' && f.department) info['Department'] = f.department
       info['Currency'] = currency
+      info['Email'] = "dayspringmedicalcenter@gmail.com"
+      info['Tel'] = "+256 703-942-230 / +256 703-844-396 / +256 742-918-253"
       info['Requested By'] = requestedBy
       info['Organization'] = 'Dayspring Medical Center'
       return Object.keys(info).length ? info : undefined
@@ -336,7 +338,16 @@ export async function POST(req: Request) {
             preparedRows,
             { userId: auth.userId, timestamp: new Date().toISOString() },
             landscape,
-            { colors: { headerBg: [14,165,233], headerText: [255,255,255], rowAltBg: [243,244,246], text: [17,24,39] }, logoDataUrl, meta: pdfMeta, subtitle: "Dayspring Medical Center - Information System", groupByKey: (input.dataset === 'reception_register' || input.dataset === 'reception_register_detailed' || input.dataset === 'reception_dashboard' || input.dataset === 'reception_daily') ? 'section' : (input.dataset === 'queue_events' ? 'department' : undefined), subGroupKey: (input.dataset === 'reception_register_detailed') ? 'subsection' : (input.dataset === 'queue_events' ? 'to_status' : undefined), charts }
+            {
+              colors: { headerBg: [14,165,233], headerText: [255,255,255], rowAltBg: [243,244,246], text: [17,24,39] },
+              logoDataUrl,
+              meta: pdfMeta,
+              subtitle: "Dayspring Medical Center - Information System",
+              watermarkOpacity: 0.08,
+              groupByKey: (input.dataset === 'reception_register' || input.dataset === 'reception_register_detailed' || input.dataset === 'reception_dashboard' || input.dataset === 'reception_daily') ? 'section' : (input.dataset === 'queue_events' ? 'department' : undefined),
+              subGroupKey: (input.dataset === 'reception_register_detailed') ? 'subsection' : (input.dataset === 'queue_events' ? 'to_status' : undefined),
+              charts
+            }
           )
           try {
             await writeAuditLog({
@@ -383,8 +394,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to generate export" }, { status: 500 })
   }
 }
-
-
 
 
 

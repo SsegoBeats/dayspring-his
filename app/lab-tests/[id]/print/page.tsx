@@ -133,7 +133,7 @@ export default function PrintLabTestPage() {
           <div>
             <div className="text-xl font-semibold">{org?.name || 'Dayspring Medical Center'}</div>
             <div className="text-xs text-muted-foreground">Laboratory Result</div>
-            <div className="text-[10px] text-muted-foreground">Email: {org?.email || 'info@dayspring.com'} | Tel: {org?.phone || '+256-000-000-000'}</div>
+            <div className="text-[10px] text-muted-foreground">Email: {org?.email || 'dayspringmedicalcenter@gmail.com'} | Tel: {org?.phone || '+256 703-942-230 / +256 703-844-396 / +256 742-918-253'}</div>
           </div>
         </div>
         <div className="text-right">

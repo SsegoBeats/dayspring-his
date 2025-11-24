@@ -25,8 +25,8 @@ export async function GET() {
   return NextResponse.json({ settings: {
     name: s.name || 'Dayspring Medical Center',
     logoUrl: s.logo_url || '/logo.png',
-    email: s.email || 'info@dayspring.com',
-    phone: s.phone || '+256-000-000-000',
+    email: s.email || 'dayspringmedicalcenter@gmail.com',
+    phone: s.phone || '+256 703-942-230 / +256 703-844-396 / +256 742-918-253',
     address: s.address || 'Kampala, Uganda'
   } })
 }
