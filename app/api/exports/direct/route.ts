@@ -74,6 +74,7 @@ export async function POST(req: Request) {
       info['Currency'] = currency
       info['Email'] = "dayspringmedicalcenter@gmail.com"
       info['Tel'] = "+256 703-942-230 / +256 703-844-396 / +256 742-918-253"
+      info['Location'] = "Wanyange, Uganda"
       info['Requested By'] = requestedBy
       info['Organization'] = 'Dayspring Medical Center'
       return Object.keys(info).length ? info : undefined
@@ -394,7 +395,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to generate export" }, { status: 500 })
   }
 }
-
 
 
 

@@ -193,7 +193,7 @@ export default function BatchPrintClient() {
             <div className="text-xl font-semibold">{org?.name || "Dayspring Medical Center"}</div>
             <div className="text-xs text-muted-foreground">Laboratory Results (Batch)</div>
             <div className="text-[10px] text-muted-foreground">
-              Email: {org?.email || "dayspringmedicalcenter@gmail.com"} • Tel: {org?.phone || "+256 703-942-230 / +256 703-844-396 / +256 742-918-253"}
+              Email: {org?.email || "dayspringmedicalcenter@gmail.com"} • Tel: {org?.phone || "+256 703-942-230 / +256 703-844-396 / +256 742-918-253"} • {org?.location || "Wanyange, Uganda"}
             </div>
           </div>
         </div>
