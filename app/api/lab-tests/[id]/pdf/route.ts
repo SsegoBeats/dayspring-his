@@ -100,7 +100,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const patientName = [r.first_name, r.last_name].filter(Boolean).join(' ')
 
     // Org settings and logo data URL
-    let org = { name: 'Dayspring Medical Center', logoUrl: '/logo.png', email: 'dayspringmedicalcenter@gmail.com', phone: '+256 703-942-230 / +256 703-844-396 / +256 742-918-253', location: 'Wanyange, Uganda' } as any
+    let org = { name: 'Dayspring Medical Center', logoUrl: '/logo0.png', email: 'dayspringmedicalcenter@gmail.com', phone: '+256 703-942-230 / +256 703-844-396 / +256 742-918-253', location: 'Wanyange, Uganda' } as any
     try { const orgRes = await fetch(new URL('/api/settings/org', req.url).toString()); const data = await orgRes.json(); if (data?.settings) org = { ...org, ...data.settings } } catch {}
     let logoDataUrl: string | undefined
     try {

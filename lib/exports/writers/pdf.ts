@@ -34,11 +34,11 @@ export async function toPDF(
         // Base dimensions (pt) derived from 15.66cm x 20.93cm portrait
         const baseW = landscape ? 593 : 445
         const baseH = landscape ? 445 : 593
-        const maxW = pageWidth * 0.5
-        const maxH = pageHeight * 0.5
+        const maxW = pageWidth * 0.55
+        const maxH = pageHeight * 0.55
         const scale = Math.min(maxW / baseW, maxH / baseH, 1)
-        const w = Math.max(200, baseW * scale)
-        const h = Math.max(200, baseH * scale)
+        const w = Math.max(220, baseW * scale)
+        const h = Math.max(220, baseH * scale)
         const x = (pageWidth - w) / 2
         const y = (pageHeight - h) / 2
         const GStateCtor = (doc as any).GState
