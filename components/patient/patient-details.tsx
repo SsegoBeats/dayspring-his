@@ -176,17 +176,35 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
             </div>
           </div>
 
-          {patient.allergies && (
-            <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
-              <div className="flex items-start gap-2">
-                <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
-                <div>
-                  <p className="font-semibold text-destructive">Allergies</p>
-                  <p className="text-sm text-foreground">{patient.allergies}</p>
+          {(() => {
+            const val = patient.allergies?.trim()
+            if (!val) return null
+            const hasAllergy = val.toLowerCase() !== "none"
+            if (hasAllergy) {
+              return (
+                <div className="rounded-lg border border-destructive/50 bg-destructive/10 p-4">
+                  <div className="flex items-start gap-2">
+                    <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
+                    <div>
+                      <p className="font-semibold text-destructive">Allergies</p>
+                      <p className="text-sm text-foreground">{val}</p>
+                    </div>
+                  </div>
+                </div>
+              )
+            }
+            return (
+              <div className="rounded-lg border border-muted bg-muted/30 p-4">
+                <div className="flex items-start gap-2">
+                  <AlertCircle className="mt-0.5 h-4 w-4 text-muted-foreground" />
+                  <div>
+                    <p className="font-semibold text-foreground">Allergies</p>
+                    <p className="text-sm text-muted-foreground">None reported</p>
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
+            )
+          })()}
 
           <Separator />
           {/* Insurance and Documents side by side */}
