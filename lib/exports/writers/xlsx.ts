@@ -120,6 +120,8 @@ export async function toXLSX(
     if (opts?.meta?.title) rowsMeta.push({ field: "Title", value: String(opts.meta.title) })
     if (opts?.meta?.exportedBy) rowsMeta.push({ field: "Exported By", value: String(opts.meta.exportedBy) })
     if (opts?.meta?.timestamp) rowsMeta.push({ field: "Generated", value: new Date(opts.meta.timestamp).toLocaleString() })
+    // Add location if present in extraInfo/meta
+    if (opts?.meta && (opts.meta as any).Location) rowsMeta.push({ field: "Location", value: String((opts.meta as any).Location) })
     if (opts?.extraInfo) {
       for (const [k, v] of Object.entries(opts.extraInfo)) {
         rowsMeta.push({ field: k, value: String(v) })
