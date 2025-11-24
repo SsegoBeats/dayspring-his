@@ -143,7 +143,7 @@ export async function GET(req: Request) {
     } catch {}
 
     // Organization branding
-    let org = { name: 'Dayspring Medical Center', logoUrl: '/logo.png' } as any
+    let org = { name: 'Dayspring Medical Center', logoUrl: '/logo0.png' } as any
     try { const orgRes = await fetch(new URL('/api/settings/org', req.url).toString()); const data = await orgRes.json(); if (data?.settings) org = { ...org, ...data.settings } } catch {}
     let logoDataUrl: string | undefined
     try {
@@ -164,7 +164,14 @@ export async function GET(req: Request) {
       tableRows,
       { userId: auth.userId, timestamp: new Date().toISOString() },
       false,
-      { logoDataUrl, meta: { Period: periodStr }, subtitle: `${org.name} - Information System`, groupByKey: 'Patient', subGroupKey: 'Test' }
+      {
+        logoDataUrl,
+        meta: { Period: periodStr, Email: org.email, Tel: org.phone, Location: org.location },
+        subtitle: `${org.name} - Information System`,
+        watermarkOpacity: 0.08,
+        groupByKey: 'Patient',
+        subGroupKey: 'Test'
+      }
     )
     return new NextResponse(buf, { status: 200, headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename=labs-${new Date().toISOString().slice(0,10)}.pdf` } })
   } catch (e) {
