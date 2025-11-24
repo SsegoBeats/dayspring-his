@@ -72,7 +72,7 @@ export function PatientQueue({ onSelectPatient }: PatientQueueProps) {
                         <div className="font-medium text-foreground">
                           {patient.firstName} {patient.lastName}
                         </div>
-                        {patient.allergies && (
+                        {patient.allergies && patient.allergies.trim().toLowerCase() !== "none" && (
                           <Badge variant="destructive" className="mt-1">
                             Allergies
                           </Badge>
