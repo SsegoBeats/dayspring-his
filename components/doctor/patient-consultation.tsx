@@ -32,6 +32,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
   const prescriptions = getPatientPrescriptions(patientId)
   const { tests: labTests, refresh: refreshLab } = useLab()
   const [labResults, setLabResults] = useState<any[]>(labTests.filter(t=> t.patientId === patientId))
+  const latestRecord = medicalHistory.length ? medicalHistory[medicalHistory.length - 1] : null
   // Patient-scoped SSE for efficient live updates in dialog
   ;(require('react') as any).useEffect(() => {
     try {
@@ -324,10 +325,73 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
 
   return (
     <div className="space-y-4">
-      <Button variant="outline" onClick={onBack}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
-        Back to Queue
-      </Button>
+      <div className="flex items-center gap-2">
+        <Button variant="outline" onClick={onBack}>
+          <ArrowLeft className="mr-2 h-4 w-4" />
+          Back to Queue
+        </Button>
+        <Button variant="secondary" size="sm" className="ml-auto no-print" onClick={() => window.print()}>
+          Print Summary
+        </Button>
+      </div>
+      <style>{`@media print {.no-print { display:none !important; } .only-print { display:block !important; } } @media screen { .only-print { display:none; } }`}</style>
+      <div className="only-print hidden border rounded p-4 text-sm space-y-2 bg-white">
+        <h2 className="text-lg font-semibold">Clinician Summary</h2>
+        <div>Patient: {patient.firstName} {patient.lastName} (PID: {patient.patientNumber ? formatPatientNumber(patient.patientNumber) : patient.id})</div>
+        <div>Printed by: {user?.email || user?.name || "-"}</div>
+        <div className="grid grid-cols-2 gap-2">
+          <div>Age: {(patient as any).ageYears ?? "-"}</div>
+          <div>Blood: {patient.bloodGroup || "-"}</div>
+          <div>Sex: {patient.gender || "-"}</div>
+          <div>Date: {new Date().toLocaleString()}</div>
+        </div>
+        <div>
+          <div className="font-semibold">Vitals</div>
+          <div className="border p-2 rounded">
+            BP: {latestRecord?.vitalSigns?.bloodPressure || "-"}, Temp: {latestRecord?.vitalSigns?.temperature || "-"}, HR: {latestRecord?.vitalSigns?.heartRate || "-"}, RR: {latestRecord?.vitalSigns?.respiratoryRate || "-"}, SpO₂: {latestRecord?.vitalSigns?.oxygenSaturation || "-"}
+          </div>
+        </div>
+        <div>
+          <div className="font-semibold">Symptoms / Complaints</div>
+          <div className="border p-2 rounded min-h-[40px]">{latestRecord?.symptoms || "-"}</div>
+        </div>
+        <div>
+          <div className="font-semibold">History</div>
+          <div className="border p-2 rounded min-h-[40px]">{latestRecord?.diagnosis || "-"}</div>
+        </div>
+        <div>
+          <div className="font-semibold">Plan</div>
+          <div className="border p-2 rounded min-h-[40px]">{latestRecord?.treatment || latestRecord?.notes || "-"}</div>
+        </div>
+        <div>
+          <div className="font-semibold">Results</div>
+          <div className="border p-2 rounded min-h-[40px]">
+            {labResults.length === 0 ? "-" : labResults.map((l) => `${l.testName || l.testType || ""}: ${l.results || l.status || ""}`).join("; ")}
+          </div>
+        </div>
+        <div>
+          <div className="font-semibold">Prescription</div>
+          <div className="border p-2 rounded min-h-[40px]">
+            {prescriptions.length === 0
+              ? "-"
+              : prescriptions
+                  .map((p) =>
+                    p.medications
+                      ?.map((m: any) => `${m.name}${m.dosage ? " (" + m.dosage + ")" : ""}${m.frequency ? " " + m.frequency : ""}${m.duration ? " for " + m.duration : ""}`)
+                      .join(", "),
+                  )
+                  .join("; ")}
+          </div>
+        </div>
+        <div>
+          <div className="font-semibold">Instructions</div>
+          <div className="border p-2 rounded min-h-[40px]">{latestRecord?.notes || "-"}</div>
+        </div>
+        <div className="pt-2">
+          <div className="font-semibold">Signature / Stamp</div>
+          <div className="h-12 border-b" />
+        </div>
+      </div>
 
       <Card>
         <CardHeader>
