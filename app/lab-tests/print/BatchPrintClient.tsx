@@ -97,7 +97,7 @@ function ResultCard({ test }: { test: any }) {
         </div>
       )}
 
-      <div className="mt-6 grid grid-cols-2 gap-4">
+      <div className="mt-6 grid grid-cols-3 gap-4">
         <div>
           <div className="text-xs text-muted-foreground">Prepared by</div>
           <div className="h-10 border-b" />
@@ -113,6 +113,11 @@ function ResultCard({ test }: { test: any }) {
                 }`
               : "-"}
           </div>
+        </div>
+        <div>
+          <div className="text-xs text-muted-foreground">Printed by</div>
+          <div className="h-10 border-b" />
+          <div className="text-xs">{(test as any).printedBy || "-"}</div>
         </div>
       </div>
     </div>
