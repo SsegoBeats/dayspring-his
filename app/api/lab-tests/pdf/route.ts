@@ -141,6 +141,9 @@ export async function GET(req: Request) {
         }
       }
     } catch {}
+    // Add printed-by and signature placeholders
+    tableRows.push({ Patient: "", Test: "", Parameter: "Printed By", Value: auth.email, RefRange: undefined, Flag: undefined, Accession: undefined, Ordered: undefined, Completed: undefined })
+    tableRows.push({ Patient: "", Test: "", Parameter: "Signature", Value: "____________________    Stamp: ____________________", RefRange: undefined, Flag: undefined, Accession: undefined, Ordered: undefined, Completed: undefined })
 
     // Organization branding
     let org = { name: 'Dayspring Medical Center', logoUrl: '/logo0.png' } as any
@@ -166,7 +169,7 @@ export async function GET(req: Request) {
       false,
       {
         logoDataUrl,
-        meta: { Period: periodStr, Email: org.email, Tel: org.phone, Location: org.location },
+        meta: { Period: periodStr, Email: org.email, Tel: org.phone, Location: org.location, "Printed By": auth.email },
         subtitle: `${org.name} - Information System`,
         watermarkOpacity: 0.08,
         groupByKey: 'Patient',

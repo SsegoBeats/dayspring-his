@@ -238,9 +238,29 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
     </Card>
 
     <Dialog open={!!viewPatient} onOpenChange={(o)=> !o && setViewPatient(null)}>
-      <DialogContent className="max-w-3xl w-full">
+      <DialogContent className="max-w-4xl w-full">
         <DialogHeader>
-          <DialogTitle>Ordered tests - {viewPatient?.name || "Patient"}</DialogTitle>
+          <div className="flex items-start justify-between gap-3">
+            <DialogTitle>Ordered tests - {viewPatient?.name || "Patient"}</DialogTitle>
+            {viewPatient && (
+              <div className="flex flex-wrap gap-2">
+                <Button
+                  size="sm"
+                  variant="outline"
+                  onClick={() => window.open(`/lab-tests/print?patientId=${viewPatient.id}`, "_blank")}
+                >
+                  Print Results
+                </Button>
+                <Button
+                  size="sm"
+                  variant="secondary"
+                  onClick={() => window.open(`/api/lab-tests/pdf?patientId=${viewPatient.id}`, "_blank")}
+                >
+                  Download Results
+                </Button>
+              </div>
+            )}
+          </div>
         </DialogHeader>
         <div className="space-y-3 max-h-[70vh] overflow-y-auto">
           {viewPatient && tests.filter(t => t.patientId === viewPatient.id).map((t)=> (
