@@ -32,7 +32,7 @@ export default function HomePage() {
             <img 
               src="/logo0.png" 
               alt="Dayspring Medical Center Logo" 
-              className="h-20 w-auto object-contain"
+              className="h-32 w-auto object-contain sm:h-40"
             />
           </div>
           <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground">Dayspring Medical Center</h1>
