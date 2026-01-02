@@ -34,6 +34,13 @@ export async function POST(req: Request) {
     const reference = body.reference ? String(body.reference).trim() || null : null
     const barcodeSnapshot = body.barcode ? String(body.barcode).trim() || null : null
 
+    // Update last_restocked_at when receiving stock
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `UPDATE medications SET last_restocked_at = CURRENT_TIMESTAMP WHERE id = $1`,
+      [medicationId],
+    )
+
     // Insert a movement record; stock increment is handled by the UI via /pharmacy/medications/[id].
     await queryWithSession(
       { role: auth.role, userId: auth.userId },

@@ -52,7 +52,10 @@ export function MedicationInventory() {
     batchNumber: string
     stockQuantity: string
     reorderLevel: string
+    minStockLevel: string
+    maxStockLevel: string
     unitPrice: string
+    costPrice: string
     expiryDate: string
     barcode: string
   } | null>(null)
@@ -156,7 +159,10 @@ export function MedicationInventory() {
       batchNumber: selectedMedication.batchNumber || "",
       stockQuantity: String(selectedMedication.stockQuantity),
       reorderLevel: String(selectedMedication.reorderLevel),
+      minStockLevel: selectedMedication.minStockLevel ? String(selectedMedication.minStockLevel) : "",
+      maxStockLevel: selectedMedication.maxStockLevel ? String(selectedMedication.maxStockLevel) : "",
       unitPrice: String(selectedMedication.unitPrice),
+      costPrice: selectedMedication.costPrice ? String(selectedMedication.costPrice) : "",
       expiryDate: selectedMedication.expiryDate || "",
       barcode: selectedMedication.barcode || "",
     })
@@ -171,7 +177,10 @@ export function MedicationInventory() {
       batchNumber: editForm.batchNumber,
       stockQuantity: Number.parseInt(editForm.stockQuantity) || 0,
       reorderLevel: Number.parseInt(editForm.reorderLevel) || 0,
+      minStockLevel: editForm.minStockLevel ? Number.parseInt(editForm.minStockLevel) : undefined,
+      maxStockLevel: editForm.maxStockLevel ? Number.parseInt(editForm.maxStockLevel) : undefined,
       unitPrice: Number.parseFloat(editForm.unitPrice) || 0,
+      costPrice: editForm.costPrice ? Number.parseFloat(editForm.costPrice) : undefined,
       expiryDate: editForm.expiryDate,
       barcode: editForm.barcode || undefined,
     }
@@ -713,11 +722,39 @@ export function MedicationInventory() {
                     />
                   </div>
                   <div>
+                    <p className="text-muted-foreground">Cost price (optional)</p>
+                    <Input
+                      type="number"
+                      step="0.01"
+                      value={editForm.costPrice}
+                      onChange={(e) => setEditForm({ ...editForm, costPrice: e.target.value })}
+                      placeholder="Purchase cost"
+                    />
+                  </div>
+                  <div>
                     <p className="text-muted-foreground">Expiry date</p>
                     <Input
                       type="date"
                       value={editForm.expiryDate}
                       onChange={(e) => setEditForm({ ...editForm, expiryDate: e.target.value })}
+                    />
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Minimum stock level (optional)</p>
+                    <Input
+                      type="number"
+                      value={editForm.minStockLevel}
+                      onChange={(e) => setEditForm({ ...editForm, minStockLevel: e.target.value })}
+                      placeholder="Critical threshold"
+                    />
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Maximum stock level (optional)</p>
+                    <Input
+                      type="number"
+                      value={editForm.maxStockLevel}
+                      onChange={(e) => setEditForm({ ...editForm, maxStockLevel: e.target.value })}
+                      placeholder="Max capacity"
                     />
                   </div>
                   <div className="sm:col-span-2">

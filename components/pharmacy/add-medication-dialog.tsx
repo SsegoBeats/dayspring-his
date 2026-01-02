@@ -30,9 +30,12 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
     manufacturer: "",
     stockQuantity: "",
     unitPrice: "",
+    costPrice: "",
     expiryDate: "",
     batchNumber: "",
     reorderLevel: "",
+    minStockLevel: "",
+    maxStockLevel: "",
     barcode: "",
   })
 
@@ -45,9 +48,12 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
       manufacturer: formData.manufacturer,
       stockQuantity: Number.parseInt(formData.stockQuantity),
       unitPrice: Number.parseFloat(formData.unitPrice),
+      costPrice: formData.costPrice ? Number.parseFloat(formData.costPrice) : undefined,
       expiryDate: formData.expiryDate,
       batchNumber: formData.batchNumber,
       reorderLevel: Number.parseInt(formData.reorderLevel),
+      minStockLevel: formData.minStockLevel ? Number.parseInt(formData.minStockLevel) : undefined,
+      maxStockLevel: formData.maxStockLevel ? Number.parseInt(formData.maxStockLevel) : undefined,
       barcode: formData.barcode || undefined,
     })
 
@@ -58,9 +64,12 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
       manufacturer: "",
       stockQuantity: "",
       unitPrice: "",
+      costPrice: "",
       expiryDate: "",
       batchNumber: "",
       reorderLevel: "",
+      minStockLevel: "",
+      maxStockLevel: "",
       barcode: "",
     })
 
@@ -133,6 +142,26 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
               />
             </div>
             <div className="space-y-2">
+              <Label htmlFor="minStockLevel">Minimum Stock Level (optional)</Label>
+              <Input
+                id="minStockLevel"
+                type="number"
+                value={formData.minStockLevel}
+                onChange={(e) => setFormData({ ...formData, minStockLevel: e.target.value })}
+                placeholder="Critical threshold"
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="maxStockLevel">Maximum Stock Level (optional)</Label>
+              <Input
+                id="maxStockLevel"
+                type="number"
+                value={formData.maxStockLevel}
+                onChange={(e) => setFormData({ ...formData, maxStockLevel: e.target.value })}
+                placeholder="Maximum inventory capacity"
+              />
+            </div>
+            <div className="space-y-2">
               <Label htmlFor="unitPrice">
                 Unit Price ({formatCurrency(0).replace(/[\d.,\s]/g, "") || "currency"}) *
               </Label>
@@ -143,6 +172,19 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
                 value={formData.unitPrice}
                 onChange={(e) => setFormData({ ...formData, unitPrice: e.target.value })}
                 required
+              />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="costPrice">
+                Cost Price ({formatCurrency(0).replace(/[\d.,\s]/g, "") || "currency"}) (optional)
+              </Label>
+              <Input
+                id="costPrice"
+                type="number"
+                step="0.01"
+                value={formData.costPrice}
+                onChange={(e) => setFormData({ ...formData, costPrice: e.target.value })}
+                placeholder="Purchase cost for profit analysis"
               />
             </div>
             <div className="space-y-2">

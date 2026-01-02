@@ -10,6 +10,9 @@ import { usePharmacy } from "@/lib/pharmacy-context"
 import { PrescriptionQueue } from "@/components/pharmacy/prescription-queue"
 import { PrescriptionDispense } from "@/components/pharmacy/prescription-dispense"
 import { MedicationInventory } from "@/components/pharmacy/medication-inventory"
+import { InventoryValuation } from "@/components/pharmacy/inventory-valuation"
+import { ReorderSuggestions } from "@/components/pharmacy/reorder-suggestions"
+import { StockTaking } from "@/components/pharmacy/stock-taking"
 import {
   Pill,
   Clock,
@@ -19,6 +22,9 @@ import {
   PlusCircle,
   ClipboardList,
   Boxes,
+  DollarSign,
+  ShoppingCart,
+  ClipboardCheck,
 } from "lucide-react"
 import { decodeBarcodeData } from "@/lib/security"
 
@@ -36,7 +42,7 @@ export function PharmacistDashboard() {
     items: { description: string; quantity: number }[]
     billStatus: string
   } | null>(null)
-  const [tab, setTab] = useState<"prescriptions" | "inventory">("prescriptions")
+  const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking">("prescriptions")
 
   const activePrescriptions = prescriptions.filter((p) => p.status === "active")
   const completedPrescriptions = prescriptions.filter((p) => p.status === "completed")
@@ -195,11 +201,23 @@ export function PharmacistDashboard() {
       </Card>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList>
+        <TabsList className="grid w-full grid-cols-5">
           <TabsTrigger value="prescriptions">
             Prescriptions ({prescriptions.length})
           </TabsTrigger>
           <TabsTrigger value="inventory">Inventory ({medications.length})</TabsTrigger>
+          <TabsTrigger value="valuation">
+            <DollarSign className="mr-1 h-4 w-4" />
+            Valuation
+          </TabsTrigger>
+          <TabsTrigger value="reorder">
+            <ShoppingCart className="mr-1 h-4 w-4" />
+            Reorder
+          </TabsTrigger>
+          <TabsTrigger value="stocktaking">
+            <ClipboardCheck className="mr-1 h-4 w-4" />
+            Stock Taking
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="prescriptions" className="space-y-4">
@@ -287,6 +305,18 @@ export function PharmacistDashboard() {
 
         <TabsContent value="inventory">
           <MedicationInventory />
+        </TabsContent>
+
+        <TabsContent value="valuation">
+          <InventoryValuation />
+        </TabsContent>
+
+        <TabsContent value="reorder">
+          <ReorderSuggestions />
+        </TabsContent>
+
+        <TabsContent value="stocktaking">
+          <StockTaking />
         </TabsContent>
       </Tabs>
     </div>

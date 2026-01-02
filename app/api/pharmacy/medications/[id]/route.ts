@@ -20,8 +20,11 @@ export async function PATCH(req: Request, context: any) {
       manufacturer?: string
       stockQuantity?: number
       unitPrice?: number
+      costPrice?: number
       expiryDate?: string
       reorderLevel?: number
+      minStockLevel?: number
+      maxStockLevel?: number
       barcode?: string
     }
 
@@ -60,6 +63,34 @@ export async function PATCH(req: Request, context: any) {
       fields.push("barcode = $" + (fields.length + 1))
       values.push(body.barcode.trim() || null)
     }
+    if (typeof body.costPrice === "number" && Number.isFinite(body.costPrice)) {
+      fields.push("cost_price = $" + (fields.length + 1))
+      values.push(body.costPrice >= 0 ? body.costPrice : null)
+    }
+    if (typeof body.minStockLevel === "number" && Number.isFinite(body.minStockLevel)) {
+      fields.push("min_stock_level = $" + (fields.length + 1))
+      values.push(Math.max(0, Math.trunc(body.minStockLevel)))
+    }
+    if (typeof body.maxStockLevel === "number" && Number.isFinite(body.maxStockLevel)) {
+      fields.push("max_stock_level = $" + (fields.length + 1))
+      values.push(Math.max(0, Math.trunc(body.maxStockLevel)))
+    }
+    // Update last_restocked_at when stock is increased
+    if (typeof body.stockQuantity === "number" && Number.isFinite(body.stockQuantity)) {
+      const { rows: currentRows } = await queryWithSession(
+        { role: auth.role, userId: auth.userId },
+        `SELECT stock_quantity FROM medications WHERE id = $1`,
+        [id],
+      )
+      if (currentRows.length) {
+        const currentStock = Number(currentRows[0].stock_quantity) || 0
+        const newStock = Math.max(0, Math.trunc(body.stockQuantity))
+        if (newStock > currentStock) {
+          fields.push("last_restocked_at = $" + (fields.length + 1))
+          values.push(new Date().toISOString())
+        }
+      }
+    }
 
     if (!fields.length) {
       return NextResponse.json({ error: "No valid fields to update" }, { status: 400 })
@@ -70,7 +101,7 @@ export async function PATCH(req: Request, context: any) {
          SET ${fields.join(", ")},
              updated_at = NOW()
        WHERE id = $${fields.length + 1}
-       RETURNING id, name, generic_name, category, unit_type, stock_quantity, unit_price, expiry_date, manufacturer, reorder_level, barcode
+       RETURNING id, name, generic_name, category, unit_type, stock_quantity, unit_price, cost_price, expiry_date, manufacturer, reorder_level, min_stock_level, max_stock_level, last_restocked_at, barcode
     `
 
     values.push(id)

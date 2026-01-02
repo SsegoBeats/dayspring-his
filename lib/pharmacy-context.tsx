@@ -9,9 +9,13 @@ export interface Medication {
   manufacturer: string
   stockQuantity: number
   unitPrice: number
+  costPrice?: number
   expiryDate: string
   batchNumber: string
   reorderLevel: number
+  minStockLevel?: number
+  maxStockLevel?: number
+  lastRestockedAt?: string
   barcode?: string
 }
 
@@ -96,9 +100,13 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
             manufacturer: m.manufacturer || "",
             stockQuantity: Number(m.stock_quantity),
             unitPrice: Number(m.unit_price),
+            costPrice: m.cost_price ? Number(m.cost_price) : undefined,
             expiryDate: m.expiry_date || "",
             batchNumber: "",
             reorderLevel: Number(m.reorder_level || 0),
+            minStockLevel: m.min_stock_level ? Number(m.min_stock_level) : undefined,
+            maxStockLevel: m.max_stock_level ? Number(m.max_stock_level) : undefined,
+            lastRestockedAt: m.last_restocked_at || undefined,
             barcode: m.barcode || undefined,
           }))
           setMedications(meds)
@@ -133,8 +141,11 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
             manufacturer: medication.manufacturer,
             stockQuantity: medication.stockQuantity,
             unitPrice: medication.unitPrice,
+            costPrice: medication.costPrice,
             expiryDate: medication.expiryDate,
             reorderLevel: medication.reorderLevel,
+            minStockLevel: medication.minStockLevel,
+            maxStockLevel: medication.maxStockLevel,
             barcode: medication.barcode,
           }),
         })
@@ -158,8 +169,11 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
             manufacturer: updates.manufacturer,
             stockQuantity: updates.stockQuantity,
             unitPrice: updates.unitPrice,
+            costPrice: updates.costPrice,
             expiryDate: updates.expiryDate,
             reorderLevel: updates.reorderLevel,
+            minStockLevel: updates.minStockLevel,
+            maxStockLevel: updates.maxStockLevel,
             barcode: updates.barcode,
           }),
         })
@@ -187,9 +201,13 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
             manufacturer: m.manufacturer || "",
             stockQuantity: Number(m.stock_quantity),
             unitPrice: Number(m.unit_price),
+            costPrice: m.cost_price ? Number(m.cost_price) : undefined,
             expiryDate: m.expiry_date || "",
             batchNumber: "",
             reorderLevel: Number(m.reorder_level || 0),
+            minStockLevel: m.min_stock_level ? Number(m.min_stock_level) : undefined,
+            maxStockLevel: m.max_stock_level ? Number(m.max_stock_level) : undefined,
+            lastRestockedAt: m.last_restocked_at || undefined,
             barcode: m.barcode || undefined,
           }))
           setMedications(meds)

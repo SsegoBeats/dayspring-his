@@ -25,25 +25,55 @@ export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDia
   const [quantity, setQuantity] = useState("")
   const [reason, setReason] = useState("")
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     const medication = medications.find((m) => m.id === medicationId)
     if (!medication) return
 
-    adjustStock({
-      medicationId,
-      medicationName: medication.name,
-      adjustmentType,
-      quantity: Number.parseInt(quantity),
-      reason,
-      adjustedBy: user?.email || "Unknown",
-    })
+    const qty = Number.parseInt(quantity)
+    if (!Number.isFinite(qty) || qty < 0) {
+      alert("Please enter a valid quantity")
+      return
+    }
 
-    setMedicationId("")
-    setAdjustmentType("add")
-    setQuantity("")
-    setReason("")
-    onOpenChange(false)
+    try {
+      const res = await fetch("/api/pharmacy/stock-adjustments", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          medicationId,
+          adjustmentType,
+          quantity: qty,
+          reason,
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        alert(error.error || "Failed to process adjustment")
+        return
+      }
+
+      // Refresh medications from backend
+      adjustStock({
+        medicationId,
+        medicationName: medication.name,
+        adjustmentType,
+        quantity: qty,
+        reason,
+        adjustedBy: user?.email || "Unknown",
+      })
+
+      setMedicationId("")
+      setAdjustmentType("add")
+      setQuantity("")
+      setReason("")
+      onOpenChange(false)
+    } catch (err) {
+      console.error("Error submitting adjustment:", err)
+      alert("Failed to process adjustment")
+    }
   }
 
   return (

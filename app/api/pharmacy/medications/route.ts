@@ -19,9 +19,13 @@ export async function GET() {
               unit_type,
               stock_quantity,
               unit_price,
+              cost_price,
               expiry_date,
               manufacturer,
               reorder_level,
+              min_stock_level,
+              max_stock_level,
+              last_restocked_at,
               barcode
          FROM medications
         ORDER BY name ASC
@@ -50,8 +54,11 @@ export async function POST(req: Request) {
       manufacturer?: string
       stockQuantity?: number
       unitPrice?: number
+      costPrice?: number
       expiryDate?: string
       reorderLevel?: number
+      minStockLevel?: number
+      maxStockLevel?: number
       barcode?: string
     }
 
@@ -60,10 +67,17 @@ export async function POST(req: Request) {
     const manufacturer = (body.manufacturer || "").trim()
     const stockQuantity = Number.isFinite(body.stockQuantity) ? Math.max(0, Math.trunc(body.stockQuantity as number)) : 0
     const unitPrice = Number.isFinite(body.unitPrice) ? Number(body.unitPrice) : 0
+    const costPrice = Number.isFinite(body.costPrice) ? Number(body.costPrice) : null
     const expiryDate = body.expiryDate || null
     const reorderLevel = Number.isFinite(body.reorderLevel)
       ? Math.max(0, Math.trunc(body.reorderLevel as number))
       : 0
+    const minStockLevel = Number.isFinite(body.minStockLevel)
+      ? Math.max(0, Math.trunc(body.minStockLevel as number))
+      : null
+    const maxStockLevel = Number.isFinite(body.maxStockLevel)
+      ? Math.max(0, Math.trunc(body.maxStockLevel as number))
+      : null
     const barcode = body.barcode ? String(body.barcode).trim() || null : null
 
     if (!name || !category) {
@@ -80,11 +94,15 @@ export async function POST(req: Request) {
          unit_type,
          stock_quantity,
          unit_price,
+         cost_price,
          reorder_level,
+         min_stock_level,
+         max_stock_level,
          expiry_date,
          manufacturer,
-         barcode
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+         barcode,
+         last_restocked_at
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
        RETURNING id,
                  name,
                  generic_name,
@@ -92,11 +110,15 @@ export async function POST(req: Request) {
                  unit_type,
                  stock_quantity,
                  unit_price,
+                 cost_price,
                  expiry_date,
                  manufacturer,
                  reorder_level,
+                 min_stock_level,
+                 max_stock_level,
+                 last_restocked_at,
                  barcode`,
-      [name, null, category, unitType, stockQuantity, unitPrice, reorderLevel, expiryDate, manufacturer, barcode],
+      [name, null, category, unitType, stockQuantity, unitPrice, costPrice, reorderLevel, minStockLevel, maxStockLevel, expiryDate, manufacturer, barcode, stockQuantity > 0 ? new Date().toISOString() : null],
     )
 
     return NextResponse.json({ medication: rows[0] }, { status: 201 })
