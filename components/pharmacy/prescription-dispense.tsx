@@ -67,16 +67,90 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
 
     setDispensing(true)
 
-    // Update stock for each medication
-    prescription.medications.forEach((med) => {
+    // Update stock for each medication using FEFO batch selection and track usage analytics
+    const dispensePromises = prescription.medications.map(async (med) => {
       const medication = getMedication(med.name)
       if (medication) {
         const quantityToDispense = Number.parseInt(med.duration) || 1
+
+        // Get FEFO batch suggestions
+        try {
+          const batchesRes = await fetch(
+            `/api/pharmacy/batches?medicationId=${encodeURIComponent(medication.id)}&quantity=${quantityToDispense}`,
+            { credentials: "include" },
+          )
+
+          if (batchesRes.ok) {
+            const batchesData = await batchesRes.json()
+            const suggestedBatches = batchesData.suggestedBatches || []
+
+            if (suggestedBatches.length > 0) {
+              // Dispense from batches using FEFO
+              for (const batch of suggestedBatches) {
+                try {
+                  await fetch("/api/pharmacy/batches", {
+                    method: "PATCH",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      batchId: batch.batchId,
+                      quantity: Math.max(0, Number(batch.quantity) - quantityToDispense),
+                    }),
+                  })
+                } catch (err) {
+                  console.error("Failed to update batch:", err)
+                }
+              }
+
+              // Record dispense in stock movements with batch info
+              try {
+                await fetch("/api/pharmacy/stock-movements", {
+                  method: "POST",
+                  credentials: "include",
+                  headers: { "Content-Type": "application/json" },
+                  body: JSON.stringify({
+                    medicationId: medication.id,
+                    movementType: "Dispense",
+                    quantity: quantityToDispense,
+                    reference: `Prescription: ${prescription.id}`,
+                    batchNumber: suggestedBatches[0]?.batchNumber,
+                    expiryDate: suggestedBatches[0]?.expiryDate,
+                  }),
+                })
+              } catch (err) {
+                console.error("Failed to record stock movement:", err)
+              }
+            }
+          }
+        } catch (err) {
+          console.error("Failed to get batches, using fallback:", err)
+        }
+
+        // Fallback: update medication stock directly (for backward compatibility)
         updateMedication(medication.id, {
           stockQuantity: medication.stockQuantity - quantityToDispense,
         })
+
+        // Record usage analytics
+        try {
+          await fetch("/api/pharmacy/usage-analytics", {
+            method: "POST",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({
+              medicationId: medication.id,
+              quantity: quantityToDispense,
+              prescriptionId: prescription.id,
+            }),
+          })
+        } catch (err) {
+          console.error("Failed to record usage analytics:", err)
+          // Non-fatal, continue with dispensing
+        }
       }
     })
+
+    await Promise.all(dispensePromises)
 
     // Update prescription status
     updatePrescription(prescription.id, { status: "completed" })

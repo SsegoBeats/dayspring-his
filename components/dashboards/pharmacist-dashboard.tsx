@@ -13,6 +13,8 @@ import { MedicationInventory } from "@/components/pharmacy/medication-inventory"
 import { InventoryValuation } from "@/components/pharmacy/inventory-valuation"
 import { ReorderSuggestions } from "@/components/pharmacy/reorder-suggestions"
 import { StockTaking } from "@/components/pharmacy/stock-taking"
+import { UsageAnalytics } from "@/components/pharmacy/usage-analytics"
+import { ABCAnalysis } from "@/components/pharmacy/abc-analysis"
 import {
   Pill,
   Clock,
@@ -25,6 +27,8 @@ import {
   DollarSign,
   ShoppingCart,
   ClipboardCheck,
+  BarChart3,
+  TrendingUp,
 } from "lucide-react"
 import { decodeBarcodeData } from "@/lib/security"
 
@@ -42,7 +46,7 @@ export function PharmacistDashboard() {
     items: { description: string; quantity: number }[]
     billStatus: string
   } | null>(null)
-  const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking">("prescriptions")
+  const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc">("prescriptions")
 
   const activePrescriptions = prescriptions.filter((p) => p.status === "active")
   const completedPrescriptions = prescriptions.filter((p) => p.status === "completed")
@@ -201,7 +205,7 @@ export function PharmacistDashboard() {
       </Card>
 
       <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList className="grid w-full grid-cols-5">
+        <TabsList className="grid w-full grid-cols-7">
           <TabsTrigger value="prescriptions">
             Prescriptions ({prescriptions.length})
           </TabsTrigger>
@@ -217,6 +221,14 @@ export function PharmacistDashboard() {
           <TabsTrigger value="stocktaking">
             <ClipboardCheck className="mr-1 h-4 w-4" />
             Stock Taking
+          </TabsTrigger>
+          <TabsTrigger value="analytics">
+            <BarChart3 className="mr-1 h-4 w-4" />
+            Analytics
+          </TabsTrigger>
+          <TabsTrigger value="abc">
+            <TrendingUp className="mr-1 h-4 w-4" />
+            ABC
           </TabsTrigger>
         </TabsList>
 
@@ -317,6 +329,14 @@ export function PharmacistDashboard() {
 
         <TabsContent value="stocktaking">
           <StockTaking />
+        </TabsContent>
+
+        <TabsContent value="analytics">
+          <UsageAnalytics />
+        </TabsContent>
+
+        <TabsContent value="abc">
+          <ABCAnalysis />
         </TabsContent>
       </Tabs>
     </div>
