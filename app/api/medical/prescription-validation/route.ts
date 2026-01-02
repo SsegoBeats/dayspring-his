@@ -3,21 +3,45 @@ import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
 
-// Validation logic (shared with validation endpoint)
-async function validatePrescription(
-  patientId: string,
-  medications: Array<{ name?: string; dosage?: string; frequency?: string; duration?: string }>,
-  auth: { role: string; userId: string },
-): Promise<Array<{ type: string; severity: "Critical" | "Warning" | "Info"; message: string; medicationName?: string; relatedMedication?: string }>> {
-  const validations: Array<{
-    type: string
-    severity: "Critical" | "Warning" | "Info"
-    message: string
-    medicationName?: string
-    relatedMedication?: string
-  }> = []
-
+export async function POST(req: Request) {
   try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    const auth = token ? verifyToken(token) : null
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, "medical", "create") && !can(auth.role, "pharmacy", "read")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const body = (await req.json().catch(() => ({}))) as {
+      patientId?: string
+      medications?: Array<{
+        name?: string
+        dosage?: string
+        frequency?: string
+        duration?: string
+      }>
+    }
+
+    const patientId = (body.patientId || "").trim()
+    const medications = Array.isArray(body.medications) ? body.medications : []
+
+    if (!patientId) {
+      return NextResponse.json({ error: "patientId is required" }, { status: 400 })
+    }
+
+    if (medications.length === 0) {
+      return NextResponse.json({ error: "At least one medication is required" }, { status: 400 })
+    }
+
+    const validations: Array<{
+      type: string
+      severity: "Critical" | "Warning" | "Info"
+      message: string
+      medicationName?: string
+      relatedMedication?: string
+    }> = []
+
     // Get patient information
     const { rows: patientRows } = await queryWithSession(
       { role: auth.role, userId: auth.userId },
@@ -26,7 +50,9 @@ async function validatePrescription(
       [patientId],
     )
 
-    if (patientRows.length === 0) return validations
+    if (patientRows.length === 0) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 })
+    }
 
     const patient = patientRows[0]
     const patientAge = patient.date_of_birth
@@ -50,7 +76,7 @@ async function validatePrescription(
 
       const medNameLower = medName.toLowerCase()
 
-      // Check for allergies
+      // 1. Check for allergies
       if (allergies && allergies.includes(medNameLower)) {
         validations.push({
           type: "Allergy",
@@ -60,7 +86,7 @@ async function validatePrescription(
         })
       }
 
-      // Check for duplicate active prescriptions
+      // 2. Check for duplicate active prescriptions
       if (activeMedications.includes(medNameLower)) {
         const { rows: dupRows } = await queryWithSession(
           { role: auth.role, userId: auth.userId },
@@ -78,7 +104,7 @@ async function validatePrescription(
         }
       }
 
-      // Check for drug interactions
+      // 3. Check for drug interactions with active medications
       for (const activeMed of activeMedications) {
         const { rows: interactionRows } = await queryWithSession(
           { role: auth.role, userId: auth.userId },
@@ -101,7 +127,7 @@ async function validatePrescription(
         }
       }
 
-      // Check for drug interactions within the new prescription
+      // 4. Check for drug interactions within the new prescription
       for (const otherMed of medications) {
         if (otherMed.name === medName) continue
         const otherMedName = (otherMed.name || "").trim().toLowerCase()
@@ -128,7 +154,7 @@ async function validatePrescription(
         }
       }
 
-      // Check for contraindications
+      // 5. Check for contraindications
       const { rows: contraindicationRows } = await queryWithSession(
         { role: auth.role, userId: auth.userId },
         `SELECT contraindication_type, severity, condition_name, description
@@ -138,6 +164,7 @@ async function validatePrescription(
       )
 
       for (const contra of contraindicationRows) {
+        // Check if patient has the condition (basic check - can be enhanced with patient conditions table)
         const severity = contra.severity === "Absolute" ? "Critical" : contra.severity === "Relative" ? "Warning" : "Info"
         validations.push({
           type: "Contraindication",
@@ -147,7 +174,7 @@ async function validatePrescription(
         })
       }
 
-      // Age-based validation
+      // 6. Age-based dosage validation (basic check)
       if (patientAge !== null) {
         if (patientAge < 18 && medNameLower.includes("aspirin")) {
           validations.push({
@@ -168,143 +195,20 @@ async function validatePrescription(
       }
     }
 
-    // Sort by severity
+    // Sort validations by severity (Critical first)
     validations.sort((a, b) => {
       const severityOrder = { Critical: 0, Warning: 1, Info: 2 }
       return severityOrder[a.severity] - severityOrder[b.severity]
     })
-  } catch (err) {
-    console.error("Error in validation:", err)
-  }
-
-  return validations
-}
-
-export async function POST(req: Request) {
-  try {
-    const cookieStore = await cookies()
-    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
-    const auth = token ? verifyToken(token) : null
-    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "medical", "create")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-    const body = (await req.json().catch(() => ({}))) as {
-      patientId?: string
-      medications?: {
-        name?: string
-        dosage?: string
-        frequency?: string
-        duration?: string
-        instructions?: string
-        quantity?: number
-      }[]
-      priority?: string
-      expiryDate?: string
-      clinicalNotes?: string
-      isControlledSubstance?: boolean
-      refillsAuthorized?: number
-      originalPrescriptionId?: string
-    }
-
-    const patientId = (body.patientId || "").trim()
-    if (!patientId) {
-      return NextResponse.json({ error: "patientId is required" }, { status: 400 })
-    }
-
-    const meds = Array.isArray(body.medications) ? body.medications : []
-    const cleaned = meds
-      .map((m) => ({
-        name: (m.name || "").trim(),
-        dosage: (m.dosage || "").trim(),
-        frequency: (m.frequency || "").trim(),
-        duration: (m.duration || "").trim(),
-        instructions: (m.instructions || "").trim() || null,
-        quantity: Number(m.quantity) || 1,
-      }))
-      .filter((m) => m.name && m.dosage && m.frequency && m.duration)
-
-    if (!cleaned.length) {
-      return NextResponse.json({ error: "At least one medication is required" }, { status: 400 })
-    }
-
-    // Perform prescription validation
-    const validationWarnings = await validatePrescription(patientId, cleaned, auth)
-
-    const priority = body.priority && ["Stat", "Urgent", "Routine", "Scheduled"].includes(body.priority) ? body.priority : "Routine"
-    const expiryDate = body.expiryDate || null
-    const clinicalNotes = body.clinicalNotes ? String(body.clinicalNotes).trim() || null : null
-    const isControlledSubstance = body.isControlledSubstance === true
-    const refillsAuthorized = Number.isFinite(body.refillsAuthorized) ? Math.max(0, Math.trunc(body.refillsAuthorized as number)) : 0
-    const originalPrescriptionId = body.originalPrescriptionId ? String(body.originalPrescriptionId).trim() || null : null
-
-    const created: any[] = []
-
-    for (const med of cleaned) {
-      const { rows } = await queryWithSession(
-        { role: auth.role, userId: auth.userId },
-        `INSERT INTO prescriptions (
-           patient_id, doctor_id, medication_name, dosage, frequency, duration,
-           instructions, quantity, status, priority, expiry_date, clinical_notes,
-           is_controlled_substance, refills_authorized, refills_remaining, original_prescription_id
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Pending',$9,$10,$11,$12,$13,$13,$14)
-         RETURNING id, patient_id, doctor_id, medication_name, dosage, frequency, duration,
-                   instructions, quantity, status, priority, expiry_date, clinical_notes,
-                   is_controlled_substance, refills_authorized, refills_remaining, original_prescription_id, created_at`,
-        [
-          patientId,
-          auth.userId,
-          med.name,
-          med.dosage,
-          med.frequency,
-          med.duration,
-          med.instructions,
-          med.quantity,
-          priority,
-          expiryDate,
-          clinicalNotes,
-          isControlledSubstance,
-          refillsAuthorized,
-          originalPrescriptionId,
-        ],
-      )
-      const prescriptionId = rows[0].id
-
-      // Record validation warnings for this prescription
-      if (validationWarnings.length > 0) {
-        for (const validation of validationWarnings) {
-          try {
-            await queryWithSession(
-              { role: auth.role, userId: auth.userId },
-              `INSERT INTO prescription_validations (
-                 prescription_id, validation_type, severity, message, medication_name, related_medication, validated_by
-               ) VALUES ($1, $2, $3, $4, $5, $6, $7)`,
-              [
-                prescriptionId,
-                validation.type,
-                validation.severity,
-                validation.message,
-                validation.medicationName || null,
-                validation.relatedMedication || null,
-                auth.userId,
-              ],
-            )
-          } catch (err) {
-            // Non-fatal - continue
-            console.error("Failed to record validation:", err)
-          }
-        }
-      }
-
-      created.push(rows[0])
-    }
 
     return NextResponse.json({
-      prescriptions: created,
-      validations: validationWarnings,
-      hasCritical: validationWarnings.some((v: any) => v.severity === "Critical"),
+      validations,
+      hasCritical: validations.some((v) => v.severity === "Critical"),
+      hasWarnings: validations.some((v) => v.severity === "Warning"),
     })
   } catch (err: any) {
-    return NextResponse.json({ error: "Failed to create prescription" }, { status: 500 })
+    console.error("Error validating prescription:", err)
+    return NextResponse.json({ error: "Failed to validate prescription" }, { status: 500 })
   }
 }
 
