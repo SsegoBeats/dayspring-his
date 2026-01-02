@@ -28,6 +28,13 @@ export default function HomePage() {
     <div className="flex min-h-screen flex-col items-center justify-center bg-secondary/30 p-4">
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
+          <div className="mb-6 flex justify-center">
+            <img 
+              src="/logo0.png" 
+              alt="Dayspring Medical Center Logo" 
+              className="h-20 w-auto object-contain"
+            />
+          </div>
           <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground">Dayspring Medical Center</h1>
           <p className="mt-2 text-muted-foreground">Hospital Information System</p>
         </div>
