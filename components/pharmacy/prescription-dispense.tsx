@@ -54,7 +54,7 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
     return issues
   }
 
-  const handleDispense = () => {
+  const handleDispense = async () => {
     if (billingPaid === false) {
       alert("Cannot dispense: associated bill is not marked as paid. Please confirm payment with the cashier.")
       return
