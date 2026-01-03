@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Badge } from "@/components/ui/badge"
 import { ClipboardCheck, Plus, Check, X } from "lucide-react"
 import { usePharmacy } from "@/lib/pharmacy-context"
+import { useToast } from "@/hooks/use-toast"
 
 type StockTaking = {
   id: string
@@ -28,6 +29,7 @@ type StockTaking = {
 
 export function StockTaking() {
   const { medications } = usePharmacy()
+  const { toast } = useToast()
   const [stockTakings, setStockTakings] = useState<StockTaking[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -64,7 +66,11 @@ export function StockTaking() {
     e.preventDefault()
     const recordedQty = Number.parseInt(formData.recordedQuantity)
     if (!formData.medicationId || !Number.isFinite(recordedQty) || recordedQty < 0) {
-      alert("Please fill in all required fields with valid values")
+      toast({
+        title: "Validation error",
+        description: "Please fill in all required fields with valid values",
+        variant: "destructive",
+      })
       return
     }
 
@@ -82,16 +88,29 @@ export function StockTaking() {
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}))
-        alert(error.error || "Failed to record stock taking")
+        toast({
+          title: "Error",
+          description: error.error || "Failed to record stock taking",
+          variant: "destructive",
+        })
         return
       }
 
       setFormData({ medicationId: "", recordedQuantity: "", notes: "" })
       setShowDialog(false)
+      toast({
+        title: "Stock taking recorded",
+        description: "Stock taking has been recorded and is pending approval.",
+        variant: "default",
+      })
       loadStockTakings()
     } catch (err) {
       console.error("Error submitting stock taking:", err)
-      alert("Failed to record stock taking")
+      toast({
+        title: "Error",
+        description: "Failed to record stock taking. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -109,14 +128,27 @@ export function StockTaking() {
       })
 
       if (!res.ok) {
-        alert("Failed to approve stock taking")
+        toast({
+          title: "Error",
+          description: "Failed to approve stock taking",
+          variant: "destructive",
+        })
         return
       }
 
+      toast({
+        title: "Stock taking approved",
+        description: applyAdjustment ? "Stock adjustment has been applied." : "Stock taking approved (no adjustment applied).",
+        variant: "default",
+      })
       loadStockTakings()
     } catch (err) {
       console.error("Error approving stock taking:", err)
-      alert("Failed to approve stock taking")
+      toast({
+        title: "Error",
+        description: "Failed to approve stock taking. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -133,14 +165,27 @@ export function StockTaking() {
       })
 
       if (!res.ok) {
-        alert("Failed to reject stock taking")
+        toast({
+          title: "Error",
+          description: "Failed to reject stock taking",
+          variant: "destructive",
+        })
         return
       }
 
+      toast({
+        title: "Stock taking rejected",
+        description: "Stock taking has been rejected.",
+        variant: "default",
+      })
       loadStockTakings()
     } catch (err) {
       console.error("Error rejecting stock taking:", err)
-      alert("Failed to reject stock taking")
+      toast({
+        title: "Error",
+        description: "Failed to reject stock taking. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 

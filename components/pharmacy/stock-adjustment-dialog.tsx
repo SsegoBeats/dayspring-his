@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { useToast } from "@/hooks/use-toast"
 
 interface StockAdjustmentDialogProps {
   open: boolean
@@ -20,6 +21,7 @@ interface StockAdjustmentDialogProps {
 export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDialogProps) {
   const { medications, adjustStock } = usePharmacy()
   const { user } = useAuth()
+  const { toast } = useToast()
   const [medicationId, setMedicationId] = useState("")
   const [adjustmentType, setAdjustmentType] = useState<"add" | "remove" | "correction">("add")
   const [quantity, setQuantity] = useState("")
@@ -32,7 +34,11 @@ export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDia
 
     const qty = Number.parseInt(quantity)
     if (!Number.isFinite(qty) || qty < 0) {
-      alert("Please enter a valid quantity")
+      toast({
+        title: "Validation error",
+        description: "Please enter a valid quantity",
+        variant: "destructive",
+      })
       return
     }
 
@@ -51,7 +57,11 @@ export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDia
 
       if (!res.ok) {
         const error = await res.json().catch(() => ({}))
-        alert(error.error || "Failed to process adjustment")
+        toast({
+          title: "Error",
+          description: error.error || "Failed to process adjustment",
+          variant: "destructive",
+        })
         return
       }
 
@@ -65,6 +75,12 @@ export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDia
         adjustedBy: user?.email || "Unknown",
       })
 
+      toast({
+        title: "Stock adjustment recorded",
+        description: `Stock adjustment for ${medication.name} has been successfully recorded.`,
+        variant: "default",
+      })
+
       setMedicationId("")
       setAdjustmentType("add")
       setQuantity("")
@@ -72,7 +88,11 @@ export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDia
       onOpenChange(false)
     } catch (err) {
       console.error("Error submitting adjustment:", err)
-      alert("Failed to process adjustment")
+      toast({
+        title: "Error",
+        description: "Failed to process adjustment. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 

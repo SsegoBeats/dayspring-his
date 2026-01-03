@@ -10,6 +10,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, CheckCircle, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { useToast } from "@/hooks/use-toast"
 
 interface PrescriptionDispenseProps {
   prescriptionId: string
@@ -22,6 +23,7 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
   const { medications, updateMedication, getMedication } = usePharmacy()
   const { getPatient } = usePatients()
   const { logAction } = useAudit()
+  const { toast } = useToast()
   const prescription = prescriptions.find((p) => p.id === prescriptionId)
   const patient = prescription ? getPatient(prescription.patientId) : null
 
@@ -56,12 +58,21 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
 
   const handleDispense = async () => {
     if (billingPaid === false) {
-      alert("Cannot dispense: associated bill is not marked as paid. Please confirm payment with the cashier.")
+      toast({
+        title: "Payment verification required",
+        description: "Cannot dispense: associated bill is not marked as paid. Please confirm payment with the cashier.",
+        variant: "destructive",
+      })
       return
     }
     const issues = checkStock()
     if (issues.length > 0) {
       setStockIssues(issues)
+      toast({
+        title: "Stock issues detected",
+        description: "Please resolve stock issues before dispensing.",
+        variant: "destructive",
+      })
       return
     }
 
@@ -174,8 +185,16 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
       },
     )
 
-    alert("Prescription dispensed successfully!")
-    onBack()
+    toast({
+      title: "Prescription dispensed",
+      description: `Successfully dispensed ${prescription.medications.length} medication(s) for ${prescription.patientName}.`,
+      variant: "default",
+    })
+    
+    // Small delay to show toast before navigating back
+    setTimeout(() => {
+      onBack()
+    }, 500)
   }
 
   return (
@@ -291,17 +310,36 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
                 const medication = getMedication(med.name)
                 const hasStock = medication && medication.stockQuantity > 0
                 const sufficientStock = medication && medication.stockQuantity >= (Number.parseInt(med.duration) || 1)
+                
+                // Check expiry date if available
+                let expiryWarning: string | null = null
+                if (medication?.expiryDate) {
+                  const expiryDate = new Date(medication.expiryDate)
+                  const today = new Date()
+                  const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
+                  
+                  if (expiryDate < today) {
+                    expiryWarning = "Expired"
+                  } else if (daysUntilExpiry <= 30) {
+                    expiryWarning = `Expires in ${daysUntilExpiry} day${daysUntilExpiry !== 1 ? "s" : ""}`
+                  }
+                }
 
                 return (
                   <Card key={index}>
                     <CardContent className="p-4">
                       <div className="flex items-start justify-between">
                         <div className="flex-1">
-                          <div className="flex items-center gap-2">
+                          <div className="flex items-center gap-2 flex-wrap">
                             <p className="font-medium text-foreground">{med.name}</p>
                             {!hasStock && <Badge variant="destructive">Out of Stock</Badge>}
                             {hasStock && !sufficientStock && <Badge variant="secondary">Low Stock</Badge>}
-                            {sufficientStock && <Badge variant="default">Available</Badge>}
+                            {sufficientStock && !expiryWarning && <Badge variant="default">Available</Badge>}
+                            {expiryWarning && (
+                              <Badge variant={expiryWarning === "Expired" ? "destructive" : "secondary"}>
+                                {expiryWarning}
+                              </Badge>
+                            )}
                           </div>
                           <div className="mt-2 grid gap-2 text-sm md:grid-cols-2">
                             <div>
@@ -317,12 +355,38 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
                               <span className="text-foreground">{med.duration}</span>
                             </div>
                             {medication && (
-                              <div>
-                                <span className="text-muted-foreground">Stock:</span>{" "}
-                                <span className="text-foreground">{medication.stockQuantity} units</span>
-                              </div>
+                              <>
+                                <div>
+                                  <span className="text-muted-foreground">Stock:</span>{" "}
+                                  <span className="text-foreground">{medication.stockQuantity} units</span>
+                                </div>
+                                {medication.expiryDate && (
+                                  <div>
+                                    <span className="text-muted-foreground">Expiry:</span>{" "}
+                                    <span className={expiryWarning ? "font-medium text-amber-600" : "text-foreground"}>
+                                      {medication.expiryDate}
+                                    </span>
+                                  </div>
+                                )}
+                              </>
                             )}
                           </div>
+                          {expiryWarning && expiryWarning === "Expired" && (
+                            <Alert variant="destructive" className="mt-2">
+                              <AlertCircle className="h-4 w-4" />
+                              <AlertDescription>
+                                This medication has expired. Do not dispense expired medications.
+                              </AlertDescription>
+                            </Alert>
+                          )}
+                          {expiryWarning && expiryWarning !== "Expired" && (
+                            <Alert variant="default" className="mt-2 border-amber-200 bg-amber-50">
+                              <AlertCircle className="h-4 w-4 text-amber-600" />
+                              <AlertDescription className="text-amber-800">
+                                {expiryWarning}. Verify expiry date before dispensing.
+                              </AlertDescription>
+                            </Alert>
+                          )}
                           {med.instructions && (
                             <p className="mt-2 text-sm text-muted-foreground">
                               <span className="font-medium">Instructions:</span> {med.instructions}
