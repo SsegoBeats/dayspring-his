@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -48,6 +48,7 @@ export function PharmacistDashboard() {
   } | null>(null)
   const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc">("prescriptions")
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const scanInputRef = useRef<HTMLInputElement>(null)
 
   // Auto-refresh metrics every 30 seconds
   useEffect(() => {
@@ -58,6 +59,13 @@ export function PharmacistDashboard() {
 
     return () => clearInterval(interval)
   }, [])
+
+  // Auto-focus scan input when prescriptions tab is active
+  useEffect(() => {
+    if (tab === "prescriptions" && scanInputRef.current && !selectedPrescriptionId) {
+      scanInputRef.current.focus()
+    }
+  }, [tab, selectedPrescriptionId])
 
   const activePrescriptions = prescriptions.filter((p) => p.status === "active")
   const completedPrescriptions = prescriptions.filter((p) => p.status === "completed")
@@ -107,8 +115,17 @@ export function PharmacistDashboard() {
         items,
         billStatus: String(bill.status || "").toLowerCase(),
       })
+      // Clear input and refocus for next scan
+      setScanValue("")
+      setTimeout(() => {
+        scanInputRef.current?.focus()
+      }, 100)
     } catch {
       setScanError("Error decoding or fetching bill")
+      // Refocus on error so user can retry
+      setTimeout(() => {
+        scanInputRef.current?.focus()
+      }, 100)
     } finally {
       setScanLoading(false)
     }
@@ -263,6 +280,7 @@ export function PharmacistDashboard() {
               </p>
               <div className="flex flex-col gap-2 md:flex-row md:items-center">
                 <Input
+                  ref={scanInputRef}
                   placeholder="Scan QR/barcode or paste bill token"
                   value={scanValue}
                   onChange={(e) => setScanValue(e.target.value)}
@@ -272,6 +290,7 @@ export function PharmacistDashboard() {
                       handleScan()
                     }
                   }}
+                  autoFocus={tab === "prescriptions"}
                 />
                 <Button variant="outline" size="sm" onClick={handleScan} disabled={scanLoading}>
                   {scanLoading ? "Loading..." : "Load bill"}

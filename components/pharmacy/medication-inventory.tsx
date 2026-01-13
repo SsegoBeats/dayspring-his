@@ -50,6 +50,7 @@ export function MedicationInventory() {
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedSearchFilters>({})
   const searchInputRef = useRef<HTMLInputElement>(null)
+  const barcodeInputRef = useRef<HTMLInputElement>(null)
   const [editForm, setEditForm] = useState<{
     name: string
     category: string
@@ -67,6 +68,13 @@ export function MedicationInventory() {
 
   const lowStockMeds = getLowStockMedications()
   const expiringSoonSet = new Set(getExpiringMedications(30).map((m) => m.id))
+
+  // Auto-focus barcode input when scan mode is enabled
+  useEffect(() => {
+    if (scanMode && barcodeInputRef.current) {
+      barcodeInputRef.current.focus()
+    }
+  }, [scanMode])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -260,6 +268,7 @@ export function MedicationInventory() {
     const qty = Number.parseInt(scanQty || "0", 10)
     if (!code) {
       setScanError("Scan or enter a barcode first.")
+      barcodeInputRef.current?.focus()
       return
     }
     if (!Number.isFinite(qty) || qty <= 0) {
@@ -271,6 +280,8 @@ export function MedicationInventory() {
       medications.find((m) => m.name.toLowerCase() === code.toLowerCase())
     if (!med) {
       setScanError("No medication found for this barcode. Use Add Medication to register it.")
+      setScanCode("")
+      barcodeInputRef.current?.focus()
       return
     }
     const newQty = med.stockQuantity + qty
@@ -296,7 +307,12 @@ export function MedicationInventory() {
     })()
     setScanSummary({ name: med.name, quantity: qty, newStock: newQty })
     setScanMessage(`Received ${qty} units into ${med.name}. New stock: ${newQty}.`)
+    setScanCode("")
     setScanQty("")
+    // Refocus barcode input for next scan
+    setTimeout(() => {
+      barcodeInputRef.current?.focus()
+    }, 100)
   }
 
   const handleExport = async (format: "xlsx" | "pdf") => {
@@ -354,10 +370,18 @@ export function MedicationInventory() {
                 <div className="relative">
                   <Barcode className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
+                    ref={barcodeInputRef}
                     placeholder="Scan medication barcode or enter code manually"
                     value={scanCode}
                     onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
                     onChange={(e) => setScanCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleReceiveStock()
+                      }
+                    }}
+                    autoFocus={scanMode}
                     className="pl-9"
                   />
                 </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useRef, useEffect } from "react"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { useFormatCurrency } from "@/lib/settings-context"
 import {
@@ -24,6 +24,7 @@ interface AddMedicationDialogProps {
 export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogProps) {
   const { addMedication, medications } = usePharmacy()
   const formatCurrency = useFormatCurrency()
+  const barcodeInputRef = useRef<HTMLInputElement>(null)
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -38,6 +39,16 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
     maxStockLevel: "",
     barcode: "",
   })
+
+  // Auto-focus barcode input when dialog opens for easy scanning
+  useEffect(() => {
+    if (open && barcodeInputRef.current) {
+      // Small delay to ensure dialog is fully rendered
+      setTimeout(() => {
+        barcodeInputRef.current?.focus()
+      }, 100)
+    }
+  }, [open])
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault()
@@ -200,6 +211,7 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
             <div className="space-y-2 md:col-span-2">
               <Label htmlFor="barcode">Barcode (scan from pack, optional)</Label>
               <Input
+                ref={barcodeInputRef}
                 id="barcode"
                 value={formData.barcode}
                 onChange={(e) => {
@@ -216,6 +228,28 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
                     }))
                   } else {
                     setFormData((prev) => ({ ...prev, barcode }))
+                  }
+                }}
+                onKeyDown={(e) => {
+                  // Prevent form submission when Enter is pressed in barcode field
+                  // Barcode scanners send Enter after the code
+                  if (e.key === "Enter" && formData.barcode.trim()) {
+                    e.preventDefault()
+                    // Auto-fill from existing medication if found
+                    const existing = medications.find((m) => m.barcode && m.barcode === formData.barcode.trim())
+                    if (existing) {
+                      setFormData((prev) => ({
+                        ...prev,
+                        name: prev.name || existing.name,
+                        category: prev.category || existing.category,
+                        manufacturer: prev.manufacturer || existing.manufacturer,
+                      }))
+                    }
+                    // Clear barcode field for next scan
+                    setFormData((prev) => ({ ...prev, barcode: "" }))
+                    setTimeout(() => {
+                      barcodeInputRef.current?.focus()
+                    }, 50)
                   }
                 }}
                 placeholder="Focus here and scan the medication barcode"
