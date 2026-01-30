@@ -10,11 +10,12 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
-import { ClipboardCheck, Plus, Check, X } from "lucide-react"
+import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { ClipboardCheck, Plus, Check, X, Pill, Box } from "lucide-react"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { useToast } from "@/hooks/use-toast"
 
-type StockTaking = {
+type MedicationStockTaking = {
   id: string
   medication_id: string
   medication_name: string
@@ -27,34 +28,62 @@ type StockTaking = {
   taken_by_name: string | null
 }
 
+type NonMedicationStockTaking = {
+  id: string
+  item_id: string
+  item_name: string
+  recorded_quantity: number
+  system_quantity: number
+  variance: number
+  notes: string | null
+  taken_at: string
+  status: "Pending" | "Approved" | "Rejected"
+  taken_by_name: string | null
+}
+
 export function StockTaking() {
   const { medications } = usePharmacy()
   const { toast } = useToast()
-  const [stockTakings, setStockTakings] = useState<StockTaking[]>([])
+  const [medicationStockTakings, setMedicationStockTakings] = useState<MedicationStockTaking[]>([])
+  const [nonMedicationStockTakings, setNonMedicationStockTakings] = useState<NonMedicationStockTaking[]>([])
+  const [nonMedicationItems, setNonMedicationItems] = useState<Array<{ id: string; item_name: string; item_type: string; stock_quantity: number }>>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [showDialog, setShowDialog] = useState(false)
-  const [formData, setFormData] = useState({
+  const [showMedicationDialog, setShowMedicationDialog] = useState(false)
+  const [showNonMedicationDialog, setShowNonMedicationDialog] = useState(false)
+  const [activeTab, setActiveTab] = useState<"medications" | "non-medication">("medications")
+  const [medicationFormData, setMedicationFormData] = useState({
     medicationId: "",
+    recordedQuantity: "",
+    notes: "",
+  })
+  const [nonMedicationFormData, setNonMedicationFormData] = useState({
+    itemId: "",
     recordedQuantity: "",
     notes: "",
   })
 
   useEffect(() => {
     loadStockTakings()
+    loadNonMedicationItems()
   }, [])
 
   const loadStockTakings = async () => {
     setLoading(true)
     setError(null)
     try {
-      const res = await fetch("/api/pharmacy/stock-taking", { credentials: "include" })
-      if (!res.ok) {
-        setError("Failed to load stock takings")
-        return
+      const [medRes, nonMedRes] = await Promise.all([
+        fetch("/api/pharmacy/stock-taking", { credentials: "include" }),
+        fetch("/api/pharmacy/non-medication-stock-taking", { credentials: "include" }),
+      ])
+      if (medRes.ok) {
+        const medJson = await medRes.json()
+        setMedicationStockTakings(medJson.stockTakings || [])
       }
-      const json = await res.json()
-      setStockTakings(json.stockTakings || [])
+      if (nonMedRes.ok) {
+        const nonMedJson = await nonMedRes.json()
+        setNonMedicationStockTakings(nonMedJson.stockTakings || [])
+      }
     } catch {
       setError("Failed to load stock takings")
     } finally {
@@ -62,10 +91,29 @@ export function StockTaking() {
     }
   }
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  const loadNonMedicationItems = async () => {
+    try {
+      const res = await fetch("/api/pharmacy/non-medication-inventory", { credentials: "include" })
+      if (res.ok) {
+        const data = await res.json()
+        setNonMedicationItems(
+          (data.items || []).map((item: any) => ({
+            id: item.id,
+            item_name: item.item_name,
+            item_type: item.item_type,
+            stock_quantity: item.stock_quantity,
+          })),
+        )
+      }
+    } catch {
+      // Non-fatal
+    }
+  }
+
+  const handleMedicationSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const recordedQty = Number.parseInt(formData.recordedQuantity)
-    if (!formData.medicationId || !Number.isFinite(recordedQty) || recordedQty < 0) {
+    const recordedQty = Number.parseInt(medicationFormData.recordedQuantity)
+    if (!medicationFormData.medicationId || !Number.isFinite(recordedQty) || recordedQty < 0) {
       toast({
         title: "Validation error",
         description: "Please fill in all required fields with valid values",
@@ -80,9 +128,9 @@ export function StockTaking() {
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          medicationId: formData.medicationId,
+          medicationId: medicationFormData.medicationId,
           recordedQuantity: recordedQty,
-          notes: formData.notes || undefined,
+          notes: medicationFormData.notes || undefined,
         }),
       })
 
@@ -96,16 +144,16 @@ export function StockTaking() {
         return
       }
 
-      setFormData({ medicationId: "", recordedQuantity: "", notes: "" })
-      setShowDialog(false)
+      setMedicationFormData({ medicationId: "", recordedQuantity: "", notes: "" })
+      setShowMedicationDialog(false)
       toast({
         title: "Stock taking recorded",
-        description: "Stock taking has been recorded and is pending approval.",
+        description: "Medication stock taking has been recorded and is pending approval.",
         variant: "default",
       })
       loadStockTakings()
     } catch (err) {
-      console.error("Error submitting stock taking:", err)
+      console.error("Error submitting medication stock taking:", err)
       toast({
         title: "Error",
         description: "Failed to record stock taking. Please try again.",
@@ -114,7 +162,59 @@ export function StockTaking() {
     }
   }
 
-  const handleApprove = async (id: string, applyAdjustment: boolean) => {
+  const handleNonMedicationSubmit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    const recordedQty = Number.parseInt(nonMedicationFormData.recordedQuantity)
+    if (!nonMedicationFormData.itemId || !Number.isFinite(recordedQty) || recordedQty < 0) {
+      toast({
+        title: "Validation error",
+        description: "Please fill in all required fields with valid values",
+        variant: "destructive",
+      })
+      return
+    }
+
+    try {
+      const res = await fetch("/api/pharmacy/non-medication-stock-taking", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          itemId: nonMedicationFormData.itemId,
+          recordedQuantity: recordedQty,
+          notes: nonMedicationFormData.notes || undefined,
+        }),
+      })
+
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        toast({
+          title: "Error",
+          description: error.error || "Failed to record stock taking",
+          variant: "destructive",
+        })
+        return
+      }
+
+      setNonMedicationFormData({ itemId: "", recordedQuantity: "", notes: "" })
+      setShowNonMedicationDialog(false)
+      toast({
+        title: "Stock taking recorded",
+        description: "Non-medication stock taking has been recorded and is pending approval.",
+        variant: "default",
+      })
+      loadStockTakings()
+    } catch (err) {
+      console.error("Error submitting non-medication stock taking:", err)
+      toast({
+        title: "Error",
+        description: "Failed to record stock taking. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleMedicationApprove = async (id: string, applyAdjustment: boolean) => {
     try {
       const res = await fetch("/api/pharmacy/stock-taking", {
         method: "PATCH",
@@ -143,7 +243,7 @@ export function StockTaking() {
       })
       loadStockTakings()
     } catch (err) {
-      console.error("Error approving stock taking:", err)
+      console.error("Error approving medication stock taking:", err)
       toast({
         title: "Error",
         description: "Failed to approve stock taking. Please try again.",
@@ -152,7 +252,45 @@ export function StockTaking() {
     }
   }
 
-  const handleReject = async (id: string) => {
+  const handleNonMedicationApprove = async (id: string, applyAdjustment: boolean) => {
+    try {
+      const res = await fetch("/api/pharmacy/non-medication-stock-taking", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          status: "Approved",
+          applyAdjustment,
+        }),
+      })
+
+      if (!res.ok) {
+        toast({
+          title: "Error",
+          description: "Failed to approve stock taking",
+          variant: "destructive",
+        })
+        return
+      }
+
+      toast({
+        title: "Stock taking approved",
+        description: applyAdjustment ? "Stock adjustment has been applied." : "Stock taking approved (no adjustment applied).",
+        variant: "default",
+      })
+      loadStockTakings()
+    } catch (err) {
+      console.error("Error approving non-medication stock taking:", err)
+      toast({
+        title: "Error",
+        description: "Failed to approve stock taking. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  const handleMedicationReject = async (id: string) => {
     try {
       const res = await fetch("/api/pharmacy/stock-taking", {
         method: "PATCH",
@@ -180,7 +318,7 @@ export function StockTaking() {
       })
       loadStockTakings()
     } catch (err) {
-      console.error("Error rejecting stock taking:", err)
+      console.error("Error rejecting medication stock taking:", err)
       toast({
         title: "Error",
         description: "Failed to reject stock taking. Please try again.",
@@ -189,7 +327,44 @@ export function StockTaking() {
     }
   }
 
-  if (loading && stockTakings.length === 0) {
+  const handleNonMedicationReject = async (id: string) => {
+    try {
+      const res = await fetch("/api/pharmacy/non-medication-stock-taking", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          id,
+          status: "Rejected",
+        }),
+      })
+
+      if (!res.ok) {
+        toast({
+          title: "Error",
+          description: "Failed to reject stock taking",
+          variant: "destructive",
+        })
+        return
+      }
+
+      toast({
+        title: "Stock taking rejected",
+        description: "Stock taking has been rejected.",
+        variant: "default",
+      })
+      loadStockTakings()
+    } catch (err) {
+      console.error("Error rejecting non-medication stock taking:", err)
+      toast({
+        title: "Error",
+        description: "Failed to reject stock taking. Please try again.",
+        variant: "destructive",
+      })
+    }
+  }
+
+  if (loading && medicationStockTakings.length === 0 && nonMedicationStockTakings.length === 0) {
     return (
       <Card>
         <CardHeader>
@@ -209,113 +384,222 @@ export function StockTaking() {
               <CardTitle>Stock Taking (Physical Inventory)</CardTitle>
               <CardDescription>Record physical inventory counts and reconcile with system</CardDescription>
             </div>
-            <Button onClick={() => setShowDialog(true)}>
-              <Plus className="mr-2 h-4 w-4" />
-              New Stock Taking
-            </Button>
+            <div className="flex gap-2">
+              <Button onClick={() => setShowMedicationDialog(true)} variant="outline">
+                <Pill className="mr-2 h-4 w-4" />
+                Medication
+              </Button>
+              <Button onClick={() => setShowNonMedicationDialog(true)} variant="outline">
+                <Box className="mr-2 h-4 w-4" />
+                Non-Medication
+              </Button>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
-          {error && stockTakings.length === 0 ? (
-            <p className="text-destructive">{error}</p>
-          ) : stockTakings.length === 0 ? (
-            <p className="text-muted-foreground">No stock takings recorded yet.</p>
-          ) : (
-            <div className="rounded-md border">
-              <Table>
-                <TableHeader>
-                  <TableRow>
-                    <TableHead>Date</TableHead>
-                    <TableHead>Medication</TableHead>
-                    <TableHead className="text-right">System Qty</TableHead>
-                    <TableHead className="text-right">Recorded Qty</TableHead>
-                    <TableHead className="text-right">Variance</TableHead>
-                    <TableHead>Status</TableHead>
-                    <TableHead>By</TableHead>
-                    <TableHead>Actions</TableHead>
-                  </TableRow>
-                </TableHeader>
-                <TableBody>
-                  {stockTakings.map((st) => {
-                    const variance = Number(st.variance)
-                    const isPositive = variance > 0
-                    const isNegative = variance < 0
-                    return (
-                      <TableRow key={st.id}>
-                        <TableCell>{new Date(st.taken_at).toLocaleString()}</TableCell>
-                        <TableCell className="font-medium">{st.medication_name}</TableCell>
-                        <TableCell className="text-right">{st.system_quantity}</TableCell>
-                        <TableCell className="text-right">{st.recorded_quantity}</TableCell>
-                        <TableCell
-                          className={`text-right font-medium ${
-                            isPositive ? "text-emerald-600" : isNegative ? "text-red-600" : ""
-                          }`}
-                        >
-                          {variance > 0 ? "+" : ""}
-                          {variance}
-                        </TableCell>
-                        <TableCell>
-                          <Badge
-                            variant={
-                              st.status === "Approved"
-                                ? "default"
-                                : st.status === "Rejected"
-                                ? "destructive"
-                                : "secondary"
-                            }
-                          >
-                            {st.status}
-                          </Badge>
-                        </TableCell>
-                        <TableCell>{st.taken_by_name || "—"}</TableCell>
-                        <TableCell>
-                          {st.status === "Pending" && (
-                            <div className="flex gap-2">
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleApprove(st.id, true)}
-                                title="Approve and apply adjustment"
-                              >
-                                <Check className="h-4 w-4" />
-                              </Button>
-                              <Button
-                                size="sm"
-                                variant="outline"
-                                onClick={() => handleReject(st.id)}
-                                title="Reject"
-                              >
-                                <X className="h-4 w-4" />
-                              </Button>
-                            </div>
-                          )}
-                        </TableCell>
+          <Tabs value={activeTab} onValueChange={(v) => setActiveTab(v as typeof activeTab)}>
+            <TabsList>
+              <TabsTrigger value="medications">
+                <Pill className="mr-2 h-4 w-4" />
+                Medications ({medicationStockTakings.length})
+              </TabsTrigger>
+              <TabsTrigger value="non-medication">
+                <Box className="mr-2 h-4 w-4" />
+                Non-Medication ({nonMedicationStockTakings.length})
+              </TabsTrigger>
+            </TabsList>
+
+            <TabsContent value="medications" className="mt-4">
+              {error && medicationStockTakings.length === 0 ? (
+                <p className="text-destructive">{error}</p>
+              ) : medicationStockTakings.length === 0 ? (
+                <p className="text-muted-foreground">No medication stock takings recorded yet.</p>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Medication</TableHead>
+                        <TableHead className="text-right">System Qty</TableHead>
+                        <TableHead className="text-right">Recorded Qty</TableHead>
+                        <TableHead className="text-right">Variance</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>By</TableHead>
+                        <TableHead>Actions</TableHead>
                       </TableRow>
-                    )
-                  })}
-                </TableBody>
-              </Table>
-            </div>
-          )}
+                    </TableHeader>
+                    <TableBody>
+                      {medicationStockTakings.map((st) => {
+                        const variance = Number(st.variance)
+                        const isPositive = variance > 0
+                        const isNegative = variance < 0
+                        return (
+                          <TableRow key={st.id}>
+                            <TableCell>{new Date(st.taken_at).toLocaleString()}</TableCell>
+                            <TableCell className="font-medium">{st.medication_name}</TableCell>
+                            <TableCell className="text-right">{st.system_quantity}</TableCell>
+                            <TableCell className="text-right">{st.recorded_quantity}</TableCell>
+                            <TableCell
+                              className={`text-right font-medium ${
+                                isPositive ? "text-emerald-600" : isNegative ? "text-red-600" : ""
+                              }`}
+                            >
+                              {variance > 0 ? "+" : ""}
+                              {variance}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  st.status === "Approved"
+                                    ? "default"
+                                    : st.status === "Rejected"
+                                    ? "destructive"
+                                    : "secondary"
+                                }
+                              >
+                                {st.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{st.taken_by_name || "—"}</TableCell>
+                            <TableCell>
+                              {st.status === "Pending" && (
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleMedicationApprove(st.id, true)}
+                                    title="Approve and apply adjustment"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleMedicationReject(st.id)}
+                                    title="Reject"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="non-medication" className="mt-4">
+              {error && nonMedicationStockTakings.length === 0 ? (
+                <p className="text-destructive">{error}</p>
+              ) : nonMedicationStockTakings.length === 0 ? (
+                <p className="text-muted-foreground">No non-medication stock takings recorded yet.</p>
+              ) : (
+                <div className="rounded-md border">
+                  <Table>
+                    <TableHeader>
+                      <TableRow>
+                        <TableHead>Date</TableHead>
+                        <TableHead>Item</TableHead>
+                        <TableHead className="text-right">System Qty</TableHead>
+                        <TableHead className="text-right">Recorded Qty</TableHead>
+                        <TableHead className="text-right">Variance</TableHead>
+                        <TableHead>Status</TableHead>
+                        <TableHead>By</TableHead>
+                        <TableHead>Actions</TableHead>
+                      </TableRow>
+                    </TableHeader>
+                    <TableBody>
+                      {nonMedicationStockTakings.map((st) => {
+                        const variance = Number(st.variance)
+                        const isPositive = variance > 0
+                        const isNegative = variance < 0
+                        return (
+                          <TableRow key={st.id}>
+                            <TableCell>{new Date(st.taken_at).toLocaleString()}</TableCell>
+                            <TableCell className="font-medium">{st.item_name}</TableCell>
+                            <TableCell className="text-right">{st.system_quantity}</TableCell>
+                            <TableCell className="text-right">{st.recorded_quantity}</TableCell>
+                            <TableCell
+                              className={`text-right font-medium ${
+                                isPositive ? "text-emerald-600" : isNegative ? "text-red-600" : ""
+                              }`}
+                            >
+                              {variance > 0 ? "+" : ""}
+                              {variance}
+                            </TableCell>
+                            <TableCell>
+                              <Badge
+                                variant={
+                                  st.status === "Approved"
+                                    ? "default"
+                                    : st.status === "Rejected"
+                                    ? "destructive"
+                                    : "secondary"
+                                }
+                              >
+                                {st.status}
+                              </Badge>
+                            </TableCell>
+                            <TableCell>{st.taken_by_name || "—"}</TableCell>
+                            <TableCell>
+                              {st.status === "Pending" && (
+                                <div className="flex gap-2">
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleNonMedicationApprove(st.id, true)}
+                                    title="Approve and apply adjustment"
+                                  >
+                                    <Check className="h-4 w-4" />
+                                  </Button>
+                                  <Button
+                                    size="sm"
+                                    variant="outline"
+                                    onClick={() => handleNonMedicationReject(st.id)}
+                                    title="Reject"
+                                  >
+                                    <X className="h-4 w-4" />
+                                  </Button>
+                                </div>
+                              )}
+                            </TableCell>
+                          </TableRow>
+                        )
+                      })}
+                    </TableBody>
+                  </Table>
+                </div>
+              )}
+            </TabsContent>
+          </Tabs>
         </CardContent>
       </Card>
 
-      <Dialog open={showDialog} onOpenChange={setShowDialog}>
+      <Dialog open={showMedicationDialog} onOpenChange={setShowMedicationDialog}>
         <DialogContent>
           <DialogHeader>
-            <DialogTitle>New Stock Taking</DialogTitle>
+            <DialogTitle>New Medication Stock Taking</DialogTitle>
           </DialogHeader>
-          <form onSubmit={handleSubmit} className="space-y-4">
+          <form onSubmit={handleMedicationSubmit} className="space-y-4">
             <div>
               <Label htmlFor="medication">Medication *</Label>
-              <Select value={formData.medicationId} onValueChange={(value) => setFormData({ ...formData, medicationId: value })} required>
+              <Select
+                value={medicationFormData.medicationId}
+                onValueChange={(value) => setMedicationFormData({ ...medicationFormData, medicationId: value })}
+                required
+              >
                 <SelectTrigger>
                   <SelectValue placeholder="Select medication" />
                 </SelectTrigger>
                 <SelectContent>
                   {medications.map((med) => (
                     <SelectItem key={med.id} value={med.id}>
-                      {med.name} (System: {med.stockQuantity} units)
+                      {med.name} ({med.category}) - System: {med.stockQuantity} units
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -326,8 +610,8 @@ export function StockTaking() {
               <Input
                 id="recordedQuantity"
                 type="number"
-                value={formData.recordedQuantity}
-                onChange={(e) => setFormData({ ...formData, recordedQuantity: e.target.value })}
+                value={medicationFormData.recordedQuantity}
+                onChange={(e) => setMedicationFormData({ ...medicationFormData, recordedQuantity: e.target.value })}
                 placeholder="Enter physical count"
                 required
                 min={0}
@@ -337,13 +621,72 @@ export function StockTaking() {
               <Label htmlFor="notes">Notes (optional)</Label>
               <Textarea
                 id="notes"
-                value={formData.notes}
-                onChange={(e) => setFormData({ ...formData, notes: e.target.value })}
+                value={medicationFormData.notes}
+                onChange={(e) => setMedicationFormData({ ...medicationFormData, notes: e.target.value })}
                 placeholder="Any additional notes about this count..."
               />
             </div>
             <DialogFooter>
-              <Button type="button" variant="outline" onClick={() => setShowDialog(false)}>
+              <Button type="button" variant="outline" onClick={() => setShowMedicationDialog(false)}>
+                Cancel
+              </Button>
+              <Button type="submit">
+                <ClipboardCheck className="mr-2 h-4 w-4" />
+                Record Stock Taking
+              </Button>
+            </DialogFooter>
+          </form>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={showNonMedicationDialog} onOpenChange={setShowNonMedicationDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>New Non-Medication Stock Taking</DialogTitle>
+          </DialogHeader>
+          <form onSubmit={handleNonMedicationSubmit} className="space-y-4">
+            <div>
+              <Label htmlFor="item">Item *</Label>
+              <Select
+                value={nonMedicationFormData.itemId}
+                onValueChange={(value) => setNonMedicationFormData({ ...nonMedicationFormData, itemId: value })}
+                required
+              >
+                <SelectTrigger>
+                  <SelectValue placeholder="Select non-medication item" />
+                </SelectTrigger>
+                <SelectContent>
+                  {nonMedicationItems.map((item) => (
+                    <SelectItem key={item.id} value={item.id}>
+                      {item.item_name} ({item.item_type}) - System: {item.stock_quantity} units
+                    </SelectItem>
+                  ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="recordedQuantity">Recorded Quantity (Physical Count) *</Label>
+              <Input
+                id="recordedQuantity"
+                type="number"
+                value={nonMedicationFormData.recordedQuantity}
+                onChange={(e) => setNonMedicationFormData({ ...nonMedicationFormData, recordedQuantity: e.target.value })}
+                placeholder="Enter physical count"
+                required
+                min={0}
+              />
+            </div>
+            <div>
+              <Label htmlFor="notes">Notes (optional)</Label>
+              <Textarea
+                id="notes"
+                value={nonMedicationFormData.notes}
+                onChange={(e) => setNonMedicationFormData({ ...nonMedicationFormData, notes: e.target.value })}
+                placeholder="Any additional notes about this count..."
+              />
+            </div>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowNonMedicationDialog(false)}>
                 Cancel
               </Button>
               <Button type="submit">

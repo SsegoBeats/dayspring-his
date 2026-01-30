@@ -15,6 +15,7 @@ import { ReorderSuggestions } from "@/components/pharmacy/reorder-suggestions"
 import { StockTaking } from "@/components/pharmacy/stock-taking"
 import { UsageAnalytics } from "@/components/pharmacy/usage-analytics"
 import { ABCAnalysis } from "@/components/pharmacy/abc-analysis"
+import { NonMedicationInventory } from "@/components/pharmacy/non-medication-inventory"
 import {
   Pill,
   Clock,
@@ -46,7 +47,7 @@ export function PharmacistDashboard() {
     items: { description: string; quantity: number }[]
     billStatus: string
   } | null>(null)
-  const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc">("prescriptions")
+  const [tab, setTab] = useState<"prescriptions" | "inventory" | "non-medication" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc">("prescriptions")
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const scanInputRef = useRef<HTMLInputElement>(null)
 
@@ -353,6 +354,10 @@ export function PharmacistDashboard() {
 
         <TabsContent value="inventory">
           <MedicationInventory />
+        </TabsContent>
+
+        <TabsContent value="non-medication">
+          <NonMedicationInventory />
         </TabsContent>
 
         <TabsContent value="valuation">

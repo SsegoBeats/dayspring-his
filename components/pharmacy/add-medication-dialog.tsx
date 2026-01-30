@@ -15,6 +15,7 @@ import {
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 
 interface AddMedicationDialogProps {
   open: boolean
@@ -25,6 +26,7 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
   const { addMedication, medications } = usePharmacy()
   const formatCurrency = useFormatCurrency()
   const barcodeInputRef = useRef<HTMLInputElement>(null)
+  const [categories, setCategories] = useState<Array<{ id: string; name: string; description?: string }>>([])
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -107,12 +109,32 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
             </div>
             <div className="space-y-2">
               <Label htmlFor="category">Category *</Label>
-              <Input
-                id="category"
-                value={formData.category}
-                onChange={(e) => setFormData({ ...formData, category: e.target.value })}
-                required
-              />
+              {categories.length > 0 ? (
+                <Select
+                  value={formData.category}
+                  onValueChange={(value) => setFormData({ ...formData, category: value })}
+                  required
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Select medication category" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {categories.map((cat) => (
+                      <SelectItem key={cat.id} value={cat.name}>
+                        {cat.name}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              ) : (
+                <Input
+                  id="category"
+                  value={formData.category}
+                  onChange={(e) => setFormData({ ...formData, category: e.target.value })}
+                  placeholder="Enter category (e.g., Antimalarials, Antibiotics)"
+                  required
+                />
+              )}
             </div>
             <div className="space-y-2">
               <Label htmlFor="manufacturer">Manufacturer *</Label>
