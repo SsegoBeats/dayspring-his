@@ -1,7 +1,8 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
-import { useSearchParams } from "next/navigation"
+import { useSearchParams, useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { BarcodeGenerator } from "@/components/barcode-generator"
 
 function ResultCard({ test }: { test: any }) {
@@ -125,8 +126,26 @@ function ResultCard({ test }: { test: any }) {
 }
 
 export default function BatchPrintClient() {
+  const router = useRouter()
+  const { user, isLoading } = useAuth()
   const sp = useSearchParams()
   const patientId = sp.get("patientId")
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!user) {
+      router.push("/")
+      return
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
   const from = sp.get("from") || new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
   const to = sp.get("to") || new Date().toISOString()
   const [tests, setTests] = useState<any[]>([])

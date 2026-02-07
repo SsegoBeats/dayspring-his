@@ -10,6 +10,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { ArrowLeft, Plus, Trash2, Save } from "lucide-react"
+import { toast } from "sonner"
 
 interface CreateBillProps {
   onBack: () => void
@@ -58,20 +59,20 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
     e.preventDefault()
 
     if (!patientId) {
-      alert("Please select a patient")
+      toast.error("Please select a patient")
       return
     }
 
     const validItems = items.filter((item) => item.description && item.quantity > 0 && item.unitPrice > 0)
 
     if (validItems.length === 0) {
-      alert("Please add at least one valid item")
+      toast.error("Please add at least one valid item")
       return
     }
 
     const patient = patients.find((p) => p.id === patientId)
     if (!patient) {
-      alert("Patient not found")
+      toast.error("Patient not found")
       return
     }
 
@@ -91,15 +92,15 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
         }),
       })
       if (!res.ok) {
-        alert("Failed to create bill. Please try again.")
+        toast.error("Failed to create bill. Please try again.")
         return
       }
     } catch {
-      alert("Failed to create bill. Please check your connection and try again.")
+      toast.error("Failed to create bill. Please check your connection and try again.")
       return
     }
 
-    alert("Bill created successfully!")
+    toast.success("Bill created successfully!")
     onBack()
     if (typeof window !== "undefined") {
       window.location.reload()

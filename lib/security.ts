@@ -129,7 +129,8 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
     radiology: ["read", "create"],
     pharmacy: ["read"],
     billing: ["create"],
-    beds: ["read"], // Can view bed status for patient care decisions
+    beds: ["read"],
+    exports: ["create"],
   },
   Dentist: {
     patients: ["read"],
@@ -196,28 +197,6 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
     pharmacy: ["read", "update"],
     patients: ["read"],
     beds: ["read"], // Can view bed status for medication delivery
-  },
-  Midwife: {
-    patients: ["read"],
-    medical: ["read", "create", "update"],
-    appointments: ["read", "update"],
-    lab: ["read", "create"],
-    radiology: ["read", "create"],
-    pharmacy: ["read"],
-    billing: ["create"],
-    beds: ["read"], // Can view bed status for patient care decisions
-    exports: ["create"],
-  },
-  Dentist: {
-    patients: ["read"],
-    medical: ["read", "create", "update"],
-    appointments: ["read", "update"],
-    lab: ["read", "create"],
-    radiology: ["read", "create"],
-    pharmacy: ["read"],
-    billing: ["create"],
-    beds: ["read"], // Can view bed status for patient care decisions
-    exports: ["create"],
   },
 }
 

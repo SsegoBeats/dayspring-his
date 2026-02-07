@@ -36,8 +36,8 @@ export async function GET() {
         FROM medications m
         LEFT JOIN medication_usage_analytics mua ON m.id = mua.medication_id 
           AND mua.period_start >= $1
-        WHERE m.stock_quantity > 0 OR COALESCE(SUM(mua.quantity_dispensed), 0) > 0
         GROUP BY m.id, m.name, m.category, m.unit_price, m.cost_price, m.stock_quantity, m.reorder_level, m.min_stock_level, m.max_stock_level
+        HAVING m.stock_quantity > 0 OR COALESCE(SUM(mua.quantity_dispensed), 0) > 0
         ORDER BY annual_consumption_value DESC
       `,
       [twelveMonthsAgo.toISOString().split("T")[0]],

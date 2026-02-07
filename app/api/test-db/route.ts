@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/security"
 import { Pool } from "pg"
 
 export async function GET() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (auth.role !== "Hospital Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
   let pool: Pool | null = null
 
   try {

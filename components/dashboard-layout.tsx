@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useEffect, useState } from "react"
+import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { LogOut, Hospital, Bell } from "lucide-react"
@@ -25,8 +25,10 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       admin: "Hospital Admin",
       cashier: "Cashier",
       pharmacist: "Pharmacist",
+      midwife: "Midwife",
+      dentist: "Dentist",
     }
-    return roleMap[role] || role
+    return roleMap[(role || "").toLowerCase()] || role
   }
 
   return (
@@ -64,11 +66,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 }
 
 function NotificationsBell() {
-  const [open, setOpen] = (require('react') as any).useState(false)
-  const [items, setItems] = (require('react') as any).useState<any[]>([])
-  const [loading, setLoading] = (require('react') as any).useState(false)
-  const [unread, setUnread] = (require('react') as any).useState(0)
-  const [filter, setFilter] = (require('react') as any).useState<'all'|'unread'|'lab'>('all')
+  const [open, setOpen] = useState(false)
+  const [items, setItems] = useState<any[]>([])
+  const [loading, setLoading] = useState(false)
+  const [unread, setUnread] = useState(0)
+  const [filter, setFilter] = useState<'all'|'unread'|'lab'>('all')
   const load = async () => {
     try {
       setLoading(true)
@@ -81,8 +83,8 @@ function NotificationsBell() {
       }
     } finally { setLoading(false) }
   }
-  ;(require('react') as any).useEffect(() => { load() }, [])
-  ;(require('react') as any).useEffect(() => {
+  useEffect(() => { load() }, [])
+  useEffect(() => {
     const id = setInterval(() => { load().catch(()=>{}) }, 30000)
     return () => clearInterval(id)
   }, [])
@@ -273,7 +275,7 @@ function AdminDeletionWatcher({ userRole }: { userRole?: string }) {
   const isAdmin = (userRole || '').toLowerCase() === 'hospital admin' || (userRole || '').toLowerCase() === 'admin'
 
   // Function to open dialog with a specific request
-  const openDialog = (require('react') as any).useCallback(async (requestId: string) => {
+  const openDialog = useCallback(async (requestId: string) => {
     try {
       const res = await fetch(`/api/patient-deletions?status=Pending`, { credentials: 'include' })
       if (!res.ok) return

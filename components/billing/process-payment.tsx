@@ -9,9 +9,10 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, CreditCard } from "lucide-react"
+import { ArrowLeft, CreditCard, Loader2 } from "lucide-react"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { ReceiptPrinter } from "@/components/receipt-printer"
+import { toast } from "sonner"
 
 interface ProcessPaymentProps {
   billId: string
@@ -20,7 +21,7 @@ interface ProcessPaymentProps {
 
 export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const formatCurrency = useFormatCurrency()
-  const { getBill, updateBill } = useBilling()
+  const { getBill, updateBill, refreshBills } = useBilling()
   const { getPatient } = usePatients()
   const bill = getBill(billId)
   const patient = bill ? getPatient(bill.patientId) : null
@@ -28,6 +29,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const [paymentMethod, setPaymentMethod] = useState("")
   const [notes, setNotes] = useState("")
   const [showReceipt, setShowReceipt] = useState(false)
+  const [processing, setProcessing] = useState(false)
 
   if (!bill) {
     return (
@@ -42,20 +44,42 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
     )
   }
 
-  const handleProcessPayment = () => {
+  const handleProcessPayment = async () => {
     if (!paymentMethod) {
-      alert("Please select a payment method")
+      toast.error("Please select a payment method")
       return
     }
 
-    updateBill(bill.id, {
-      status: "paid",
-      paymentMethod,
-      paymentDate: new Date().toISOString().split("T")[0],
-      notes,
-    })
-
-    setShowReceipt(true)
+    setProcessing(true)
+    try {
+      const res = await fetch(`/api/billing/${bill.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "Paid",
+          paymentMethod,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || "Failed to process payment")
+        return
+      }
+      updateBill(bill.id, {
+        status: "paid",
+        paymentMethod,
+        paymentDate: new Date().toISOString().split("T")[0],
+        notes,
+      })
+      await refreshBills()
+      toast.success("Payment processed successfully")
+      setShowReceipt(true)
+    } catch {
+      toast.error("Failed to process payment")
+    } finally {
+      setProcessing(false)
+    }
   }
 
   if (showReceipt) {
@@ -63,7 +87,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
       <ReceiptPrinter
         receiptNumber={bill.billNumber || bill.id}
         patientName={bill.patientName}
-        patientNumber={bill.patientId}
+        patientNumber={patient?.patientNumber ?? bill.patientId}
         items={bill.items}
         subtotal={bill.subtotal}
         tax={bill.tax}
@@ -181,10 +205,6 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                 <span className="text-muted-foreground">Subtotal:</span>
                 <span className="text-foreground">{formatCurrency(bill.subtotal)}</span>
               </div>
-              <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Tax (10%):</span>
-                <span className="text-foreground">{formatCurrency(bill.tax)}</span>
-              </div>
               <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
                 <span className="text-foreground">Total:</span>
                 <span className="text-foreground">{formatCurrency(bill.total)}</span>
@@ -221,9 +241,13 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                 />
               </div>
 
-              <Button onClick={handleProcessPayment} className="w-full">
-                <CreditCard className="mr-2 h-4 w-4" />
-                Process Payment - {formatCurrency(bill.total)}
+              <Button onClick={handleProcessPayment} className="w-full" disabled={processing}>
+                {processing ? (
+                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                ) : (
+                  <CreditCard className="mr-2 h-4 w-4" />
+                )}
+                {processing ? "Processing..." : `Process Payment - ${formatCurrency(bill.total)}`}
               </Button>
             </div>
           )}

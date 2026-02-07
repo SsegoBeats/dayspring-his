@@ -35,8 +35,8 @@ export default function SettingsPage() {
     if (settingsRoute) {
       router.replace(settingsRoute)
     } else {
-      // Fallback to admin settings for unknown roles
-      router.replace("/admin/settings")
+      // Safe default for unknown roles: profile/preferences (doctor settings has same structure)
+      router.replace("/doctor/settings")
     }
   }, [user, isLoading, router])
 

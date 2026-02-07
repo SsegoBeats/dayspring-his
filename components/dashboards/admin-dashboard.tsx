@@ -1,9 +1,7 @@
 "use client"
 
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { Input } from "@/components/ui/input"
-import { Button } from "@/components/ui/button"
-import { Search, RefreshCw, Download, LayoutDashboard, Users as UsersIcon, BedDouble, IdCard, BarChart3, ScrollText } from "lucide-react"
+import { LayoutDashboard, Users as UsersIcon, BedDouble, IdCard, BarChart3, ScrollText } from "lucide-react"
 import { SystemOverview } from "@/components/admin/system-overview"
 import { UserManagement } from "@/components/admin/user-management"
 import { FinancialReports } from "@/components/analytics/financial-reports"
@@ -14,17 +12,9 @@ import { AdminPatientManagement } from "@/components/admin/admin-patient-managem
 export function AdminDashboard() {
   return (
     <div className="space-y-6">
-      <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-        <div>
-          <h2 className="text-3xl font-semibold tracking-tight text-sky-900">Hospital Admin Dashboard</h2>
-          <p className="text-sm text-muted-foreground">Monitor operations, staff, beds, and finances from one control center.</p>
-        </div>
-        <div className="flex w-full flex-col gap-2 sm:flex-row sm:items-center sm:justify-end">
-          <div className="relative w-full max-w-xs">
-            <Search className="pointer-events-none absolute left-2 top-2.5 h-4 w-4 text-muted-foreground" />
-            <Input className="pl-8 h-9" placeholder="Search patients, staff, invoices..." />
-          </div>
-        </div>
+      <div>
+        <h2 className="text-3xl font-semibold tracking-tight text-sky-900">Hospital Admin Dashboard</h2>
+        <p className="text-sm text-muted-foreground">Monitor operations, staff, beds, and finances from one control center.</p>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">

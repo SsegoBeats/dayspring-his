@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -15,6 +15,7 @@ import { ReorderSuggestions } from "@/components/pharmacy/reorder-suggestions"
 import { StockTaking } from "@/components/pharmacy/stock-taking"
 import { UsageAnalytics } from "@/components/pharmacy/usage-analytics"
 import { ABCAnalysis } from "@/components/pharmacy/abc-analysis"
+import { NonMedicationInventory } from "@/components/pharmacy/non-medication-inventory"
 import {
   Pill,
   Clock,
@@ -46,13 +47,38 @@ export function PharmacistDashboard() {
     items: { description: string; quantity: number }[]
     billStatus: string
   } | null>(null)
-  const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc">("prescriptions")
+  const [tab, setTab] = useState<"prescriptions" | "inventory" | "non-medication" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc">("prescriptions")
+  const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
+  const scanInputRef = useRef<HTMLInputElement>(null)
+
+  // Auto-refresh metrics every 30 seconds
+  useEffect(() => {
+    const interval = setInterval(() => {
+      setLastRefresh(new Date())
+      // Force re-render by updating timestamp
+    }, 30000) // 30 seconds
+
+    return () => clearInterval(interval)
+  }, [])
+
+  // Auto-focus scan input when prescriptions tab is active
+  useEffect(() => {
+    if (tab === "prescriptions" && scanInputRef.current && !selectedPrescriptionId) {
+      scanInputRef.current.focus()
+    }
+  }, [tab, selectedPrescriptionId])
 
   const activePrescriptions = prescriptions.filter((p) => p.status === "active")
   const completedPrescriptions = prescriptions.filter((p) => p.status === "completed")
   const lowStockMeds = getLowStockMedications()
   const expiringSoon = getExpiringMedications(90)
   const outOfStock = medications.filter((m) => m.stockQuantity <= 0)
+  
+  // Refresh data when lastRefresh changes
+  useEffect(() => {
+    // Data will refresh automatically via context updates
+    // This effect ensures metrics are recalculated
+  }, [lastRefresh, prescriptions, medications])
 
   const handleScan = async () => {
     setScanError(null)
@@ -90,8 +116,17 @@ export function PharmacistDashboard() {
         items,
         billStatus: String(bill.status || "").toLowerCase(),
       })
+      // Clear input and refocus for next scan
+      setScanValue("")
+      setTimeout(() => {
+        scanInputRef.current?.focus()
+      }, 100)
     } catch {
       setScanError("Error decoding or fetching bill")
+      // Refocus on error so user can retry
+      setTimeout(() => {
+        scanInputRef.current?.focus()
+      }, 100)
     } finally {
       setScanLoading(false)
     }
@@ -246,6 +281,7 @@ export function PharmacistDashboard() {
               </p>
               <div className="flex flex-col gap-2 md:flex-row md:items-center">
                 <Input
+                  ref={scanInputRef}
                   placeholder="Scan QR/barcode or paste bill token"
                   value={scanValue}
                   onChange={(e) => setScanValue(e.target.value)}
@@ -255,6 +291,7 @@ export function PharmacistDashboard() {
                       handleScan()
                     }
                   }}
+                  autoFocus={tab === "prescriptions"}
                 />
                 <Button variant="outline" size="sm" onClick={handleScan} disabled={scanLoading}>
                   {scanLoading ? "Loading..." : "Load bill"}
@@ -317,6 +354,10 @@ export function PharmacistDashboard() {
 
         <TabsContent value="inventory">
           <MedicationInventory />
+        </TabsContent>
+
+        <TabsContent value="non-medication">
+          <NonMedicationInventory />
         </TabsContent>
 
         <TabsContent value="valuation">

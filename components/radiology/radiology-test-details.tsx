@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Save, XCircle } from "lucide-react"
+import { toast } from "sonner"
 
 interface RadiologyTestDetailsProps {
   testId: string
@@ -54,7 +55,7 @@ export function RadiologyTestDetails({ testId, onBack }: RadiologyTestDetailsPro
       results,
       notes,
     })
-    alert("Scan results submitted successfully!")
+    toast.success("Scan results submitted successfully!")
     onBack()
   }
 
@@ -74,7 +75,7 @@ export function RadiologyTestDetails({ testId, onBack }: RadiologyTestDetailsPro
     updateLabResult(test.id, {
       status: "cancelled",
     })
-    alert("Scan cancelled")
+    toast.success("Scan cancelled")
     onBack()
   }
 

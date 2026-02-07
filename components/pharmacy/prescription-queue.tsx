@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import type { Prescription } from "@/lib/medical-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -22,6 +22,23 @@ export function PrescriptionQueue({
   emptyMessage,
 }: PrescriptionQueueProps) {
   const [query, setQuery] = useState("")
+  const searchInputRef = useRef<HTMLInputElement>(null)
+
+  // Keyboard shortcut: Ctrl+K or / to focus search
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (
+        (e.key === "k" && (e.ctrlKey || e.metaKey)) ||
+        (e.key === "/" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement))
+      ) {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [])
 
   const normalizedQuery = query.trim().toLowerCase()
   const filtered = prescriptions.filter((p) => {
@@ -46,7 +63,8 @@ export function PrescriptionQueue({
           <div className="relative w-full max-w-sm">
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
-              placeholder="Filter by patient, clinician, or medication"
+              ref={searchInputRef}
+              placeholder="Filter by patient, clinician, or medication (Ctrl+K or /)"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
               className="pl-9"

@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useMemo, useState, useEffect, useRef } from "react"
 import type { Medication } from "@/lib/pharmacy-context"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -13,6 +13,8 @@ import { Search, AlertTriangle, Plus, Info, Barcode, Filter, Trash2 } from "luci
 import { useFormatCurrency } from "@/lib/settings-context"
 import { AddMedicationDialog } from "./add-medication-dialog"
 import { StockMovements } from "./stock-movements"
+import { MedicationBatches } from "./medication-batches"
+import { AdvancedSearchDialog, type AdvancedSearchFilters } from "./advanced-search-dialog"
 
 type ScanSummary = {
   name: string
@@ -45,6 +47,10 @@ export function MedicationInventory() {
   const [showHistory, setShowHistory] = useState(false)
   const [selectedMedication, setSelectedMedication] = useState<Medication | null>(null)
   const [isEditing, setIsEditing] = useState(false)
+  const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
+  const [advancedFilters, setAdvancedFilters] = useState<AdvancedSearchFilters>({})
+  const searchInputRef = useRef<HTMLInputElement>(null)
+  const barcodeInputRef = useRef<HTMLInputElement>(null)
   const [editForm, setEditForm] = useState<{
     name: string
     category: string
@@ -62,6 +68,39 @@ export function MedicationInventory() {
 
   const lowStockMeds = getLowStockMedications()
   const expiringSoonSet = new Set(getExpiringMedications(30).map((m) => m.id))
+
+  // Auto-focus barcode input when scan mode is enabled
+  useEffect(() => {
+    if (scanMode && barcodeInputRef.current) {
+      barcodeInputRef.current.focus()
+    }
+  }, [scanMode])
+
+  // Keyboard shortcuts
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // Ctrl+K or / to focus search (when not in input/textarea)
+      if (
+        (e.key === "k" && (e.ctrlKey || e.metaKey)) ||
+        (e.key === "/" && !(e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement))
+      ) {
+        e.preventDefault()
+        searchInputRef.current?.focus()
+      }
+      // Escape to close sheet/dialog
+      if (e.key === "Escape" && !isEditing) {
+        if (selectedMedication) {
+          closeDetails()
+        }
+        if (showAddDialog) {
+          setShowAddDialog(false)
+        }
+      }
+    }
+
+    window.addEventListener("keydown", handleKeyDown)
+    return () => window.removeEventListener("keydown", handleKeyDown)
+  }, [selectedMedication, showAddDialog, isEditing])
 
   const classifyStock = (med: Medication): StockFilter => {
     if (med.stockQuantity <= 0) return "out"
@@ -92,6 +131,39 @@ export function MedicationInventory() {
 
         if (!matchesSearch) return false
 
+        // Advanced filters
+        if (advancedFilters.name && !med.name.toLowerCase().includes(advancedFilters.name.toLowerCase())) {
+          return false
+        }
+        if (advancedFilters.category && med.category !== advancedFilters.category) {
+          return false
+        }
+        if (advancedFilters.manufacturer && med.manufacturer !== advancedFilters.manufacturer) {
+          return false
+        }
+        if (advancedFilters.minStock !== undefined && med.stockQuantity < advancedFilters.minStock) {
+          return false
+        }
+        if (advancedFilters.maxStock !== undefined && med.stockQuantity > advancedFilters.maxStock) {
+          return false
+        }
+        if (advancedFilters.minPrice !== undefined && med.unitPrice < advancedFilters.minPrice) {
+          return false
+        }
+        if (advancedFilters.maxPrice !== undefined && med.unitPrice > advancedFilters.maxPrice) {
+          return false
+        }
+        if (advancedFilters.expiryBefore) {
+          if (!med.expiryDate) return false
+          if (new Date(med.expiryDate) > new Date(advancedFilters.expiryBefore)) return false
+        }
+        if (advancedFilters.hasBarcode === true && !med.barcode) {
+          return false
+        }
+        if (advancedFilters.hasBarcode === false && med.barcode) {
+          return false
+        }
+
         if (filterLowStock && med.stockQuantity > med.reorderLevel) return false
 
         const sClass = classifyStock(med)
@@ -121,7 +193,7 @@ export function MedicationInventory() {
             return 0
         }
       })
-  }, [medications, searchQuery, filterLowStock, stockFilter, expiryFilter, sortKey])
+  }, [medications, searchQuery, filterLowStock, stockFilter, expiryFilter, sortKey, advancedFilters])
 
   const totalPages = Math.max(1, Math.ceil(normalized.length / pageSize))
   const pageClamped = Math.min(page, totalPages - 1)
@@ -196,6 +268,7 @@ export function MedicationInventory() {
     const qty = Number.parseInt(scanQty || "0", 10)
     if (!code) {
       setScanError("Scan or enter a barcode first.")
+      barcodeInputRef.current?.focus()
       return
     }
     if (!Number.isFinite(qty) || qty <= 0) {
@@ -207,6 +280,8 @@ export function MedicationInventory() {
       medications.find((m) => m.name.toLowerCase() === code.toLowerCase())
     if (!med) {
       setScanError("No medication found for this barcode. Use Add Medication to register it.")
+      setScanCode("")
+      barcodeInputRef.current?.focus()
       return
     }
     const newQty = med.stockQuantity + qty
@@ -232,7 +307,12 @@ export function MedicationInventory() {
     })()
     setScanSummary({ name: med.name, quantity: qty, newStock: newQty })
     setScanMessage(`Received ${qty} units into ${med.name}. New stock: ${newQty}.`)
+    setScanCode("")
     setScanQty("")
+    // Refocus barcode input for next scan
+    setTimeout(() => {
+      barcodeInputRef.current?.focus()
+    }, 100)
   }
 
   const handleExport = async (format: "xlsx" | "pdf") => {
@@ -290,10 +370,18 @@ export function MedicationInventory() {
                 <div className="relative">
                   <Barcode className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
+                    ref={barcodeInputRef}
                     placeholder="Scan medication barcode or enter code manually"
                     value={scanCode}
                     onClick={(e) => (e.currentTarget as HTMLInputElement).select()}
                     onChange={(e) => setScanCode(e.target.value)}
+                    onKeyDown={(e) => {
+                      if (e.key === "Enter") {
+                        e.preventDefault()
+                        handleReceiveStock()
+                      }
+                    }}
+                    autoFocus={scanMode}
                     className="pl-9"
                   />
                 </div>
@@ -338,7 +426,8 @@ export function MedicationInventory() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by name, category, manufacturer, or barcode"
+                ref={searchInputRef}
+                placeholder="Search by name, category, manufacturer, or barcode (Ctrl+K or /)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -354,15 +443,32 @@ export function MedicationInventory() {
                 Low Stock ({lowStockMeds.length})
               </Button>
               <Button
-                variant={stockFilter !== "all" || expiryFilter !== "all" ? "default" : "outline"}
+                variant={Object.keys(advancedFilters).length > 0 ? "default" : "outline"}
+                size="sm"
+                onClick={() => setShowAdvancedSearch(true)}
+              >
+                <Filter className="mr-2 h-4 w-4" />
+                Advanced
+                {Object.keys(advancedFilters).length > 0 && ` (${Object.keys(advancedFilters).length})`}
+              </Button>
+              <Button
+                variant={
+                  stockFilter !== "all" ||
+                  expiryFilter !== "all" ||
+                  filterLowStock ||
+                  Object.keys(advancedFilters).length > 0
+                    ? "default"
+                    : "outline"
+                }
                 size="sm"
                 className="flex items-center gap-1"
                 onClick={() => {
                   setStockFilter("all")
                   setExpiryFilter("all")
+                  setFilterLowStock(false)
+                  setAdvancedFilters({})
                 }}
               >
-                <Filter className="h-4 w-4" />
                 Clear filters
               </Button>
               <Button
@@ -643,6 +749,12 @@ export function MedicationInventory() {
       </Card>
 
       <AddMedicationDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <AdvancedSearchDialog
+        open={showAdvancedSearch}
+        onOpenChange={setShowAdvancedSearch}
+        onApply={setAdvancedFilters}
+        currentFilters={advancedFilters}
+      />
 
       <div className="mt-6 flex items-center justify-between">
         <h3 className="text-sm font-medium text-muted-foreground">Stock history</h3>
@@ -819,8 +931,11 @@ export function MedicationInventory() {
                   </div>
                 </div>
               )}
-              <div className="mt-4 border-t pt-3">
-                <StockMovements medicationId={selectedMedication.id} />
+              <div className="mt-4 space-y-4 border-t pt-4">
+                <MedicationBatches medicationId={selectedMedication.id} medicationName={selectedMedication.name} />
+                <div className="border-t pt-4">
+                  <StockMovements medicationId={selectedMedication.id} />
+                </div>
               </div>
             </>
           )}

@@ -1,13 +1,38 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2, XCircle, Loader2, AlertTriangle } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
 
 export default function RunMigrationsPage() {
+  const router = useRouter()
+  const { user, isLoading } = useAuth()
   const [running, setRunning] = useState(false)
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!user) {
+      router.push("/")
+      return
+    }
+    const role = (user.role || "").toLowerCase()
+    if (role !== "hospital admin" && role !== "admin") {
+      router.push("/dashboard")
+      return
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
   const [result, setResult] = useState<any>(null)
 
   const runMigrations = async () => {

@@ -11,11 +11,34 @@ export async function GET() {
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "pharmacy", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-    // Calculate inventory valuation
-    const { rows: valuationRows } = await queryWithSession(
-      { role: auth.role, userId: auth.userId },
-      `SELECT * FROM calculate_inventory_valuation()`,
-    )
+    // Calculate inventory valuation. The DB function should exist, but fall back to
+    // an inline aggregate in case the function is missing in the deployed schema.
+    let valuationRows: any[] = []
+    try {
+      const res = await queryWithSession(
+        { role: auth.role, userId: auth.userId },
+        `SELECT * FROM calculate_inventory_valuation()`,
+      )
+      valuationRows = res.rows
+    } catch (err) {
+      const fallback = await queryWithSession(
+        { role: auth.role, userId: auth.userId },
+        `
+          SELECT 
+            COALESCE(SUM(m.stock_quantity * COALESCE(m.cost_price, 0)), 0)::NUMERIC AS total_cost_value,
+            COALESCE(SUM(m.stock_quantity * m.unit_price), 0)::NUMERIC AS total_selling_value,
+            CASE 
+              WHEN COALESCE(SUM(m.stock_quantity * COALESCE(m.cost_price, 0)), 0) > 0 
+              THEN ((COALESCE(SUM(m.stock_quantity * m.unit_price), 0) - COALESCE(SUM(m.stock_quantity * COALESCE(m.cost_price, 0)), 0)) / COALESCE(SUM(m.stock_quantity * COALESCE(m.cost_price, 0)), 1)) * 100
+              ELSE 0
+            END::NUMERIC AS total_profit_margin,
+            COUNT(*)::BIGINT AS medication_count
+          FROM medications m
+          WHERE m.stock_quantity > 0
+        `,
+      )
+      valuationRows = fallback.rows
+    }
 
     // Get breakdown by category
     const { rows: categoryRows } = await queryWithSession(

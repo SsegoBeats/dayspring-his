@@ -68,12 +68,25 @@ export async function POST(req: Request) {
   }
 
   const hash = await hashPassword(input.password)
-  const { rows } = await query<{ id: string }>(
-    `INSERT INTO users (email, password_hash, name, role, is_active, email_verified_at) VALUES ($1,$2,$3,$4,true,NULL) RETURNING id`,
-    [input.email, hash, input.name, input.role],
-  )
-
-  const userId = rows[0].id
+  
+  let userId: string
+  try {
+    const { rows } = await query<{ id: string }>(
+      `INSERT INTO users (email, password_hash, name, role, is_active, email_verified_at) VALUES ($1,$2,$3,$4,true,NULL) RETURNING id`,
+      [input.email, hash, input.name, input.role],
+    )
+    userId = rows[0].id
+  } catch (error: any) {
+    // Handle duplicate email error
+    if (error?.code === "23505" && error?.constraint === "users_email_key") {
+      return NextResponse.json(
+        { error: "Email already exists", details: `A user with email ${input.email} already exists. Please use a different email address.` },
+        { status: 409 }
+      )
+    }
+    // Re-throw other errors
+    throw error
+  }
 
   // Generate OTP code for email verification
   const crypto = await import('crypto')

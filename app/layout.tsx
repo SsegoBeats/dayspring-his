@@ -36,6 +36,10 @@ export const metadata: Metadata = {
   description: "Hospital Information System for Dayspring Medical Center",
   generator: "v0.app",
   manifest: "/manifest.webmanifest",
+  icons: {
+    icon: "/logo0.png",
+    apple: "/logo0.png",
+  },
 }
 
 export default function RootLayout({
