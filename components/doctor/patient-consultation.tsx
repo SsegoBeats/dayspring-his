@@ -15,6 +15,7 @@ import { formatPatientNumber } from "@/lib/patients"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { OrderLabTest } from "@/components/doctor/order-lab-test"
 import { useLab } from "@/lib/lab-context"
+import { toast } from "sonner"
 
 interface PatientConsultationProps {
   patientId: string
@@ -156,7 +157,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
       oxygenSaturation: "",
     })
 
-    alert("Consultation saved successfully!")
+    toast.success("Consultation saved successfully!")
   }
 
   const handleSavePrescription = () => {
@@ -165,7 +166,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
     const validMedications = prescriptionForm.medications.filter((med) => med.name && med.dosage)
 
     if (validMedications.length === 0) {
-      alert("Please add at least one medication")
+      toast.error("Please add at least one medication")
       return
     }
 
@@ -213,7 +214,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
       ],
     })
 
-    alert("Prescription saved successfully!")
+    toast.success("Prescription saved successfully!")
   }
 
   const handleSaveObstetricAssessment = async () => {
@@ -242,9 +243,9 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || "Failed to save assessment")
       }
-      alert("Obstetric assessment saved successfully.")
+      toast.success("Obstetric assessment saved successfully.")
     } catch (e: any) {
-      alert(e?.message || "Failed to save obstetric assessment")
+      toast.error(e?.message || "Failed to save obstetric assessment")
     }
   }
 
@@ -268,9 +269,9 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
         const data = await res.json().catch(() => ({}))
         throw new Error(data.error || "Failed to save dental record")
       }
-      alert("Dental record saved successfully.")
+      toast.success("Dental record saved successfully.")
     } catch (e: any) {
-      alert(e?.message || "Failed to save dental record")
+      toast.error(e?.message || "Failed to save dental record")
     }
   }
 

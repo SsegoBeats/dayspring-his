@@ -16,6 +16,7 @@ import { Badge } from "@/components/ui/badge"
 import { formatPatientNumber } from "@/lib/patients"
 import { ArrowLeft, Activity, FileText, AlertCircle } from "lucide-react"
 import { TriageForm } from "@/components/patient/triage-form"
+import { toast } from "sonner"
 
 interface PatientCareViewProps {
   patientId: string
@@ -155,7 +156,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
       notes: vitalsForm.notes,
     })
     setVitalsForm({ bloodPressure: "", temperature: "", heartRate: "", respiratoryRate: "", oxygenSaturation: "", weight: "", height: "", notes: "" })
-    alert("Vital signs recorded successfully!")
+    toast.success("Vital signs recorded successfully!")
   }
   const handleSaveVitals = (e: React.FormEvent) => { e.preventDefault(); commitVitals() }
 
@@ -172,7 +173,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
       note: noteForm.note,
     })
     setNoteForm({ category: "observation", note: "" })
-    alert("Nursing note added successfully!")
+    toast.success("Nursing note added successfully!")
   }
   const handleSaveNote = (e: React.FormEvent) => { e.preventDefault(); commitNote() }
 

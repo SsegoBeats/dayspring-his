@@ -15,6 +15,7 @@ A production-grade Next.js (App Router) HIS with secure Postgres backend, RBAC +
   - `JWT_SECRET=<strong-random-32+>`
 - App
   - `NEXT_PUBLIC_APP_URL=http://localhost:3000`
+  - `NEXT_PUBLIC_ORG_PHONE` (optional) – Contact phone shown on receipts and in emails; defaults to "See reception for contact details" if not set
 - Email (SMTP/Resend optional)
   - `SMTP_HOST` `SMTP_PORT` `SMTP_SECURE` `SMTP_USER` `SMTP_PASS` `SMTP_FROM`
   - `RESEND_API_KEY` (optional)

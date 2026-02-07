@@ -7,6 +7,7 @@ import { useLab } from "@/lib/lab-context"
 import { LabTestQueue } from "@/components/lab/lab-test-queue"
 import { LabTestDetails } from "@/components/lab/lab-test-details"
 import { TestTube, Clock, CheckCircle, XCircle } from "lucide-react"
+import { toast } from "sonner"
 
 export function LabTechDashboard() {
   const { tests, refresh, loading } = useLab()
@@ -268,7 +269,7 @@ function ExportLabsForm() {
             a.download = `labs-analytes-${new Date().toISOString().slice(0,10)}.csv`
             document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(obj)
           } catch (e:any) {
-            alert(e?.message || 'CSV export failed')
+            toast.error(e?.message || 'CSV export failed')
           }
         }}>Analytes CSV</button>
       </div>

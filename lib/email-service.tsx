@@ -618,7 +618,7 @@ export const emailTemplates = {
                     <!-- Location -->
                     <p style="margin: 0 0 32px 0; color: #374151; font-size: 14px; line-height: 20px;">
                       <strong>📍 Location:</strong> Dayspring Medical Center<br>
-                      <strong>📞 Contact:</strong> +256 XXX XXX XXX
+                      <strong>📞 Contact:</strong> ${process.env.NEXT_PUBLIC_ORG_PHONE || "See reception for contact details"}
                     </p>
                     
                     <!-- Support -->

@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/security"
 import { Pool } from "pg"
 
 const pool = new Pool({
@@ -968,6 +970,12 @@ CREATE POLICY documents_rw ON documents FOR ALL USING (current_setting('app.role
 `
 
 export async function GET() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (auth.role !== "Hospital Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
   const client = await pool.connect()
 
   try {

@@ -13,6 +13,7 @@ import { ProcessPayment } from "@/components/billing/process-payment"
 import { CreateBill } from "@/components/billing/create-bill"
 import { FinancialReports } from "@/components/analytics/financial-reports"
 import { DollarSign, Clock, CheckCircle, Receipt } from "lucide-react"
+import { useFormatCurrency } from "@/lib/settings-context"
 
 export function CashierDashboard() {
   const { bills, getPendingBills } = useBilling()
@@ -94,7 +95,7 @@ export function CashierDashboard() {
             <DollarSign className="h-4 w-4 text-sky-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">${todayRevenue.toFixed(2)}</div>
+            <div className="text-3xl font-semibold text-slate-900">{formatCurrency(todayRevenue)}</div>
             <p className="text-xs text-slate-700/80">Collected today</p>
           </CardContent>
         </Card>

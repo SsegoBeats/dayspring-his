@@ -1,12 +1,15 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { usePatients, PatientProvider } from "@/lib/patient-context"
+import { useAuth } from "@/lib/auth-context"
+import { toast } from "sonner"
 
 type Doctor = { id: string; name: string; email: string; role: string }
 type Slot = { time: string; capacity: number; available: number }
@@ -20,6 +23,8 @@ export default function BookAppointmentPage() {
 }
 
 function BookAppointmentInner() {
+  const router = useRouter()
+  const { user, isLoading } = useAuth()
   const { patients } = usePatients()
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [doctorId, setDoctorId] = useState("")
@@ -28,6 +33,14 @@ function BookAppointmentInner() {
   const [slots, setSlots] = useState<Slot[]>([])
   const [loading, setLoading] = useState(false)
   const [booking, setBooking] = useState(false)
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!user) {
+      router.push("/")
+      return
+    }
+  }, [user, isLoading, router])
 
   useEffect(() => {
     ;(async () => {
@@ -40,6 +53,14 @@ function BookAppointmentInner() {
       } catch {}
     })()
   }, [])
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
 
   const loadSlots = async () => {
     if (!doctorId || !date) return
@@ -76,11 +97,11 @@ function BookAppointmentInner() {
       }
       const res = await fetch("/api/appointments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       if (res.ok) {
-        alert(`Booked ${patient ? patient.firstName + " " + patient.lastName : patientId} with ${doctor?.name || "Doctor"} on ${date} at ${time}`)
+        toast.success(`Booked ${patient ? patient.firstName + " " + patient.lastName : patientId} with ${doctor?.name || "Doctor"} on ${date} at ${time}`)
         await loadSlots()
       } else {
         const err = await res.json().catch(() => ({}))
-        alert(`Booking failed: ${err.error || res.status}`)
+        toast.error(`Booking failed: ${err.error || res.status}`)
       }
     } finally {
       setBooking(false)

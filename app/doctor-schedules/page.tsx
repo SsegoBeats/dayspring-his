@@ -1,11 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
+import { useAuth } from "@/lib/auth-context"
+import { toast } from "sonner"
 
 type Doctor = { id: string; name: string }
 type Schedule = {
@@ -20,6 +23,8 @@ type Schedule = {
 }
 
 export default function DoctorSchedulesPage() {
+  const router = useRouter()
+  const { user, isLoading } = useAuth()
   const [doctors, setDoctors] = useState<Doctor[]>([])
   const [schedules, setSchedules] = useState<Schedule[]>([])
   const [doctorId, setDoctorId] = useState("")
@@ -41,8 +46,24 @@ export default function DoctorSchedulesPage() {
   }
 
   useEffect(() => {
+    if (isLoading) return
+    if (!user) {
+      router.push("/")
+      return
+    }
+  }, [user, isLoading, router])
+
+  useEffect(() => {
     void loadData()
   }, [])
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
 
   const save = async () => {
     if (!doctorId || day === undefined || !start || !end) return
@@ -58,8 +79,14 @@ export default function DoctorSchedulesPage() {
       }
       const res = await fetch("/api/doctor-schedules", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       if (res.ok) {
+        toast.success("Schedule saved successfully")
         await loadData()
+      } else {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || "Failed to save schedule")
       }
+    } catch {
+      toast.error("Failed to save schedule")
     } finally {
       setSaving(false)
     }

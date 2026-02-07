@@ -67,3 +67,47 @@ export async function GET(
   }
 }
 
+export async function PATCH(
+  req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    const auth = token ? verifyToken(token) : null
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, "billing", "update") && !can(auth.role, "payments", "update")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    const { id: billId } = await params
+    if (!billId) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+
+    const body = (await req.json().catch(() => ({}))) as {
+      status?: string
+      paymentMethod?: string
+    }
+    const status = (body.status || "Paid").toString()
+    const paymentMethod = body.paymentMethod || null
+
+    const { rowCount } = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `UPDATE bills SET
+         status = $1,
+         payment_method = COALESCE($2, payment_method),
+         paid_amount = final_amount,
+         paid_at = CURRENT_TIMESTAMP,
+         cashier_id = $3
+       WHERE id = $4`,
+      [status, paymentMethod, auth.userId, billId],
+    )
+
+    if (!rowCount || rowCount === 0) {
+      return NextResponse.json({ error: "Bill not found" }, { status: 404 })
+    }
+
+    return NextResponse.json({ ok: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: "Failed to update bill" }, { status: 500 })
+  }
+}
+

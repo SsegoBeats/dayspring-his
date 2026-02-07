@@ -20,7 +20,8 @@ interface ReceiptPrinterProps {
   patientNumber: string
   items: ReceiptItem[]
   subtotal: number
-  tax: number
+  /** @deprecated Tax line removed from receipt; prop kept for backward compatibility */
+  tax?: number
   total: number
   paymentMethod: string
   barcode: string
@@ -33,7 +34,6 @@ export function ReceiptPrinter({
   patientNumber,
   items,
   subtotal,
-  tax,
   total,
   paymentMethod,
   barcode,
@@ -59,7 +59,9 @@ export function ReceiptPrinter({
         <div className="text-center border-b-2 border-primary pb-4 mb-6">
           <h1 className="text-2xl font-bold text-primary">Dayspring Medical Center</h1>
           <p className="text-sm text-muted-foreground">Quality Healthcare for Everyone</p>
-          <p className="text-xs text-muted-foreground mt-1">Kampala, Uganda | Tel: +256 XXX XXX XXX</p>
+          <p className="text-xs text-muted-foreground mt-1">
+            Kampala, Uganda | Tel: {process.env.NEXT_PUBLIC_ORG_PHONE || "See reception for contact details"}
+          </p>
         </div>
 
         {/* Receipt Type */}
@@ -117,10 +119,6 @@ export function ReceiptPrinter({
           <div className="flex justify-between">
             <span className="text-muted-foreground">Subtotal:</span>
             <span>{formatCurrency(subtotal)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-muted-foreground">Tax (18%):</span>
-            <span>{formatCurrency(tax)}</span>
           </div>
           <div className="flex justify-between text-lg font-bold border-t-2 pt-2">
             <span>TOTAL PAID:</span>

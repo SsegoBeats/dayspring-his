@@ -1,22 +1,41 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { CheckCircle2, XCircle, Loader2 } from "lucide-react"
 
 export default function TestConnectionPage() {
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
   const [testing, setTesting] = useState(false)
   const [result, setResult] = useState<any>(null)
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!user) {
+      router.replace("/")
+      return
+    }
+    if (user.role !== "Hospital Admin") {
+      router.replace("/dashboard")
+    }
+  }, [user, isLoading, router])
 
   const testConnection = async () => {
     setTesting(true)
     setResult(null)
 
     try {
-      const response = await fetch("/api/test-db")
+      const response = await fetch("/api/test-db", { credentials: "include" })
       const data = await response.json()
+      if (!response.ok) {
+        setResult({ success: false, error: data.error || "Request failed", details: data.details })
+        return
+      }
       setResult(data)
     } catch (error) {
       setResult({
@@ -27,6 +46,17 @@ export default function TestConnectionPage() {
     } finally {
       setTesting(false)
     }
+  }
+
+  if (isLoading || !user) {
+    return (
+      <div className="min-h-screen bg-background flex items-center justify-center">
+        <p className="text-muted-foreground">Checking access...</p>
+      </div>
+    )
+  }
+  if (user.role !== "Hospital Admin") {
+    return null
   }
 
   return (

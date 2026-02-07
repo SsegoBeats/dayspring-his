@@ -1,11 +1,18 @@
 import { query } from "@/lib/db"
-import { notFound } from "next/navigation"
+import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
+import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/security"
 import { PrintButton } from "./PrintButton"
 
 export const dynamic = "force-dynamic"
 
 export async function generateMetadata({ params }: { params: Promise<{ id: string }> }): Promise<Metadata> {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth) return { title: "Patient Receipt" }
+
   const { id } = await params
   const { rows } = await query(`
     SELECT patient_number, first_name, last_name
@@ -23,6 +30,11 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
 }
 
 export default async function PatientReceiptPage({ params }: { params: Promise<{ id: string }> }) {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth) redirect("/")
+
   const { id } = await params
   const { rows } = await query(`
     SELECT id, patient_number, first_name, last_name, phone, created_at

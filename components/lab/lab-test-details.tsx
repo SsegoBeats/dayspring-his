@@ -12,6 +12,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Save, XCircle } from "lucide-react"
 import { BarcodeGenerator } from "@/components/barcode-generator"
 import { formatPatientNumber } from "@/lib/patients"
+import { toast } from "sonner"
 
 interface LabTestDetailsProps {
   testId: string
@@ -56,7 +57,7 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
       await fetch(`/api/lab-tests/${test.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ status: 'Completed', results, notes }) })
     } catch {}
     updateTest(test.id, { status: 'Completed' as any, completedAt: new Date().toISOString(), results, notes })
-    alert('Test results submitted successfully!')
+    toast.success('Test results submitted successfully!')
     onBack()
   }
 
@@ -147,7 +148,7 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                     body: JSON.stringify({ status: 'Completed', results: compiled, notes, resultJson: structured })
                   }).catch(()=>{})
                   updateTest(test.id, { status: 'Completed' as any, completedAt: new Date().toISOString(), results: compiled, resultJson: structured })
-                  alert('Test results submitted successfully!')
+                  toast.success('Test results submitted successfully!')
                   onBack()
                 }} className="flex-1">
                   <Save className="mr-2 h-4 w-4" />
