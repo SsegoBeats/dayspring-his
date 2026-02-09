@@ -32,6 +32,17 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const refreshSettings = async () => {
+    // Check if user has a session cookie before making request
+    const hasCookie = typeof document !== 'undefined' && 
+      /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
+    
+    if (!hasCookie) {
+      // No session cookie - user not authenticated, use defaults
+      setSettings(DEFAULT_SETTINGS)
+      setLoading(false)
+      return
+    }
+
     try {
       const res = await fetch("/api/settings/preferences", { credentials: "include" })
       if (res.ok) {
@@ -47,11 +58,21 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
         } else {
           setSettings(DEFAULT_SETTINGS)
         }
+      } else if (res.status === 401 || res.status === 403) {
+        // User not authenticated or no permission - use defaults silently
+        // This is expected for unauthenticated users, don't log as error
+        setSettings(DEFAULT_SETTINGS)
+      } else if (process.env.NODE_ENV === "development") {
+        console.warn("[SettingsContext] Failed to fetch preferences:", res.status, res.statusText)
+        setSettings(DEFAULT_SETTINGS)
       } else {
         setSettings(DEFAULT_SETTINGS)
       }
     } catch (error) {
-      console.error("Failed to fetch settings:", error)
+      // Only log in development to avoid console noise
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[SettingsContext] Error fetching preferences:", error)
+      }
       setSettings(DEFAULT_SETTINGS)
     } finally {
       setLoading(false)
@@ -59,7 +80,11 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
-    refreshSettings()
+    // Small delay to allow auth cookies to be set after login redirect
+    const timer = setTimeout(() => {
+      refreshSettings()
+    }, 100)
+    return () => clearTimeout(timer)
   }, [])
 
   return <SettingsContext.Provider value={{ settings, loading, refreshSettings }}>{children}</SettingsContext.Provider>

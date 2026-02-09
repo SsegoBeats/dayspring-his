@@ -43,10 +43,18 @@ export function ThemeSync() {
         // Prefer theme from settings context if already loaded to avoid extra fetches
         let userTheme: string | null = settings?.theme || null
         if (!userTheme) {
-          const response = await fetch("/api/settings/preferences", { credentials: "include" })
-          if (response.ok) {
-            const data = await response.json()
-            userTheme = data.preferences?.theme || "system"
+          try {
+            const response = await fetch("/api/settings/preferences", { credentials: "include" })
+            if (response.ok) {
+              const data = await response.json()
+              userTheme = data.preferences?.theme || "system"
+            } else if (response.status === 401 || response.status === 403) {
+              // User not authenticated - use system theme silently
+              userTheme = "system"
+            }
+          } catch (err) {
+            // Silently fail - use system theme as fallback
+            userTheme = "system"
           }
         }
         if (!initialized && userTheme) {
