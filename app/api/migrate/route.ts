@@ -3,9 +3,55 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { Pool } from "pg"
 
+function parseConnectionString(connectionString: string): { connectionString: string; ssl?: any } {
+  try {
+    const url = new URL(connectionString)
+    const params = new URLSearchParams(url.search)
+    const sslMode = params.get("sslmode")
+    params.delete("sslmode") // Remove sslmode to avoid warning - we handle SSL via ssl option
+    url.search = params.toString()
+    const cleanConnectionString = url.toString()
+    
+    // Determine SSL configuration
+    let ssl: any = false
+    if (sslMode === "disable") {
+      ssl = false
+    } else if (process.env.NODE_ENV === "production") {
+      // For managed databases, often need to accept self-signed certs
+      const isCloudDb = url.hostname.includes(".vercel") || 
+                       url.hostname.includes(".aws") || 
+                       url.hostname.includes(".azure") ||
+                       url.hostname.includes(".cloud")
+      
+      if (sslMode === "verify-full") {
+        ssl = { rejectUnauthorized: true }
+      } else {
+        // Default for production: require SSL but allow self-signed (common for managed DBs)
+        ssl = { rejectUnauthorized: false }
+      }
+    } else {
+      ssl = false
+    }
+    
+    return { connectionString: cleanConnectionString, ssl }
+  } catch {
+    return {
+      connectionString,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    }
+  }
+}
+
+const connectionConfig = process.env.DATABASE_URL 
+  ? parseConnectionString(process.env.DATABASE_URL)
+  : { connectionString: process.env.DATABASE_URL || "", ssl: false }
+
 const pool = new Pool({
-  connectionString: process.env.DATABASE_URL,
-  ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+  connectionString: connectionConfig.connectionString,
+  ssl: connectionConfig.ssl,
+  // Add connection timeout to prevent hanging
+  connectionTimeoutMillis: 10000, // 10 seconds
+  query_timeout: 240000, // 4 minutes (less than Vercel's 5 minute limit)
 })
 
 const schema = `
@@ -981,6 +1027,9 @@ export async function GET() {
   try {
     console.log("[v0] Starting database migration...")
 
+    // Set a statement timeout to prevent hanging queries
+    await client.query("SET statement_timeout = '240s'") // 4 minutes (less than Vercel's 5 min limit)
+
     // Preflight: ensure legacy databases have critical columns before running full schema
     try { await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS role VARCHAR(50)") } catch {}
     try { await client.query("ALTER TABLE users ADD COLUMN IF NOT EXISTS is_active BOOLEAN DEFAULT true") } catch {}
@@ -999,9 +1048,23 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       message: "Database migration completed successfully.",
+      note: "For large databases, consider running migrations via CLI to avoid timeout limits.",
     })
   } catch (error: any) {
     console.error("[v0] Migration error:", error)
+    
+    // Check if it's a timeout error
+    if (error.message?.includes("timeout") || error.code === "ETIMEDOUT") {
+      return NextResponse.json(
+        {
+          success: false,
+          error: "Migration timed out. For large databases, please run migrations via CLI or split into smaller batches.",
+          details: error.message,
+        },
+        { status: 504 },
+      )
+    }
+    
     return NextResponse.json(
       {
         success: false,

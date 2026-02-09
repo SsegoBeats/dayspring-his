@@ -3,6 +3,45 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { Pool } from "pg"
 
+function parseConnectionString(connectionString: string): { connectionString: string; ssl?: any } {
+  try {
+    const url = new URL(connectionString)
+    const params = new URLSearchParams(url.search)
+    const sslMode = params.get("sslmode")
+    params.delete("sslmode") // Remove sslmode to avoid warning - we handle SSL via ssl option
+    url.search = params.toString()
+    const cleanConnectionString = url.toString()
+    
+    // Determine SSL configuration
+    let ssl: any = false
+    if (sslMode === "disable") {
+      ssl = false
+    } else if (process.env.NODE_ENV === "production") {
+      // For managed databases, often need to accept self-signed certs
+      const isCloudDb = url.hostname.includes(".vercel") || 
+                       url.hostname.includes(".aws") || 
+                       url.hostname.includes(".azure") ||
+                       url.hostname.includes(".cloud")
+      
+      if (sslMode === "verify-full") {
+        ssl = { rejectUnauthorized: true }
+      } else {
+        // Default for production: require SSL but allow self-signed (common for managed DBs)
+        ssl = { rejectUnauthorized: false }
+      }
+    } else {
+      ssl = false
+    }
+    
+    return { connectionString: cleanConnectionString, ssl }
+  } catch {
+    return {
+      connectionString,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+    }
+  }
+}
+
 export async function GET() {
   const cookieStore = await cookies()
   const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
@@ -26,10 +65,11 @@ export async function GET() {
       )
     }
 
-    // Create a connection pool
+    // Create a connection pool with proper SSL handling
+    const connectionConfig = parseConnectionString(databaseUrl)
     pool = new Pool({
-      connectionString: databaseUrl,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      connectionString: connectionConfig.connectionString,
+      ssl: connectionConfig.ssl,
     })
 
     // Test the connection
