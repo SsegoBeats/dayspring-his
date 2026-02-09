@@ -17,6 +17,7 @@ import { useFormatCurrency } from "@/lib/settings-context"
 
 export function CashierDashboard() {
   const { bills, getPendingBills } = useBilling()
+  const formatCurrency = useFormatCurrency()
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
   const [showCreateBill, setShowCreateBill] = useState(false)
   const [view, setView] = useState<"dashboard" | "reports">("dashboard")
