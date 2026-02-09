@@ -11,9 +11,10 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ClipboardCheck, Plus, Check, X, Pill, Box } from "lucide-react"
+import { ClipboardCheck, Plus, Check, X, Pill, Box, AlertCircle, Info } from "lucide-react"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { useToast } from "@/hooks/use-toast"
+import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 
 type MedicationStockTaking = {
   id: string
@@ -382,7 +383,10 @@ export function StockTaking() {
           <div className="flex items-center justify-between">
             <div>
               <CardTitle>Stock Taking (Physical Inventory)</CardTitle>
-              <CardDescription>Record physical inventory counts and reconcile with system</CardDescription>
+              <CardDescription>
+                Record physical inventory counts and reconcile with system records. 
+                Stock taking helps identify discrepancies between actual stock and system records.
+              </CardDescription>
             </div>
             <div className="flex gap-2">
               <Button onClick={() => setShowMedicationDialog(true)} variant="outline">
@@ -497,7 +501,24 @@ export function StockTaking() {
               {error && nonMedicationStockTakings.length === 0 ? (
                 <p className="text-destructive">{error}</p>
               ) : nonMedicationStockTakings.length === 0 ? (
-                <p className="text-muted-foreground">No non-medication stock takings recorded yet.</p>
+                <div className="space-y-4">
+                  <p className="text-muted-foreground">No non-medication stock takings recorded yet.</p>
+                  {nonMedicationItems.length === 0 && (
+                    <Alert>
+                      <Info className="h-4 w-4" />
+                      <AlertTitle>Get started with stock taking</AlertTitle>
+                      <AlertDescription>
+                        <p className="mt-2">
+                          To perform stock taking, you first need to add non-medication items to your inventory. 
+                          Stock taking compares physical counts with system records for items that are already in the system.
+                        </p>
+                        <p className="mt-2 font-medium">
+                          Go to Non-Medication Inventory to add items, then return here to record stock counts.
+                        </p>
+                      </AlertDescription>
+                    </Alert>
+                  )}
+                </div>
               ) : (
                 <div className="rounded-md border">
                   <Table>
@@ -586,51 +607,69 @@ export function StockTaking() {
             <DialogTitle>New Medication Stock Taking</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleMedicationSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="medication">Medication *</Label>
-              <Select
-                value={medicationFormData.medicationId}
-                onValueChange={(value) => setMedicationFormData({ ...medicationFormData, medicationId: value })}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select medication" />
-                </SelectTrigger>
-                <SelectContent>
-                  {medications.map((med) => (
-                    <SelectItem key={med.id} value={med.id}>
-                      {med.name} ({med.category}) - System: {med.stockQuantity} units
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="recordedQuantity">Recorded Quantity (Physical Count) *</Label>
-              <Input
-                id="recordedQuantity"
-                type="number"
-                value={medicationFormData.recordedQuantity}
-                onChange={(e) => setMedicationFormData({ ...medicationFormData, recordedQuantity: e.target.value })}
-                placeholder="Enter physical count"
-                required
-                min={0}
-              />
-            </div>
-            <div>
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={medicationFormData.notes}
-                onChange={(e) => setMedicationFormData({ ...medicationFormData, notes: e.target.value })}
-                placeholder="Any additional notes about this count..."
-              />
-            </div>
+            {medications.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>No medications available</AlertTitle>
+                <AlertDescription>
+                  <p className="mt-2">
+                    You need to add medications to the system before you can perform stock taking. 
+                    Stock taking is used to reconcile physical inventory counts with the system records for medications that are already in your inventory.
+                  </p>
+                  <p className="mt-2 font-medium">
+                    To add medications, go to the Medication Inventory page and click "Add Medication".
+                  </p>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div>
+                  <Label htmlFor="medication">Medication *</Label>
+                  <Select
+                    value={medicationFormData.medicationId}
+                    onValueChange={(value) => setMedicationFormData({ ...medicationFormData, medicationId: value })}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select medication" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {medications.map((med) => (
+                        <SelectItem key={med.id} value={med.id}>
+                          {med.name} ({med.category}) - System: {med.stockQuantity} units
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="recordedQuantity">Recorded Quantity (Physical Count) *</Label>
+                  <Input
+                    id="recordedQuantity"
+                    type="number"
+                    value={medicationFormData.recordedQuantity}
+                    onChange={(e) => setMedicationFormData({ ...medicationFormData, recordedQuantity: e.target.value })}
+                    placeholder="Enter physical count"
+                    required
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="notes">Notes (optional)</Label>
+                  <Textarea
+                    id="notes"
+                    value={medicationFormData.notes}
+                    onChange={(e) => setMedicationFormData({ ...medicationFormData, notes: e.target.value })}
+                    placeholder="Any additional notes about this count..."
+                  />
+                </div>
+              </>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowMedicationDialog(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={medications.length === 0}>
                 <ClipboardCheck className="mr-2 h-4 w-4" />
                 Record Stock Taking
               </Button>
@@ -645,51 +684,69 @@ export function StockTaking() {
             <DialogTitle>New Non-Medication Stock Taking</DialogTitle>
           </DialogHeader>
           <form onSubmit={handleNonMedicationSubmit} className="space-y-4">
-            <div>
-              <Label htmlFor="item">Item *</Label>
-              <Select
-                value={nonMedicationFormData.itemId}
-                onValueChange={(value) => setNonMedicationFormData({ ...nonMedicationFormData, itemId: value })}
-                required
-              >
-                <SelectTrigger>
-                  <SelectValue placeholder="Select non-medication item" />
-                </SelectTrigger>
-                <SelectContent>
-                  {nonMedicationItems.map((item) => (
-                    <SelectItem key={item.id} value={item.id}>
-                      {item.item_name} ({item.item_type}) - System: {item.stock_quantity} units
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-            <div>
-              <Label htmlFor="recordedQuantity">Recorded Quantity (Physical Count) *</Label>
-              <Input
-                id="recordedQuantity"
-                type="number"
-                value={nonMedicationFormData.recordedQuantity}
-                onChange={(e) => setNonMedicationFormData({ ...nonMedicationFormData, recordedQuantity: e.target.value })}
-                placeholder="Enter physical count"
-                required
-                min={0}
-              />
-            </div>
-            <div>
-              <Label htmlFor="notes">Notes (optional)</Label>
-              <Textarea
-                id="notes"
-                value={nonMedicationFormData.notes}
-                onChange={(e) => setNonMedicationFormData({ ...nonMedicationFormData, notes: e.target.value })}
-                placeholder="Any additional notes about this count..."
-              />
-            </div>
+            {nonMedicationItems.length === 0 ? (
+              <Alert>
+                <AlertCircle className="h-4 w-4" />
+                <AlertTitle>No non-medication items available</AlertTitle>
+                <AlertDescription>
+                  <p className="mt-2">
+                    You need to add non-medication items to the system before you can perform stock taking. 
+                    Stock taking is used to reconcile physical inventory counts with the system records for items that are already in your inventory.
+                  </p>
+                  <p className="mt-2 font-medium">
+                    To add items, go to the Non-Medication Inventory page and click "Add Item".
+                  </p>
+                </AlertDescription>
+              </Alert>
+            ) : (
+              <>
+                <div>
+                  <Label htmlFor="item">Item *</Label>
+                  <Select
+                    value={nonMedicationFormData.itemId}
+                    onValueChange={(value) => setNonMedicationFormData({ ...nonMedicationFormData, itemId: value })}
+                    required
+                  >
+                    <SelectTrigger>
+                      <SelectValue placeholder="Select non-medication item" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {nonMedicationItems.map((item) => (
+                        <SelectItem key={item.id} value={item.id}>
+                          {item.item_name} ({item.item_type}) - System: {item.stock_quantity} units
+                        </SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div>
+                  <Label htmlFor="recordedQuantity">Recorded Quantity (Physical Count) *</Label>
+                  <Input
+                    id="recordedQuantity"
+                    type="number"
+                    value={nonMedicationFormData.recordedQuantity}
+                    onChange={(e) => setNonMedicationFormData({ ...nonMedicationFormData, recordedQuantity: e.target.value })}
+                    placeholder="Enter physical count"
+                    required
+                    min={0}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="notes">Notes (optional)</Label>
+                  <Textarea
+                    id="notes"
+                    value={nonMedicationFormData.notes}
+                    onChange={(e) => setNonMedicationFormData({ ...nonMedicationFormData, notes: e.target.value })}
+                    placeholder="Any additional notes about this count..."
+                  />
+                </div>
+              </>
+            )}
             <DialogFooter>
               <Button type="button" variant="outline" onClick={() => setShowNonMedicationDialog(false)}>
                 Cancel
               </Button>
-              <Button type="submit">
+              <Button type="submit" disabled={nonMedicationItems.length === 0}>
                 <ClipboardCheck className="mr-2 h-4 w-4" />
                 Record Stock Taking
               </Button>
