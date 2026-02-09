@@ -110,10 +110,19 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
             barcode: m.barcode || undefined,
           }))
           setMedications(meds)
+        } else if (res.status === 401 || res.status === 403) {
+          // User doesn't have permission - this is expected for non-pharmacy users
+          setMedications([])
+        } else if (process.env.NODE_ENV === "development") {
+          console.warn("[PharmacyContext] Failed to fetch medications:", res.status, res.statusText)
         } else {
           setMedications([])
         }
-      } catch {
+      } catch (err) {
+        // Only log in development to avoid console noise in production
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[PharmacyContext] Error fetching medications:", err)
+        }
         setMedications([])
       }
       // Suppliers are loaded from backend once related APIs are wired

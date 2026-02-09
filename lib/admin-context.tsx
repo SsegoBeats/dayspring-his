@@ -54,8 +54,19 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
               lastLogin: u.last_login || undefined,
             })),
           )
+        } else if (res.status === 401 || res.status === 403) {
+          // User doesn't have permission - this is expected for non-admin users
+          setUsers([])
+        } else if (process.env.NODE_ENV === "development") {
+          console.warn("[AdminContext] Failed to fetch users:", res.status, res.statusText)
         }
-      } catch {}
+      } catch (err) {
+        // Only log in development to avoid console noise in production
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[AdminContext] Error fetching users:", err)
+        }
+        setUsers([])
+      }
     })()
   }, [])
 

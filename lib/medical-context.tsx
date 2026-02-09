@@ -204,12 +204,26 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
           setMedicalRecords(recs)
           setPrescriptions(pres)
           setLabResults(labs)
+        } else if (res.status === 401 || res.status === 403) {
+          // User doesn't have permission - this is expected for non-medical users
+          setMedicalRecords([])
+          setPrescriptions([])
+          setLabResults([])
+        } else if (process.env.NODE_ENV === "development") {
+          console.warn("[MedicalContext] Failed to fetch medical data:", res.status, res.statusText)
+          setMedicalRecords([])
+          setPrescriptions([])
+          setLabResults([])
         } else {
           setMedicalRecords([])
           setPrescriptions([])
           setLabResults([])
         }
-      } catch {
+      } catch (err) {
+        // Only log in development to avoid console noise in production
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[MedicalContext] Error fetching medical data:", err)
+        }
         setMedicalRecords([])
         setPrescriptions([])
         setLabResults([])
