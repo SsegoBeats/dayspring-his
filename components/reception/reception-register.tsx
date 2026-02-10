@@ -194,7 +194,7 @@ export function ReceptionRegister() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
-                  runSingleExport("reception_dashboard", "xlsx", `reception-dashboard-${from}-${to}.xlsx", "Reception Dashboard XLSX")
+                  runSingleExport("reception_dashboard", "xlsx", `reception-dashboard-${from}-${to}.xlsx`, "Reception Dashboard XLSX")
                 }
                 disabled={!!exporting}
               >
@@ -202,7 +202,7 @@ export function ReceptionRegister() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
-                  runSingleExport("reception_dashboard", "csv", `reception-dashboard-${from}-${to}.csv", "Reception Dashboard CSV")
+                  runSingleExport("reception_dashboard", "csv", `reception-dashboard-${from}-${to}.csv`, "Reception Dashboard CSV")
                 }
                 disabled={!!exporting}
               >
@@ -227,7 +227,7 @@ export function ReceptionRegister() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
-                  runSingleExport("reception_daily", "xlsx", `reception-daily-${from}-${to}.xlsx", "Reception Daily XLSX")
+                  runSingleExport("reception_daily", "xlsx", `reception-daily-${from}-${to}.xlsx`, "Reception Daily XLSX")
                 }
                 disabled={!!exporting}
               >
@@ -235,7 +235,7 @@ export function ReceptionRegister() {
               </DropdownMenuItem>
               <DropdownMenuItem
                 onClick={() =>
-                  runSingleExport("reception_daily", "csv", `reception-daily-${from}-${to}.csv", "Reception Daily CSV")
+                  runSingleExport("reception_daily", "csv", `reception-daily-${from}-${to}.csv`, "Reception Daily CSV")
                 }
                 disabled={!!exporting}
               >
