@@ -130,6 +130,7 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
     pharmacy: ["read"],
     billing: ["create"],
     beds: ["read"], // Can view bed status for patient care decisions
+    exports: ["create"], // Dental export (date-range summaries)
   },
   Clinician: {
     patients: ["read"],

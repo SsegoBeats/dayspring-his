@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, AlertCircle, FileText, Pill, History, Pencil } from "lucide-react"
+import { ArrowLeft, AlertCircle, FileText, Pill, History, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { formatPatientNumber } from "@/lib/patients"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -21,7 +21,7 @@ import { toast } from "sonner"
 interface PatientConsultationProps {
   patientId: string
   onBack: () => void
-  initialTab?: 'consultation' | 'prescription' | 'history' | 'labs'
+  initialTab?: 'consultation' | 'prescription' | 'history' | 'labs' | 'dental'
 }
 
 export function PatientConsultation({ patientId, onBack, initialTab = 'consultation' }: PatientConsultationProps) {
@@ -110,6 +110,15 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
     notes: "",
   })
   const [savingObstetricEdit, setSavingObstetricEdit] = useState(false)
+  const [editingDentalId, setEditingDentalId] = useState<string | null>(null)
+  const [dentalEditForm, setDentalEditForm] = useState({
+    diagnosis: "",
+    procedurePerformed: "",
+    toothNotes: "",
+    visitDate: "",
+  })
+  const [savingDentalEdit, setSavingDentalEdit] = useState(false)
+  const [deletingDentalId, setDeletingDentalId] = useState<string | null>(null)
 
   const handleAddMedication = () => {
     setPrescriptionForm({
@@ -402,6 +411,22 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
     }
   }
 
+  const loadDentalHistory = async (patientId: string) => {
+    try {
+      const res = await fetch(`/api/dental/records?patientId=${encodeURIComponent(patientId)}`, {
+        credentials: "include",
+      })
+      if (res.ok) {
+        const data = await res.json().catch(() => ({}))
+        setDentalHistory(Array.isArray(data.records) ? data.records : [])
+      } else {
+        setDentalHistory([])
+      }
+    } catch {
+      setDentalHistory([])
+    }
+  }
+
   const handleSaveDentalRecord = async () => {
     if (!patient || !user) return
 
@@ -423,8 +448,70 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
         throw new Error(data.error || "Failed to save dental record")
       }
       toast.success("Dental record saved successfully.")
+      setDentalForm({ diagnosis: "", procedurePerformed: "", toothNotes: "" })
+      await loadDentalHistory(patient.id)
     } catch (e: any) {
       toast.error(e?.message || "Failed to save dental record")
+    }
+  }
+
+  const openEditDental = (d: any) => {
+    setEditingDentalId(d.id)
+    const v = d.visit_date ? String(d.visit_date) : ""
+    setDentalEditForm({
+      diagnosis: d.diagnosis || "",
+      procedurePerformed: d.procedure_performed || "",
+      toothNotes: typeof d.tooth_chart?.notes === "string" ? d.tooth_chart.notes : (d.tooth_chart ? JSON.stringify(d.tooth_chart) : ""),
+      visitDate: v ? v.slice(0, 16) : "", // YYYY-MM-DDTHH:mm for datetime-local
+    })
+  }
+
+  const handleSaveDentalEdit = async () => {
+    if (!editingDentalId || !patient) return
+    setSavingDentalEdit(true)
+    try {
+      const payload: any = {
+        diagnosis: dentalEditForm.diagnosis || null,
+        procedurePerformed: dentalEditForm.procedurePerformed || null,
+        toothChart: dentalEditForm.toothNotes ? { notes: dentalEditForm.toothNotes } : null,
+      }
+      if (dentalEditForm.visitDate) payload.visitDate = new Date(dentalEditForm.visitDate).toISOString()
+      const res = await fetch(`/api/dental/records/${editingDentalId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to update dental record")
+      }
+      toast.success("Dental record updated.")
+      setEditingDentalId(null)
+      await loadDentalHistory(patient.id)
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update dental record")
+    } finally {
+      setSavingDentalEdit(false)
+    }
+  }
+
+  const handleDeleteDental = async (id: string) => {
+    if (!patient) return
+    if (!confirm("Delete this dental record? This cannot be undone.")) return
+    setDeletingDentalId(id)
+    try {
+      const res = await fetch(`/api/dental/records/${id}`, { method: "DELETE", credentials: "include" })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to delete dental record")
+      }
+      toast.success("Dental record deleted.")
+      await loadDentalHistory(patient.id)
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to delete dental record")
+    } finally {
+      setDeletingDentalId(null)
     }
   }
 
@@ -447,21 +534,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
       }
     })()
 
-    ;(async () => {
-      try {
-        const res = await fetch(`/api/dental/records?patientId=${encodeURIComponent(patient.id)}`, {
-          credentials: "include",
-        })
-        if (res.ok) {
-          const data = await res.json().catch(() => ({}))
-          setDentalHistory(Array.isArray(data.records) ? data.records : [])
-        } else {
-          setDentalHistory([])
-        }
-      } catch {
-        setDentalHistory([])
-      }
-    })()
+    loadDentalHistory(patient.id)
   }, [patient?.id])
 
   if (!patient) {
@@ -610,11 +683,12 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
           })()}
 
           <Tabs defaultValue={initialTab}>
-            <TabsList className="grid w-full grid-cols-4">
+            <TabsList className={`grid w-full ${user?.role === "Dentist" ? "grid-cols-5" : "grid-cols-4"}`}>
               <TabsTrigger value="consultation">Consultation</TabsTrigger>
               <TabsTrigger value="prescription">Prescription</TabsTrigger>
               <TabsTrigger value="history">History</TabsTrigger>
               <TabsTrigger value="labs">Lab Results</TabsTrigger>
+              {user?.role === "Dentist" && <TabsTrigger value="dental">Dental</TabsTrigger>}
             </TabsList>
 
             <TabsContent value="consultation" className="space-y-4">
@@ -866,6 +940,97 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
               </div>
             </TabsContent>
 
+            {user?.role === "Dentist" && (
+              <TabsContent value="dental" className="space-y-4">
+                <div className="space-y-4 rounded-lg border border-sky-200 bg-sky-50/40 p-4">
+                  <h3 className="font-semibold text-foreground">Dental Findings</h3>
+                  <div className="space-y-2">
+                    <Label htmlFor="dentDiagTab">Dental Diagnosis</Label>
+                    <Textarea
+                      id="dentDiagTab"
+                      placeholder="Caries, pulpitis, periodontal disease..."
+                      value={dentalForm.diagnosis}
+                      onChange={(e) => setDentalForm({ ...dentalForm, diagnosis: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="dentProcTab">Procedure Performed</Label>
+                    <Textarea
+                      id="dentProcTab"
+                      placeholder="Extraction, filling, root canal, scaling..."
+                      value={dentalForm.procedurePerformed}
+                      onChange={(e) => setDentalForm({ ...dentalForm, procedurePerformed: e.target.value })}
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="toothNotesTab">Tooth/Chart Notes</Label>
+                    <Textarea
+                      id="toothNotesTab"
+                      placeholder="Tooth numbers and specific findings..."
+                      value={dentalForm.toothNotes}
+                      onChange={(e) => setDentalForm({ ...dentalForm, toothNotes: e.target.value })}
+                    />
+                  </div>
+                  <Button variant="outline" onClick={handleSaveDentalRecord}>
+                    Save Dental Record
+                  </Button>
+                </div>
+                {dentalHistory.length > 0 && (
+                  <div className="space-y-2">
+                    <h3 className="text-sm font-semibold text-foreground">Dental History</h3>
+                    {dentalHistory.map((d: any) => (
+                      <Card key={d.id} className="border-sky-200">
+                        <CardHeader>
+                          <div className="flex items-center justify-between">
+                            <CardTitle className="text-base">{d.diagnosis || "Dental Visit"}</CardTitle>
+                            <div className="flex items-center gap-2">
+                              <Badge variant="outline">
+                                {d.visit_date ? String(d.visit_date).slice(0, 10) : ""}
+                              </Badge>
+                              {(user?.role === "Dentist" || user?.role === "Hospital Admin") && (
+                                <>
+                                  <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditDental(d)} title="Edit record">
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                  <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteDental(d.id)} disabled={deletingDentalId === d.id} title="Delete record">
+                                    <Trash2 className="h-4 w-4" />
+                                  </Button>
+                                </>
+                              )}
+                            </div>
+                          </div>
+                        </CardHeader>
+                        <CardContent className="space-y-2 text-sm">
+                          {d.procedure_performed && (
+                            <div>
+                              <span className="font-medium text-foreground">Procedure:</span>
+                              <p className="text-muted-foreground">{d.procedure_performed}</p>
+                            </div>
+                          )}
+                          {d.tooth_chart && (
+                            <div>
+                              <span className="font-medium text-foreground">Tooth/Chart Notes:</span>
+                              <p className="text-muted-foreground">
+                                {typeof d.tooth_chart?.notes === "string"
+                                  ? d.tooth_chart.notes
+                                  : JSON.stringify(d.tooth_chart)}
+                              </p>
+                            </div>
+                          )}
+                          {d.notes && (
+                            <div>
+                              <span className="font-medium text-foreground">Notes:</span>
+                              <p className="text-muted-foreground">{d.notes}</p>
+                            </div>
+                          )}
+                        </CardContent>
+                      </Card>
+                    ))}
+                  </div>
+                )}
+              </TabsContent>
+            )}
+
             <TabsContent value="prescription" className="space-y-4">
               <div className="space-y-4">
                 {prescriptionForm.medications.map((med, index) => (
@@ -1046,9 +1211,21 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                           <CardHeader>
                             <div className="flex items-center justify-between">
                               <CardTitle className="text-base">{d.diagnosis || "Dental Visit"}</CardTitle>
-                              <Badge variant="outline">
-                                {d.visit_date ? String(d.visit_date).slice(0, 10) : ""}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">
+                                  {d.visit_date ? String(d.visit_date).slice(0, 10) : ""}
+                                </Badge>
+                                {(user?.role === "Dentist" || user?.role === "Hospital Admin") && (
+                                  <>
+                                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0" onClick={() => openEditDental(d)} title="Edit record">
+                                      <Pencil className="h-4 w-4" />
+                                    </Button>
+                                    <Button type="button" variant="ghost" size="sm" className="h-8 w-8 p-0 text-destructive hover:text-destructive" onClick={() => handleDeleteDental(d.id)} disabled={deletingDentalId === d.id} title="Delete record">
+                                      <Trash2 className="h-4 w-4" />
+                                    </Button>
+                                  </>
+                                )}
+                              </div>
                             </div>
                           </CardHeader>
                           <CardContent className="space-y-2 text-sm">
@@ -1127,7 +1304,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                               <Badge variant="outline" title={lab.reviewedBy ? `By ${lab.reviewedBy}` : ''}>Reviewed</Badge>
                             ) : null}
                             <Button size="sm" variant="outline" onClick={() => setSelectedLabId(lab.id)}>View</Button>
-                            {(() => { const role = (user?.role || '').toLowerCase(); return role === 'clinician' && (lab.status || '').toLowerCase() === 'completed' && !lab.reviewedAt })() && (
+                            {(() => { const role = (user?.role || '').toLowerCase(); return (role === 'clinician' || role === 'dentist') && (lab.status || '').toLowerCase() === 'completed' && !lab.reviewedAt })() && (
                               <Button size="sm" onClick={async () => {
                                 try {
                                   const res = await fetch(`/api/lab-tests/${lab.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewed: true }) })
@@ -1239,6 +1416,54 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                 <Button variant="outline" onClick={() => setEditingObstetricId(null)}>Cancel</Button>
                 <Button onClick={handleSaveObstetricEdit} disabled={savingObstetricEdit}>
                   {savingObstetricEdit ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
+
+          <Dialog open={!!editingDentalId} onOpenChange={(o)=> { if (!o) setEditingDentalId(null) }}>
+            <DialogContent className="max-h-[85vh] overflow-y-auto max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Edit dental record</DialogTitle>
+              </DialogHeader>
+              <div className="space-y-3">
+                <div className="space-y-1.5">
+                  <Label>Visit date</Label>
+                  <Input
+                    type="datetime-local"
+                    value={dentalEditForm.visitDate}
+                    onChange={(e) => setDentalEditForm({ ...dentalEditForm, visitDate: e.target.value || "" })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Dental diagnosis</Label>
+                  <Textarea
+                    value={dentalEditForm.diagnosis}
+                    onChange={(e) => setDentalEditForm({ ...dentalEditForm, diagnosis: e.target.value })}
+                    placeholder="Caries, pulpitis, periodontal disease..."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Procedure performed</Label>
+                  <Textarea
+                    value={dentalEditForm.procedurePerformed}
+                    onChange={(e) => setDentalEditForm({ ...dentalEditForm, procedurePerformed: e.target.value })}
+                    placeholder="Extraction, filling, root canal, scaling..."
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Tooth/Chart notes</Label>
+                  <Textarea
+                    value={dentalEditForm.toothNotes}
+                    onChange={(e) => setDentalEditForm({ ...dentalEditForm, toothNotes: e.target.value })}
+                    placeholder="Tooth numbers and specific findings..."
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setEditingDentalId(null)}>Cancel</Button>
+                <Button onClick={handleSaveDentalEdit} disabled={savingDentalEdit}>
+                  {savingDentalEdit ? "Saving…" : "Save changes"}
                 </Button>
               </div>
             </DialogContent>

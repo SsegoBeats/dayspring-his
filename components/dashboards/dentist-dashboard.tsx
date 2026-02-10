@@ -5,35 +5,55 @@ import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { useState } from "react"
+import { toast } from "sonner"
 
 export function DentistDashboard() {
   const today = new Date().toISOString().slice(0, 10)
   const [from, setFrom] = useState(today)
   const [to, setTo] = useState(today)
+  const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null)
 
   const exportDental = async (format: "xlsx" | "pdf") => {
-    const payload = {
-      dataset: "dental",
-      format,
-      filters: {
-        from: new Date(from + "T00:00:00Z").toISOString(),
-        to: new Date(to + "T23:59:59Z").toISOString(),
-      },
+    const fromDate = new Date(from + "T00:00:00Z").getTime()
+    const toDate = new Date(to + "T23:59:59Z").getTime()
+    if (fromDate > toDate) {
+      toast.error("From date must be on or before To date")
+      return
     }
-    const res = await fetch("/api/exports/direct", {
-      method: "POST",
-      credentials: "include",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
-    })
-    if (!res.ok) return
-    const blob = await res.blob()
-    const url = URL.createObjectURL(blob)
-    const a = document.createElement("a")
-    a.href = url
-    a.download = `dental-${from}-${to}.${format}`
-    a.click()
-    URL.revokeObjectURL(url)
+    setExporting(format)
+    try {
+      const payload = {
+        dataset: "dental",
+        format,
+        filters: {
+          from: new Date(from + "T00:00:00Z").toISOString(),
+          to: new Date(to + "T23:59:59Z").toISOString(),
+        },
+      }
+      const res = await fetch("/api/exports/direct", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Export failed")
+        return
+      }
+      const blob = await res.blob()
+      const url = URL.createObjectURL(blob)
+      const a = document.createElement("a")
+      a.href = url
+      a.download = `dental-${from}-${to}.${format}`
+      a.click()
+      URL.revokeObjectURL(url)
+      toast.success(`Dental export (${format.toUpperCase()}) downloaded`)
+    } catch (e) {
+      toast.error("Export failed")
+    } finally {
+      setExporting(null)
+    }
   }
 
   return (
@@ -55,11 +75,21 @@ export function DentistDashboard() {
             <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
           </div>
           <div className="flex gap-2 md:col-span-6 justify-end">
-            <Button variant="outline" size="sm" onClick={() => exportDental("xlsx")}>
-              Export XLSX
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportDental("xlsx")}
+              disabled={!!exporting}
+            >
+              {exporting === "xlsx" ? "Exporting…" : "Export XLSX"}
             </Button>
-            <Button variant="outline" size="sm" onClick={() => exportDental("pdf")}>
-              Export PDF
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => exportDental("pdf")}
+              disabled={!!exporting}
+            >
+              {exporting === "pdf" ? "Exporting…" : "Export PDF"}
             </Button>
           </div>
         </CardContent>
