@@ -1,16 +1,25 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useMedical } from "@/lib/medical-context"
 import { usePatients } from "@/lib/patient-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { FileText, Pill, TestTube, Upload, Syringe, AlertTriangle, Activity, Download, Calendar } from "lucide-react"
+import { FileText, Pill, TestTube, Upload, Syringe, AlertTriangle, Activity, Download, Calendar, Stethoscope } from "lucide-react"
 import { DocumentUploadDialog } from "./document-upload-dialog"
 import { AllergyDialog } from "./allergy-dialog"
 import { ImmunizationDialog } from "./immunization-dialog"
+
+type DentalRecord = {
+  id: string
+  visit_date: string
+  diagnosis: string | null
+  procedure_performed: string | null
+  tooth_chart: { notes?: string } | null
+  notes: string | null
+}
 
 interface PatientTimelineProps {
   patientId: string
@@ -22,6 +31,21 @@ export function PatientTimeline({ patientId }: PatientTimelineProps) {
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [showAllergyDialog, setShowAllergyDialog] = useState(false)
   const [showImmunizationDialog, setShowImmunizationDialog] = useState(false)
+  const [dentalRecords, setDentalRecords] = useState<DentalRecord[]>([])
+  const [dentalLoading, setDentalLoading] = useState(true)
+
+  useEffect(() => {
+    let cancelled = false
+    setDentalLoading(true)
+    fetch(`/api/dental/records?patientId=${encodeURIComponent(patientId)}`, { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : { records: [] }))
+      .then((data) => {
+        if (!cancelled) setDentalRecords(Array.isArray(data.records) ? data.records : [])
+      })
+      .catch(() => { if (!cancelled) setDentalRecords([]) })
+      .finally(() => { if (!cancelled) setDentalLoading(false) })
+    return () => { cancelled = true }
+  }, [patientId])
 
   const patient = getPatient(patientId)
   const timeline = getPatientTimeline(patientId)
@@ -90,6 +114,14 @@ export function PatientTimeline({ patientId }: PatientTimelineProps) {
           <Tabs defaultValue="timeline">
             <TabsList>
               <TabsTrigger value="timeline">Timeline</TabsTrigger>
+              <TabsTrigger value="dental">
+                Dental
+                {dentalRecords.length > 0 && (
+                  <Badge variant="secondary" className="ml-2">
+                    {dentalRecords.length}
+                  </Badge>
+                )}
+              </TabsTrigger>
               <TabsTrigger value="allergies">
                 Allergies
                 {allergies.length > 0 && (
@@ -192,6 +224,47 @@ export function PatientTimeline({ patientId }: PatientTimelineProps) {
                       </div>
                     ))}
                   </div>
+                </div>
+              )}
+            </TabsContent>
+
+            <TabsContent value="dental" className="space-y-4">
+              {dentalLoading ? (
+                <p className="text-center text-muted-foreground py-8">Loading dental records…</p>
+              ) : dentalRecords.length === 0 ? (
+                <p className="text-center text-muted-foreground py-8">No dental records</p>
+              ) : (
+                <div className="space-y-3">
+                  {dentalRecords.map((d) => (
+                    <Card key={d.id} className="border-sky-200">
+                      <CardContent className="pt-4">
+                        <div className="flex items-start gap-2">
+                          <Stethoscope className="h-4 w-4 text-sky-500 mt-0.5 shrink-0" />
+                          <div className="min-w-0">
+                            <div className="flex items-center gap-2 flex-wrap">
+                              <p className="font-medium text-foreground">{d.diagnosis || "Dental visit"}</p>
+                              <Badge variant="outline">
+                                {d.visit_date ? String(d.visit_date).slice(0, 10) : ""}
+                              </Badge>
+                            </div>
+                            {d.procedure_performed && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                <strong>Procedure:</strong> {d.procedure_performed}
+                              </p>
+                            )}
+                            {d.tooth_chart?.notes && (
+                              <p className="text-sm text-muted-foreground mt-1">
+                                <strong>Tooth/Chart:</strong> {d.tooth_chart.notes}
+                              </p>
+                            )}
+                            {d.notes && (
+                              <p className="text-sm text-muted-foreground mt-1">{d.notes}</p>
+                            )}
+                          </div>
+                        </div>
+                      </CardContent>
+                    </Card>
+                  ))}
                 </div>
               )}
             </TabsContent>

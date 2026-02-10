@@ -11,13 +11,21 @@ import { Search, Stethoscope } from "lucide-react"
 
 interface PatientQueueProps {
   onSelectPatient: (patientId: string) => void
+  /** When set, only patients whose id is in this array are shown (e.g. today's dental appointments). */
+  filterPatientIds?: string[] | null
+  /** Message when queue is filtered and no patients match. */
+  filterEmptyMessage?: string
 }
 
-export function PatientQueue({ onSelectPatient }: PatientQueueProps) {
+export function PatientQueue({ onSelectPatient, filterPatientIds, filterEmptyMessage }: PatientQueueProps) {
   const { patients, searchPatients } = usePatients()
   const [searchQuery, setSearchQuery] = useState("")
 
-  const displayedPatients = searchQuery ? searchPatients(searchQuery) : patients
+  const baseList = searchQuery ? searchPatients(searchQuery) : patients
+  const displayedPatients =
+    filterPatientIds != null
+      ? baseList.filter((p) => filterPatientIds.includes(p.id))
+      : baseList
 
   return (
     <Card className="border-0 shadow-md bg-gradient-to-br from-slate-50 via-white to-sky-50">
@@ -38,7 +46,7 @@ export function PatientQueue({ onSelectPatient }: PatientQueueProps) {
 
         {displayedPatients.length === 0 ? (
           <div className="rounded-md border border-dashed py-10 text-center text-muted-foreground">
-            No patients match your search
+            {filterPatientIds != null ? (filterEmptyMessage ?? "No patients in today's dental queue") : "No patients match your search"}
           </div>
         ) : (
           <div className="overflow-x-auto rounded-md border border-sky-100 bg-white/70 shadow-sm">

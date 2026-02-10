@@ -31,6 +31,10 @@ export default function DashboardPage() {
       router.replace("/receptionist")
       return
     }
+    if (user.role === "Dentist") {
+      router.replace("/dentist")
+      return
+    }
     if (user.emailVerified === false) {
       setShowVerificationModal(true)
     }

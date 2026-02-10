@@ -5,6 +5,7 @@
  */
 export const RECEPTION_DEPARTMENTS = [
   "General",
+  "Dental",
   "Emergency",
   "Pediatrics",
   "Surgery",

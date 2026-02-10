@@ -35,6 +35,7 @@ export interface Appointment {
   type: string
   status: "scheduled" | "completed" | "cancelled" | "no-show"
   notes?: string
+  department?: string
   reminderSent?: boolean
   cancelledBy?: string
   cancelledReason?: string
@@ -190,6 +191,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
           type: a.reason || "General",
           status: (a.status || "Scheduled").toString().toLowerCase() as any,
           notes: a.notes || undefined,
+          department: a.department || undefined,
         }))
         setAppointments(mapped)
       } else {

@@ -596,6 +596,26 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
           <div className="font-semibold">Plan</div>
           <div className="border p-2 rounded min-h-[40px]">{latestRecord?.treatment || latestRecord?.notes || "-"}</div>
         </div>
+        {user?.role === "Dentist" && (
+          <div>
+            <div className="font-semibold">Dental</div>
+            <div className="border p-2 rounded min-h-[40px]">
+              {dentalHistory.length === 0
+                ? "-"
+                : (() => {
+                    const d = dentalHistory[0]
+                    const toothNotes = typeof d.tooth_chart?.notes === "string" ? d.tooth_chart.notes : d.notes
+                    const parts = [
+                      d.diagnosis && `Diagnosis: ${d.diagnosis}`,
+                      d.procedure_performed && `Procedure: ${d.procedure_performed}`,
+                      toothNotes && `Tooth/Chart: ${toothNotes}`,
+                      d.visit_date ? `Visit: ${String(d.visit_date).slice(0, 10)}` : "",
+                    ].filter(Boolean)
+                    return parts.join(" | ") || "—"
+                  })()}
+            </div>
+          </div>
+        )}
         <div>
           <div className="font-semibold">Results</div>
           <div className="border p-2 rounded min-h-[40px]">

@@ -9,6 +9,7 @@ function getQuery(ctx: ExportContext) {
 const Filter = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  recordedByUserId: z.boolean().optional(),
 })
 
 export class DentalDataset implements Dataset {
@@ -36,6 +37,7 @@ export class DentalDataset implements Dataset {
   ) {
     const after = cursor?.after ?? null
     const run = getQuery(ctx)
+    const dentistId = f.recordedByUserId ? ctx.userId : null
     const { rows } = await run(
       `
       SELECT 
@@ -53,10 +55,11 @@ export class DentalDataset implements Dataset {
       WHERE ($1::timestamp IS NULL OR dr.visit_date >= $1)
         AND ($2::timestamp IS NULL OR dr.visit_date <= $2)
         AND ($3::timestamp IS NULL OR dr.visit_date > $3)
+        AND ($5::uuid IS NULL OR dr.dentist_id = $5)
       ORDER BY dr.visit_date ASC
       LIMIT $4
       `,
-      [f.from ?? null, f.to ?? null, after, pageSize],
+      [f.from ?? null, f.to ?? null, after, pageSize, dentistId],
     )
     const nextCursor =
       rows.length === pageSize ? { after: rows[rows.length - 1].visit_date } : undefined

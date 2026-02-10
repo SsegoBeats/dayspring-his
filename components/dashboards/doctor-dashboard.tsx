@@ -15,16 +15,21 @@ import { formatPatientDigits } from "@/lib/patients"
 
 interface DoctorDashboardProps {
   title?: string
+  /** When true, show "All patients" vs "Today's dental appointments" toggle in Patient Queue. */
+  showDentalQueueFilter?: boolean
 }
 
-export function DoctorDashboard({ title }: DoctorDashboardProps) {
+export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboardProps) {
   const { patients, getAppointmentsByDoctor } = usePatients()
   const { medicalRecords, prescriptions } = useMedical()
   const { user } = useAuth()
   const todayStr = new Date().toISOString().split("T")[0]
   const todayAppointments = user?.name ? getAppointmentsByDoctor(user.name, todayStr) : []
+  const todayDentalAppointments = todayAppointments.filter((a) => (a.department || "").toLowerCase() === "dental")
+  const dentalQueuePatientIds = todayDentalAppointments.map((a) => a.patientId)
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [consultTab, setConsultTab] = useState<"consultation"|"prescription"|"history"|"labs">("consultation")
+  const [queueView, setQueueView] = useState<"all" | "dental">("all")
 
   const todayRecords = medicalRecords.filter((mr) => {
     const today = new Date().toISOString().split("T")[0]
@@ -175,8 +180,31 @@ export function DoctorDashboard({ title }: DoctorDashboardProps) {
           </Card>
         </TabsContent>
 
-        <TabsContent value="patients">
-          <PatientQueue onSelectPatient={setSelectedPatientId} />
+        <TabsContent value="patients" className="space-y-3">
+          {showDentalQueueFilter && (
+            <div className="flex items-center gap-2 flex-wrap">
+              <span className="text-sm text-muted-foreground">Queue:</span>
+              <button
+                type="button"
+                onClick={() => setQueueView("all")}
+                className={`rounded-md border px-3 py-1.5 text-sm ${queueView === "all" ? "bg-primary text-primary-foreground border-primary" : "bg-background hover:bg-muted"}`}
+              >
+                All patients
+              </button>
+              <button
+                type="button"
+                onClick={() => setQueueView("dental")}
+                className={`rounded-md border px-3 py-1.5 text-sm ${queueView === "dental" ? "bg-sky-600 text-white border-sky-600" : "bg-background hover:bg-muted border-sky-200"}`}
+              >
+                Today&apos;s dental appointments ({dentalQueuePatientIds.length})
+              </button>
+            </div>
+          )}
+          <PatientQueue
+            onSelectPatient={setSelectedPatientId}
+            filterPatientIds={showDentalQueueFilter && queueView === "dental" ? dentalQueuePatientIds : undefined}
+            filterEmptyMessage="No patients with dental appointments today."
+          />
         </TabsContent>
       </Tabs>
 

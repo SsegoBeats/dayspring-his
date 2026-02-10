@@ -30,6 +30,7 @@ function BookAppointmentInner() {
   const [doctorId, setDoctorId] = useState("")
   const [patientId, setPatientId] = useState("")
   const [date, setDate] = useState("")
+  const [department, setDepartment] = useState("General")
   const [slots, setSlots] = useState<Slot[]>([])
   const [loading, setLoading] = useState(false)
   const [booking, setBooking] = useState(false)
@@ -149,6 +150,18 @@ function BookAppointmentInner() {
             <div className="space-y-2">
               <Label>Date</Label>
               <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+            </div>
+            <div className="space-y-2">
+              <Label>Department</Label>
+              <Select value={department} onValueChange={setDepartment}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Department" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="General">General</SelectItem>
+                  <SelectItem value="Dental">Dental</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
           </div>
 
