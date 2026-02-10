@@ -57,6 +57,8 @@ interface PatientContextType {
   doctorSchedules: DoctorSchedule[]
   loadingPatients: boolean
   loadingAppointments: boolean
+  patientsLoadError: boolean
+  appointmentsLoadError: boolean
   refreshAppointments?: () => Promise<void>
   refreshPatients: () => Promise<void>
   addPatient: (patient: Omit<Patient, "id" | "registrationDate" | "status">) => void
@@ -83,12 +85,15 @@ export function PatientProvider({ children }: { children: ReactNode }) {
   const [doctorSchedules, setDoctorSchedules] = useState<DoctorSchedule[]>([])
   const [loadingPatients, setLoadingPatients] = useState<boolean>(true)
   const [loadingAppointments, setLoadingAppointments] = useState<boolean>(true)
+  const [patientsLoadError, setPatientsLoadError] = useState<boolean>(false)
+  const [appointmentsLoadError, setAppointmentsLoadError] = useState<boolean>(false)
 
   useEffect(() => {
-    // Fetch patients from backend
+    const DEFAULT_PATIENT_LIMIT = 500
     ;(async () => {
       try {
-        const res = await fetch("/api/patients", { credentials: 'include' })
+        const res = await fetch(`/api/patients?limit=${DEFAULT_PATIENT_LIMIT}`, { credentials: "include" })
+        setPatientsLoadError(false)
         if (res.ok) {
           const data = await res.json()
           const mapped: Patient[] = (data.patients || []).map((p: any) => ({
@@ -97,7 +102,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
             firstName: p.first_name,
             lastName: p.last_name,
             dateOfBirth: p.date_of_birth,
-            ageYears: typeof p.age_years === 'number' ? p.age_years : undefined,
+            ageYears: typeof p.age_years === "number" ? p.age_years : undefined,
             gender: (p.gender || "Other").toString().toLowerCase(),
             phone: p.phone || "",
             address: p.address || "",
@@ -105,21 +110,27 @@ export function PatientProvider({ children }: { children: ReactNode }) {
             allergies: p.allergies || undefined,
             emergencyContact: p.emergency_contact_name || "",
             emergencyPhone: p.emergency_contact_phone || "",
-            registrationDate: p.created_at?.slice(0,10) || "",
-            status: (p.current_status || 'active').toString().toLowerCase() as any,
+            registrationDate: p.created_at?.slice(0, 10) || "",
+            status: (p.current_status || "active").toString().toLowerCase() as any,
             triageCategory: p.latest_triage_category || null,
-            nextOfKinName: (p.next_of_kin_name ? p.next_of_kin_name : [p.next_of_kin_first_name, p.next_of_kin_last_name].filter(Boolean).join(' ').trim()) || null,
+            nextOfKinName: (p.next_of_kin_name ? p.next_of_kin_name : [p.next_of_kin_first_name, p.next_of_kin_last_name].filter(Boolean).join(" ").trim()) || null,
             nextOfKinPhone: p.next_of_kin_phone || null,
             nextOfKinRelation: p.next_of_kin_relation || null,
             nextOfKinResidence: p.next_of_kin_residence || null,
           }))
           setPatients(mapped)
-        } else { setPatients([]) }
-      } catch { setPatients([]) }
-      finally { setLoadingPatients(false) }
+        } else {
+          setPatients([])
+          setPatientsLoadError(true)
+        }
+      } catch {
+        setPatients([])
+        setPatientsLoadError(true)
+      } finally {
+        setLoadingPatients(false)
+      }
     })()
 
-    // Initial fetch appointments from backend
     ;(async () => { try { await doRefreshAppointments() } finally { /* flag handled in helper */ } })()
 
     // Keep local schedules temporarily (no backend for schedules yet)
@@ -128,43 +139,51 @@ export function PatientProvider({ children }: { children: ReactNode }) {
 
   const refreshPatients = async () => {
     try {
-      const list = await fetch('/api/patients?limit=100', { credentials: 'include' }).then((r) => r.json())
+      setPatientsLoadError(false)
+      const res = await fetch("/api/patients?limit=500", { credentials: "include" })
+      if (!res.ok) {
+        setPatientsLoadError(true)
+        return
+      }
+      const list = await res.json()
       const mapped: Patient[] = (list.patients || []).map((p: any) => ({
         id: p.id,
         patientNumber: p.patient_number,
         firstName: p.first_name,
         lastName: p.last_name,
-        dateOfBirth: p.date_of_birth || '',
-        ageYears: typeof p.age_years === 'number' ? p.age_years : undefined,
-        gender: (p.gender || 'Other').toString().toLowerCase(),
-        phone: p.phone || '',
-        address: p.address || '',
+        dateOfBirth: p.date_of_birth || "",
+        ageYears: typeof p.age_years === "number" ? p.age_years : undefined,
+        gender: (p.gender || "Other").toString().toLowerCase(),
+        phone: p.phone || "",
+        address: p.address || "",
         bloodGroup: p.blood_group || undefined,
-        registrationDate: p.created_at?.slice(0,10) || new Date().toISOString().slice(0,10),
-        status: (p.current_status || 'active').toString().toLowerCase() as any,
+        registrationDate: p.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
+        status: (p.current_status || "active").toString().toLowerCase() as any,
         triageCategory: p.latest_triage_category || null,
         emergencyContact: p.emergency_contact_name || "",
         emergencyPhone: p.emergency_contact_phone || "",
-        nextOfKinName: (p.next_of_kin_name ? p.next_of_kin_name : [p.next_of_kin_first_name, p.next_of_kin_last_name].filter(Boolean).join(' ').trim()) || null,
+        nextOfKinName: (p.next_of_kin_name ? p.next_of_kin_name : [p.next_of_kin_first_name, p.next_of_kin_last_name].filter(Boolean).join(" ").trim()) || null,
         nextOfKinPhone: p.next_of_kin_phone || null,
         nextOfKinRelation: p.next_of_kin_relation || null,
         nextOfKinResidence: p.next_of_kin_residence || null,
       }))
       setPatients(mapped)
-    } catch {}
+    } catch {
+      setPatientsLoadError(true)
+    }
   }
 
-  // Helper to refresh appointments
   const doRefreshAppointments = async () => {
     try {
       setLoadingAppointments(true)
-      const res = await fetch("/api/appointments/list", { credentials: 'include' })
+      setAppointmentsLoadError(false)
+      const res = await fetch("/api/appointments/list", { credentials: "include" })
       if (res.ok) {
         const data = await res.json()
         const mapped: Appointment[] = (data.appointments || []).map((a: any) => ({
           id: a.id,
           patientId: a.patient_id,
-          patientName: `${a.first_name || ''} ${a.last_name || ''}`.trim(),
+          patientName: `${a.first_name || ""} ${a.last_name || ""}`.trim(),
           doctorName: a.doctor_name || "",
           date: a.appointment_date,
           time: a.appointment_time,
@@ -173,9 +192,16 @@ export function PatientProvider({ children }: { children: ReactNode }) {
           notes: a.notes || undefined,
         }))
         setAppointments(mapped)
-      } else { setAppointments([]) }
-    } catch { setAppointments([]) }
-    finally { setLoadingAppointments(false) }
+      } else {
+        setAppointments([])
+        setAppointmentsLoadError(true)
+      }
+    } catch {
+      setAppointments([])
+      setAppointmentsLoadError(true)
+    } finally {
+      setLoadingAppointments(false)
+    }
   }
 
   // Removed localStorage persistence: backend is source of truth
@@ -323,6 +349,8 @@ export function PatientProvider({ children }: { children: ReactNode }) {
         doctorSchedules,
         loadingPatients,
         loadingAppointments,
+        patientsLoadError,
+        appointmentsLoadError,
         refreshAppointments: doRefreshAppointments,
         refreshPatients,
         addPatient,

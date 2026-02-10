@@ -310,7 +310,11 @@ export function PreferenceSettings() {
     theme: "system",
     locale: "en-GB",
     timezone: "Africa/Kampala",
-    currency: "UGX"
+    currency: "UGX",
+    queue_wait_warn: 30,
+    queue_wait_crit: 60,
+    service_warn: 30,
+    service_crit: 60,
   })
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [saving, setSaving] = useState(false)
@@ -344,7 +348,11 @@ export function PreferenceSettings() {
               theme: fetchedPreferences.theme,
               locale: fetchedPreferences.locale,
               timezone: fetchedPreferences.timezone,
-              currency: fetchedPreferences.currency
+              currency: fetchedPreferences.currency,
+              queue_wait_warn: fetchedPreferences.queue_wait_warn,
+              queue_wait_crit: fetchedPreferences.queue_wait_crit,
+              service_warn: fetchedPreferences.service_warn,
+              service_crit: fetchedPreferences.service_crit,
             })
             // Apply theme on load
             if (!previewedRef.current) { if (!(typeof window !== "undefined" && (window as any).__prefPreviewRef && (window as any).__prefPreviewRef.current)) { setTheme(fetchedPreferences.theme) } }
@@ -359,14 +367,18 @@ export function PreferenceSettings() {
     fetchPreferences()
   }, [setTheme])
 
-  // Track unsaved changes
+  // Track unsaved changes (including queue SLA thresholds used by reception queue board)
   useEffect(() => {
     if (loading) return
-    const hasChanges = 
+    const hasChanges =
       preferences.theme !== originalPreferences.theme ||
       preferences.locale !== originalPreferences.locale ||
       preferences.timezone !== originalPreferences.timezone ||
-      preferences.currency !== originalPreferences.currency
+      preferences.currency !== originalPreferences.currency ||
+      preferences.queue_wait_warn !== originalPreferences.queue_wait_warn ||
+      preferences.queue_wait_crit !== originalPreferences.queue_wait_crit ||
+      preferences.service_warn !== originalPreferences.service_warn ||
+      preferences.service_crit !== originalPreferences.service_crit
     setHasUnsavedChanges(hasChanges)
   }, [preferences, originalPreferences, loading])
 
@@ -381,12 +393,16 @@ export function PreferenceSettings() {
       })
       
       if (res.ok) {
-        // Update original preferences to match saved values
+        // Update original preferences to match saved values (including queue SLA)
         setOriginalPreferences({
           theme: preferences.theme,
           locale: preferences.locale,
           timezone: preferences.timezone,
-          currency: preferences.currency
+          currency: preferences.currency,
+          queue_wait_warn: preferences.queue_wait_warn,
+          queue_wait_crit: preferences.queue_wait_crit,
+          service_warn: preferences.service_warn,
+          service_crit: preferences.service_crit,
         })
         setHasUnsavedChanges(false)
         // Refresh settings context so currency and timezone updates everywhere
@@ -404,7 +420,11 @@ export function PreferenceSettings() {
           theme: originalPreferences.theme,
           locale: originalPreferences.locale,
           timezone: originalPreferences.timezone,
-          currency: originalPreferences.currency
+          currency: originalPreferences.currency,
+          queue_wait_warn: originalPreferences.queue_wait_warn,
+          queue_wait_crit: originalPreferences.queue_wait_crit,
+          service_warn: originalPreferences.service_warn,
+          service_crit: originalPreferences.service_crit,
         }))
       }
     } catch (error) {
@@ -416,7 +436,11 @@ export function PreferenceSettings() {
         theme: originalPreferences.theme,
         locale: originalPreferences.locale,
         timezone: originalPreferences.timezone,
-        currency: originalPreferences.currency
+        currency: originalPreferences.currency,
+        queue_wait_warn: originalPreferences.queue_wait_warn,
+        queue_wait_crit: originalPreferences.queue_wait_crit,
+        service_warn: originalPreferences.service_warn,
+        service_crit: originalPreferences.service_crit,
       }))
     } finally {
       setSaving(false)

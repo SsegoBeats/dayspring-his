@@ -1,10 +1,14 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
+import { runExport } from "@/lib/reception-export-utils"
+import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
 
 type QueueRow = {
   id: string
@@ -30,6 +34,9 @@ export function QueueBoardPro() {
   const [inService, setInService] = useState<QueueRow[]>([])
   const [done, setDone] = useState<QueueRow[]>([])
   const [loading, setLoading] = useState(false)
+  const [autoRefresh, setAutoRefresh] = useState(false)
+  const autoRefreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const loadRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
   async function loadLane(st: 'waiting'|'in_service'|'done') {
     const url = new URL('/api/queues', window.location.origin)
@@ -45,11 +52,31 @@ export function QueueBoardPro() {
   }
 
   async function load() {
-    try { setLoading(true); await Promise.all([loadLane('waiting'), loadLane('in_service'), loadLane('done')]) }
+    try { setLoading(true); await Promise.all([loadLane("waiting"), loadLane("in_service"), loadLane("done")]) }
     finally { setLoading(false) }
   }
+  loadRef.current = load
 
   useEffect(() => { load() }, [department])
+
+  useEffect(() => {
+    if (!autoRefresh) {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current)
+        autoRefreshIntervalRef.current = null
+      }
+      return
+    }
+    const INTERVAL_MS = 30_000
+    autoRefreshIntervalRef.current = setInterval(() => { loadRef.current() }, INTERVAL_MS)
+    return () => {
+      if (autoRefreshIntervalRef.current) {
+        clearInterval(autoRefreshIntervalRef.current)
+        autoRefreshIntervalRef.current = null
+      }
+    }
+  }, [autoRefresh, department])
+
   useEffect(() => {
     (async () => {
       try {
@@ -100,16 +127,79 @@ export function QueueBoardPro() {
     }
   }
 
-  const handleDropToLane = async (srcId: string, targetStatus: 'waiting'|'in_service'|'done', targetId?: string) => {
+  type LaneStatus = 'waiting' | 'in_service' | 'done'
+
+  const statusAction = (target: LaneStatus): 'advance' | 'start' | 'done' | 'cancel' | 'waiting' =>
+    target === 'in_service' ? 'start' : target === 'done' ? 'done' : 'waiting'
+
+  const handleDropToLane = async (srcId: string, targetStatus: LaneStatus, targetId?: string, place?: 'before' | 'after') => {
     try {
-      const action = targetStatus === 'in_service' ? 'start' : targetStatus === 'done' ? 'done' : 'waiting'
-      await fetch(`/api/queues?id=${srcId}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ action }) })
-      const body: any = { action: 'reorder', department: department || undefined, statusCtx: targetStatus }
-      if (targetId) { body.targetId = targetId; body.place = 'after' }
-      const res = await fetch(`/api/queues?id=${srcId}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type':'application/json' }, body: JSON.stringify(body) })
-      if (!res.ok) throw new Error('reorder failed')
+      const action = statusAction(targetStatus)
+      const statusRes = await fetch(`/api/queues?id=${srcId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ action: action === 'waiting' ? 'waiting' : action }),
+      })
+      if (!statusRes.ok) {
+        const err = await statusRes.json().catch(() => ({}))
+        toast.error((err as { error?: string }).error || 'Failed to move entry')
+        return
+      }
+      const reorderBody: Record<string, unknown> = { action: 'reorder', department: department || undefined, statusCtx: targetStatus }
+      if (targetId) {
+        reorderBody.targetId = targetId
+        reorderBody.place = place ?? 'after'
+      }
+      const reorderRes = await fetch(`/api/queues?id=${srcId}`, {
+        method: 'PATCH',
+        credentials: 'include',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(reorderBody),
+      })
+      if (!reorderRes.ok) {
+        const err = await reorderRes.json().catch(() => ({}))
+        toast.error((err as { error?: string }).error || 'Failed to reorder entry')
+        await load()
+        return
+      }
+      toast.success('Entry moved')
       await load()
-    } catch { toast.error('Failed to move entry') }
+    } catch {
+      toast.error('Failed to move entry')
+    }
+  }
+
+  const handleDropOnCard = async (
+    srcId: string,
+    srcStatus: LaneStatus,
+    targetLaneStatus: LaneStatus,
+    targetId: string,
+    place: 'before' | 'after',
+  ) => {
+    if (srcId === targetId) return
+    const sameLane = srcStatus === targetLaneStatus
+    if (sameLane) {
+      try {
+        const res = await fetch(`/api/queues?id=${srcId}`, {
+          method: 'PATCH',
+          credentials: 'include',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ action: 'reorder', targetId, place, department: department || undefined, statusCtx: targetLaneStatus }),
+        })
+        if (!res.ok) {
+          const err = await res.json().catch(() => ({}))
+          toast.error((err as { error?: string }).error || 'Failed to reorder')
+          return
+        }
+        toast.success('Order updated')
+        await load()
+      } catch {
+        toast.error('Failed to reorder')
+      }
+      return
+    }
+    await handleDropToLane(srcId, targetLaneStatus, targetId, place)
   }
 
   return (
@@ -117,39 +207,50 @@ export function QueueBoardPro() {
       <CardHeader>
         <CardTitle>Department Queue</CardTitle>
         <CardDescription>Track and advance patients through the queue.</CardDescription>
-        <div className="mt-2 text-xs text-muted-foreground">
-          Tips: Drag between lanes. Drop on a card to position (hold Shift for before). Keyboard: A = Start/Advance, D = Done, C = Cancel.
+        <div className="mt-2 text-xs text-muted-foreground space-y-1">
+          <p>Drag between lanes; drop on a card to position (hold Shift for before).</p>
+          <p>Keyboard when a card is focused: <kbd className="rounded border bg-muted px-1">A</kbd> = Start service, <kbd className="rounded border bg-muted px-1">D</kbd> = Done, <kbd className="rounded border bg-muted px-1">C</kbd> = Cancel.</p>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
-        <div className="flex flex-wrap gap-2">
-          <div className="w-56">
-            <Select value={department} onValueChange={(v:any)=> setDepartment(v === '__CLEAR__' ? '' : v)}>
-              <SelectTrigger><SelectValue placeholder="All departments" /></SelectTrigger>
+        <div className="flex flex-wrap items-center gap-2">
+          <div className="w-56 space-y-1">
+            <span className="text-xs text-muted-foreground block">Department (board + exports)</span>
+            <Select value={department} onValueChange={(v: string) => setDepartment(v === "__CLEAR__" ? "" : v)}>
+              <SelectTrigger aria-label="Filter by department"><SelectValue placeholder="All departments" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__CLEAR__">All</SelectItem>
-                <SelectItem value="General">General</SelectItem>
-                <SelectItem value="Emergency">Emergency</SelectItem>
-                <SelectItem value="Pediatrics">Pediatrics</SelectItem>
-                <SelectItem value="Surgery">Surgery</SelectItem>
-                <SelectItem value="Radiology">Radiology</SelectItem>
-                <SelectItem value="Laboratory">Laboratory</SelectItem>
+                {RECEPTION_DEPARTMENTS.map((d) => (
+                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
-          <Button variant="outline" onClick={load} disabled={loading}>{loading ? 'Refreshing...' : 'Refresh'}</Button>
-          <div className="flex items-end gap-2">
+          <div className="flex items-center gap-2">
+            <Button variant="outline" onClick={() => load()} disabled={loading} aria-label="Refresh queue">
+              {loading ? "Refreshing…" : "Refresh"}
+            </Button>
+            <div className="flex items-center gap-2">
+              <Switch id="queue-auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
+              <Label htmlFor="queue-auto-refresh" className="text-xs text-muted-foreground whitespace-nowrap">
+                Auto-refresh (30s)
+              </Label>
+            </div>
+          </div>
+          <div className="flex items-end gap-2 border-l pl-2 border-border/50">
+            <span className="text-xs text-muted-foreground self-center hidden sm:inline">Export period:</span>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">From</label>
-              <input className="border rounded px-2 py-1 text-sm" type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
+              <Label className="text-xs text-muted-foreground sr-only">Export from date</Label>
+              <input className="border rounded px-2 py-1 text-sm w-36" type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Export from date" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs text-muted-foreground">To</label>
-              <input className="border rounded px-2 py-1 text-sm" type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
+              <Label className="text-xs text-muted-foreground sr-only">Export to date</Label>
+              <input className="border rounded px-2 py-1 text-sm w-36" type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Export to date" />
             </div>
             <div className="w-44">
-              <Select value={statusFilter} onValueChange={(v:any)=>setStatusFilter(v === '__CLEAR__' ? '' : v)}>
-                <SelectTrigger><SelectValue placeholder="Any Status" /></SelectTrigger>
+              <Label className="text-xs text-muted-foreground sr-only">Export status filter</Label>
+              <Select value={statusFilter} onValueChange={(v: string) => setStatusFilter(v === "__CLEAR__" ? "" : v)}>
+                <SelectTrigger aria-label="Export status filter"><SelectValue placeholder="Any Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__CLEAR__">Any Status</SelectItem>
                   <SelectItem value="waiting">Waiting</SelectItem>
@@ -161,40 +262,52 @@ export function QueueBoardPro() {
             </div>
             <Button
               variant="outline"
-              onClick={async ()=>{
-                const payload = {
-                  dataset: 'queue_events',
-                  format: 'xlsx',
-                  filters: {
-                    from: new Date(from+'T00:00:00Z').toISOString(),
-                    to: new Date(to+'T23:59:59Z').toISOString(),
-                    department: department || undefined,
-                    status: statusFilter || undefined,
+              onClick={async () => {
+                await runExport(
+                  {
+                    dataset: "queue_events",
+                    format: "xlsx",
+                    filters: {
+                      from: new Date(from + "T00:00:00Z").toISOString(),
+                      to: new Date(to + "T23:59:59Z").toISOString(),
+                      department: department || undefined,
+                      status: statusFilter || undefined,
+                    },
                   },
-                }
-                const res = await fetch('/api/exports/direct', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
-                if (!res.ok) return
-                const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`queue-events-${from}-${to}.xlsx`; a.click(); URL.revokeObjectURL(url)
+                  `queue-events-${from}-${to}.xlsx`,
+                  {
+                    onError: (msg) => toast.error("Queue events XLSX failed", { description: msg }),
+                    onSuccess: () => toast.success(`Downloaded queue-events-${from}-${to}.xlsx`),
+                  }
+                )
               }}
-            >Export Queue Events</Button>
+            >
+              Export Queue Events
+            </Button>
             <Button
               variant="outline"
-              onClick={async ()=>{
-                const payload = {
-                  dataset: 'queue_events',
-                  format: 'csv',
-                  filters: {
-                    from: new Date(from+'T00:00:00Z').toISOString(),
-                    to: new Date(to+'T23:59:59Z').toISOString(),
-                    department: department || undefined,
-                    status: statusFilter || undefined,
+              onClick={async () => {
+                await runExport(
+                  {
+                    dataset: "queue_events",
+                    format: "csv",
+                    filters: {
+                      from: new Date(from + "T00:00:00Z").toISOString(),
+                      to: new Date(to + "T23:59:59Z").toISOString(),
+                      department: department || undefined,
+                      status: statusFilter || undefined,
+                    },
                   },
-                }
-                const res = await fetch('/api/exports/direct', { method:'POST', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify(payload) })
-                if (!res.ok) return
-                const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`queue-events-${from}-${to}.csv`; a.click(); URL.revokeObjectURL(url)
+                  `queue-events-${from}-${to}.csv`,
+                  {
+                    onError: (msg) => toast.error("Queue events CSV failed", { description: msg }),
+                    onSuccess: () => toast.success(`Downloaded queue-events-${from}-${to}.csv`),
+                  }
+                )
               }}
-            >Export CSV</Button>
+            >
+              Export CSV
+            </Button>
           </div>
         </div>
 
@@ -206,7 +319,17 @@ export function QueueBoardPro() {
           ] as const).map((lane) => (
             <div key={lane.status} className="rounded border min-h-[200px]"
               onDragOver={(e)=>{ e.preventDefault(); e.dataTransfer.dropEffect='move' }}
-              onDrop={(e)=>{ e.preventDefault(); const src=e.dataTransfer.getData('text/plain'); if (!src) return; handleDropToLane(src, lane.status) }}
+              onDrop={(e)=>{
+                e.preventDefault()
+                let srcId: string
+                try {
+                  const raw = e.dataTransfer.getData('text/plain')
+                  const parsed = raw.startsWith('{') ? JSON.parse(raw) as { id: string; status?: LaneStatus } : { id: raw }
+                  srcId = parsed.id
+                } catch { srcId = e.dataTransfer.getData('text/plain') }
+                if (!srcId) return
+                handleDropToLane(srcId, lane.status)
+              }}
             >
               <div className="px-3 py-2 text-sm font-semibold bg-muted/50 flex items-center justify-between">
                 <span>{lane.title}</span>
@@ -253,10 +376,27 @@ export function QueueBoardPro() {
                       key={r.id}
                       className={`p-3 flex items-center justify-between border-t transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 ${cls}`}
                       draggable
-                      onDragStart={(e)=>{ e.dataTransfer.setData('text/plain', r.id); e.dataTransfer.effectAllowed='move' }}
+                      onDragStart={(e)=>{
+                        e.dataTransfer.setData('text/plain', JSON.stringify({ id: r.id, status: lane.status }))
+                        e.dataTransfer.effectAllowed = 'move'
+                      }}
                       onDragOver={(e)=>{ e.preventDefault(); e.currentTarget.classList.add('bg-emerald-50'); e.dataTransfer.dropEffect='move' }}
                       onDragLeave={(e)=>{ e.currentTarget.classList.remove('bg-emerald-50') }}
-                      onDrop={(e)=>{ e.preventDefault(); e.currentTarget.classList.remove('bg-emerald-50'); const src=e.dataTransfer.getData('text/plain'); if (!src || src===r.id) return; const before=e.shiftKey; fetch(`/api/queues?id=${src}`, { method:'PATCH', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'reorder', targetId: r.id, place: before?'before':'after', department: department || undefined, statusCtx: lane.status }) }).then(()=>load()) }}
+                      onDrop={(e)=>{
+                        e.preventDefault()
+                        e.currentTarget.classList.remove('bg-emerald-50')
+                        let srcId: string
+                        let srcStatus: LaneStatus
+                        try {
+                          const raw = e.dataTransfer.getData('text/plain')
+                          const parsed = raw.startsWith('{') ? JSON.parse(raw) as { id: string; status: LaneStatus } : { id: raw, status: lane.status }
+                          srcId = parsed.id
+                          srcStatus = parsed.status ?? lane.status
+                        } catch { srcId = e.dataTransfer.getData('text/plain'); srcStatus = lane.status }
+                        if (!srcId || srcId === r.id) return
+                        const place: 'before' | 'after' = e.shiftKey ? 'before' : 'after'
+                        handleDropOnCard(srcId, srcStatus, lane.status, r.id, place)
+                      }}
                       tabIndex={0}
                       onKeyDown={(e)=>{
                         if (e.key === 'a' || e.key === 'A') { update(r.id, 'start') }

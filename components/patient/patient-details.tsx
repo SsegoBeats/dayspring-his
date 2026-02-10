@@ -40,8 +40,8 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
 
   return (
     <div className="space-y-4">
-      <Button variant="outline" onClick={onBack}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
+      <Button variant="outline" onClick={onBack} aria-label="Back to patient list">
+        <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
         Back to List
       </Button>
 
@@ -237,17 +237,17 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
     </div>
   )
 }
-
-
-
-
-
-
-
-
-
-
-
+
+
+
+
+
+
+
+
+
+
+
 
 
 

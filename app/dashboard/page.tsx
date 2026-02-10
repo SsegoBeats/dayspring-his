@@ -27,8 +27,11 @@ export default function DashboardPage() {
       router.push("/")
       return
     }
-    // Check if user needs email verification
-    if (user && user.emailVerified === false) {
+    if (user.role === "Receptionist") {
+      router.replace("/receptionist")
+      return
+    }
+    if (user.emailVerified === false) {
       setShowVerificationModal(true)
     }
   }, [user, isLoading, router])

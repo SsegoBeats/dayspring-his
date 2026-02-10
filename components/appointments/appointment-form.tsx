@@ -10,6 +10,8 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
+import { toast } from "sonner"
+import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
 
 type AppointmentFormProps = {
   onSubmitted?: () => void
@@ -118,9 +120,10 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
 
       setFormData({ patientId: "", doctorId: "", department: "", date: "", time: "", reason: "", notes: "" })
       try { await refreshAppointments?.() } catch {}
+      toast.success("Appointment scheduled")
       if (onSubmitted) onSubmitted()
     } catch (error) {
-      console.error("Error scheduling appointment:", error)
+      toast.error("Failed to schedule appointment")
     } finally {
       setIsSubmitting(false)
     }
@@ -176,12 +179,9 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="General">General</SelectItem>
-                  <SelectItem value="Emergency">Emergency</SelectItem>
-                  <SelectItem value="Pediatrics">Pediatrics</SelectItem>
-                  <SelectItem value="Surgery">Surgery</SelectItem>
-                  <SelectItem value="Radiology">Radiology</SelectItem>
-                  <SelectItem value="Laboratory">Laboratory</SelectItem>
+                  {RECEPTION_DEPARTMENTS.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>

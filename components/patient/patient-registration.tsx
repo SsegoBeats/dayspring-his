@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import type React from "react"
 import { useState } from "react"
@@ -14,6 +14,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
 import { PhoneInput } from "@/components/ui/phone-input"
+import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
 import { Printer, X } from "lucide-react"
 
 interface PatientRegistrationProps {
@@ -472,12 +473,9 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
                   <SelectValue placeholder="Select department" />
                 </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="General">General</SelectItem>
-                  <SelectItem value="Emergency">Emergency</SelectItem>
-                  <SelectItem value="Pediatrics">Pediatrics</SelectItem>
-                  <SelectItem value="Surgery">Surgery</SelectItem>
-                  <SelectItem value="Radiology">Radiology</SelectItem>
-                  <SelectItem value="Laboratory">Laboratory</SelectItem>
+                  {RECEPTION_DEPARTMENTS.map((d) => (
+                    <SelectItem key={d} value={d}>{d}</SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
               <div className="flex items-center gap-2 text-xs text-muted-foreground">

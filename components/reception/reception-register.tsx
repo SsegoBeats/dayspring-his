@@ -1,32 +1,92 @@
-﻿"use client"
+"use client"
 
 import { useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import {
+  DropdownMenu,
+  DropdownMenuContent,
+  DropdownMenuItem,
+  DropdownMenuTrigger,
+} from "@/components/ui/dropdown-menu"
+import { toast } from "sonner"
+import { ChevronDown } from "lucide-react"
+import { runExport, runBatchExport, type ExportPayload } from "@/lib/reception-export-utils"
+import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
+
+const FILTERS_BASE = (from: string, to: string, department: string) => ({
+  from: new Date(from + "T00:00:00Z").toISOString(),
+  to: new Date(to + "T23:59:59Z").toISOString(),
+  department: department === "ALL" ? undefined : department,
+})
 
 export function ReceptionRegister() {
-  const [from, setFrom] = useState<string>(new Date().toISOString().slice(0,10))
-  const [to, setTo] = useState<string>(new Date().toISOString().slice(0,10))
+  const [from, setFrom] = useState<string>(new Date().toISOString().slice(0, 10))
+  const [to, setTo] = useState<string>(new Date().toISOString().slice(0, 10))
   const [department, setDepartment] = useState<string>("ALL")
   const [detailed, setDetailed] = useState<boolean>(false)
+  const [exporting, setExporting] = useState<string | null>(null)
 
-  const buildPayload = (format: 'xlsx'|'pdf') => ({
-    dataset: detailed ? 'reception_register_detailed' : 'reception_register',
+  const baseFilters = FILTERS_BASE(from, to, department)
+
+  const buildPayload = (dataset: string, format: "xlsx" | "pdf" | "csv"): ExportPayload => ({
+    dataset,
     format,
-    filters: {
-      from: new Date(from+'T00:00:00Z').toISOString(),
-      to: new Date(to+'T23:59:59Z').toISOString(),
-      department: department === 'ALL' ? undefined : department,
-    },
+    filters: baseFilters,
   })
 
-  const exportFile = async (format: 'xlsx'|'pdf') => {
-    const payload = buildPayload(format)
-    const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-    if (!res.ok) return
-    const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href=url; a.download=`reception-register-${from}-${to}.${format}`; a.click(); URL.revokeObjectURL(url)
+  const exportFile = async (format: "xlsx" | "pdf") => {
+    const key = `register-${format}` as const
+    setExporting(key)
+    const payload = buildPayload(detailed ? "reception_register_detailed" : "reception_register", format)
+    const result = await runExport(payload, `reception-register-${from}-${to}.${format}`, {
+      onError: (msg) => toast.error(`Reception register ${format.toUpperCase()} failed`, { description: msg }),
+      onSuccess: () => toast.success(`Downloaded reception-register-${from}-${to}.${format}`),
+    })
+    setExporting(null)
+    return result
+  }
+
+  const runSingleExport = async (
+    dataset: string,
+    format: "csv" | "xlsx" | "pdf",
+    filename: string,
+    label: string
+  ) => {
+    const payload = buildPayload(dataset, format)
+    return runExport(payload, filename, {
+      onError: (msg) => toast.error(`${label} failed`, { description: msg }),
+      onSuccess: () => toast.success(`Downloaded ${filename}`),
+    })
+  }
+
+  const runBatch = async (
+    tasks: { dataset: string; format: "pdf" | "xlsx"; filename: string; label: string }[]
+  ) => {
+    setExporting("batch")
+    const { success, failed, failedLabels } = await runBatchExport(
+      tasks.map((t) => ({
+        payload: buildPayload(t.dataset, t.format),
+        filename: t.filename,
+        label: t.label,
+      })),
+      {
+        onError: (label, msg) => toast.error(`${label} failed`, { description: msg }),
+        onComplete: (s, f, labels) => {
+          if (f > 0) {
+            toast.warning(`Batch export: ${s} succeeded, ${f} failed`, {
+              description: labels.length ? labels.join(", ") : undefined,
+            })
+          } else if (s > 0) {
+            toast.success(`Downloaded ${s} file(s)`)
+          }
+        },
+      }
+    )
+    setExporting(null)
+    return { success, failed, failedLabels }
   }
 
   return (
@@ -50,12 +110,9 @@ export function ReceptionRegister() {
             <SelectTrigger><SelectValue placeholder="All" /></SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All</SelectItem>
-              <SelectItem value="General">General</SelectItem>
-              <SelectItem value="Emergency">Emergency</SelectItem>
-              <SelectItem value="Pediatrics">Pediatrics</SelectItem>
-              <SelectItem value="Surgery">Surgery</SelectItem>
-              <SelectItem value="Radiology">Radiology</SelectItem>
-              <SelectItem value="Laboratory">Laboratory</SelectItem>
+              {RECEPTION_DEPARTMENTS.map((d) => (
+                <SelectItem key={d} value={d}>{d}</SelectItem>
+              ))}
             </SelectContent>
           </Select>
         </div>
@@ -64,163 +121,128 @@ export function ReceptionRegister() {
             <input type="checkbox" checked={detailed} onChange={(e)=>setDetailed(e.target.checked)} />
             Detailed
           </label>
-          <Button size="sm" variant="outline" onClick={() => exportFile('xlsx')}>Export XLSX</Button>
-          <Button size="sm" variant="outline" onClick={() => exportFile('pdf')}>Export PDF</Button>
         </div>
-        <div className="flex items-center gap-2 flex-wrap md:col-span-12">
+        <div className="flex flex-wrap items-center gap-2 md:col-span-12">
           <Button
             variant="outline"
-            onClick={async () => {
-              // Export All PDFs: Register (respect detailed), Dashboard, Daily
-              const tasks = [
-                { dataset: detailed ? 'reception_register_detailed' : 'reception_register', name: `reception-register-${from}-${to}.pdf` },
-                { dataset: 'reception_dashboard', name: `reception-dashboard-${from}-${to}.pdf` },
-                { dataset: 'reception_daily', name: `reception-daily-${from}-${to}.pdf` },
-              ]
-              for (const t of tasks) {
-                const payload = { dataset: t.dataset, format: 'pdf', filters: { from: new Date(from+'T00:00:00Z').toISOString(), to: new Date(to+'T23:59:59Z').toISOString(), department: department === 'ALL' ? undefined : department } }
-                const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-                if (!res.ok) continue
-                const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = t.name; a.click(); URL.revokeObjectURL(url)
-              }
-            }}
-          >Export All PDFs</Button>
+            disabled={!!exporting}
+            onClick={() =>
+              runBatch([
+                { dataset: detailed ? "reception_register_detailed" : "reception_register", format: "pdf", filename: `reception-register-${from}-${to}.pdf`, label: "Register PDF" },
+                { dataset: "reception_dashboard", format: "pdf", filename: `reception-dashboard-${from}-${to}.pdf`, label: "Dashboard PDF" },
+                { dataset: "reception_daily", format: "pdf", filename: `reception-daily-${from}-${to}.pdf`, label: "Daily PDF" },
+              ])
+            }
+          >
+            {exporting === "batch" ? "Exporting…" : "Export All PDFs"}
+          </Button>
           <Button
             variant="outline"
-            onClick={async () => {
-              // Export All XLSX: Register (respect detailed), Dashboard, Daily
-              const tasks = [
-                { dataset: detailed ? 'reception_register_detailed' : 'reception_register', name: `reception-register-${from}-${to}.xlsx` },
-                { dataset: 'reception_dashboard', name: `reception-dashboard-${from}-${to}.xlsx` },
-                { dataset: 'reception_daily', name: `reception-daily-${from}-${to}.xlsx` },
-              ]
-              for (const t of tasks) {
-                const payload = { dataset: t.dataset, format: 'xlsx', filters: { from: new Date(from+'T00:00:00Z').toISOString(), to: new Date(to+'T23:59:59Z').toISOString(), department: department === 'ALL' ? undefined : department } }
-                const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-                if (!res.ok) continue
-                const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = t.name; a.click(); URL.revokeObjectURL(url)
-              }
-            }}
-          >Export All XLSX</Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const payload = {
-                dataset: detailed ? 'reception_register_detailed' : 'reception_register',
-                format: 'csv',
-                filters: {
-                  from: new Date(from+'T00:00:00Z').toISOString(),
-                  to: new Date(to+'T23:59:59Z').toISOString(),
-                  department: department === 'ALL' ? undefined : department,
-                },
-              }
-              const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-              if (!res.ok) return
-              const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `reception-register-${from}-${to}.csv`; a.click(); URL.revokeObjectURL(url)
-            }}
-          >Reception Register CSV</Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const payload = {
-                dataset: 'reception_dashboard',
-                format: 'pdf',
-                filters: {
-                  from: new Date(from+'T00:00:00Z').toISOString(),
-                  to: new Date(to+'T23:59:59Z').toISOString(),
-                  department: department === 'ALL' ? undefined : department,
-                },
-              }
-              const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-              if (!res.ok) return
-              const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `reception-dashboard-${from}-${to}.pdf`; a.click(); URL.revokeObjectURL(url)
-            }}
-          >Reception Dashboard PDF</Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const payload = {
-                dataset: 'reception_dashboard',
-                format: 'xlsx',
-                filters: {
-                  from: new Date(from+'T00:00:00Z').toISOString(),
-                  to: new Date(to+'T23:59:59Z').toISOString(),
-                  department: department === 'ALL' ? undefined : department,
-                },
-              }
-              const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-              if (!res.ok) return
-              const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `reception-dashboard-${from}-${to}.xlsx`; a.click(); URL.revokeObjectURL(url)
-            }}
-          >Reception Dashboard XLSX</Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const payload = {
-                dataset: 'reception_daily',
-                format: 'xlsx',
-                filters: {
-                  from: new Date(from+'T00:00:00Z').toISOString(),
-                  to: new Date(to+'T23:59:59Z').toISOString(),
-                  department: department === 'ALL' ? undefined : department,
-                },
-              }
-              const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-              if (!res.ok) return
-              const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `reception-daily-${from}-${to}.xlsx`; a.click(); URL.revokeObjectURL(url)
-            }}
-          >Reception Daily XLSX</Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const payload = {
-                dataset: 'reception_daily',
-                format: 'csv',
-                filters: {
-                  from: new Date(from+'T00:00:00Z').toISOString(),
-                  to: new Date(to+'T23:59:59Z').toISOString(),
-                  department: department === 'ALL' ? undefined : department,
-                },
-              }
-              const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-              if (!res.ok) return
-              const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `reception-daily-${from}-${to}.csv`; a.click(); URL.revokeObjectURL(url)
-            }}
-          >Reception Daily CSV</Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const payload = {
-                dataset: 'reception_daily',
-                format: 'pdf',
-                filters: {
-                  from: new Date(from+'T00:00:00Z').toISOString(),
-                  to: new Date(to+'T23:59:59Z').toISOString(),
-                  department: department === 'ALL' ? undefined : department,
-                },
-              }
-              const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-              if (!res.ok) return
-              const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `reception-daily-${from}-${to}.pdf`; a.click(); URL.revokeObjectURL(url)
-            }}
-          >Reception Daily PDF</Button>
-          <Button
-            variant="outline"
-            onClick={async () => {
-              const payload = {
-                dataset: 'reception_dashboard',
-                format: 'csv',
-                filters: {
-                  from: new Date(from+'T00:00:00Z').toISOString(),
-                  to: new Date(to+'T23:59:59Z').toISOString(),
-                  department: department === 'ALL' ? undefined : department,
-                },
-              }
-              const res = await fetch('/api/exports/direct', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(payload) })
-              if (!res.ok) return
-              const blob = await res.blob(); const url = URL.createObjectURL(blob); const a = document.createElement('a'); a.href = url; a.download = `reception-dashboard-${from}-${to}.csv`; a.click(); URL.revokeObjectURL(url)
-            }}
-          >Reception Dashboard CSV</Button>
+            disabled={!!exporting}
+            onClick={() =>
+              runBatch([
+                { dataset: detailed ? "reception_register_detailed" : "reception_register", format: "xlsx", filename: `reception-register-${from}-${to}.xlsx`, label: "Register XLSX" },
+                { dataset: "reception_dashboard", format: "xlsx", filename: `reception-dashboard-${from}-${to}.xlsx`, label: "Dashboard XLSX" },
+                { dataset: "reception_daily", format: "xlsx", filename: `reception-daily-${from}-${to}.xlsx`, label: "Daily XLSX" },
+              ])
+            }
+          >
+            {exporting === "batch" ? "Exporting…" : "Export All XLSX"}
+          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={!!exporting}>
+                Reception Register <ChevronDown className="ml-1 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem onClick={() => exportFile("pdf")} disabled={!!exporting}>
+                PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportFile("xlsx")} disabled={!!exporting}>
+                XLSX
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  runSingleExport(
+                    detailed ? "reception_register_detailed" : "reception_register",
+                    "csv",
+                    `reception-register-${from}-${to}.csv`,
+                    "Reception Register CSV"
+                  )
+                }
+                disabled={!!exporting}
+              >
+                CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={!!exporting}>
+                Reception Dashboard <ChevronDown className="ml-1 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem
+                onClick={() =>
+                  runSingleExport("reception_dashboard", "pdf", `reception-dashboard-${from}-${to}.pdf`, "Reception Dashboard PDF")
+                }
+                disabled={!!exporting}
+              >
+                PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  runSingleExport("reception_dashboard", "xlsx", `reception-dashboard-${from}-${to}.xlsx", "Reception Dashboard XLSX")
+                }
+                disabled={!!exporting}
+              >
+                XLSX
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  runSingleExport("reception_dashboard", "csv", `reception-dashboard-${from}-${to}.csv", "Reception Dashboard CSV")
+                }
+                disabled={!!exporting}
+              >
+                CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={!!exporting}>
+                Reception Daily <ChevronDown className="ml-1 h-4 w-4" />
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="start">
+              <DropdownMenuItem
+                onClick={() =>
+                  runSingleExport("reception_daily", "pdf", `reception-daily-${from}-${to}.pdf`, "Reception Daily PDF")
+                }
+                disabled={!!exporting}
+              >
+                PDF
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  runSingleExport("reception_daily", "xlsx", `reception-daily-${from}-${to}.xlsx", "Reception Daily XLSX")
+                }
+                disabled={!!exporting}
+              >
+                XLSX
+              </DropdownMenuItem>
+              <DropdownMenuItem
+                onClick={() =>
+                  runSingleExport("reception_daily", "csv", `reception-daily-${from}-${to}.csv", "Reception Daily CSV")
+                }
+                disabled={!!exporting}
+              >
+                CSV
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
         </div>
       </CardContent>
     </Card>
