@@ -31,7 +31,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     return roleMap[(role || "").toLowerCase()] || role
   }
 
-  const showSchedulesLink = user && user.role === "Clinician"
+  const showSchedulesLink = user && ["Clinician", "Midwife", "Dentist"].includes(user.role)
+  const showAncLink = user && user.role === "Midwife"
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -50,6 +51,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <p className="text-xs text-muted-foreground">{user && getRoleLabel(user.role)}</p>
             </div>
             <NotificationsBell />
+            {showAncLink && (
+              <Link href="/midwife/anc">
+                <Button variant="ghost" size="sm">ANC</Button>
+              </Link>
+            )}
             {showSchedulesLink && (
               <Link href="/clinician/schedules">
                 <Button variant="ghost" size="sm">Schedules</Button>

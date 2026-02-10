@@ -6,6 +6,7 @@ import { queryWithSession } from "@/lib/db"
 
 const CreateSchema = z.object({
   patientId: z.string().min(1),
+  visitDate: z.string().optional().nullable(),
   gravida: z.number().int().nonnegative().optional().nullable(),
   parity: z.number().int().nonnegative().optional().nullable(),
   gestationalAgeWeeks: z.number().int().nonnegative().optional().nullable(),
@@ -65,12 +66,14 @@ export async function POST(req: Request) {
     const input = CreateSchema.parse(body)
 
     const edd = input.edd ? new Date(input.edd) : null
+    const visitDate = input.visitDate ? new Date(input.visitDate) : null
 
     const { rows } = await queryWithSession(
       { role: auth.role, userId: auth.userId },
       `INSERT INTO obstetric_assessments (
          patient_id,
          recorded_by,
+         visit_date,
          gravida,
          parity,
          gestational_age_weeks,
@@ -80,7 +83,7 @@ export async function POST(req: Request) {
          presentation,
          notes
        )
-       VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10)
+       VALUES ($1,$2,COALESCE($3::timestamp,CURRENT_TIMESTAMP),$4,$5,$6,$7,$8,$9,$10,$11)
        RETURNING id,
                  patient_id,
                  recorded_by,
@@ -96,6 +99,7 @@ export async function POST(req: Request) {
       [
         input.patientId,
         auth.userId,
+        visitDate ? visitDate.toISOString() : null,
         input.gravida ?? null,
         input.parity ?? null,
         input.gestationalAgeWeeks ?? null,

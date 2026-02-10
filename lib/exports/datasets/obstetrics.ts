@@ -2,9 +2,14 @@ import { z } from "zod"
 import { query } from "@/lib/db"
 import type { Dataset, ExportContext } from "@/lib/exports/registry"
 
+function getQuery(ctx: ExportContext) {
+  return ctx.runQuery ?? ((text: string, params?: any[]) => query(text, params))
+}
+
 const Filter = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
+  recordedByUserId: z.boolean().optional(),
 })
 
 export class ObstetricsDataset implements Dataset {
@@ -35,7 +40,9 @@ export class ObstetricsDataset implements Dataset {
     pageSize = 5000,
   ) {
     const after = cursor?.after ?? null
-    const { rows } = await query(
+    const run = getQuery(ctx)
+    const recordedBy = f.recordedByUserId ? ctx.userId : null
+    const { rows } = await run(
       `
       SELECT 
         oa.visit_date,
@@ -56,10 +63,11 @@ export class ObstetricsDataset implements Dataset {
       WHERE ($1::timestamp IS NULL OR oa.visit_date >= $1)
         AND ($2::timestamp IS NULL OR oa.visit_date <= $2)
         AND ($3::timestamp IS NULL OR oa.visit_date > $3)
+        AND ($5::uuid IS NULL OR oa.recorded_by = $5)
       ORDER BY oa.visit_date ASC
       LIMIT $4
       `,
-      [f.from ?? null, f.to ?? null, after, pageSize],
+      [f.from ?? null, f.to ?? null, after, pageSize, recordedBy],
     )
     const nextCursor =
       rows.length === pageSize ? { after: rows[rows.length - 1].visit_date } : undefined

@@ -1,7 +1,12 @@
 import { z } from "zod"
 import { query } from "@/lib/db"
 
-export type ExportContext = { userId: string; role: string }
+export type ExportContext = {
+  userId: string
+  role: string
+  /** When set, run queries in this session so RLS (e.g. obstetric_assessments, dental_records) applies. */
+  runQuery?: (text: string, params?: any[]) => Promise<{ rows: any[] }>
+}
 export type ExportResultRow = Record<string, any>
 
 export interface Dataset {

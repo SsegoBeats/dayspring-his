@@ -2,6 +2,10 @@ import { z } from "zod"
 import { query } from "@/lib/db"
 import type { Dataset, ExportContext } from "@/lib/exports/registry"
 
+function getQuery(ctx: ExportContext) {
+  return ctx.runQuery ?? ((text: string, params?: any[]) => query(text, params))
+}
+
 const Filter = z.object({
   from: z.string().datetime().optional(),
   to: z.string().datetime().optional(),
@@ -31,7 +35,8 @@ export class DentalDataset implements Dataset {
     pageSize = 5000,
   ) {
     const after = cursor?.after ?? null
-    const { rows } = await query(
+    const run = getQuery(ctx)
+    const { rows } = await run(
       `
       SELECT 
         dr.visit_date,

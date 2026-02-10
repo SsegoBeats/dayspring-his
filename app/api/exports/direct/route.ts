@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 
 
 
@@ -11,7 +11,7 @@ import { toCSV } from "@/lib/exports/writers/csv"
 import { toXLSX } from "@/lib/exports/writers/xlsx"
 import { writeAuditLog } from "@/lib/audit"
 import { toPDF } from "@/lib/exports/writers/pdf"
-import { query } from "@/lib/db"
+import { query, withSession } from "@/lib/db"
 const Schema = z.object({
   dataset: z.enum([
     "appointments",
@@ -80,15 +80,24 @@ export async function POST(req: Request) {
       return Object.keys(info).length ? info : undefined
     })()
 
-    // Pull all rows in-memory (suitable for small exports)
-    const rows: any[] = []
-    let cursor: any = undefined
-    do {
-      const page = await ds.queryPage({ userId: auth.userId, role: auth.role }, parsedFilters, cursor, 5000)
-      const redacted = page.rows.map((r) => redactRow(r, input.redaction_profile))
-      for (const r of redacted) rows.push(input.columns && input.columns.length ? input.columns.reduce((acc: any, k: string) => ((acc[k] = (r as any)[k]), acc), {}) : r)
-      cursor = page.nextCursor
-    } while (cursor)
+    // Pull all rows in-memory (suitable for small exports). Run inside session so RLS applies to obstetrics/dental etc.
+    const rows: any[] = await withSession(
+      { role: auth.role, userId: auth.userId },
+      async (client) => {
+        const runQuery = (text: string, params?: any[]) =>
+          client.query(text, params).then((r) => ({ rows: r.rows }))
+        const ctx = { userId: auth.userId, role: auth.role, runQuery }
+        const out: any[] = []
+        let cursor: any = undefined
+        do {
+          const page = await ds.queryPage(ctx, parsedFilters, cursor, 5000)
+          const redacted = page.rows.map((r) => redactRow(r, input.redaction_profile))
+          for (const r of redacted) out.push(input.columns && input.columns.length ? input.columns.reduce((acc: any, k: string) => ((acc[k] = (r as any)[k]), acc), {}) : r)
+          cursor = page.nextCursor
+        } while (cursor)
+        return out
+      },
+    )
 
     const filename = `${input.dataset}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${input.format}`
 

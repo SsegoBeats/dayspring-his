@@ -10,7 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, AlertCircle, FileText, Pill, History } from "lucide-react"
+import { ArrowLeft, AlertCircle, FileText, Pill, History, Pencil } from "lucide-react"
 import Link from "next/link"
 import { formatPatientNumber } from "@/lib/patients"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
@@ -78,6 +78,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
   })
 
   const [obstetricForm, setObstetricForm] = useState({
+    visitDate: "",
     gravida: "",
     parity: "",
     gestationalAgeWeeks: "",
@@ -96,6 +97,19 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
 
   const [obstetricHistory, setObstetricHistory] = useState<any[]>([])
   const [dentalHistory, setDentalHistory] = useState<any[]>([])
+  const [editingObstetricId, setEditingObstetricId] = useState<string | null>(null)
+  const [obstetricEditForm, setObstetricEditForm] = useState({
+    visitDate: "",
+    gravida: "",
+    parity: "",
+    gestationalAgeWeeks: "",
+    edd: "",
+    fundalHeightCm: "",
+    fetalHeartRate: "",
+    presentation: "",
+    notes: "",
+  })
+  const [savingObstetricEdit, setSavingObstetricEdit] = useState(false)
 
   const handleAddMedication = () => {
     setPrescriptionForm({
@@ -258,8 +272,34 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
     }
   }
 
+  const validateObstetricForm = (form: typeof obstetricForm): string | null => {
+    const ga = form.gestationalAgeWeeks ? Number(form.gestationalAgeWeeks) : null
+    if (ga != null && (ga < 0 || ga > 44)) {
+      return "Gestational age should be between 0 and 44 weeks"
+    }
+    const fhr = form.fetalHeartRate ? Number(form.fetalHeartRate) : null
+    if (fhr != null && (fhr < 80 || fhr > 220)) {
+      return "Fetal heart rate should be between 80 and 220 bpm"
+    }
+    if (form.edd) {
+      const edd = new Date(form.edd)
+      const now = new Date()
+      const monthsDiff = (edd.getFullYear() - now.getFullYear()) * 12 + (edd.getMonth() - now.getMonth())
+      if (monthsDiff < -12 || monthsDiff > 6) {
+        return "EDD should be within 12 months past or 6 months future"
+      }
+    }
+    return null
+  }
+
   const handleSaveObstetricAssessment = async () => {
     if (!patient || !user) return
+
+    const validationError = validateObstetricForm(obstetricForm)
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
 
     try {
       const payload: any = {
@@ -267,6 +307,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
         notes: obstetricForm.notes || null,
         presentation: obstetricForm.presentation || null,
       }
+      if (obstetricForm.visitDate) payload.visitDate = obstetricForm.visitDate
       if (obstetricForm.gravida) payload.gravida = Number(obstetricForm.gravida)
       if (obstetricForm.parity) payload.parity = Number(obstetricForm.parity)
       if (obstetricForm.gestationalAgeWeeks) payload.gestationalAgeWeeks = Number(obstetricForm.gestationalAgeWeeks)
@@ -285,8 +326,79 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
         throw new Error(data.error || "Failed to save assessment")
       }
       toast.success("Obstetric assessment saved successfully.")
+      // Refresh obstetric history so the new assessment appears in the list
+      try {
+        const refetch = await fetch(`/api/obstetrics/assessments?patientId=${encodeURIComponent(patient.id)}`, {
+          credentials: "include",
+        })
+        if (refetch.ok) {
+          const data = await refetch.json().catch(() => ({}))
+          setObstetricHistory(Array.isArray(data.assessments) ? data.assessments : [])
+        }
+      } catch {
+        // non-fatal
+      }
     } catch (e: any) {
       toast.error(e?.message || "Failed to save obstetric assessment")
+    }
+  }
+
+  const openEditObstetric = (a: any) => {
+    setEditingObstetricId(a.id)
+    setObstetricEditForm({
+      visitDate: a.visit_date ? String(a.visit_date).slice(0, 10) : "",
+      gravida: a.gravida != null ? String(a.gravida) : "",
+      parity: a.parity != null ? String(a.parity) : "",
+      gestationalAgeWeeks: a.gestational_age_weeks != null ? String(a.gestational_age_weeks) : "",
+      edd: a.edd ? String(a.edd).slice(0, 10) : "",
+      fundalHeightCm: a.fundal_height_cm != null ? String(a.fundal_height_cm) : "",
+      fetalHeartRate: a.fetal_heart_rate != null ? String(a.fetal_heart_rate) : "",
+      presentation: a.presentation || "",
+      notes: a.notes || "",
+    })
+  }
+
+  const handleSaveObstetricEdit = async () => {
+    if (!editingObstetricId) return
+    const validationError = validateObstetricForm(obstetricEditForm)
+    if (validationError) {
+      toast.error(validationError)
+      return
+    }
+    setSavingObstetricEdit(true)
+    try {
+      const payload: any = {}
+      if (obstetricEditForm.visitDate) payload.visitDate = obstetricEditForm.visitDate
+      if (obstetricEditForm.gravida) payload.gravida = Number(obstetricEditForm.gravida)
+      if (obstetricEditForm.parity) payload.parity = Number(obstetricEditForm.parity)
+      if (obstetricEditForm.gestationalAgeWeeks) payload.gestationalAgeWeeks = Number(obstetricEditForm.gestationalAgeWeeks)
+      if (obstetricEditForm.edd) payload.edd = obstetricEditForm.edd
+      if (obstetricEditForm.fundalHeightCm) payload.fundalHeightCm = Number(obstetricEditForm.fundalHeightCm)
+      if (obstetricEditForm.fetalHeartRate) payload.fetalHeartRate = Number(obstetricEditForm.fetalHeartRate)
+      payload.presentation = obstetricEditForm.presentation || null
+      payload.notes = obstetricEditForm.notes || null
+
+      const res = await fetch(`/api/obstetrics/assessments/${editingObstetricId}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to update assessment")
+      }
+      toast.success("Obstetric assessment updated.")
+      setEditingObstetricId(null)
+      const refetch = await fetch(`/api/obstetrics/assessments?patientId=${encodeURIComponent(patientId)}`, { credentials: "include" })
+      if (refetch.ok) {
+        const data = await refetch.json().catch(() => ({}))
+        setObstetricHistory(Array.isArray(data.assessments) ? data.assessments : [])
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to update obstetric assessment")
+    } finally {
+      setSavingObstetricEdit(false)
     }
   }
 
@@ -560,8 +672,43 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
 
                 {user?.role === "Midwife" && (
                   <div className="space-y-4 rounded-lg border border-rose-200 bg-rose-50/40 p-4">
-                    <h3 className="font-semibold text-foreground">Obstetric Details</h3>
+                    <div className="flex items-center justify-between">
+                      <h3 className="font-semibold text-foreground">Obstetric Details</h3>
+                      {obstetricHistory.length > 0 && (
+                        <Button
+                          type="button"
+                          variant="outline"
+                          size="sm"
+                          onClick={() => {
+                            const last = obstetricHistory[0]
+                            setObstetricForm({
+                              visitDate: last.visit_date ? String(last.visit_date).slice(0, 10) : "",
+                              gravida: last.gravida != null ? String(last.gravida) : "",
+                              parity: last.parity != null ? String(last.parity) : "",
+                              gestationalAgeWeeks: last.gestational_age_weeks != null ? String(last.gestational_age_weeks) : "",
+                              edd: last.edd ? String(last.edd).slice(0, 10) : "",
+                              fundalHeightCm: last.fundal_height_cm != null ? String(last.fundal_height_cm) : "",
+                              fetalHeartRate: last.fetal_heart_rate != null ? String(last.fetal_heart_rate) : "",
+                              presentation: last.presentation || "",
+                              notes: last.notes || "",
+                            })
+                            toast.success("Form filled from last assessment")
+                          }}
+                        >
+                          Copy from last assessment
+                        </Button>
+                      )}
+                    </div>
                     <div className="grid gap-4 md:grid-cols-3">
+                      <div className="space-y-2">
+                        <Label htmlFor="obVisitDate">Visit date (optional)</Label>
+                        <Input
+                          id="obVisitDate"
+                          type="date"
+                          value={obstetricForm.visitDate}
+                          onChange={(e) => setObstetricForm({ ...obstetricForm, visitDate: e.target.value })}
+                        />
+                      </div>
                       <div className="space-y-2">
                         <Label htmlFor="gravida">Gravida</Label>
                         <Input
@@ -848,9 +995,23 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                           <CardHeader>
                             <div className="flex items-center justify-between">
                               <CardTitle className="text-base">Obstetric Assessment</CardTitle>
-                              <Badge variant="outline">
-                                {a.visit_date ? String(a.visit_date).slice(0, 10) : ""}
-                              </Badge>
+                              <div className="flex items-center gap-2">
+                                <Badge variant="outline">
+                                  {a.visit_date ? String(a.visit_date).slice(0, 10) : ""}
+                                </Badge>
+                                {user?.role === "Midwife" && (
+                                  <Button
+                                    type="button"
+                                    variant="ghost"
+                                    size="sm"
+                                    className="h-8 w-8 p-0"
+                                    onClick={() => openEditObstetric(a)}
+                                    title="Edit assessment"
+                                  >
+                                    <Pencil className="h-4 w-4" />
+                                  </Button>
+                                )}
+                              </div>
                             </div>
                           </CardHeader>
                           <CardContent className="space-y-2 text-sm">
@@ -1001,6 +1162,87 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
           </Tabs>
 
           <OrderLabTest patientId={patient.id} open={orderOpen} onOpenChange={(o)=> { setOrderOpen(o); if (!o) refreshLab({ patientId: patient.id }).catch(()=>{}) }} />
+
+          <Dialog open={!!editingObstetricId} onOpenChange={(o)=> { if (!o) setEditingObstetricId(null) }}>
+            <DialogContent className="max-h-[85vh] overflow-y-auto max-w-lg">
+              <DialogHeader>
+                <DialogTitle>Edit obstetric assessment</DialogTitle>
+              </DialogHeader>
+              <div className="grid gap-3 sm:grid-cols-2">
+                <div className="space-y-1.5">
+                  <Label>Visit date</Label>
+                  <Input
+                    type="date"
+                    value={obstetricEditForm.visitDate}
+                    onChange={(e) => setObstetricEditForm({ ...obstetricEditForm, visitDate: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Gravida</Label>
+                  <Input
+                    value={obstetricEditForm.gravida}
+                    onChange={(e) => setObstetricEditForm({ ...obstetricEditForm, gravida: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Parity</Label>
+                  <Input
+                    value={obstetricEditForm.parity}
+                    onChange={(e) => setObstetricEditForm({ ...obstetricEditForm, parity: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Gestational age (weeks)</Label>
+                  <Input
+                    value={obstetricEditForm.gestationalAgeWeeks}
+                    onChange={(e) => setObstetricEditForm({ ...obstetricEditForm, gestationalAgeWeeks: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>EDD</Label>
+                  <Input
+                    type="date"
+                    value={obstetricEditForm.edd}
+                    onChange={(e) => setObstetricEditForm({ ...obstetricEditForm, edd: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fundal height (cm)</Label>
+                  <Input
+                    value={obstetricEditForm.fundalHeightCm}
+                    onChange={(e) => setObstetricEditForm({ ...obstetricEditForm, fundalHeightCm: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5">
+                  <Label>Fetal heart rate</Label>
+                  <Input
+                    value={obstetricEditForm.fetalHeartRate}
+                    onChange={(e) => setObstetricEditForm({ ...obstetricEditForm, fetalHeartRate: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Presentation</Label>
+                  <Input
+                    value={obstetricEditForm.presentation}
+                    onChange={(e) => setObstetricEditForm({ ...obstetricEditForm, presentation: e.target.value })}
+                  />
+                </div>
+                <div className="space-y-1.5 sm:col-span-2">
+                  <Label>Notes</Label>
+                  <Textarea
+                    value={obstetricEditForm.notes}
+                    onChange={(e) => setObstetricEditForm({ ...obstetricEditForm, notes: e.target.value })}
+                  />
+                </div>
+              </div>
+              <div className="flex justify-end gap-2 pt-2">
+                <Button variant="outline" onClick={() => setEditingObstetricId(null)}>Cancel</Button>
+                <Button onClick={handleSaveObstetricEdit} disabled={savingObstetricEdit}>
+                  {savingObstetricEdit ? "Saving…" : "Save changes"}
+                </Button>
+              </div>
+            </DialogContent>
+          </Dialog>
 
           <Dialog open={!!selectedLabId} onOpenChange={(o)=> { if (!o) setSelectedLabId(null) }}>
             <DialogContent size="lg" className="max-h-[80vh] overflow-y-auto">
