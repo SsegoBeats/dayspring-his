@@ -128,7 +128,7 @@ export async function GET() {
         FROM users 
         WHERE is_active = true 
         AND (
-          ($1 = 'Clinician' AND role IN ('Clinician','Doctor','Midwife','Dentist'))
+          ($1 = 'Clinician' AND role IN ('Clinician','Midwife','Dentist'))
           OR role = $1
         )
       `, [role])
@@ -173,7 +173,7 @@ export async function GET() {
                 UNION ALL
                 SELECT created_at FROM prescriptions WHERE created_at > NOW() - INTERVAL '${minutes} minutes'
                 UNION ALL
-                SELECT last_login as created_at FROM users WHERE role IN ('Clinician','Doctor','Midwife','Dentist') AND last_login IS NOT NULL AND last_login > NOW() - INTERVAL '${minutes} minutes'
+                SELECT last_login as created_at FROM users WHERE role IN ('Clinician','Midwife','Dentist') AND last_login IS NOT NULL AND last_login > NOW() - INTERVAL '${minutes} minutes'
               ) as activity
             `
             break

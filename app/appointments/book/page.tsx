@@ -97,7 +97,7 @@ function BookAppointmentInner() {
       }
       const res = await fetch("/api/appointments", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify(body) })
       if (res.ok) {
-        toast.success(`Booked ${patient ? patient.firstName + " " + patient.lastName : patientId} with ${doctor?.name || "Doctor"} on ${date} at ${time}`)
+        toast.success(`Booked ${patient ? patient.firstName + " " + patient.lastName : patientId} with ${doctor?.name || "Clinician"} on ${date} at ${time}`)
         await loadSlots()
       } else {
         const err = await res.json().catch(() => ({}))

@@ -10,7 +10,7 @@ export async function GET(req: Request) {
   // Reuse lab/doctor export ability for minimal demo
   if (
     !(
-      auth.role === "Doctor" ||
+      auth.role === "Clinician" ||
       auth.role === "Clinician" ||
       auth.role === "Midwife" ||
       auth.role === "Dentist" ||

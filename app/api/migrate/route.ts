@@ -64,7 +64,7 @@ CREATE TABLE IF NOT EXISTS users (
     email VARCHAR(255) UNIQUE NOT NULL,
     password_hash VARCHAR(255) NOT NULL,
     name VARCHAR(255) NOT NULL,
-    role VARCHAR(50) NOT NULL CHECK (role IN ('Receptionist', 'Doctor', 'Radiologist', 'Nurse', 'Lab Tech', 'Hospital Admin', 'Cashier', 'Pharmacist', 'Midwife', 'Dentist')),
+    role VARCHAR(50) NOT NULL CHECK (role IN ('Receptionist', 'Clinician', 'Radiologist', 'Nurse', 'Lab Tech', 'Hospital Admin', 'Cashier', 'Pharmacist', 'Midwife', 'Dentist')),
     phone VARCHAR(20),
     is_active BOOLEAN DEFAULT true,
     failed_login_attempts INTEGER DEFAULT 0,
@@ -102,7 +102,7 @@ BEGIN
     BEGIN
       ALTER TABLE users
         ADD CONSTRAINT users_role_check
-        CHECK (role IN ('Receptionist', 'Doctor', 'Radiologist', 'Nurse', 'Lab Tech', 'Hospital Admin', 'Cashier', 'Pharmacist', 'Midwife', 'Dentist'));
+        CHECK (role IN ('Receptionist', 'Clinician', 'Radiologist', 'Nurse', 'Lab Tech', 'Hospital Admin', 'Cashier', 'Pharmacist', 'Midwife', 'Dentist'));
     EXCEPTION WHEN others THEN
       NULL;
     END;
@@ -848,7 +848,7 @@ CREATE TABLE IF NOT EXISTS documents (
 CREATE INDEX IF NOT EXISTS idx_documents_patient ON documents(patient_id);
 
 -- === Row Level Security (RLS) ===
--- Use session settings: SELECT set_config('app.role', 'Doctor', true), set_config('app.user_id', '<uuid>', true)
+-- Use session settings: SELECT set_config('app.role', 'Clinician', true), set_config('app.user_id', '<uuid>', true)
 
 -- Patients
 ALTER TABLE patients ENABLE ROW LEVEL SECURITY;
@@ -864,9 +864,9 @@ ALTER TABLE appointments ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS appts_select ON appointments;
 CREATE POLICY appts_select ON appointments FOR SELECT USING (current_setting('app.role', true) IS NOT NULL);
 DROP POLICY IF EXISTS appts_insert ON appointments;
-CREATE POLICY appts_insert ON appointments FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Receptionist','Doctor','Midwife','Dentist','Nurse'));
+CREATE POLICY appts_insert ON appointments FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Receptionist','Clinician','Midwife','Dentist','Nurse'));
 DROP POLICY IF EXISTS appts_update ON appointments;
-CREATE POLICY appts_update ON appointments FOR UPDATE USING (current_setting('app.role', true) IN ('Hospital Admin','Receptionist','Doctor','Midwife','Dentist','Nurse'));
+CREATE POLICY appts_update ON appointments FOR UPDATE USING (current_setting('app.role', true) IN ('Hospital Admin','Receptionist','Clinician','Midwife','Dentist','Nurse'));
 
 -- Bills
 ALTER TABLE bills ENABLE ROW LEVEL SECURITY;
@@ -880,7 +880,7 @@ ALTER TABLE medications ENABLE ROW LEVEL SECURITY;
 ALTER TABLE medications ADD COLUMN IF NOT EXISTS barcode VARCHAR(100);
 CREATE INDEX IF NOT EXISTS idx_medications_barcode ON medications(barcode);
 DROP POLICY IF EXISTS meds_select ON medications;
-CREATE POLICY meds_select ON medications FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Pharmacist','Doctor','Midwife','Dentist','Nurse'));
+CREATE POLICY meds_select ON medications FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Pharmacist','Clinician','Midwife','Dentist','Nurse'));
 DROP POLICY IF EXISTS meds_delete ON medications;
 CREATE POLICY meds_delete ON medications FOR DELETE USING (current_setting('app.role', true) IN ('Hospital Admin','Pharmacist'));
 
@@ -894,20 +894,20 @@ CREATE POLICY medstock_insert ON medication_stock_movements FOR INSERT WITH CHEC
 -- Medical records
 ALTER TABLE medical_records ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS medrec_select ON medical_records;
-CREATE POLICY medrec_select ON medical_records FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Doctor','Midwife','Dentist','Nurse'));
+CREATE POLICY medrec_select ON medical_records FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Clinician','Midwife','Dentist','Nurse'));
 DROP POLICY IF EXISTS medrec_insert ON medical_records;
-CREATE POLICY medrec_insert ON medical_records FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Doctor','Midwife','Dentist'));
+CREATE POLICY medrec_insert ON medical_records FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Clinician','Midwife','Dentist'));
 DROP POLICY IF EXISTS medrec_update ON medical_records;
-CREATE POLICY medrec_update ON medical_records FOR UPDATE USING (current_setting('app.role', true) IN ('Hospital Admin','Doctor','Midwife','Dentist'));
+CREATE POLICY medrec_update ON medical_records FOR UPDATE USING (current_setting('app.role', true) IN ('Hospital Admin','Clinician','Midwife','Dentist'));
 
 -- Prescriptions
 ALTER TABLE prescriptions ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS rx_select ON prescriptions;
-CREATE POLICY rx_select ON prescriptions FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Doctor','Midwife','Dentist','Pharmacist'));
+CREATE POLICY rx_select ON prescriptions FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Clinician','Midwife','Dentist','Pharmacist'));
 DROP POLICY IF EXISTS rx_insert ON prescriptions;
-CREATE POLICY rx_insert ON prescriptions FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Doctor','Midwife','Dentist'));
+CREATE POLICY rx_insert ON prescriptions FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Clinician','Midwife','Dentist'));
 DROP POLICY IF EXISTS rx_update ON prescriptions;
-CREATE POLICY rx_update ON prescriptions FOR UPDATE USING (current_setting('app.role', true) IN ('Hospital Admin','Doctor','Midwife','Dentist','Pharmacist'));
+CREATE POLICY rx_update ON prescriptions FOR UPDATE USING (current_setting('app.role', true) IN ('Hospital Admin','Clinician','Midwife','Dentist','Pharmacist'));
 
 -- Lab tests
 -- Ensure reviewed columns exist for lab tests
@@ -932,14 +932,14 @@ END$$;
 
 ALTER TABLE lab_tests ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS lab_select ON lab_tests;
-CREATE POLICY lab_select ON lab_tests FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Doctor','Midwife','Dentist','Lab Tech','Nurse'));
+CREATE POLICY lab_select ON lab_tests FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Clinician','Midwife','Dentist','Lab Tech','Nurse'));
 DROP POLICY IF EXISTS lab_insert ON lab_tests;
-CREATE POLICY lab_insert ON lab_tests FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Doctor','Midwife','Dentist'));
+CREATE POLICY lab_insert ON lab_tests FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Clinician','Midwife','Dentist'));
 DROP POLICY IF EXISTS lab_update ON lab_tests;
--- Allow Admin, Lab Tech, and Doctor-family roles to update (needed to mark results as reviewed)
-CREATE POLICY lab_update ON lab_tests FOR UPDATE USING (current_setting('app.role', true) IN ('Hospital Admin','Lab Tech','Doctor','Midwife','Dentist'));
+-- Allow Admin, Lab Tech, and Clinician-family roles to update (needed to mark results as reviewed)
+CREATE POLICY lab_update ON lab_tests FOR UPDATE USING (current_setting('app.role', true) IN ('Hospital Admin','Lab Tech','Clinician','Midwife','Dentist'));
 
--- Guard updates with a trigger: reviewed_* can only be set by Doctor/Admin; completing results only by Lab Tech/Admin
+-- Guard updates with a trigger: reviewed_* can only be set by Clinician/Admin; completing results only by Lab Tech/Admin
 DO $$
 BEGIN
   IF NOT EXISTS (
@@ -950,8 +950,8 @@ BEGIN
       app_role text := current_setting('app.role', true);
     BEGIN
       IF (NEW.reviewed_by IS DISTINCT FROM OLD.reviewed_by OR NEW.reviewed_at IS DISTINCT FROM OLD.reviewed_at) THEN
-        IF app_role NOT IN ('Hospital Admin','Doctor','Midwife','Dentist') THEN
-          RAISE EXCEPTION 'Only Doctor, Midwife, Dentist or Admin may set reviewed fields';
+        IF app_role NOT IN ('Hospital Admin','Clinician','Midwife','Dentist') THEN
+          RAISE EXCEPTION 'Only Clinician, Midwife, Dentist or Admin may set reviewed fields';
         END IF;
       END IF;
       IF (NEW.status IS DISTINCT FROM OLD.status OR NEW.results IS DISTINCT FROM OLD.results) THEN
@@ -973,9 +973,9 @@ END$$;
 -- Radiology tests
 ALTER TABLE radiology_tests ENABLE ROW LEVEL SECURITY;
 DROP POLICY IF EXISTS rads_select ON radiology_tests;
-CREATE POLICY rads_select ON radiology_tests FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Doctor','Radiologist','Nurse'));
+CREATE POLICY rads_select ON radiology_tests FOR SELECT USING (current_setting('app.role', true) IN ('Hospital Admin','Clinician','Radiologist','Nurse'));
 DROP POLICY IF EXISTS rads_insert ON radiology_tests;
-CREATE POLICY rads_insert ON radiology_tests FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Doctor'));
+CREATE POLICY rads_insert ON radiology_tests FOR INSERT WITH CHECK (current_setting('app.role', true) IN ('Hospital Admin','Clinician'));
 DROP POLICY IF EXISTS rads_update ON radiology_tests;
 CREATE POLICY rads_update ON radiology_tests FOR UPDATE USING (current_setting('app.role', true) IN ('Hospital Admin','Radiologist'));
 

@@ -37,7 +37,7 @@ const CreateSchema = z.object({
   password: z.string().min(8),
   role: z.enum([
     "Receptionist",
-    "Doctor",
+    "Clinician",
     "Radiologist",
     "Nurse",
     "Lab Tech",

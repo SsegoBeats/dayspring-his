@@ -106,6 +106,7 @@ interface MedicalContextType {
   allergies: Allergy[]
   immunizations: Immunization[]
   chronicConditions: ChronicCondition[]
+  refreshMedicalData: () => Promise<void>
   addMedicalRecord: (record: Omit<MedicalRecord, "id">) => void
   addPrescription: (prescription: Omit<Prescription, "id">) => void
   updatePrescription: (id: string, updates: Partial<Prescription>) => void
@@ -127,6 +128,99 @@ interface MedicalContextType {
 }
 
 const MedicalContext = createContext<MedicalContextType | undefined>(undefined)
+
+async function fetchAndMapMedicalData(): Promise<{
+  recs: MedicalRecord[]
+  pres: Prescription[]
+  labs: LabResult[]
+} | null> {
+  const res = await fetch("/api/medical", { credentials: "include" })
+  if (!res.ok) return null
+  const data = await res.json()
+  const recs: MedicalRecord[] = (data.medicalRecords || []).map((r: any) => {
+    const hasVitals =
+      r.blood_pressure_systolic != null ||
+      r.blood_pressure_diastolic != null ||
+      r.temperature != null ||
+      r.heart_rate != null ||
+      r.respiratory_rate != null ||
+      r.oxygen_saturation != null
+    const vitalSigns = hasVitals
+      ? {
+          bloodPressure:
+            r.blood_pressure_systolic != null && r.blood_pressure_diastolic != null
+              ? `${r.blood_pressure_systolic}/${r.blood_pressure_diastolic}`
+              : undefined,
+          temperature: r.temperature != null ? String(r.temperature) : undefined,
+          heartRate: r.heart_rate != null ? String(r.heart_rate) : undefined,
+          respiratoryRate: r.respiratory_rate != null ? String(r.respiratory_rate) : undefined,
+          oxygenSaturation: r.oxygen_saturation != null ? String(r.oxygen_saturation) : undefined,
+        }
+      : undefined
+    return {
+      id: r.id,
+      patientId: r.patient_id,
+      patientName: r.patient_name ? String(r.patient_name).trim() : "",
+      doctorName: r.doctor_name ? String(r.doctor_name).trim() : "",
+      date: r.visit_date,
+      diagnosis: r.diagnosis || "",
+      symptoms: r.chief_complaint || "",
+      treatment: r.treatment_plan || "",
+      ...(vitalSigns && { vitalSigns }),
+    }
+  })
+  const pres: Prescription[] = (data.prescriptions || []).map((p: any) => {
+    const rawStatus = (p.status || "Pending").toString()
+    let status: Prescription["status"]
+    switch (rawStatus.toLowerCase()) {
+      case "pending":
+        status = "active"
+        break
+      case "dispensed":
+        status = "completed"
+        break
+      case "cancelled":
+        status = "cancelled"
+        break
+      default:
+        status = "active"
+    }
+    return {
+      id: p.id,
+      patientId: p.patient_id,
+      patientName: p.patient_name ? String(p.patient_name).trim() : "",
+      doctorName: p.doctor_name ? String(p.doctor_name).trim() : "",
+      date: p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : "",
+      medications: [
+        {
+          name: p.medication_name,
+          dosage: p.dosage,
+          frequency: p.frequency,
+          duration: p.duration,
+          instructions: p.instructions || undefined,
+        },
+      ],
+      status,
+    }
+  })
+  const labs: LabResult[] = (data.labResults || []).map((l: any) => ({
+    id: l.id,
+    patientId: l.patient_id,
+    patientName: "",
+    testType: l.test_type,
+    orderedBy: "",
+    orderedDate: l.ordered_date ? new Date(l.ordered_date).toISOString() : "",
+    completedDate: l.completed_date ? new Date(l.completed_date).toISOString() : undefined,
+    priority: l.priority ? (l.priority.toString().toLowerCase() as LabResult["priority"]) : undefined,
+    status: (l.status || "pending").toString().toLowerCase(),
+    results: l.results || undefined,
+    notes: l.notes || undefined,
+    assignedToId: l.assigned_radiologist_id || undefined,
+    assignedToName: l.assigned_radiologist_name || undefined,
+  }))
+  return { recs, pres, labs }
+}
+
 export function MedicalProvider({ children }: { children: ReactNode }) {
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([])
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
@@ -136,99 +230,30 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
   const [immunizations, setImmunizations] = useState<Immunization[]>([])
   const [chronicConditions, setChronicConditions] = useState<ChronicCondition[]>([])
 
-  useEffect(() => {
-    ;(async () => {
-      try {
-        const res = await fetch("/api/medical", { credentials: 'include' })
-        if (res.ok) {
-          const data = await res.json()
-          const recs: MedicalRecord[] = (data.medicalRecords || []).map((r: any) => ({
-            id: r.id,
-            patientId: r.patient_id,
-            patientName: "",
-            doctorName: "",
-            date: r.visit_date,
-            diagnosis: r.diagnosis || "",
-            symptoms: r.chief_complaint || "",
-            treatment: r.treatment_plan || "",
-          }))
-          const pres: Prescription[] = (data.prescriptions || []).map((p: any) => {
-            const rawStatus = (p.status || "Pending").toString()
-            let status: Prescription["status"]
-            switch (rawStatus.toLowerCase()) {
-              case "pending":
-                status = "active"
-                break
-              case "dispensed":
-                status = "completed"
-                break
-              case "cancelled":
-                status = "cancelled"
-                break
-              default:
-                status = "active"
-            }
-            return {
-              id: p.id,
-              patientId: p.patient_id,
-              patientName: "",
-              doctorName: "",
-              date: p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : "",
-              medications: [
-                {
-                  name: p.medication_name,
-                  dosage: p.dosage,
-                  frequency: p.frequency,
-                  duration: p.duration,
-                  instructions: p.instructions || undefined,
-                },
-              ],
-              status,
-            }
-          })
-          const labs: LabResult[] = (data.labResults || []).map((l: any) => ({
-            id: l.id,
-            patientId: l.patient_id,
-            patientName: "",
-            testType: l.test_type,
-            orderedBy: "",
-            orderedDate: l.ordered_date ? new Date(l.ordered_date).toISOString() : "",
-            completedDate: l.completed_date ? new Date(l.completed_date).toISOString() : undefined,
-            priority: l.priority ? (l.priority.toString().toLowerCase() as LabResult["priority"]) : undefined,
-            status: (l.status || "pending").toString().toLowerCase(),
-            results: l.results || undefined,
-            notes: l.notes || undefined,
-            assignedToId: l.assigned_radiologist_id || undefined,
-            assignedToName: l.assigned_radiologist_name || undefined,
-          }))
-          setMedicalRecords(recs)
-          setPrescriptions(pres)
-          setLabResults(labs)
-        } else if (res.status === 401 || res.status === 403) {
-          // User doesn't have permission - this is expected for non-medical users
-          setMedicalRecords([])
-          setPrescriptions([])
-          setLabResults([])
-        } else if (process.env.NODE_ENV === "development") {
-          console.warn("[MedicalContext] Failed to fetch medical data:", res.status, res.statusText)
-          setMedicalRecords([])
-          setPrescriptions([])
-          setLabResults([])
-        } else {
-          setMedicalRecords([])
-          setPrescriptions([])
-          setLabResults([])
-        }
-      } catch (err) {
-        // Only log in development to avoid console noise in production
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[MedicalContext] Error fetching medical data:", err)
-        }
+  const loadMedicalData = async () => {
+    try {
+      const result = await fetchAndMapMedicalData()
+      if (result) {
+        setMedicalRecords(result.recs)
+        setPrescriptions(result.pres)
+        setLabResults(result.labs)
+      } else {
         setMedicalRecords([])
         setPrescriptions([])
         setLabResults([])
       }
-    })()
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[MedicalContext] Error fetching medical data:", err)
+      }
+      setMedicalRecords([])
+      setPrescriptions([])
+      setLabResults([])
+    }
+  }
+
+  useEffect(() => {
+    loadMedicalData()
   }, [])
 
   const addMedicalRecord = (record: Omit<MedicalRecord, "id">) => {
@@ -239,7 +264,7 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
     setMedicalRecords([...medicalRecords, newRecord])
     ;(async () => {
       try {
-        await fetch("/api/medical/records", {
+        const res = await fetch("/api/medical/records", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -249,8 +274,12 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
             diagnosis: record.diagnosis,
             treatmentPlan: record.treatment,
             notes: record.notes,
+            ...(record.vitalSigns && Object.keys(record.vitalSigns).length > 0
+              ? { vitalSigns: record.vitalSigns }
+              : {}),
           }),
         })
+        if (res.ok) await loadMedicalData()
       } catch {
         // Non-fatal: local state already updated; server is source of truth when available.
       }
@@ -265,7 +294,7 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
     setPrescriptions([...prescriptions, newPrescription])
     ;(async () => {
       try {
-        await fetch("/api/medical/prescriptions", {
+        const res = await fetch("/api/medical/prescriptions", {
           method: "POST",
           credentials: "include",
           headers: { "Content-Type": "application/json" },
@@ -281,6 +310,7 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
             })),
           }),
         })
+        if (res.ok) await loadMedicalData()
       } catch {
         // Non-fatal
       }
@@ -443,6 +473,7 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
         allergies,
         immunizations,
         chronicConditions,
+        refreshMedicalData: loadMedicalData,
         addMedicalRecord,
         addPrescription,
         updatePrescription,

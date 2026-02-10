@@ -69,7 +69,6 @@ export function verifyToken(token: string): { userId: string; email: string; rol
 // RBAC
 type Role =
   | "Receptionist"
-  | "Doctor"
   | "Clinician"
   | "Radiologist"
   | "Nurse"
@@ -110,16 +109,6 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
     documents: ["read", "create", "delete"],
     insurance: ["read", "create", "update", "delete"],
     exports: ["read", "create"], // Allow receptionist to export register/dashboard/daily
-  },
-  Doctor: {
-    patients: ["read"],
-    medical: ["read", "create", "update"],
-    appointments: ["read", "update"],
-    lab: ["read", "create"],
-    radiology: ["read", "create"],
-    pharmacy: ["read"],
-    billing: ["create"],
-    beds: ["read"], // Can view bed status for patient care decisions
   },
   Midwife: {
     patients: ["read"],

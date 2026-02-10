@@ -19,11 +19,10 @@ export default function SettingsPage() {
     // Redirect to portal-specific settings based on user role
     const roleRoutes: Record<string, string> = {
       "Hospital Admin": "/admin/settings",
-      "Receptionist": "/receptionist/settings", 
-      "Doctor": "/doctor/settings",
+      "Receptionist": "/receptionist/settings",
       "Midwife": "/midwife/settings",
       "Dentist": "/dentist/settings",
-      "Clinician": "/doctor/settings",
+      "Clinician": "/clinician/settings",
       "Nurse": "/nurse/settings",
       "Lab Tech": "/lab-tech/settings",
       "Radiologist": "/radiologist/settings",
@@ -35,8 +34,7 @@ export default function SettingsPage() {
     if (settingsRoute) {
       router.replace(settingsRoute)
     } else {
-      // Safe default for unknown roles: profile/preferences (doctor settings has same structure)
-      router.replace("/doctor/settings")
+      router.replace("/clinician/settings")
     }
   }, [user, isLoading, router])
 

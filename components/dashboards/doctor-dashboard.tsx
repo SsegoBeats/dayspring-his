@@ -5,10 +5,11 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { usePatients } from "@/lib/patient-context"
 import { useMedical } from "@/lib/medical-context"
+import Link from "next/link"
 import { useAuth } from "@/lib/auth-context"
 import { PatientConsultation } from "@/components/doctor/patient-consultation"
 import { PatientQueue } from "@/components/doctor/patient-queue"
-import { Users, FileText, Pill, Activity } from "lucide-react"
+import { Users, FileText, Pill, Activity, Calendar } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatPatientDigits } from "@/lib/patients"
 
@@ -17,9 +18,11 @@ interface DoctorDashboardProps {
 }
 
 export function DoctorDashboard({ title }: DoctorDashboardProps) {
-  const { patients } = usePatients()
+  const { patients, getAppointmentsByDoctor } = usePatients()
   const { medicalRecords, prescriptions } = useMedical()
   const { user } = useAuth()
+  const todayStr = new Date().toISOString().split("T")[0]
+  const todayAppointments = user?.name ? getAppointmentsByDoctor(user.name, todayStr) : []
   const [selectedPatientId, setSelectedPatientId] = useState<string | null>(null)
   const [consultTab, setConsultTab] = useState<"consultation"|"prescription"|"history"|"labs">("consultation")
 
@@ -43,8 +46,8 @@ export function DoctorDashboard({ title }: DoctorDashboardProps) {
         }
       } catch {}
     }
-    window.addEventListener('openDoctorConsult', handler as any)
-    return () => window.removeEventListener('openDoctorConsult', handler as any)
+    window.addEventListener('openClinicianConsult', handler as any)
+    return () => window.removeEventListener('openClinicianConsult', handler as any)
   }, [])
 
   // Auto mark notification as read after dialog opens
@@ -123,6 +126,22 @@ export function DoctorDashboard({ title }: DoctorDashboardProps) {
             </Card>
           </div>
 
+          <Card className="border-violet-50 bg-white/80 backdrop-blur">
+            <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+              <CardTitle className="text-sm font-medium">Today&apos;s Appointments</CardTitle>
+              <Link href="/appointments/calendar">
+                <span className="text-xs text-violet-600 hover:underline flex items-center gap-1">
+                  <Calendar className="h-3.5 w-3.5" />
+                  View calendar
+                </span>
+              </Link>
+            </CardHeader>
+            <CardContent>
+              <div className="text-2xl font-bold text-violet-900">{todayAppointments.length}</div>
+              <p className="text-xs text-violet-700">Scheduled for you today</p>
+            </CardContent>
+          </Card>
+
           <Card className="border-indigo-50 bg-white/80 backdrop-blur">
             <CardHeader>
               <CardTitle>Recent Medical Records</CardTitle>
@@ -174,7 +193,7 @@ export function DoctorDashboard({ title }: DoctorDashboardProps) {
             </DialogTitle>
           </DialogHeader>
           {selectedPatientId && (
-            <PatientConsultation patientId={selectedPatientId} onBack={() => setSelectedPatientId(null)} initialTab={consultTab} />
+            <PatientConsultation key={selectedPatientId} patientId={selectedPatientId} onBack={() => setSelectedPatientId(null)} initialTab={consultTab} />
           )}
         </DialogContent>
       </Dialog>
@@ -182,13 +201,13 @@ export function DoctorDashboard({ title }: DoctorDashboardProps) {
   )
 }
 
-// Listen for notifications requesting doctor consult open
+// Listen for notifications requesting clinician consult open
 ;(function(){
   try {
     // Attach only once per module load
     const w: any = (globalThis as any)
-    if (!w.__doctorConsultListenerAttached) {
-      w.__doctorConsultListenerAttached = true
+    if (!w.__clinicianConsultListenerAttached) {
+      w.__clinicianConsultListenerAttached = true
     }
   } catch {}
 })()

@@ -5,7 +5,7 @@ import { createContext, useContext, useState, useEffect } from "react"
 
 export type UserRole =
   | "Receptionist"
-  | "Doctor"
+  | "Clinician"
   | "Radiologist"
   | "Nurse"
   | "Lab Tech"

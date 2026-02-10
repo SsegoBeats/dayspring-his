@@ -581,8 +581,8 @@ export const emailTemplates = {
                           <h3 style="margin: 0 0 16px 0; color: #1e40af; font-size: 18px;">Appointment Details</h3>
                           <table width="100%" cellpadding="8" cellspacing="0">
                             <tr>
-                              <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #dbeafe;"><strong>Doctor:</strong></td>
-                              <td style="color: #1e40af; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #dbeafe;">Dr. ${doctorName}</td>
+                              <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #dbeafe;"><strong>Clinician:</strong></td>
+                              <td style="color: #1e40af; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #dbeafe;">${doctorName}</td>
                             </tr>
                             <tr>
                               <td style="color: #64748b; font-size: 14px; padding: 8px 0; border-bottom: 1px solid #dbeafe;"><strong>Department:</strong></td>
@@ -720,14 +720,14 @@ export const emailTemplates = {
                       <tr>
                         <td>
                           <p style="margin: 0; color: #1e3a8a; font-size: 14px; line-height: 20px;">
-                            ⚠️ <strong>Important:</strong> Lab results should be reviewed by a qualified healthcare professional. Please schedule a follow-up appointment with your doctor to discuss your results.
+                            ⚠️ <strong>Important:</strong> Lab results should be reviewed by a qualified healthcare professional. Please schedule a follow-up appointment with your clinician to discuss your results.
                           </p>
                         </td>
                       </tr>
                     </table>
                     
                     <p style="margin: 0 0 8px 0; color: #374151; font-size: 14px; line-height: 20px;">
-                      Please visit the hospital to collect your results or consult with your doctor.
+                      Please visit the hospital to collect your results or consult with your clinician.
                     </p>
                     
                     <!-- Support -->

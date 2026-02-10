@@ -189,7 +189,7 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
               <Label htmlFor="doctor">Clinician (optional)</Label>
               <Select value={formData.doctorId} onValueChange={(value) => setFormData({ ...formData, doctorId: value })}>
                 <SelectTrigger id="doctor">
-                  <SelectValue placeholder="Assign a doctor" />
+                  <SelectValue placeholder="Assign a clinician" />
                 </SelectTrigger>
                 <SelectContent>
                   {doctors.map((d) => (

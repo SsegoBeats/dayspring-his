@@ -27,7 +27,7 @@ export async function GET(req: Request) {
   const roleRoutes: Record<string, string> = {
     "Hospital Admin": "/admin/settings",
     "Receptionist": "/receptionist/settings",
-    "Doctor": "/doctor/settings",
+    "Clinician": "/clinician/settings",
     "Midwife": "/midwife/settings",
     "Dentist": "/dentist/settings",
     "Nurse": "/nurse/settings",
@@ -36,7 +36,7 @@ export async function GET(req: Request) {
     "Pharmacist": "/pharmacist/settings",
     "Cashier": "/cashier/settings"
   }
-  const settingsRoute = roleRoutes[role] || "/admin/settings"
+  const settingsRoute = roleRoutes[role] || "/clinician/settings"
   
   const baseUrl = process.env.NEXT_PUBLIC_APP_URL || "http://localhost:3000"
   return NextResponse.redirect(new URL(`${settingsRoute}?emailVerified=true`, baseUrl))

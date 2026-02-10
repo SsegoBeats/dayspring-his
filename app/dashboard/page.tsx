@@ -53,14 +53,12 @@ export default function DashboardPage() {
     switch (user.role) {
       case "Receptionist":
         return <ReceptionistDashboard />
-      case "Doctor":
+      case "Clinician":
         return <DoctorDashboard />
       case "Midwife":
         return <MidwifeDashboard />
       case "Dentist":
         return <DentistDashboard />
-      case "Clinician":
-        return <DoctorDashboard />
       case "Radiologist":
         return <RadiologistDashboard />
       case "Nurse":

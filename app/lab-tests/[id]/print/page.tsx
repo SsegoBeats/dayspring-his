@@ -153,7 +153,7 @@ export default function PrintLabTestPage() {
         <div><span className="text-muted-foreground">Accession:</span> <span className="font-mono">{test.accessionNumber || '-'}</span></div>
         <div><span className="text-muted-foreground">Ordered:</span> {test.orderedAt ? new Date(test.orderedAt).toLocaleString() : '-'}</div>
         <div><span className="text-muted-foreground">Completed:</span> {test.completedAt ? new Date(test.completedAt).toLocaleString() : '-'}</div>
-        <div><span className="text-muted-foreground">Doctor:</span> {test.doctorName || '-'}</div>
+        <div><span className="text-muted-foreground">Clinician:</span> {test.doctorName || '-'}</div>
         <div><span className="text-muted-foreground">Lab Tech:</span> {test.labTechName || '-'}</div>
         <div><span className="text-muted-foreground">Reviewed:</span> {test.reviewedAt ? `${new Date(test.reviewedAt).toLocaleString()}${test.reviewedBy ? ' by '+test.reviewedBy : ''}` : '-'}</div>
         <div><span className="text-muted-foreground">Gender:</span> <span className="font-medium">{(test.patientGender || '').toString() || '-'}</span></div>

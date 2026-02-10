@@ -10,7 +10,8 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, AlertCircle, FileText, Pill } from "lucide-react"
+import { ArrowLeft, AlertCircle, FileText, Pill, History } from "lucide-react"
+import Link from "next/link"
 import { formatPatientNumber } from "@/lib/patients"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { OrderLabTest } from "@/components/doctor/order-lab-test"
@@ -25,7 +26,7 @@ interface PatientConsultationProps {
 
 export function PatientConsultation({ patientId, onBack, initialTab = 'consultation' }: PatientConsultationProps) {
   const { getPatient } = usePatients()
-  const { addMedicalRecord, addPrescription, getPatientMedicalRecords, getPatientPrescriptions, getPatientLabResults, updateLabResult } =
+  const { addMedicalRecord, addPrescription, getPatientMedicalRecords, getPatientPrescriptions, getPatientLabResults, updateLabResult, refreshMedicalData } =
     useMedical()
   const { user } = useAuth()
   const patient = getPatient(patientId)
@@ -160,7 +161,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
     toast.success("Consultation saved successfully!")
   }
 
-  const handleSavePrescription = () => {
+  const handleSavePrescription = async () => {
     if (!patient || !user) return
 
     const validMedications = prescriptionForm.medications.filter((med) => med.name && med.dosage)
@@ -170,38 +171,57 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
       return
     }
 
-    addPrescription({
-      patientId: patient.id,
-      patientName: `${patient.firstName} ${patient.lastName}`,
-      doctorName: user.name,
-      date: new Date().toISOString().split("T")[0],
-      medications: validMedications,
-      status: "active",
-    })
+    try {
+      const res = await fetch("/api/medical/prescriptions", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: patient.id,
+          medications: validMedications.map((m) => ({
+            name: m.name,
+            dosage: m.dosage,
+            frequency: m.frequency,
+            duration: m.duration,
+            instructions: m.instructions,
+            quantity: 1,
+          })),
+        }),
+      })
 
-    ;(async () => {
-      try {
-        await fetch("/api/billing", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            patientId: patient.id,
-            source: "prescription",
-            medications: validMedications.map((m) => ({
-              name: m.name,
-              dosage: m.dosage,
-              frequency: m.frequency,
-              duration: m.duration,
-            })),
-          }),
-        })
-      } catch {
-        // If billing creation fails, we still keep the prescription; cashier can create a bill manually.
+      const data = await res.json().catch(() => ({}))
+      const validations = Array.isArray(data.validations) ? data.validations : []
+      const hasCritical = data.hasCritical === true
+
+      if (!res.ok) {
+        toast.error(data.error || "Failed to save prescription")
+        return
       }
-    })()
 
-    // Reset form
+      if (hasCritical && validations.some((v: { severity?: string }) => v.severity === "Critical")) {
+        toast.error("Prescription saved with critical warnings – please review.", { duration: 8000 })
+      } else if (validations.length > 0) {
+        toast.warning(`Prescription saved with ${validations.length} warning(s). Review recommended.`, { duration: 6000 })
+      } else {
+        toast.success("Prescription saved successfully!")
+      }
+
+      validations.slice(0, 5).forEach((v: { severity?: string; message?: string }) => {
+        if (v.severity === "Critical") {
+          toast.error(v.message || "Critical validation", { duration: 6000 })
+        } else if (v.severity === "Warning") {
+          toast.warning(v.message || "Warning", { duration: 5000 })
+        } else {
+          toast.info(v.message || "Info", { duration: 4000 })
+        }
+      })
+
+      await refreshMedicalData()
+    } catch {
+      toast.error("Failed to save prescription")
+      return
+    }
+
     setPrescriptionForm({
       medications: [
         {
@@ -214,7 +234,28 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
       ],
     })
 
-    toast.success("Prescription saved successfully!")
+    try {
+      const billingRes = await fetch("/api/billing", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: patient.id,
+          source: "prescription",
+          medications: validMedications.map((m) => ({
+            name: m.name,
+            dosage: m.dosage,
+            frequency: m.frequency,
+            duration: m.duration,
+          })),
+        }),
+      })
+      if (!billingRes.ok) {
+        toast.warning("Prescription saved. Bill could not be created automatically; cashier can add it later.")
+      }
+    } catch {
+      toast.warning("Prescription saved. Bill could not be created; cashier can add it later.")
+    }
   }
 
   const handleSaveObstetricAssessment = async () => {
@@ -326,11 +367,17 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
 
   return (
     <div className="space-y-4">
-      <div className="flex items-center gap-2">
+      <div className="flex items-center gap-2 flex-wrap">
         <Button variant="outline" onClick={onBack}>
           <ArrowLeft className="mr-2 h-4 w-4" />
           Back to Queue
         </Button>
+        <Link href={`/medical-history/${patientId}`} target="_blank" rel="noopener noreferrer" className="no-print">
+          <Button variant="outline" size="sm">
+            <History className="mr-2 h-4 w-4" />
+            Full medical history
+          </Button>
+        </Link>
         <Button variant="secondary" size="sm" className="ml-auto no-print" onClick={() => window.print()}>
           Print Summary
         </Button>
@@ -763,7 +810,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                                 <CardTitle className="text-base">{record.diagnosis}</CardTitle>
                                 <Badge variant="outline">{record.date}</Badge>
                               </div>
-                              <CardDescription>Dr. {record.doctorName}</CardDescription>
+                              <CardDescription>Clinician: {record.doctorName}</CardDescription>
                             </CardHeader>
                             <CardContent className="space-y-2 text-sm">
                               <div>
@@ -919,7 +966,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                               <Badge variant="outline" title={lab.reviewedBy ? `By ${lab.reviewedBy}` : ''}>Reviewed</Badge>
                             ) : null}
                             <Button size="sm" variant="outline" onClick={() => setSelectedLabId(lab.id)}>View</Button>
-                            {(() => { const role = (user?.role || '').toLowerCase(); const isDoctor = role === 'doctor'; return isDoctor && (lab.status || '').toLowerCase() === 'completed' && !lab.reviewedAt })() && (
+                            {(() => { const role = (user?.role || '').toLowerCase(); return role === 'clinician' && (lab.status || '').toLowerCase() === 'completed' && !lab.reviewedAt })() && (
                               <Button size="sm" onClick={async () => {
                                 try {
                                   const res = await fetch(`/api/lab-tests/${lab.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewed: true }) })
@@ -931,7 +978,9 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                           </div>
                         </div>
                         <CardDescription>
-                          Ordered: {lab.orderedDate} {lab.completedDate && `| Completed: ${lab.completedDate}`}
+                          Ordered: {lab.orderedAt ? new Date(lab.orderedAt).toLocaleString() : (lab.orderedDate ?? "—")}
+                          {lab.completedAt && ` | Completed: ${new Date(lab.completedAt).toLocaleString()}`}
+                          {lab.completedDate && !lab.completedAt && ` | Completed: ${lab.completedDate}`}
                         </CardDescription>
                       </CardHeader>
                       {lab.results && (
@@ -966,9 +1015,9 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                     <div className="grid md:grid-cols-2 gap-3">
                       <div><span className="text-muted-foreground">Test:</span> <span className="text-foreground">{lab.testType}</span></div>
                       <div><span className="text-muted-foreground">Status:</span> <span className="text-foreground capitalize">{lab.status}</span></div>
-                      <div><span className="text-muted-foreground">Ordered By:</span> <span className="text-foreground">{lab.orderedBy}</span></div>
-                      <div><span className="text-muted-foreground">Ordered Date:</span> <span className="text-foreground">{lab.orderedDate}</span></div>
-                      {lab.completedDate && <div><span className="text-muted-foreground">Completed Date:</span> <span className="text-foreground">{lab.completedDate}</span></div>}
+                      <div><span className="text-muted-foreground">Ordered By:</span> <span className="text-foreground">{lab.doctorName || lab.orderedBy || "—"}</span></div>
+                      <div><span className="text-muted-foreground">Ordered Date:</span> <span className="text-foreground">{lab.orderedAt ? new Date(lab.orderedAt).toLocaleString() : (lab.orderedDate ?? "—")}</span></div>
+                      {(lab.completedAt || lab.completedDate) && <div><span className="text-muted-foreground">Completed Date:</span> <span className="text-foreground">{lab.completedAt ? new Date(lab.completedAt).toLocaleString() : lab.completedDate}</span></div>}
                     </div>
                     {lab.results && (
                       <div>

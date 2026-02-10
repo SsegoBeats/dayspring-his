@@ -16,7 +16,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 
 const roles: { value: UserRole; label: string }[] = [
   { value: "Receptionist", label: "Receptionist" },
-  { value: "Doctor", label: "Clinician" },
+  { value: "Clinician", label: "Clinician" },
   { value: "Midwife", label: "Midwifery" },
   { value: "Dentist", label: "Dentist" },
   { value: "Radiologist", label: "Radiologist" },

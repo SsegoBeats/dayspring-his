@@ -99,8 +99,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     // Load role for authorization
     const u = await query<{ role: string; name: string }>("SELECT role, name FROM users WHERE id = $1", [auth.userId])
     const role = (u.rows?.[0]?.role || '').toString()
-    const name = u.rows?.[0]?.name || 'Doctor'
-    if (!["Doctor", "Hospital Admin", "Lab Tech", "Radiologist"].includes(role)) {
+    const name = u.rows?.[0]?.name || 'Clinician'
+    if (!["Clinician", "Hospital Admin", "Lab Tech", "Radiologist"].includes(role)) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -122,7 +122,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       body.assignedRadiologistId !== undefined
 
     if (hasStatusLikeUpdate) {
-      if (!["Hospital Admin", "Lab Tech", "Doctor", "Radiologist"].includes(role)) {
+      if (!["Hospital Admin", "Lab Tech", "Clinician", "Radiologist"].includes(role)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
       const fields: string[] = []
@@ -153,8 +153,8 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         const friendly =
           msg.match(/row-level security|violates row-level security/i) ? 'Update blocked by security policy for your role.' :
           msg.match(/permission denied|not authorized|forbidden/i) ? 'You do not have permission to update this test.' :
-          msg.match(/reviewed_?by|reviewed_?at/i) ? 'Only a Doctor or Admin can set review fields.' :
-          msg.match(/completed_at|status/i) && role === 'Doctor' ? 'Only Lab Tech or Admin can complete results.' :
+          msg.match(/reviewed_?by|reviewed_?at/i) ? 'Only a Clinician or Admin can set review fields.' :
+          msg.match(/completed_at|status/i) && role === 'Clinician' ? 'Only Lab Tech or Admin can complete results.' :
           'Failed to update lab test.'
         const code = msg.match(/row-level security|permission denied|not authorized|forbidden|reviewed_/i) ? 403 : 400
         return NextResponse.json({ error: friendly, details: process.env.NODE_ENV === 'production' ? undefined : msg }, { status: code })

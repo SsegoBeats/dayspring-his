@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 
 export type UserRole =
   | "Receptionist"
-  | "Doctor"
+  | "Clinician"
   | "Radiologist"
   | "Nurse"
   | "Lab Tech"

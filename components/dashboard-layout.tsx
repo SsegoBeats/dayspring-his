@@ -18,7 +18,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   const getRoleLabel = (role: string) => {
     const roleMap: Record<string, string> = {
       receptionist: "Receptionist",
-      doctor: "Doctor",
+      clinician: "Clinician",
       radiologist: "Radiologist",
       nurse: "Nurse",
       "lab-tech": "Lab Technician",
@@ -30,6 +30,8 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
     }
     return roleMap[(role || "").toLowerCase()] || role
   }
+
+  const showSchedulesLink = user && user.role === "Clinician"
 
   return (
     <div className="flex min-h-screen flex-col">
@@ -48,6 +50,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <p className="text-xs text-muted-foreground">{user && getRoleLabel(user.role)}</p>
             </div>
             <NotificationsBell />
+            {showSchedulesLink && (
+              <Link href="/clinician/schedules">
+                <Button variant="ghost" size="sm">Schedules</Button>
+              </Link>
+            )}
             <Link href="/settings">
               <Button variant="secondary" size="sm">Settings</Button>
             </Link>
@@ -116,7 +123,7 @@ function NotificationsBell() {
                         label: 'Open',
                         onClick: () => {
                           try {
-                            window.dispatchEvent(new CustomEvent('openDoctorConsult', { detail: { patientId, initialTab: 'labs', notificationId: n.id } }))
+                            window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab: 'labs', notificationId: n.id } }))
                           } catch {}
                         }
                       } : undefined
@@ -217,8 +224,8 @@ function NotificationsBell() {
                     window.dispatchEvent(new CustomEvent('openDeletionDialog', { detail: { requestId } }))
                     markRead([n.id])
                   } : (patientId ? () => {
-                    window.dispatchEvent(new CustomEvent('openDoctorConsult', { detail: { patientId, initialTab: 'labs', notificationId: n.id } }))
-                    // Let DoctorDashboard mark this as read after the dialog opens
+                    window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab: 'labs', notificationId: n.id } }))
+                    // Let ClinicianDashboard mark this as read after the dialog opens
                   } : undefined)}
                 >
                   <button

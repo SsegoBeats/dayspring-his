@@ -10,7 +10,7 @@ export async function GET() {
   if (!auth || !can(auth.role, "appointments", "read")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { rows } = await queryWithSession(
     { role: auth.role, userId: auth.userId },
-    `SELECT id, name, email, role FROM users WHERE role IN ('Clinician','Doctor','Midwife','Dentist') AND is_active = true ORDER BY name ASC`,
+    `SELECT id, name, email, role FROM users WHERE role IN ('Clinician','Midwife','Dentist') AND is_active = true ORDER BY name ASC`,
   )
   return NextResponse.json({ clinicians: rows })
 }

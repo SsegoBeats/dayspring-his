@@ -61,7 +61,7 @@ export function UserManagement() {
       inactive: users.filter(u => u.status === "inactive").length,
       byRole: {
         "Hospital Admin": 0,
-        "Doctor": 0,
+        "Clinician": 0,
         "Midwife": 0,
         "Dentist": 0,
         "Nurse": 0,
@@ -240,7 +240,7 @@ export function UserManagement() {
   const getRoleBadgeColor = (role: UserRole) => {
     const colors: Record<UserRole, string> = {
       "Hospital Admin": "bg-purple-100 text-purple-800",
-      "Doctor": "bg-blue-100 text-blue-800",
+      "Clinician": "bg-blue-100 text-blue-800",
       "Midwife": "bg-rose-100 text-rose-800",
       "Dentist": "bg-sky-100 text-sky-800",
       "Nurse": "bg-green-100 text-green-800",
@@ -606,7 +606,7 @@ export function UserManagement() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="Receptionist">Receptionist</SelectItem>
-                    <SelectItem value="Doctor">Clinician</SelectItem>
+                    <SelectItem value="Clinician">Clinician</SelectItem>
                     <SelectItem value="Midwife">Midwife</SelectItem>
                     <SelectItem value="Dentist">Dentist</SelectItem>
                     <SelectItem value="Nurse">Nurse</SelectItem>
@@ -723,7 +723,7 @@ export function UserManagement() {
                           </SelectTrigger>
                           <SelectContent>
                             <SelectItem value="Receptionist">Receptionist</SelectItem>
-                            <SelectItem value="Doctor">Doctor</SelectItem>
+                            <SelectItem value="Clinician">Clinician</SelectItem>
                             <SelectItem value="Midwife">Midwife</SelectItem>
                             <SelectItem value="Dentist">Dentist</SelectItem>
                             <SelectItem value="Nurse">Nurse</SelectItem>

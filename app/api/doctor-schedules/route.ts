@@ -5,7 +5,8 @@ import { verifyToken, can } from "@/lib/security"
 import { query } from "@/lib/db"
 
 export async function GET() {
-  const token = cookies().get("session")?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
   const auth = token ? verifyToken(token) : null
   if (!auth || !can(auth.role, "appointments", "read")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { rows } = await query(
@@ -25,7 +26,8 @@ const CreateSchema = z.object({
 })
 
 export async function POST(req: Request) {
-  const token = cookies().get("session")?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
   const auth = token ? verifyToken(token) : null
   if (!auth || !can(auth.role, "appointments", "update")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const body = await req.json()

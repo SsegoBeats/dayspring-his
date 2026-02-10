@@ -137,7 +137,7 @@ export function ProfileSettings() {
               autoComplete="organization"
               value={profile.signature}
               onChange={(e) => setProfile(prev => ({ ...prev, signature: e.target.value }))}
-              placeholder="Dr. John Smith"
+              placeholder="e.g. Your name or title"
             />
           </div>
         </div>

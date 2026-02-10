@@ -10,7 +10,7 @@ const UpdateSchema = z.object({
   role: z
     .enum([
       "Receptionist",
-      "Doctor",
+      "Clinician",
       "Radiologist",
       "Nurse",
       "Lab Tech",
