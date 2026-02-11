@@ -43,6 +43,10 @@ export default function DashboardPage() {
       router.replace("/lab-tech")
       return
     }
+    if (user.role === "Pharmacist") {
+      router.replace("/pharmacist")
+      return
+    }
     if (user.emailVerified === false) {
       setShowVerificationModal(true)
     }

@@ -9,8 +9,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Search, AlertTriangle, Plus, Info, Barcode, Filter, Trash2 } from "lucide-react"
 import { useFormatCurrency } from "@/lib/settings-context"
+import { useToast } from "@/hooks/use-toast"
 import { AddMedicationDialog } from "./add-medication-dialog"
 import { StockMovements } from "./stock-movements"
 import { MedicationBatches } from "./medication-batches"
@@ -30,6 +32,7 @@ export function MedicationInventory() {
   const { medications, getLowStockMedications, updateMedication, getExpiringMedications, deleteMedication } =
     usePharmacy()
   const formatCurrency = useFormatCurrency()
+  const { toast } = useToast()
   const [searchQuery, setSearchQuery] = useState("")
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [filterLowStock, setFilterLowStock] = useState(false)
@@ -49,6 +52,9 @@ export function MedicationInventory() {
   const [isEditing, setIsEditing] = useState(false)
   const [showAdvancedSearch, setShowAdvancedSearch] = useState(false)
   const [advancedFilters, setAdvancedFilters] = useState<AdvancedSearchFilters>({})
+  const [showDeleteDialog, setShowDeleteDialog] = useState(false)
+  const [medicationToDelete, setMedicationToDelete] = useState<Medication | null>(null)
+  const [deleting, setDeleting] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
   const [editForm, setEditForm] = useState<{
@@ -213,12 +219,34 @@ export function MedicationInventory() {
 
   const handleDeleteSelected = () => {
     if (!selectedMedication) return
-    const confirmed = window.confirm(
-      `Are you sure you want to delete "${selectedMedication.name}" from inventory? This cannot be undone.`,
-    )
-    if (!confirmed) return
-    deleteMedication(selectedMedication.id)
-    closeDetails()
+    setMedicationToDelete(selectedMedication)
+    setShowDeleteDialog(true)
+  }
+
+  const confirmDelete = async () => {
+    if (!medicationToDelete) return
+    setDeleting(true)
+    try {
+      deleteMedication(medicationToDelete.id)
+      toast({
+        title: "Medication deleted",
+        description: `"${medicationToDelete.name}" has been removed from inventory.`,
+        variant: "default",
+      })
+      setShowDeleteDialog(false)
+      setMedicationToDelete(null)
+      if (selectedMedication?.id === medicationToDelete.id) {
+        closeDetails()
+      }
+    } catch (error) {
+      toast({
+        title: "Delete failed",
+        description: "Failed to delete medication. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setDeleting(false)
+    }
   }
 
   const startEditing = () => {
@@ -259,9 +287,14 @@ export function MedicationInventory() {
     updateMedication(selectedMedication.id, updated)
     setSelectedMedication({ ...selectedMedication, ...updated })
     setIsEditing(false)
+    toast({
+      title: "Medication updated",
+      description: `"${updated.name}" has been updated successfully.`,
+      variant: "default",
+    })
   }
 
-  const handleReceiveStock = () => {
+  const handleReceiveStock = async () => {
     setScanMessage(null)
     setScanError(null)
     const code = scanCode.trim()
@@ -286,27 +319,42 @@ export function MedicationInventory() {
     }
     const newQty = med.stockQuantity + qty
     updateMedication(med.id, { stockQuantity: newQty })
-    void (async () => {
-      try {
-        await fetch("/api/pharmacy/stock-receipts", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            medicationId: med.id,
-            quantity: qty,
-            batchNumber: med.batchNumber || undefined,
-            expiryDate: med.expiryDate || undefined,
-            barcode: med.barcode || code,
-            reference: "Manual scan receive",
-          }),
+    try {
+      const res = await fetch("/api/pharmacy/stock-receipts", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          medicationId: med.id,
+          quantity: qty,
+          batchNumber: med.batchNumber || undefined,
+          expiryDate: med.expiryDate || undefined,
+          barcode: med.barcode || code,
+          reference: "Manual scan receive",
+        }),
+      })
+      if (res.ok) {
+        setScanSummary({ name: med.name, quantity: qty, newStock: newQty })
+        setScanMessage(`Received ${qty} units into ${med.name}. New stock: ${newQty}.`)
+        toast({
+          title: "Stock received",
+          description: `Successfully received ${qty} units of ${med.name}. New stock level: ${newQty}.`,
+          variant: "default",
         })
-      } catch {
-        // Non-fatal; UI already updated and core stock persisted via updateMedication.
+      } else {
+        toast({
+          title: "Warning",
+          description: "Stock updated locally but failed to record receipt. Please verify.",
+          variant: "default",
+        })
       }
-    })()
-    setScanSummary({ name: med.name, quantity: qty, newStock: newQty })
-    setScanMessage(`Received ${qty} units into ${med.name}. New stock: ${newQty}.`)
+    } catch (error) {
+      toast({
+        title: "Warning",
+        description: "Stock updated locally but failed to record receipt. Please verify.",
+        variant: "default",
+      })
+    }
     setScanCode("")
     setScanQty("")
     // Refocus barcode input for next scan
@@ -323,7 +371,14 @@ export function MedicationInventory() {
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({ format }),
       })
-      if (!res.ok) return
+      if (!res.ok) {
+        toast({
+          title: "Export failed",
+          description: "Failed to export inventory. Please try again.",
+          variant: "destructive",
+        })
+        return
+      }
       const blob = await res.blob()
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
@@ -333,8 +388,17 @@ export function MedicationInventory() {
       a.click()
       a.remove()
       window.URL.revokeObjectURL(url)
-    } catch {
-      // ignore; export failure can be handled via toast layer if needed
+      toast({
+        title: "Export successful",
+        description: `Inventory exported as ${format.toUpperCase()}.`,
+        variant: "default",
+      })
+    } catch (error) {
+      toast({
+        title: "Export failed",
+        description: "Failed to export inventory. Please try again.",
+        variant: "destructive",
+      })
     }
   }
 
@@ -700,11 +764,8 @@ export function MedicationInventory() {
                               className="text-destructive hover:text-destructive"
                               onClick={(e) => {
                                 e.stopPropagation()
-                                const confirmed = window.confirm(
-                                  `Delete "${med.name}" from inventory? This cannot be undone.`,
-                                )
-                                if (!confirmed) return
-                                deleteMedication(med.id)
+                                setMedicationToDelete(med)
+                                setShowDeleteDialog(true)
                               }}
                             >
                               <Trash2 className="mr-1 h-4 w-4" />
@@ -924,9 +985,18 @@ export function MedicationInventory() {
                       {selectedMedication.barcode || <span className="text-muted-foreground">—</span>}
                     </p>
                   </div>
-                  <div className="sm:col-span-2 flex justify-end pt-2">
+                  <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
                     <Button size="sm" variant="outline" onClick={startEditing}>
                       Edit medication
+                    </Button>
+                    <Button
+                      size="sm"
+                      variant="outline"
+                      className="text-destructive hover:text-destructive"
+                      onClick={handleDeleteSelected}
+                    >
+                      <Trash2 className="mr-1 h-4 w-4" />
+                      Delete
                     </Button>
                   </div>
                 </div>
@@ -941,6 +1011,25 @@ export function MedicationInventory() {
           )}
         </SheetContent>
       </Sheet>
+
+      <Dialog open={showDeleteDialog} onOpenChange={setShowDeleteDialog}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle>Delete Medication</DialogTitle>
+            <DialogDescription>
+              Are you sure you want to delete &quot;{medicationToDelete?.name}&quot; from inventory? This action cannot be undone.
+            </DialogDescription>
+          </DialogHeader>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowDeleteDialog(false)} disabled={deleting}>
+              Cancel
+            </Button>
+            <Button variant="destructive" onClick={confirmDelete} disabled={deleting}>
+              {deleting ? "Deleting..." : "Delete"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </>
   )
 }

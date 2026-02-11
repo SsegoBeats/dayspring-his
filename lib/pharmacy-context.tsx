@@ -87,44 +87,48 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([])
 
-  useEffect(() => {
-    ;(async () => {
-      try {
-        const res = await fetch("/api/pharmacy/medications", { credentials: 'include' })
-        if (res.ok) {
-          const data = await res.json()
-          const meds: Medication[] = (data.medications || []).map((m: any) => ({
-            id: m.id,
-            name: m.name,
-            category: m.category,
-            manufacturer: m.manufacturer || "",
-            stockQuantity: Number(m.stock_quantity),
-            unitPrice: Number(m.unit_price),
-            costPrice: m.cost_price ? Number(m.cost_price) : undefined,
-            expiryDate: m.expiry_date || "",
-            batchNumber: "",
-            reorderLevel: Number(m.reorder_level || 0),
-            minStockLevel: m.min_stock_level ? Number(m.min_stock_level) : undefined,
-            maxStockLevel: m.max_stock_level ? Number(m.max_stock_level) : undefined,
-            lastRestockedAt: m.last_restocked_at || undefined,
-            barcode: m.barcode || undefined,
-          }))
-          setMedications(meds)
-        } else if (res.status === 401 || res.status === 403) {
-          // User doesn't have permission - this is expected for non-pharmacy users
-          setMedications([])
-        } else if (process.env.NODE_ENV === "development") {
-          console.warn("[PharmacyContext] Failed to fetch medications:", res.status, res.statusText)
-        } else {
-          setMedications([])
-        }
-      } catch (err) {
-        // Only log in development to avoid console noise in production
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[PharmacyContext] Error fetching medications:", err)
-        }
+  const refreshMedications = async () => {
+    try {
+      const res = await fetch("/api/pharmacy/medications", { credentials: 'include' })
+      if (res.ok) {
+        const data = await res.json()
+        const meds: Medication[] = (data.medications || []).map((m: any) => ({
+          id: m.id,
+          name: m.name,
+          category: m.category,
+          manufacturer: m.manufacturer || "",
+          stockQuantity: Number(m.stock_quantity),
+          unitPrice: Number(m.unit_price),
+          costPrice: m.cost_price ? Number(m.cost_price) : undefined,
+          expiryDate: m.expiry_date || "",
+          batchNumber: "",
+          reorderLevel: Number(m.reorder_level || 0),
+          minStockLevel: m.min_stock_level ? Number(m.min_stock_level) : undefined,
+          maxStockLevel: m.max_stock_level ? Number(m.max_stock_level) : undefined,
+          lastRestockedAt: m.last_restocked_at || undefined,
+          barcode: m.barcode || undefined,
+        }))
+        setMedications(meds)
+      } else if (res.status === 401 || res.status === 403) {
+        // User doesn't have permission - this is expected for non-pharmacy users
+        setMedications([])
+      } else if (process.env.NODE_ENV === "development") {
+        console.warn("[PharmacyContext] Failed to fetch medications:", res.status, res.statusText)
+      } else {
         setMedications([])
       }
+    } catch (err) {
+      // Only log in development to avoid console noise in production
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[PharmacyContext] Error fetching medications:", err)
+      }
+      setMedications([])
+    }
+  }
+
+  useEffect(() => {
+    ;(async () => {
+      await refreshMedications()
       // Suppliers are loaded from backend once related APIs are wired
       setSuppliers([])
     })()
@@ -132,64 +136,77 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
 
   // Removed localStorage persistence in favor of backend as source of truth
 
-  const addMedication = (medication: Omit<Medication, "id">) => {
-    const newMedication: Medication = {
-      ...medication,
-      id: `MED${String(medications.length + 1).padStart(3, "0")}`,
-    }
-    setMedications([...medications, newMedication])
-    ;(async () => {
-      try {
-        await fetch("/api/pharmacy/medications", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: medication.name,
-            category: medication.category,
-            manufacturer: medication.manufacturer,
-            stockQuantity: medication.stockQuantity,
-            unitPrice: medication.unitPrice,
-            costPrice: medication.costPrice,
-            expiryDate: medication.expiryDate,
-            reorderLevel: medication.reorderLevel,
-            minStockLevel: medication.minStockLevel,
-            maxStockLevel: medication.maxStockLevel,
-            barcode: medication.barcode,
-          }),
-        })
-      } catch {
-        // ignore – local optimistic update already applied
+  const addMedication = async (medication: Omit<Medication, "id">) => {
+    try {
+      const res = await fetch("/api/pharmacy/medications", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: medication.name,
+          category: medication.category,
+          manufacturer: medication.manufacturer,
+          stockQuantity: medication.stockQuantity,
+          unitPrice: medication.unitPrice,
+          costPrice: medication.costPrice,
+          expiryDate: medication.expiryDate,
+          reorderLevel: medication.reorderLevel,
+          minStockLevel: medication.minStockLevel,
+          maxStockLevel: medication.maxStockLevel,
+          barcode: medication.barcode,
+        }),
+      })
+      if (res.ok) {
+        // Refresh medications from server to get the actual ID
+        await refreshMedications()
+      } else {
+        // Optimistic update if server fails
+        const newMedication: Medication = {
+          ...medication,
+          id: `MED${String(medications.length + 1).padStart(3, "0")}`,
+        }
+        setMedications([...medications, newMedication])
       }
-    })()
+    } catch (error) {
+      // Optimistic update on error
+      const newMedication: Medication = {
+        ...medication,
+        id: `MED${String(medications.length + 1).padStart(3, "0")}`,
+      }
+      setMedications([...medications, newMedication])
+    }
   }
 
-  const updateMedication = (id: string, updates: Partial<Medication>) => {
+  const updateMedication = async (id: string, updates: Partial<Medication>) => {
+    // Optimistic update
     setMedications(medications.map((m) => (m.id === id ? { ...m, ...updates } : m)))
-    ;(async () => {
-      try {
-        await fetch(`/api/pharmacy/medications/${encodeURIComponent(id)}`, {
-          method: "PATCH",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            name: updates.name,
-            category: updates.category,
-            manufacturer: updates.manufacturer,
-            stockQuantity: updates.stockQuantity,
-            unitPrice: updates.unitPrice,
-            costPrice: updates.costPrice,
-            expiryDate: updates.expiryDate,
-            reorderLevel: updates.reorderLevel,
-            minStockLevel: updates.minStockLevel,
-            maxStockLevel: updates.maxStockLevel,
-            barcode: updates.barcode,
-          }),
-        })
-      } catch {
-        // ignore
+    try {
+      const res = await fetch(`/api/pharmacy/medications/${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          name: updates.name,
+          category: updates.category,
+          manufacturer: updates.manufacturer,
+          stockQuantity: updates.stockQuantity,
+          unitPrice: updates.unitPrice,
+          costPrice: updates.costPrice,
+          expiryDate: updates.expiryDate,
+          reorderLevel: updates.reorderLevel,
+          minStockLevel: updates.minStockLevel,
+          maxStockLevel: updates.maxStockLevel,
+          barcode: updates.barcode,
+        }),
+      })
+      if (res.ok) {
+        // Refresh to ensure consistency
+        await refreshMedications()
       }
-    })()
+    } catch (error) {
+      // Refresh on error to restore correct state
+      await refreshMedications()
+    }
   }
 
   const deleteMedication = (id: string) => {

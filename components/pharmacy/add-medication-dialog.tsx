@@ -4,6 +4,7 @@ import type React from "react"
 import { useState, useRef, useEffect } from "react"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { useFormatCurrency } from "@/lib/settings-context"
+import { useToast } from "@/hooks/use-toast"
 import {
   Dialog,
   DialogContent,
@@ -25,8 +26,10 @@ interface AddMedicationDialogProps {
 export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogProps) {
   const { addMedication, medications } = usePharmacy()
   const formatCurrency = useFormatCurrency()
+  const { toast } = useToast()
   const barcodeInputRef = useRef<HTMLInputElement>(null)
   const [categories, setCategories] = useState<Array<{ id: string; name: string; description?: string }>>([])
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     category: "",
@@ -52,41 +55,58 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
     }
   }, [open])
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setSubmitting(true)
 
-    addMedication({
-      name: formData.name,
-      category: formData.category,
-      manufacturer: formData.manufacturer,
-      stockQuantity: Number.parseInt(formData.stockQuantity),
-      unitPrice: Number.parseFloat(formData.unitPrice),
-      costPrice: formData.costPrice ? Number.parseFloat(formData.costPrice) : undefined,
-      expiryDate: formData.expiryDate,
-      batchNumber: formData.batchNumber,
-      reorderLevel: Number.parseInt(formData.reorderLevel),
-      minStockLevel: formData.minStockLevel ? Number.parseInt(formData.minStockLevel) : undefined,
-      maxStockLevel: formData.maxStockLevel ? Number.parseInt(formData.maxStockLevel) : undefined,
-      barcode: formData.barcode || undefined,
-    })
+    try {
+      addMedication({
+        name: formData.name,
+        category: formData.category,
+        manufacturer: formData.manufacturer,
+        stockQuantity: Number.parseInt(formData.stockQuantity),
+        unitPrice: Number.parseFloat(formData.unitPrice),
+        costPrice: formData.costPrice ? Number.parseFloat(formData.costPrice) : undefined,
+        expiryDate: formData.expiryDate,
+        batchNumber: formData.batchNumber,
+        reorderLevel: Number.parseInt(formData.reorderLevel),
+        minStockLevel: formData.minStockLevel ? Number.parseInt(formData.minStockLevel) : undefined,
+        maxStockLevel: formData.maxStockLevel ? Number.parseInt(formData.maxStockLevel) : undefined,
+        barcode: formData.barcode || undefined,
+      })
 
-    // Reset form
-    setFormData({
-      name: "",
-      category: "",
-      manufacturer: "",
-      stockQuantity: "",
-      unitPrice: "",
-      costPrice: "",
-      expiryDate: "",
-      batchNumber: "",
-      reorderLevel: "",
-      minStockLevel: "",
-      maxStockLevel: "",
-      barcode: "",
-    })
+      toast({
+        title: "Medication added",
+        description: `"${formData.name}" has been added to inventory successfully.`,
+        variant: "default",
+      })
 
-    onOpenChange(false)
+      // Reset form
+      setFormData({
+        name: "",
+        category: "",
+        manufacturer: "",
+        stockQuantity: "",
+        unitPrice: "",
+        costPrice: "",
+        expiryDate: "",
+        batchNumber: "",
+        reorderLevel: "",
+        minStockLevel: "",
+        maxStockLevel: "",
+        barcode: "",
+      })
+
+      onOpenChange(false)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add medication. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -279,10 +299,12 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
             </div>
           </div>
           <DialogFooter>
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
               Cancel
             </Button>
-            <Button type="submit">Add Medication</Button>
+            <Button type="submit" disabled={submitting}>
+              {submitting ? "Adding..." : "Add Medication"}
+            </Button>
           </DialogFooter>
         </form>
       </DialogContent>

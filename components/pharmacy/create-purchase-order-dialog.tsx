@@ -4,7 +4,8 @@ import type React from "react"
 
 import { useState } from "react"
 import { usePharmacy } from "@/lib/pharmacy-context"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { useToast } from "@/hooks/use-toast"
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -19,9 +20,11 @@ interface CreatePurchaseOrderDialogProps {
 
 export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchaseOrderDialogProps) {
   const { suppliers, medications, createPurchaseOrder } = usePharmacy()
+  const { toast } = useToast()
   const [supplierId, setSupplierId] = useState("")
   const [expectedDeliveryDate, setExpectedDeliveryDate] = useState("")
   const [notes, setNotes] = useState("")
+  const [submitting, setSubmitting] = useState(false)
   const [items, setItems] = useState<
     {
       medicationId: string
@@ -62,23 +65,60 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
     setItems(newItems)
   }
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-    createPurchaseOrder({
-      supplierId,
-      orderDate: new Date().toISOString().split("T")[0],
-      expectedDeliveryDate,
-      status: "pending",
-      items,
-      totalAmount,
-      notes,
-    })
-    setSupplierId("")
-    setExpectedDeliveryDate("")
-    setNotes("")
-    setItems([])
-    onOpenChange(false)
+    
+    if (items.length === 0) {
+      toast({
+        title: "No items",
+        description: "Please add at least one item to the purchase order.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    if (!supplierId) {
+      toast({
+        title: "Supplier required",
+        description: "Please select a supplier for this purchase order.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+      createPurchaseOrder({
+        supplierId,
+        orderDate: new Date().toISOString().split("T")[0],
+        expectedDeliveryDate,
+        status: "pending",
+        items,
+        totalAmount,
+        notes,
+      })
+      
+      toast({
+        title: "Purchase order created",
+        description: `Purchase order created with ${items.length} item(s) totaling ${totalAmount.toFixed(2)}.`,
+        variant: "default",
+      })
+
+      setSupplierId("")
+      setExpectedDeliveryDate("")
+      setNotes("")
+      setItems([])
+      onOpenChange(false)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to create purchase order. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -86,6 +126,9 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
       <DialogContent className="max-w-3xl">
         <DialogHeader>
           <DialogTitle>Create Purchase Order</DialogTitle>
+          <DialogDescription>
+            Create a purchase order for restocking medications. Add items and select a supplier.
+          </DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div className="grid gap-4 md:grid-cols-2">
@@ -191,17 +234,19 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
             />
           </div>
 
-          <div className="flex justify-between">
+          <DialogFooter className="flex items-center justify-between">
             <div className="text-lg font-semibold text-foreground">
               Total: ${items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0).toFixed(2)}
             </div>
             <div className="flex gap-2">
-              <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+              <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
                 Cancel
               </Button>
-              <Button type="submit">Create Order</Button>
+              <Button type="submit" disabled={submitting || items.length === 0 || !supplierId}>
+                {submitting ? "Creating..." : "Create Order"}
+              </Button>
             </div>
-          </div>
+          </DialogFooter>
         </form>
       </DialogContent>
     </Dialog>

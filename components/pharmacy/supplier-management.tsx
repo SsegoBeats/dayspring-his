@@ -8,13 +8,16 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Mail, Phone, MapPin } from "lucide-react"
+import { useToast } from "@/hooks/use-toast"
 
 export function SupplierManagement() {
   const { suppliers, addSupplier } = usePharmacy()
+  const { toast } = useToast()
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [submitting, setSubmitting] = useState(false)
   const [formData, setFormData] = useState({
     name: "",
     contactPerson: "",
@@ -24,14 +27,46 @@ export function SupplierManagement() {
     medications: "",
   })
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-    addSupplier({
-      ...formData,
-      medications: formData.medications.split(",").map((m) => m.trim()),
-    })
-    setFormData({ name: "", contactPerson: "", email: "", phone: "", address: "", medications: "" })
-    setShowAddDialog(false)
+    if (!formData.name.trim() || !formData.contactPerson.trim() || !formData.email.trim()) {
+      toast({
+        title: "Validation error",
+        description: "Please fill in all required fields.",
+        variant: "destructive",
+      })
+      return
+    }
+
+    setSubmitting(true)
+    try {
+      const medicationList = formData.medications
+        .split(",")
+        .map((m) => m.trim())
+        .filter((m) => m.length > 0)
+
+      addSupplier({
+        ...formData,
+        medications: medicationList,
+      })
+
+      toast({
+        title: "Supplier added",
+        description: `"${formData.name}" has been added successfully.`,
+        variant: "default",
+      })
+
+      setFormData({ name: "", contactPerson: "", email: "", phone: "", address: "", medications: "" })
+      setShowAddDialog(false)
+    } catch (error) {
+      toast({
+        title: "Error",
+        description: "Failed to add supplier. Please try again.",
+        variant: "destructive",
+      })
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   return (
@@ -90,6 +125,7 @@ export function SupplierManagement() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add New Supplier</DialogTitle>
+            <DialogDescription>Add a new medication supplier to the system.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleSubmit} className="space-y-4">
             <div>
@@ -148,12 +184,14 @@ export function SupplierManagement() {
                 required
               />
             </div>
-            <div className="flex justify-end gap-2">
-              <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)}>
+            <DialogFooter>
+              <Button type="button" variant="outline" onClick={() => setShowAddDialog(false)} disabled={submitting}>
                 Cancel
               </Button>
-              <Button type="submit">Add Supplier</Button>
-            </div>
+              <Button type="submit" disabled={submitting}>
+                {submitting ? "Adding..." : "Add Supplier"}
+              </Button>
+            </DialogFooter>
           </form>
         </DialogContent>
       </Dialog>

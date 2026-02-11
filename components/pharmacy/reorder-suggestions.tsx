@@ -6,6 +6,9 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Button } from "@/components/ui/button"
 import { AlertTriangle, ShoppingCart } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
+import { useToast } from "@/hooks/use-toast"
+import { usePharmacy } from "@/lib/pharmacy-context"
+import { CreatePurchaseOrderDialog } from "./create-purchase-order-dialog"
 
 type ReorderSuggestion = {
   medication_id: string
@@ -18,9 +21,12 @@ type ReorderSuggestion = {
 }
 
 export function ReorderSuggestions() {
+  const { medications, suppliers, createPurchaseOrder } = usePharmacy()
+  const { toast } = useToast()
   const [suggestions, setSuggestions] = useState<ReorderSuggestion[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [showPurchaseOrderDialog, setShowPurchaseOrderDialog] = useState(false)
 
   useEffect(() => {
     let cancelled = false
@@ -68,6 +74,60 @@ export function ReorderSuggestions() {
     )
   }
 
+  const handleCreatePurchaseOrder = () => {
+    if (suggestions.length === 0) {
+      toast({
+        title: "No suggestions",
+        description: "There are no medications that need reordering.",
+        variant: "default",
+      })
+      return
+    }
+    if (suppliers.length === 0) {
+      toast({
+        title: "No suppliers",
+        description: "Please add suppliers before creating purchase orders.",
+        variant: "destructive",
+      })
+      return
+    }
+    setShowPurchaseOrderDialog(true)
+  }
+
+  const handleCreateOrderFromSuggestions = (supplierId: string, expectedDeliveryDate: string, notes?: string) => {
+    const items = suggestions.map((sug) => {
+      const medication = medications.find((m) => m.id === sug.medication_id)
+      return {
+        medicationId: sug.medication_id,
+        medicationName: sug.medication_name,
+        quantity: sug.suggested_order_quantity,
+        unitPrice: medication?.unitPrice || 0,
+        batchNumber: "",
+        expiryDate: "",
+      }
+    })
+
+    const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
+
+    createPurchaseOrder({
+      supplierId,
+      orderDate: new Date().toISOString().split("T")[0],
+      expectedDeliveryDate,
+      status: "pending",
+      items,
+      totalAmount,
+      notes,
+    })
+
+    toast({
+      title: "Purchase order created",
+      description: `Purchase order created with ${items.length} item(s) for ${suppliers.find((s) => s.id === supplierId)?.name || "supplier"}.`,
+      variant: "default",
+    })
+
+    setShowPurchaseOrderDialog(false)
+  }
+
   if (suggestions.length === 0) {
     return (
       <Card>
@@ -80,24 +140,25 @@ export function ReorderSuggestions() {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <div className="flex items-center justify-between">
-          <div>
-            <CardTitle className="flex items-center gap-2">
-              <AlertTriangle className="h-5 w-5 text-amber-600" />
-              Reorder Suggestions
-            </CardTitle>
-            <CardDescription>
-              {suggestions.length} medication{suggestions.length !== 1 ? "s" : ""} need restocking
-            </CardDescription>
+    <>
+      <Card>
+        <CardHeader>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle className="flex items-center gap-2">
+                <AlertTriangle className="h-5 w-5 text-amber-600" />
+                Reorder Suggestions
+              </CardTitle>
+              <CardDescription>
+                {suggestions.length} medication{suggestions.length !== 1 ? "s" : ""} need restocking
+              </CardDescription>
+            </div>
+            <Button variant="outline" size="sm" onClick={handleCreatePurchaseOrder}>
+              <ShoppingCart className="mr-2 h-4 w-4" />
+              Create Purchase Order
+            </Button>
           </div>
-          <Button variant="outline" size="sm">
-            <ShoppingCart className="mr-2 h-4 w-4" />
-            Create Purchase Order
-          </Button>
-        </div>
-      </CardHeader>
+        </CardHeader>
       <CardContent>
         <div className="rounded-md border">
           <Table>
@@ -143,7 +204,10 @@ export function ReorderSuggestions() {
           </Table>
         </div>
       </CardContent>
-    </Card>
+      </Card>
+
+      <CreatePurchaseOrderDialog open={showPurchaseOrderDialog} onOpenChange={setShowPurchaseOrderDialog} />
+    </>
   )
 }
 

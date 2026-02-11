@@ -49,8 +49,22 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
       const medication = getMedication(med.name)
       if (!medication) {
         issues.push(`${med.name} not found in inventory`)
-      } else if (medication.stockQuantity < Number.parseInt(med.duration) || medication.stockQuantity === 0) {
-        issues.push(`${med.name} has insufficient stock (Available: ${medication.stockQuantity})`)
+      } else {
+        // Check for expired medications
+        if (medication.expiryDate) {
+          const expiryDate = new Date(medication.expiryDate)
+          const today = new Date()
+          today.setHours(0, 0, 0, 0)
+          if (expiryDate < today) {
+            issues.push(`${med.name} has expired (Expiry: ${medication.expiryDate}). Do not dispense expired medications.`)
+            return // Don't check stock if expired
+          }
+        }
+        // Check stock availability
+        const quantityNeeded = Number.parseInt(med.duration) || 1
+        if (medication.stockQuantity < quantityNeeded || medication.stockQuantity === 0) {
+          issues.push(`${med.name} has insufficient stock (Available: ${medication.stockQuantity}, Required: ${quantityNeeded})`)
+        }
       }
     })
     return issues
@@ -96,51 +110,105 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
             const suggestedBatches = batchesData.suggestedBatches || []
 
             if (suggestedBatches.length > 0) {
-              // Dispense from batches using FEFO
+              // Dispense from batches using FEFO - properly distribute quantity across batches
+              let remainingQty = quantityToDispense
+              const batchMovements: Array<{ batchId: string; batchNumber: string; expiryDate: string; quantity: number }> = []
+              
               for (const batch of suggestedBatches) {
-                try {
-                  await fetch("/api/pharmacy/batches", {
-                    method: "PATCH",
-                    credentials: "include",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
+                if (remainingQty <= 0) break
+                
+                const batchQty = Number(batch.quantity) || 0
+                const qtyFromBatch = Math.min(remainingQty, batchQty)
+                
+                if (qtyFromBatch > 0) {
+                  try {
+                    const newBatchQty = batchQty - qtyFromBatch
+                    await fetch("/api/pharmacy/batches", {
+                      method: "PATCH",
+                      credentials: "include",
+                      headers: { "Content-Type": "application/json" },
+                      body: JSON.stringify({
+                        batchId: batch.batchId,
+                        quantity: Math.max(0, newBatchQty),
+                      }),
+                    })
+                    batchMovements.push({
                       batchId: batch.batchId,
-                      quantity: Math.max(0, Number(batch.quantity) - quantityToDispense),
-                    }),
-                  })
-                } catch (err) {
-                  console.error("Failed to update batch:", err)
+                      batchNumber: batch.batchNumber || "",
+                      expiryDate: batch.expiryDate || "",
+                      quantity: qtyFromBatch,
+                    })
+                    remainingQty -= qtyFromBatch
+                  } catch (err) {
+                    console.error("Failed to update batch:", err)
+                    toast({
+                      title: "Warning",
+                      description: `Failed to update batch ${batch.batchNumber}. Please verify stock levels.`,
+                      variant: "default",
+                    })
+                  }
                 }
               }
 
               // Record dispense in stock movements with batch info
-              try {
-                await fetch("/api/pharmacy/stock-movements", {
-                  method: "POST",
-                  credentials: "include",
-                  headers: { "Content-Type": "application/json" },
-                  body: JSON.stringify({
-                    medicationId: medication.id,
-                    movementType: "Dispense",
-                    quantity: quantityToDispense,
-                    reference: `Prescription: ${prescription.id}`,
-                    batchNumber: suggestedBatches[0]?.batchNumber,
-                    expiryDate: suggestedBatches[0]?.expiryDate,
-                  }),
+              for (const movement of batchMovements) {
+                try {
+                  await fetch("/api/pharmacy/stock-movements", {
+                    method: "POST",
+                    credentials: "include",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({
+                      medicationId: medication.id,
+                      movementType: "Dispense",
+                      quantity: movement.quantity,
+                      reference: `Prescription: ${prescription.id}`,
+                      batchNumber: movement.batchNumber,
+                      expiryDate: movement.expiryDate,
+                    }),
+                  })
+                } catch (err) {
+                  console.error("Failed to record stock movement:", err)
+                }
+              }
+              
+              // If we still have remaining quantity after batches, update medication stock
+              if (remainingQty > 0) {
+                updateMedication(medication.id, {
+                  stockQuantity: medication.stockQuantity - remainingQty,
                 })
-              } catch (err) {
-                console.error("Failed to record stock movement:", err)
+              } else {
+                // Update medication stock to reflect batch changes
+                const totalDispensed = quantityToDispense - remainingQty
+                updateMedication(medication.id, {
+                  stockQuantity: medication.stockQuantity - totalDispensed,
+                })
               }
             }
           }
         } catch (err) {
           console.error("Failed to get batches, using fallback:", err)
+          // Fallback: update medication stock directly (for backward compatibility)
+          updateMedication(medication.id, {
+            stockQuantity: medication.stockQuantity - quantityToDispense,
+          })
+          
+          // Record stock movement without batch info
+          try {
+            await fetch("/api/pharmacy/stock-movements", {
+              method: "POST",
+              credentials: "include",
+              headers: { "Content-Type": "application/json" },
+              body: JSON.stringify({
+                medicationId: medication.id,
+                movementType: "Dispense",
+                quantity: quantityToDispense,
+                reference: `Prescription: ${prescription.id}`,
+              }),
+            })
+          } catch (movementErr) {
+            console.error("Failed to record stock movement:", movementErr)
+          }
         }
-
-        // Fallback: update medication stock directly (for backward compatibility)
-        updateMedication(medication.id, {
-          stockQuantity: medication.stockQuantity - quantityToDispense,
-        })
 
         // Record usage analytics
         try {

@@ -7,10 +7,13 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Plus, Package, CheckCircle } from "lucide-react"
 import { CreatePurchaseOrderDialog } from "./create-purchase-order-dialog"
+import { useToast } from "@/hooks/use-toast"
 
 export function PurchaseOrders() {
   const { purchaseOrders, suppliers, receivePurchaseOrder } = usePharmacy()
+  const { toast } = useToast()
   const [showCreateDialog, setShowCreateDialog] = useState(false)
+  const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null)
 
   const getSupplierName = (supplierId: string) => {
     return suppliers.find((s) => s.id === supplierId)?.name || "Unknown"
@@ -95,9 +98,31 @@ export function PurchaseOrders() {
                       )}
                     </div>
                     {order.status === "approved" && (
-                      <Button size="sm" onClick={() => receivePurchaseOrder(order.id)}>
+                      <Button
+                        size="sm"
+                        onClick={() => {
+                          setReceivingOrderId(order.id)
+                          try {
+                            receivePurchaseOrder(order.id)
+                            toast({
+                              title: "Order received",
+                              description: `Purchase order ${order.id} has been successfully received.`,
+                              variant: "default",
+                            })
+                          } catch (error) {
+                            toast({
+                              title: "Error",
+                              description: "Failed to receive order. Please try again.",
+                              variant: "destructive",
+                            })
+                          } finally {
+                            setReceivingOrderId(null)
+                          }
+                        }}
+                        disabled={receivingOrderId === order.id}
+                      >
                         <CheckCircle className="mr-2 h-4 w-4" />
-                        Receive Order
+                        {receivingOrderId === order.id ? "Receiving..." : "Receive Order"}
                       </Button>
                     )}
                   </div>
