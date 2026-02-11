@@ -6,18 +6,21 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { useNursing } from "@/lib/nursing-context"
 import { PatientCareList } from "@/components/nursing/patient-care-list"
 import { PatientCareView } from "@/components/nursing/patient-care-view"
-import { Users, Activity, FileText, Clock, SortAsc, SortDesc, Loader2 } from "lucide-react"
+import { Users, Activity, FileText, Clock, SortAsc, SortDesc, Loader2, Download, Calendar, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { usePatients } from "@/lib/patient-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatPatientDigits } from "@/lib/patients"
+import { hasCriticalVitals, parseBloodPressure, extractNumericValue } from "@/lib/vital-signs-validation"
 
 export function NurseDashboard() {
   const { patients } = usePatients()
-  const { vitalSigns, nursingNotes } = useNursing()
+  const { vitalSigns, nursingNotes, refreshPatient } = useNursing()
   const [selected, setSelected] = useState<{ id: string; tab?: 'vitals'|'notes' } | null>(null)
   const seenNotif = useRef<Set<string>>(new Set())
 
@@ -85,7 +88,7 @@ export function NurseDashboard() {
     return () => { stop = true; clearInterval(t) }
   }, [])
 
-  // Load latest vitals table (and refetch on search)
+  // Load latest vitals table (and refetch on search or refresh trigger)
   useEffect(() => {
     let stop = false
     const controller = new AbortController()
@@ -110,9 +113,44 @@ export function NurseDashboard() {
     }
     const t = setTimeout(load, 250)
     return () => { stop = true; clearTimeout(t); controller.abort() }
-  }, [q])
+  }, [q, refreshKey])
 
-  const sortedVitals = latestVitals.slice().sort((a, b) => {
+  // Filter vitals
+  const filteredVitals = latestVitals.filter((v: any) => {
+    // Search filter
+    if (q.trim()) {
+      const searchLower = q.toLowerCase()
+      const name = `${v.first_name || ''} ${v.last_name || ''}`.toLowerCase()
+      const pid = formatPatientDigits(v.patient_number) || ''
+      if (!name.includes(searchLower) && !pid.includes(searchLower)) return false
+    }
+    // Triage filter
+    if (filterTriage && v.triage_category !== filterTriage) return false
+    // Critical filter
+    if (filterCritical) {
+      const patient = patients.find(p => p.id === v.patient_id)
+      const age = patient ? (patient.ageYears || (patient.dateOfBirth ? (() => {
+        try {
+          const dob = new Date(patient.dateOfBirth)
+          const now = new Date()
+          return now.getFullYear() - dob.getFullYear() - ((now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) ? 1 : 0)
+        } catch { return null }
+      })() : null)) : null
+      const bp = parseBloodPressure(`${v.blood_pressure_systolic || ''}/${v.blood_pressure_diastolic || ''}`)
+      const isCritical = hasCriticalVitals({
+        temperature: v.temperature != null ? Number(v.temperature) : null,
+        systolicBP: bp.systolic,
+        diastolicBP: bp.diastolic,
+        heartRate: v.heart_rate != null ? Number(v.heart_rate) : null,
+        respiratoryRate: v.respiratory_rate != null ? Number(v.respiratory_rate) : null,
+        oxygenSaturation: v.oxygen_saturation != null ? Number(v.oxygen_saturation) : null,
+      }, age)
+      if (!isCritical) return false
+    }
+    return true
+  })
+
+  const sortedVitals = filteredVitals.slice().sort((a, b) => {
     const getPid = (v:any) => formatPatientDigits(v.patient_number)
     const timeA = new Date(a.recorded_at || a.created_at || Date.now()).getTime()
     const timeB = new Date(b.recorded_at || b.created_at || Date.now()).getTime()
@@ -239,11 +277,153 @@ export function NurseDashboard() {
 
       <PatientCareList onSelectPatient={(id, tab) => setSelected({ id, tab })} />
 
+      {/* Export Section */}
+      <Card className="border-blue-200 bg-blue-50/60 dark:bg-blue-950/20">
+        <CardHeader>
+          <CardTitle className="text-sm">Export Vitals & Notes</CardTitle>
+        </CardHeader>
+        <CardContent className="space-y-3">
+          <div className="grid gap-3 md:grid-cols-12 items-end">
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs font-medium">Quick Range</label>
+              <Select value={datePreset} onValueChange={(v: any) => setDatePreset(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="today">Today</SelectItem>
+                  <SelectItem value="last7">Last 7 Days</SelectItem>
+                  <SelectItem value="month">This Month</SelectItem>
+                  <SelectItem value="custom">Custom</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs font-medium">From</label>
+              <Input 
+                type="date" 
+                value={dateFrom} 
+                onChange={(e) => { setDateFrom(e.target.value); setDatePreset('custom') }}
+                disabled={datePreset !== 'custom'}
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs font-medium">To</label>
+              <Input 
+                type="date" 
+                value={dateTo} 
+                onChange={(e) => { setDateTo(e.target.value); setDatePreset('custom') }}
+                disabled={datePreset !== 'custom'}
+              />
+            </div>
+            <div className="space-y-1 md:col-span-2">
+              <label className="text-xs font-medium">Format</label>
+              <Select value={exportFormat} onValueChange={(v: any) => setExportFormat(v)}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="csv">CSV</SelectItem>
+                  <SelectItem value="xlsx">XLSX</SelectItem>
+                  <SelectItem value="pdf">PDF</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="md:col-span-4 flex gap-2 justify-end">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setExporting(true)
+                  try {
+                    const url = new URL('/api/vitals/export', window.location.origin)
+                    url.searchParams.set('format', exportFormat)
+                    url.searchParams.set('from', dateFrom)
+                    url.searchParams.set('to', dateTo)
+                    const res = await fetch(url.toString(), { credentials: 'include' })
+                    if (!res.ok) throw new Error('Export failed')
+                    const blob = await res.blob()
+                    const downloadUrl = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = downloadUrl
+                    a.download = `vitals-${dateFrom}-to-${dateTo}.${exportFormat}`
+                    document.body.appendChild(a)
+                    a.click()
+                    a.remove()
+                    URL.revokeObjectURL(downloadUrl)
+                    toast.success('Vitals exported successfully')
+                  } catch (e: any) {
+                    toast.error(e?.message || 'Export failed')
+                  } finally {
+                    setExporting(false)
+                  }
+                }}
+                disabled={exporting}
+              >
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <Download className="h-4 w-4 mr-2" />}
+                Export Vitals
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={async () => {
+                  setExporting(true)
+                  try {
+                    const url = new URL('/api/nursing-notes/export', window.location.origin)
+                    url.searchParams.set('format', exportFormat)
+                    url.searchParams.set('from', dateFrom)
+                    url.searchParams.set('to', dateTo)
+                    const res = await fetch(url.toString(), { credentials: 'include' })
+                    if (!res.ok) throw new Error('Export failed')
+                    const blob = await res.blob()
+                    const downloadUrl = URL.createObjectURL(blob)
+                    const a = document.createElement('a')
+                    a.href = downloadUrl
+                    a.download = `nursing-notes-${dateFrom}-to-${dateTo}.${exportFormat}`
+                    document.body.appendChild(a)
+                    a.click()
+                    a.remove()
+                    URL.revokeObjectURL(downloadUrl)
+                    toast.success('Nursing notes exported successfully')
+                  } catch (e: any) {
+                    toast.error(e?.message || 'Export failed')
+                  } finally {
+                    setExporting(false)
+                  }
+                }}
+                disabled={exporting}
+              >
+                {exporting ? <Loader2 className="h-4 w-4 animate-spin mr-2" /> : <FileText className="h-4 w-4 mr-2" />}
+                Export Notes
+              </Button>
+            </div>
+          </div>
+        </CardContent>
+      </Card>
+
       <Card>
-        <CardHeader className="flex items-center justify-between gap-2">
-          <CardTitle>Latest Vitals (Today)</CardTitle>
-          <div className="w-64">
-            <Input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Search by name or P.ID" />
+        <CardHeader className="flex items-center justify-between gap-2 flex-wrap">
+          <CardTitle>Latest Vitals {datePreset === 'today' ? '(Today)' : `(${dateFrom} to ${dateTo})`}</CardTitle>
+          <div className="flex gap-2 flex-wrap">
+            <div className="w-48">
+              <Input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Search by name or P.ID" />
+            </div>
+            <Select value={filterTriage} onValueChange={setFilterTriage}>
+              <SelectTrigger className="w-40">
+                <SelectValue placeholder="Triage" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="">All Triage</SelectItem>
+                <SelectItem value="Emergency">Emergency</SelectItem>
+                <SelectItem value="Very Urgent">Very Urgent</SelectItem>
+                <SelectItem value="Urgent">Urgent</SelectItem>
+                <SelectItem value="Routine">Routine</SelectItem>
+              </SelectContent>
+            </Select>
+            <Button
+              variant={filterCritical ? "default" : "outline"}
+              size="sm"
+              onClick={() => setFilterCritical(!filterCritical)}
+            >
+              <AlertCircle className={`h-4 w-4 mr-2 ${filterCritical ? 'text-white' : ''}`} />
+              Critical Only
+            </Button>
           </div>
         </CardHeader>
         <CardContent>
@@ -361,7 +541,16 @@ export function NurseDashboard() {
         </CardContent>
       </Card>
 
-      <Dialog open={!!selected} onOpenChange={(o)=> { if (!o) setSelected(null) }}>
+      <Dialog open={!!selected} onOpenChange={(o)=> { 
+        if (!o) {
+          // Refresh data when dialog closes
+          if (selected?.id) {
+            refreshPatient(selected.id).catch(() => {})
+            setRefreshKey(prev => prev + 1)
+          }
+          setSelected(null)
+        }
+      }}>
         <DialogContent size="xl" className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>
@@ -377,7 +566,12 @@ export function NurseDashboard() {
             <PatientCareView
               patientId={selected.id}
               initialTab={selected.tab || 'vitals'}
-              onBack={() => setSelected(null)}
+              onBack={() => {
+                // Refresh data when going back
+                refreshPatient(selected.id).catch(() => {})
+                setRefreshKey(prev => prev + 1)
+                setSelected(null)
+              }}
             />
           )}
         </DialogContent>

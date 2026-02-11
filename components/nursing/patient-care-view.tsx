@@ -14,9 +14,11 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Badge } from "@/components/ui/badge"
 import { formatPatientNumber } from "@/lib/patients"
-import { ArrowLeft, Activity, FileText, AlertCircle } from "lucide-react"
+import { ArrowLeft, Activity, FileText, AlertCircle, Loader2, AlertTriangle } from "lucide-react"
 import { TriageForm } from "@/components/patient/triage-form"
 import { toast } from "sonner"
+import { validateVitalSigns, parseBloodPressure, extractNumericValue } from "@/lib/vital-signs-validation"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 
 interface PatientCareViewProps {
   patientId: string
@@ -26,10 +28,14 @@ interface PatientCareViewProps {
 
 export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: PatientCareViewProps) {
   const { getPatient } = usePatients()
-  const { addVitalSigns, addNursingNote, getPatientVitals, getPatientNotes, prefetchPatient } = useNursing()
+  const { addVitalSigns, addNursingNote, getPatientVitals, getPatientNotes, prefetchPatient, refreshPatient } = useNursing()
   const { user } = useAuth()
   const patient = getPatient(patientId)
   const [activeTab, setActiveTab] = useState<'vitals'|'notes'|'history'|'triage'>(initialTab)
+  const [savingVitals, setSavingVitals] = useState(false)
+  const [savingNote, setSavingNote] = useState(false)
+  const [loadingHistory, setLoadingHistory] = useState(false)
+  const [vitalAlerts, setVitalAlerts] = useState<Array<{ type: 'critical' | 'warning' | 'normal'; message: string; field: string }>>([])
 
   // Remember last active tab per patient
   const storageKey = `nurse-care-tab:${patientId}`
@@ -120,7 +126,13 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
 
   // Prefetch patient history when opening the dialog
   useEffect(() => {
+    setLoadingHistory(true)
     prefetchPatient(patientId)
+      .catch((error) => {
+        console.error("Failed to prefetch patient:", error)
+        toast.error("Failed to load patient history")
+      })
+      .finally(() => setLoadingHistory(false))
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId])
 
@@ -137,43 +149,136 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
     )
   }
 
-  const commitVitals = () => {
+  // Calculate patient age
+  const patientAge = patient ? (() => {
+    try {
+      if (patient.ageYears) return patient.ageYears
+      if (patient.dateOfBirth) {
+        const dob = new Date(patient.dateOfBirth)
+        const now = new Date()
+        return now.getFullYear() - dob.getFullYear() - ((now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) ? 1 : 0)
+      }
+      return null
+    } catch {
+      return null
+    }
+  })() : null
+
+  // Validate vitals on form change
+  useEffect(() => {
+    if (!patient) return
+    const bp = parseBloodPressure(vitalsForm.bloodPressure)
+    const temp = extractNumericValue(vitalsForm.temperature)
+    const hr = extractNumericValue(vitalsForm.heartRate)
+    const rr = extractNumericValue(vitalsForm.respiratoryRate)
+    const spo2 = extractNumericValue(vitalsForm.oxygenSaturation)
+
+    // Only validate if we have at least one value
+    if (temp !== null || bp.systolic !== null || hr !== null || rr !== null || spo2 !== null) {
+      const alerts = validateVitalSigns(
+        {
+          temperature: temp,
+          systolicBP: bp.systolic,
+          diastolicBP: bp.diastolic,
+          heartRate: hr,
+          respiratoryRate: rr,
+          oxygenSaturation: spo2,
+        },
+        patientAge
+      )
+      setVitalAlerts(alerts)
+    } else {
+      setVitalAlerts([])
+    }
+  }, [vitalsForm, patient, patientAge])
+
+  const commitVitals = async () => {
     if (!user || !patient) return
+    if (!vitalsForm.bloodPressure || !vitalsForm.temperature || !vitalsForm.heartRate || !vitalsForm.respiratoryRate || !vitalsForm.oxygenSaturation) {
+      toast.error("Please fill in all required vital sign fields")
+      return
+    }
+
+    // Check for critical values and warn
+    const criticalAlerts = vitalAlerts.filter(a => a.type === 'critical')
+    if (criticalAlerts.length > 0) {
+      const confirmed = window.confirm(
+        `WARNING: Critical vital signs detected:\n\n${criticalAlerts.map(a => `• ${a.message}`).join('\n')}\n\nDo you want to proceed with recording these values?`
+      )
+      if (!confirmed) return
+    }
+
+    setSavingVitals(true)
     const now = new Date()
-    addVitalSigns({
-      patientId: patient.id,
-      patientName: `${patient.firstName} ${patient.lastName}`,
-      nurseName: user.name,
-      date: now.toISOString().split("T")[0],
-      time: now.toTimeString().slice(0, 5),
-      bloodPressure: vitalsForm.bloodPressure,
-      temperature: vitalsForm.temperature,
-      heartRate: vitalsForm.heartRate,
-      respiratoryRate: vitalsForm.respiratoryRate,
-      oxygenSaturation: vitalsForm.oxygenSaturation,
-      weight: vitalsForm.weight,
-      height: vitalsForm.height,
-      notes: vitalsForm.notes,
-    })
-    setVitalsForm({ bloodPressure: "", temperature: "", heartRate: "", respiratoryRate: "", oxygenSaturation: "", weight: "", height: "", notes: "" })
-    toast.success("Vital signs recorded successfully!")
+    try {
+      await addVitalSigns(
+        {
+          patientId: patient.id,
+          patientName: `${patient.firstName} ${patient.lastName}`,
+          nurseName: user.name,
+          date: now.toISOString().split("T")[0],
+          time: now.toTimeString().slice(0, 5),
+          bloodPressure: vitalsForm.bloodPressure,
+          temperature: vitalsForm.temperature,
+          heartRate: vitalsForm.heartRate,
+          respiratoryRate: vitalsForm.respiratoryRate,
+          oxygenSaturation: vitalsForm.oxygenSaturation,
+          weight: vitalsForm.weight,
+          height: vitalsForm.height,
+          notes: vitalsForm.notes,
+        },
+        () => {
+          setVitalsForm({ bloodPressure: "", temperature: "", heartRate: "", respiratoryRate: "", oxygenSaturation: "", weight: "", height: "", notes: "" })
+          setVitalAlerts([])
+          toast.success("Vital signs recorded successfully!")
+          // Refresh patient data to show updated history
+          refreshPatient(patient.id).catch(() => {})
+        },
+        (error) => {
+          toast.error(error.message || "Failed to record vital signs. Please try again.")
+        }
+      )
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to record vital signs. Please try again.")
+    } finally {
+      setSavingVitals(false)
+    }
   }
   const handleSaveVitals = (e: React.FormEvent) => { e.preventDefault(); commitVitals() }
 
-  const commitNote = () => {
-    if (!user || !patient || !noteForm.note) return
+  const commitNote = async () => {
+    if (!user || !patient || !noteForm.note.trim()) {
+      toast.error("Please enter a nursing note")
+      return
+    }
+    setSavingNote(true)
     const now = new Date()
-    addNursingNote({
-      patientId: patient.id,
-      patientName: `${patient.firstName} ${patient.lastName}`,
-      nurseName: user.name,
-      date: now.toISOString().split("T")[0],
-      time: now.toTimeString().slice(0, 5),
-      category: noteForm.category,
-      note: noteForm.note,
-    })
-    setNoteForm({ category: "observation", note: "" })
-    toast.success("Nursing note added successfully!")
+    try {
+      await addNursingNote(
+        {
+          patientId: patient.id,
+          patientName: `${patient.firstName} ${patient.lastName}`,
+          nurseName: user.name,
+          date: now.toISOString().split("T")[0],
+          time: now.toTimeString().slice(0, 5),
+          category: noteForm.category,
+          note: noteForm.note,
+        },
+        () => {
+          setNoteForm({ category: "observation", note: "" })
+          toast.success("Nursing note added successfully!")
+          // Refresh patient data to show updated history
+          refreshPatient(patient.id).catch(() => {})
+        },
+        (error) => {
+          toast.error(error.message || "Failed to add nursing note. Please try again.")
+        }
+      )
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to add nursing note. Please try again.")
+    } finally {
+      setSavingNote(false)
+    }
   }
   const handleSaveNote = (e: React.FormEvent) => { e.preventDefault(); commitNote() }
 
@@ -276,6 +381,24 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
 
             <TabsContent value="vitals" className="space-y-4">
               <form onSubmit={handleSaveVitals} className="space-y-4">
+                {/* Vital Signs Alerts */}
+                {vitalAlerts.length > 0 && (
+                  <div className="space-y-2">
+                    {vitalAlerts.filter(a => a.type === 'critical').map((alert, idx) => (
+                      <Alert key={`critical-${idx}`} variant="destructive">
+                        <AlertCircle className="h-4 w-4" />
+                        <AlertDescription>{alert.message}</AlertDescription>
+                      </Alert>
+                    ))}
+                    {vitalAlerts.filter(a => a.type === 'warning').map((alert, idx) => (
+                      <Alert key={`warning-${idx}`} variant="default" className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
+                        <AlertTriangle className="h-4 w-4 text-amber-600" />
+                        <AlertDescription className="text-amber-800 dark:text-amber-200">{alert.message}</AlertDescription>
+                      </Alert>
+                    ))}
+                  </div>
+                )}
+
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
                     <Label htmlFor="bloodPressure">Blood Pressure *</Label>
@@ -365,9 +488,18 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                   />
                 </div>
 
-                <Button type="submit" className="w-full">
-                  <Activity className="mr-2 h-4 w-4" />
-                  Record Vital Signs
+                <Button type="submit" className="w-full" disabled={savingVitals}>
+                  {savingVitals ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Recording...
+                    </>
+                  ) : (
+                    <>
+                      <Activity className="mr-2 h-4 w-4" />
+                      Record Vital Signs
+                    </>
+                  )}
                 </Button>
               </form>
             </TabsContent>
@@ -405,19 +537,35 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                   />
                 </div>
 
-                <Button type="submit" className="w-full">
-                  <FileText className="mr-2 h-4 w-4" />
-                  Add Nursing Note
+                <Button type="submit" className="w-full" disabled={savingNote || !noteForm.note.trim()}>
+                  {savingNote ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Adding...
+                    </>
+                  ) : (
+                    <>
+                      <FileText className="mr-2 h-4 w-4" />
+                      Add Nursing Note
+                    </>
+                  )}
                 </Button>
               </form>
             </TabsContent>
 
             <TabsContent value="history" className="space-y-4">
-              <div className="space-y-3">
-                <h3 className="font-semibold text-foreground">Vital Signs History</h3>
-                {vitalHistory.length === 0 ? (
-                  <p className="text-center text-muted-foreground">No vital signs recorded</p>
-                ) : (
+              {loadingHistory ? (
+                <div className="flex items-center justify-center py-8">
+                  <Loader2 className="h-6 w-6 animate-spin text-muted-foreground" />
+                  <span className="ml-2 text-muted-foreground">Loading history...</span>
+                </div>
+              ) : (
+                <>
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-foreground">Vital Signs History</h3>
+                    {vitalHistory.length === 0 ? (
+                      <p className="text-center text-muted-foreground">No vital signs recorded</p>
+                    ) : (
                   vitalHistory
                     .slice()
                     .reverse()
@@ -476,40 +624,49 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                         </CardContent>
                       </Card>
                     ))
-                )}
-              </div>
+                    )}
+                  </div>
 
-              <div className="space-y-3">
-                <h3 className="font-semibold text-foreground">Nursing Notes</h3>
-                {noteHistory.length === 0 ? (
-                  <p className="text-center text-muted-foreground">No nursing notes</p>
-                ) : (
-                  noteHistory
-                    .slice()
-                    .reverse()
-                    .map((note) => (
-                      <Card key={note.id}>
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-2">
-                              <CardTitle className="text-base capitalize">{note.category}</CardTitle>
-                            </div>
-                            <Badge variant="outline">
-                              {note.date} {note.time}
-                            </Badge>
-                          </div>
-                          <CardDescription>By {note.nurseName}</CardDescription>
-                        </CardHeader>
-                        <CardContent>
-                          <p className="text-sm text-foreground">{note.note}</p>
-                        </CardContent>
-                      </Card>
-                    ))
-                )}
-              </div>
+                  <div className="space-y-3">
+                    <h3 className="font-semibold text-foreground">Nursing Notes</h3>
+                    {noteHistory.length === 0 ? (
+                      <p className="text-center text-muted-foreground">No nursing notes</p>
+                    ) : (
+                      noteHistory
+                        .slice()
+                        .reverse()
+                        .map((note) => (
+                          <Card key={note.id}>
+                            <CardHeader>
+                              <div className="flex items-center justify-between">
+                                <div className="flex items-center gap-2">
+                                  <CardTitle className="text-base capitalize">{note.category}</CardTitle>
+                                </div>
+                                <Badge variant="outline">
+                                  {note.date} {note.time}
+                                </Badge>
+                              </div>
+                              <CardDescription>By {note.nurseName}</CardDescription>
+                            </CardHeader>
+                            <CardContent>
+                              <p className="text-sm text-foreground">{note.note}</p>
+                            </CardContent>
+                          </Card>
+                        ))
+                    )}
+                  </div>
+                </>
+              )}
             </TabsContent>
             <TabsContent value="triage" className="space-y-4">
-              <TriageForm patientId={patientId} />
+              <TriageForm 
+                patientId={patientId} 
+                onSaved={(category) => {
+                  toast.success(`Triage assessment saved${category ? ` - Category: ${category}` : ''}`)
+                  // Refresh patient data after triage is saved
+                  refreshPatient(patientId).catch(() => {})
+                }}
+              />
             </TabsContent>
           </Tabs>
         </CardContent>

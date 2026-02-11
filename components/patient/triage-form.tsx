@@ -9,7 +9,8 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { AlertCircle, Activity, Heart, Thermometer, Wind, Droplets } from "lucide-react"
+import { AlertCircle, Activity, Heart, Thermometer, Wind, Droplets, Loader2 } from "lucide-react"
+import { toast } from "sonner"
 
 export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?: (c: string) => void }) {
   const [saving, setSaving] = useState(false)
@@ -48,6 +49,10 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
+    if (!form.chiefComplaint.trim()) {
+      toast.error("Chief complaint is required")
+      return
+    }
     setSaving(true)
     try {
       const res = await fetch("/api/triage", {
@@ -87,10 +92,16 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
           notes: form.notes || undefined,
         }),
       })
+      if (!res.ok) {
+        const errorData = await res.json().catch(() => ({}))
+        throw new Error(errorData.error || `Failed to save triage: ${res.statusText}`)
+      }
       const data = await res.json()
+      toast.success(`Triage assessment saved successfully${data.category ? ` - Category: ${data.category}` : ''}`)
       onSaved?.(data.category)
-    } catch (error) {
+    } catch (error: any) {
       console.error("Error saving triage:", error)
+      toast.error(error?.message || "Failed to save triage assessment. Please try again.")
     } finally {
       setSaving(false)
     }
@@ -472,8 +483,15 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
             </Alert>
           )}
 
-          <Button type="submit" className="w-full" disabled={saving}>
-            {saving ? "Saving Triage..." : "Save Triage Assessment"}
+          <Button type="submit" className="w-full" disabled={saving || !form.chiefComplaint.trim()}>
+            {saving ? (
+              <>
+                <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                Saving Triage...
+              </>
+            ) : (
+              "Save Triage Assessment"
+            )}
           </Button>
         </form>
       </CardContent>

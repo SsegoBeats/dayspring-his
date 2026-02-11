@@ -11,6 +11,7 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Stethoscope, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
+import { useNursing } from "@/lib/nursing-context"
 
 interface PatientCareListProps {
   onSelectPatient: (patientId: string, tab?: 'vitals'|'notes') => void
@@ -18,11 +19,12 @@ interface PatientCareListProps {
 
 export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
   const { patients, searchPatients, loadingPatients } = usePatients()
-  const { getLatestVitals } = useNursing()
+  const { getLatestVitals, refreshPatient } = useNursing()
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
   const [bulkVitals, setBulkVitals] = useState({ bloodPressure:'', temperature:'', heartRate:'', respiratoryRate:'', oxygenSaturation:'', notes:'' })
+  const [bulkSaving, setBulkSaving] = useState(false)
   const hasAnyBulkField = !!(bulkVitals.bloodPressure || bulkVitals.temperature || bulkVitals.heartRate || bulkVitals.respiratoryRate || bulkVitals.oxygenSaturation || bulkVitals.notes)
   
   // Helpers to auto-append metric units on blur
@@ -126,12 +128,14 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
             </div>
             <Input placeholder="Notes (optional)" value={bulkVitals.notes} onChange={(e)=>setBulkVitals({...bulkVitals, notes:e.target.value})} />
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={()=> setSelectedIds([])}>Clear Selection</Button>
+              <Button variant="outline" onClick={()=> setSelectedIds([])} disabled={bulkSaving}>Clear Selection</Button>
               <Button onClick={async ()=>{
                 if (!user) { toast.error('Not authenticated'); return }
-                if (!hasAnyBulkField) { toast.error('Enter at least one vital or note'); return }
+                if (!hasAnyBulkField) { toast.error('Enter at least one vital sign'); return }
+                setBulkSaving(true)
                 const now = new Date();
                 let ok = 0, fail = 0
+                const refreshPromises: Promise<void>[] = []
                 for (const id of selectedIds) {
                   const p = patients.find(x=>x.id===id); if (!p) { fail++; continue }
                   try {
@@ -149,20 +153,36 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                         notes: bulkVitals.notes || undefined,
                       })
                     })
-                    if (!res.ok) throw new Error((await res.json().catch(()=>({} as any)))?.error || 'Failed')
+                    if (!res.ok) {
+                      const errorData = await res.json().catch(() => ({}))
+                      throw new Error(errorData.error || 'Failed to record vitals')
+                    }
                     ok++
+                    // Queue refresh for this patient
+                    refreshPromises.push(refreshPatient(id).catch(() => {}))
                   } catch (e:any) {
                     fail++
                     toast.error(`Failed for ${p.firstName} ${p.lastName}`, { description: e?.message || 'Error' })
                   }
                 }
+                // Refresh all patients in parallel
+                await Promise.all(refreshPromises)
                 if (ok) toast.success(`Recorded vitals for ${ok} patient(s)`) 
                 if (fail && !ok) toast.error('Failed to record vitals for selected patients')
                 setSelectedIds([])
                 setBulkVitals({ bloodPressure:'', temperature:'', heartRate:'', respiratoryRate:'', oxygenSaturation:'', notes:'' })
               }}
-              disabled={selectedIds.length===0}
-              >Record Vitals</Button>
+              disabled={selectedIds.length===0 || bulkSaving || !hasAnyBulkField}
+              >
+                {bulkSaving ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Recording...
+                  </>
+                ) : (
+                  'Record Vitals'
+                )}
+              </Button>
             </div>
           </div>
         )}
