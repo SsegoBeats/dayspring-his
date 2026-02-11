@@ -190,6 +190,23 @@ export async function GET(request: Request) {
     ])
 
     const previousRevenue = previousPeriodResult.rows[0]?.previous_revenue || 0
+
+    // Fetch full previous period summary for comparison
+    const prevSummaryQuery = `
+      SELECT 
+        COALESCE(SUM(CASE WHEN b.status = 'Paid' THEN b.final_amount ELSE 0 END), 0) as total_revenue,
+        COALESCE(SUM(CASE WHEN b.status = 'Pending' THEN b.final_amount ELSE 0 END), 0) as outstanding_balance,
+        COALESCE(AVG(CASE WHEN b.status = 'Paid' THEN b.final_amount END), 0) as avg_transaction_value,
+        COUNT(CASE WHEN b.status = 'Paid' THEN 1 END) as paid_transactions,
+        COUNT(CASE WHEN b.status = 'Pending' THEN 1 END) as pending_transactions
+      FROM bills b
+      WHERE b.created_at >= $1 AND b.created_at < $2
+    `
+    const prevSummaryResult = await query(prevSummaryQuery, [
+      previousCutoffDate.toISOString().split('T')[0],
+      currentCutoffDate.toISOString().split('T')[0]
+    ])
+    const prevSummary = prevSummaryResult.rows[0] || {}
     const currentRevenue = summary.total_revenue || 0
     const revenueGrowth = previousRevenue > 0 
       ? ((currentRevenue - previousRevenue) / previousRevenue) * 100 
@@ -204,6 +221,13 @@ export async function GET(request: Request) {
         pendingTransactions: parseInt(summary.pending_transactions) || 0,
         activePaymentMethods: parseInt(summary.active_payment_methods) || 0,
         revenueGrowth: Math.round(revenueGrowth * 100) / 100
+      },
+      previousPeriod: {
+        totalRevenue: parseFloat(prevSummary.total_revenue) || 0,
+        outstandingBalance: parseFloat(prevSummary.outstanding_balance) || 0,
+        avgTransactionValue: parseFloat(prevSummary.avg_transaction_value) || 0,
+        paidTransactions: parseInt(prevSummary.paid_transactions) || 0,
+        pendingTransactions: parseInt(prevSummary.pending_transactions) || 0
       },
       dailyRevenue: dailyRevenueResult.rows.map(row => ({
         date: row.date,

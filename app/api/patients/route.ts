@@ -1,4 +1,4 @@
-﻿import { NextResponse } from "next/server"
+import { NextResponse } from "next/server"
 import { z } from "zod"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
@@ -150,6 +150,13 @@ export async function GET(req: Request) {
     const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit") || 500)))
     const after = url.searchParams.get("after") // ISO timestamp cursor for created_at (exclusive)
     const compact = url.searchParams.get("compact") === "1"
+    const gender = (url.searchParams.get("gender") || "").trim()
+    const status = (url.searchParams.get("status") || "").trim()
+    const triage = (url.searchParams.get("triage") || "").trim()
+    const minAge = url.searchParams.get("minAge")
+    const maxAge = url.searchParams.get("maxAge")
+    const registeredAfter = url.searchParams.get("registeredAfter") || ""
+    const registeredBefore = url.searchParams.get("registeredBefore") || ""
 
     // Fast path: compact search mode for lookups
     if (compact) {
@@ -192,6 +199,41 @@ export async function GET(req: Request) {
     if (after) {
       whereParts.push(`p.created_at < $${idx}`)
       params.push(after)
+      idx++
+    }
+    if (gender) {
+      whereParts.push(`p.gender ILIKE $${idx}`)
+      params.push(gender)
+      idx++
+    }
+    if (status) {
+      whereParts.push(`(p.current_status ILIKE $${idx} OR ($${idx} = 'registered' AND p.current_status IS NULL))`)
+      params.push(status)
+      idx++
+    }
+    if (triage) {
+      whereParts.push(`t.category ILIKE $${idx}`)
+      params.push(triage)
+      idx++
+    }
+    if (minAge && !isNaN(Number(minAge))) {
+      whereParts.push(`(COALESCE(p.age_years, EXTRACT(YEAR FROM AGE(CURRENT_DATE, p.date_of_birth::date))::int) >= $${idx})`)
+      params.push(Number(minAge))
+      idx++
+    }
+    if (maxAge && !isNaN(Number(maxAge))) {
+      whereParts.push(`(COALESCE(p.age_years, EXTRACT(YEAR FROM AGE(CURRENT_DATE, p.date_of_birth::date))::int) <= $${idx})`)
+      params.push(Number(maxAge))
+      idx++
+    }
+    if (registeredAfter) {
+      whereParts.push(`p.created_at >= $${idx}`)
+      params.push(registeredAfter + "T00:00:00.000Z")
+      idx++
+    }
+    if (registeredBefore) {
+      whereParts.push(`p.created_at <= $${idx}`)
+      params.push(registeredBefore + "T23:59:59.999Z")
       idx++
     }
     const whereSql = whereParts.length ? `WHERE ${whereParts.join(" AND ")}` : ""

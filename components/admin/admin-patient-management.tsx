@@ -6,9 +6,10 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { Search, Download, Trash2, AlertCircle, Loader2, Eye, FileSpreadsheet, FileText, RefreshCw, UserCircle2, Filter, X, ChevronDown, ChevronUp } from "lucide-react"
+import Link from "next/link"
+import { Search, Download, Trash2, AlertCircle, Loader2, Eye, FileSpreadsheet, FileText, RefreshCw, UserCircle2, Filter, X, ChevronDown, ChevronUp, FileHeart } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { toast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import {
   AlertDialog,
@@ -135,6 +136,14 @@ export function AdminPatientManagement() {
       setError(null)
       const params = new URLSearchParams({ limit: '100' })
       if (append && cursor) params.set('after', cursor)
+      if (searchQuery) params.set('q', searchQuery)
+      if (filters.gender) params.set('gender', filters.gender)
+      if (filters.status) params.set('status', filters.status)
+      if (filters.triage) params.set('triage', filters.triage)
+      if (filters.minAge) params.set('minAge', filters.minAge)
+      if (filters.maxAge) params.set('maxAge', filters.maxAge)
+      if (filters.registeredAfter) params.set('registeredAfter', filters.registeredAfter)
+      if (filters.registeredBefore) params.set('registeredBefore', filters.registeredBefore)
       const response = await fetch(`/api/patients?${params.toString()}`, {
         credentials: "include",
       })
@@ -160,8 +169,9 @@ export function AdminPatientManagement() {
   }
 
   useEffect(() => {
+    setCursor(null)
     fetchPatients()
-  }, [])
+  }, [searchQuery, filters.gender, filters.status, filters.triage, filters.minAge, filters.maxAge, filters.registeredAfter, filters.registeredBefore])
 
   const loadMore = async () => {
     if (!hasMore || loadingMore) return
@@ -205,21 +215,14 @@ export function AdminPatientManagement() {
         throw new Error(errorData.error || "Failed to delete patient")
       }
 
-      toast({
-        title: "Patient Deleted",
-        description: `Patient ${selectedPatient.first_name} ${selectedPatient.last_name} has been deleted successfully`,
-      })
+      toast.success(`Patient ${selectedPatient.first_name} ${selectedPatient.last_name} has been deleted successfully`)
 
       await fetchPatients()
       setDeleteDialogOpen(false)
       setSelectedPatient(null)
     } catch (err) {
       console.error("Error deleting patient:", err)
-      toast({
-        title: "Deletion Failed",
-        description: err instanceof Error ? err.message : "Failed to delete patient",
-        variant: "destructive",
-      })
+      toast.error(err instanceof Error ? err.message : "Failed to delete patient")
     } finally {
       setDeleting(false)
     }
@@ -228,7 +231,13 @@ export function AdminPatientManagement() {
   const handleExport = async (format: "csv" | "xlsx" | "pdf") => {
     try {
       setExporting(true)
-      
+      const from = filters.registeredAfter
+        ? new Date(filters.registeredAfter + "T00:00:00.000Z").toISOString()
+        : new Date(Date.now() - 365 * 24 * 60 * 60 * 1000).toISOString()
+      const to = filters.registeredBefore
+        ? new Date(filters.registeredBefore + "T23:59:59.999Z").toISOString()
+        : new Date().toISOString()
+
       const response = await fetch("/api/exports/direct", {
         method: "POST",
         headers: {
@@ -238,7 +247,7 @@ export function AdminPatientManagement() {
         body: JSON.stringify({
           dataset: "patients",
           format: format,
-          filters: {},
+          filters: { from, to },
         }),
       })
 
@@ -264,47 +273,17 @@ export function AdminPatientManagement() {
       a.click()
       URL.revokeObjectURL(url)
 
-      toast({
-        title: "Export Successful",
-        description: `Patient data exported as ${format.toUpperCase()} successfully`,
-      })
+      toast.success(`Patient data exported as ${format.toUpperCase()} successfully`)
     } catch (err) {
       console.error("Error exporting patients:", err)
-      toast({
-        title: "Export Failed",
-        description: "Failed to export patient data",
-        variant: "destructive",
-      })
+      toast.error("Failed to export patient data")
     } finally {
       setExporting(false)
     }
   }
 
-  const filteredPatients = patients.filter((patient) => {
-    const search = searchQuery.toLowerCase()
-    const matchesSearch =
-      !search ||
-      patient.first_name?.toLowerCase().includes(search) ||
-      patient.last_name?.toLowerCase().includes(search) ||
-      patient.patient_number?.toLowerCase().includes(search) ||
-      patient.phone?.toLowerCase().includes(search) ||
-      patient.next_of_kin_first_name?.toLowerCase().includes(search) ||
-      patient.next_of_kin_last_name?.toLowerCase().includes(search) ||
-      patient.next_of_kin_name?.toLowerCase().includes(search) ||
-      patient.next_of_kin_phone?.toLowerCase().includes(search)
-
-    const ageValue = patient.age_years ?? (patient.date_of_birth ? calculateAge(patient.date_of_birth) : null)
-    const matchesGender = !filters.gender || patient.gender?.toLowerCase() === filters.gender.toLowerCase()
-    const matchesStatus = !filters.status || (patient.current_status || "").toLowerCase() === filters.status.toLowerCase()
-    const matchesTriage = !filters.triage || (patient.latest_triage_category || "").toLowerCase() === filters.triage.toLowerCase()
-    const matchesMinAge = !filters.minAge || (ageValue != null && ageValue >= Number(filters.minAge))
-    const matchesMaxAge = !filters.maxAge || (ageValue != null && ageValue <= Number(filters.maxAge))
-    const created = patient.created_at ? patient.created_at.slice(0,10) : ""
-    const matchesAfter = !filters.registeredAfter || created >= filters.registeredAfter
-    const matchesBefore = !filters.registeredBefore || created <= filters.registeredBefore
-
-    return matchesSearch && matchesGender && matchesStatus && matchesTriage && matchesMinAge && matchesMaxAge && matchesAfter && matchesBefore
-  })
+  // Server-side filtering: patients from API are already filtered
+  const filteredPatients = patients
 
   const viewingPatientAge = viewingPatient
     ? viewingPatient.age_years ?? (viewingPatient.date_of_birth ? calculateAge(viewingPatient.date_of_birth) : null)
@@ -676,6 +655,14 @@ export function AdminPatientManagement() {
             <DialogDescription>
               Complete demographic and medical information for patient {formatPatientNumber(viewingPatient?.patient_number)}
             </DialogDescription>
+            {viewingPatient && (
+              <Link href={`/medical-history/${viewingPatient.id}`}>
+                <Button variant="outline" size="sm" className="mt-2">
+                  <FileHeart className="h-4 w-4 mr-2" />
+                  View Full Medical History
+                </Button>
+              </Link>
+            )}
           </DialogHeader>
           
           {viewingPatient && (

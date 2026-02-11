@@ -10,8 +10,8 @@ import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription, DialogTrigger } from "@/components/ui/dialog"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Bed, Plus, Edit, Trash2, Users, Activity, UserPlus, Search, Filter, X, ChevronDown, ChevronUp, SortAsc, SortDesc, Eye, BarChart3 } from "lucide-react"
-import { toast } from "@/hooks/use-toast"
+import { Bed, Plus, Edit, Trash2, Users, Activity, UserPlus, Search, Filter, X, ChevronDown, ChevronUp, SortAsc, SortDesc, Eye, BarChart3, ArrowRightLeft } from "lucide-react"
+import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 
@@ -127,6 +127,11 @@ export function BedManagement() {
   const [patientResults, setPatientResults] = useState<Array<{ id: string; name: string; patient_number: string }>>([])
   const [selectedPatient, setSelectedPatient] = useState<{ id: string; name: string; patient_number: string } | null>(null)
   const [assignmentNotes, setAssignmentNotes] = useState("")
+  // Transfer flow state
+  const [isTransferDialogOpen, setIsTransferDialogOpen] = useState(false)
+  const [transferringBed, setTransferringBed] = useState<Bed | null>(null)
+  const [transferTargetBedId, setTransferTargetBedId] = useState("")
+  const [transferNotes, setTransferNotes] = useState("")
 
   // Search and filter state
   const [searchTerm, setSearchTerm] = useState("")
@@ -176,19 +181,11 @@ export function BedManagement() {
         setSummary(data.summary || summary)
         setWardBreakdown(data.wardBreakdown || [])
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to fetch bed data",
-          variant: "destructive"
-        })
+      toast.error("Failed to fetch bed data")
       }
     } catch (error) {
       console.error("Error fetching beds:", error)
-      toast({
-        title: "Error", 
-        description: "Failed to fetch bed data",
-        variant: "destructive"
-      })
+      toast.error("Failed to fetch bed data")
     } finally {
       setLoading(false)
     }
@@ -198,19 +195,6 @@ export function BedManagement() {
     fetchBeds()
   }, [filters.status, filters.ward, filters.bedType, filters.hasPatient])
 
-  // Populate form when editing a bed
-  useEffect(() => {
-    if (editingBed) {
-      setFormData({
-        bedNumber: editingBed.bedNumber,
-        ward: editingBed.ward,
-        bedType: editingBed.bedType,
-        location: editingBed.location,
-        equipment: editingBed.equipment,
-        notes: editingBed.notes
-      })
-    }
-  }, [editingBed])
 
   const handleAddBed = async () => {
     try {
@@ -224,28 +208,17 @@ export function BedManagement() {
       })
 
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Bed added successfully"
-        })
+        toast.success("Bed added successfully")
         setIsAddDialogOpen(false)
         resetForm()
         fetchBeds()
       } else {
         const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Failed to add bed",
-          variant: "destructive"
-        })
+        toast.error(error.error || "Failed to add bed")
       }
     } catch (error) {
       console.error("Error adding bed:", error)
-      toast({
-        title: "Error",
-        description: "Failed to add bed",
-        variant: "destructive"
-      })
+      toast.error("Failed to add bed")
     }
   }
 
@@ -266,29 +239,18 @@ export function BedManagement() {
       })
 
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Bed updated successfully"
-        })
+        toast.success("Bed updated successfully")
         setIsEditDialogOpen(false)
         setEditingBed(null)
         resetForm()
         fetchBeds()
       } else {
         const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Failed to update bed",
-          variant: "destructive"
-        })
+        toast.error(error.error || "Failed to update bed")
       }
     } catch (error) {
       console.error("Error updating bed:", error)
-      toast({
-        title: "Error",
-        description: "Failed to update bed",
-        variant: "destructive"
-      })
+      toast.error("Failed to update bed")
     }
   }
 
@@ -309,28 +271,17 @@ export function BedManagement() {
       })
 
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Patient assigned to bed successfully"
-        })
+        toast.success("Patient assigned to bed successfully")
         setIsAssignDialogOpen(false)
         setAssigningBed(null)
         fetchBeds()
       } else {
         const error = await response.json()
-        toast({
-          title: "Error",
-          description: error.error || "Failed to assign patient",
-          variant: "destructive"
-        })
+        toast.error(error.error || "Failed to assign patient")
       }
     } catch (error) {
       console.error("Error assigning patient:", error)
-      toast({
-        title: "Error",
-        description: "Failed to assign patient",
-        variant: "destructive"
-      })
+      toast.error("Failed to assign patient")
     }
   }
 
@@ -344,25 +295,14 @@ export function BedManagement() {
       })
 
       if (response.ok) {
-        toast({
-          title: "Success",
-          description: "Bed deleted successfully"
-        })
+        toast.success("Bed deleted successfully")
         fetchBeds()
       } else {
-        toast({
-          title: "Error",
-          description: "Failed to delete bed",
-          variant: "destructive"
-        })
+        toast.error("Failed to delete bed")
       }
     } catch (error) {
       console.error("Error deleting bed:", error)
-      toast({
-        title: "Error",
-        description: "Failed to delete bed",
-        variant: "destructive"
-      })
+      toast.error("Failed to delete bed")
     }
   }
 
@@ -384,6 +324,34 @@ export function BedManagement() {
     run()
   }, [detailsOpen, detailsBed])
 
+  const handleTransfer = async () => {
+    if (!transferringBed?.assignmentId || !transferTargetBedId) return
+    try {
+      const res = await fetch("/api/beds/assignments/transfer", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          assignmentId: transferringBed.assignmentId,
+          targetBedId: transferTargetBedId,
+          notes: transferNotes || undefined,
+        }),
+      })
+      if (!res.ok) {
+        const err = await res.json()
+        throw new Error(err.error || "Transfer failed")
+      }
+      toast.success("Patient transferred successfully")
+      setIsTransferDialogOpen(false)
+      setTransferringBed(null)
+      setTransferTargetBedId("")
+      setTransferNotes("")
+      fetchBeds()
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : "Failed to transfer patient")
+    }
+  }
+
   const handleDischarge = async (assignmentId?: string, notes?: string) => {
     if (!assignmentId) return
     try {
@@ -394,10 +362,10 @@ export function BedManagement() {
         body: JSON.stringify({ assignmentId, status: 'Discharged', notes })
       })
       if (!res.ok) throw new Error('Failed to discharge')
-      toast({ title: 'Success', description: 'Patient discharged and bed freed' })
+      toast.success("Patient discharged and bed freed")
       fetchBeds()
     } catch (e) {
-      toast({ title: 'Error', description: 'Failed to discharge patient', variant: 'destructive' })
+      toast.error("Failed to discharge patient")
     }
   }
 
@@ -960,8 +928,14 @@ export function BedManagement() {
       </div>
 
       {/* Edit Bed Dialog */}
-      <Dialog open={isEditDialogOpen} onOpenChange={setIsEditDialogOpen}>
-        <DialogContent className="max-w-md">
+      <Dialog open={isEditDialogOpen} onOpenChange={(open) => {
+        setIsEditDialogOpen(open)
+        if (!open) {
+          setEditingBed(null)
+          resetForm()
+        }
+      }}>
+        <DialogContent key={editingBed?.id} className="max-w-md">
           <DialogHeader>
             <DialogTitle>Edit Bed</DialogTitle>
             <DialogDescription>
@@ -1098,6 +1072,73 @@ export function BedManagement() {
           </div>
         </DialogContent>
       </Dialog>
+      {/* Transfer Patient Dialog */}
+      <Dialog
+        open={isTransferDialogOpen}
+        onOpenChange={(open) => {
+          setIsTransferDialogOpen(open)
+          if (!open) {
+            setTransferringBed(null)
+            setTransferTargetBedId("")
+            setTransferNotes("")
+          }
+        }}
+      >
+        <DialogContent className="max-w-md">
+          <DialogHeader>
+            <DialogTitle>Transfer Patient to Another Bed</DialogTitle>
+            <DialogDescription>
+              Move patient from {transferringBed?.bedNumber} ({transferringBed?.ward}) to another available bed.
+            </DialogDescription>
+          </DialogHeader>
+          <div className="space-y-4">
+            {transferringBed?.patient && (
+              <div className="p-3 bg-muted rounded-md text-sm">
+                <span className="font-medium">{transferringBed.patient.name}</span>
+                <span className="text-muted-foreground"> #{transferringBed.patient.patientNumber}</span>
+              </div>
+            )}
+            <div>
+              <Label htmlFor="transfer-target">Target Bed</Label>
+              <Select value={transferTargetBedId} onValueChange={setTransferTargetBedId}>
+                <SelectTrigger>
+                  <SelectValue placeholder="Select available bed" />
+                </SelectTrigger>
+                <SelectContent>
+                  {beds
+                    .filter((b) => b.status === "Available" && b.id !== transferringBed?.id)
+                    .map((b) => (
+                      <SelectItem key={b.id} value={b.id}>
+                        {b.bedNumber} ({b.ward}) - {b.bedType}
+                      </SelectItem>
+                    ))}
+                </SelectContent>
+              </Select>
+            </div>
+            <div>
+              <Label htmlFor="transfer-notes">Transfer Notes (optional)</Label>
+              <Textarea
+                id="transfer-notes"
+                value={transferNotes}
+                onChange={(e) => setTransferNotes(e.target.value)}
+                placeholder="Reason for transfer..."
+              />
+            </div>
+            <div className="flex justify-end space-x-2">
+              <Button variant="outline" onClick={() => setIsTransferDialogOpen(false)}>
+                Cancel
+              </Button>
+              <Button
+                disabled={!transferTargetBedId}
+                onClick={handleTransfer}
+              >
+                Transfer Patient
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
       {/* Patient Assignment Dialog - Only for Nurses */}
       <Dialog open={isAssignDialogOpen} onOpenChange={setIsAssignDialogOpen}>
         <DialogContent className="max-w-md">
@@ -1232,6 +1273,14 @@ export function BedManagement() {
                         variant="outline"
                         onClick={() => {
                           setEditingBed(bed)
+                          setFormData({
+                            bedNumber: bed.bedNumber,
+                            ward: bed.ward,
+                            bedType: bed.bedType,
+                            location: bed.location,
+                            equipment: bed.equipment,
+                            notes: bed.notes
+                          })
                           setIsEditDialogOpen(true)
                         }}
                         title="Edit bed"
@@ -1261,7 +1310,22 @@ export function BedManagement() {
                       </Button>
                     )}
                     {canEditBeds && bed.patient && (
-                      <DischargeButton assignmentId={bed.assignmentId} onConfirm={(notes) => handleDischarge(bed.assignmentId, notes)} />
+                      <>
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          onClick={() => {
+                            setTransferringBed(bed)
+                            setTransferTargetBedId("")
+                            setTransferNotes("")
+                            setIsTransferDialogOpen(true)
+                          }}
+                          title="Transfer patient to another bed"
+                        >
+                          <ArrowRightLeft className="h-4 w-4" />
+                        </Button>
+                        <DischargeButton assignmentId={bed.assignmentId} onConfirm={(notes) => handleDischarge(bed.assignmentId, notes)} />
+                      </>
                     )}
                     {canDeleteBeds && (
                       <Button

@@ -9,7 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useAdmin, type SystemUser, type UserRole } from "@/lib/admin-context"
 import { useFormatDate } from "@/lib/date-utils"
-import { Plus, Search, Edit, Trash2, Eye, EyeOff, Loader2, Filter, X, ChevronDown, ChevronUp, SortAsc, SortDesc, Users, UserCheck, UserX, Calendar, BarChart3, Activity, UserCircle2 } from "lucide-react"
+import { Plus, Search, Edit, Trash2, Eye, EyeOff, Loader2, Filter, X, ChevronDown, ChevronUp, SortAsc, SortDesc, Users, UserCheck, UserX, Calendar, BarChart3, Activity, UserCircle2, CheckSquare, Square } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -29,18 +29,35 @@ interface UserSummary {
   byRole: Record<UserRole, number>
 }
 
+const API_SORT_MAP: Record<string, string> = {
+    name: "name",
+    email: "email",
+    role: "role",
+    status: "is_active",
+    createdAt: "created_at",
+    lastLogin: "last_login",
+  }
+
+const ROLES_FOR_FILTER: UserRole[] = [
+    "Hospital Admin", "Clinician", "Midwife", "Dentist", "Nurse",
+    "Receptionist", "Lab Tech", "Radiologist", "Pharmacist", "Cashier",
+  ]
+
 export function UserManagement() {
-  const { users, addUser, updateUser, deleteUser } = useAdmin()
+  const { users, total, summary, loading, fetchUsers, addUser, updateUser, deleteUser } = useAdmin()
   const { formatDate } = useFormatDate()
   const [searchTerm, setSearchTerm] = useState("")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null)
   const [showAddPassword, setShowAddPassword] = useState(false)
   const [showEditPassword, setShowEditPassword] = useState(false)
-  const [loading, setLoading] = useState(false)
+  const [formLoading, setFormLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
+  const [bulkLoading, setBulkLoading] = useState(false)
+  const [bulkRoleDialogOpen, setBulkRoleDialogOpen] = useState(false)
+  const [bulkRoleValue, setBulkRoleValue] = useState<string>("")
 
-  // Search and filter state
   const [filters, setFilters] = useState({
     role: "",
     status: "",
@@ -53,129 +70,48 @@ export function UserManagement() {
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
 
-  // User summary statistics
-  const userSummary = useMemo((): UserSummary => {
-    const summary: UserSummary = {
-      total: users.length,
-      active: users.filter(u => u.status === "active").length,
-      inactive: users.filter(u => u.status === "inactive").length,
-      byRole: {
-        "Hospital Admin": 0,
-        "Clinician": 0,
-        "Midwife": 0,
-        "Dentist": 0,
-        "Nurse": 0,
-        "Receptionist": 0,
-        "Lab Tech": 0,
-        "Radiologist": 0,
-        "Pharmacist": 0,
-        "Cashier": 0
+  const userSummary: UserSummary = useMemo(() => {
+    if (summary) {
+      const byRole: Record<UserRole, number> = {
+        "Hospital Admin": 0, "Clinician": 0, "Midwife": 0, "Dentist": 0, "Nurse": 0,
+        "Receptionist": 0, "Lab Tech": 0, "Radiologist": 0, "Pharmacist": 0, "Cashier": 0,
       }
+      Object.assign(byRole, summary.byRole || {})
+      return { total: summary.total, active: summary.active, inactive: summary.inactive, byRole }
     }
-    
-    users.forEach(user => {
-      summary.byRole[user.role]++
-    })
-    
-    return summary
-  }, [users])
+    return { total: 0, active: 0, inactive: 0, byRole: {} as Record<UserRole, number> }
+  }, [summary])
 
-  // Filter and sort users
-  const filteredAndSortedUsers = useMemo(() => {
-    let filtered = users.filter(user => {
-      // Search term filter
-      const searchLower = searchTerm.toLowerCase()
-      const matchesSearch = !searchTerm || 
-        user.name.toLowerCase().includes(searchLower) ||
-        user.email.toLowerCase().includes(searchLower) ||
-        user.role.toLowerCase().includes(searchLower)
-
-      // Role filter
-      const matchesRole = !filters.role || user.role === filters.role
-
-      // Status filter
-      const matchesStatus = !filters.status || user.status === filters.status
-
-      // Date filters
-      const userCreatedAt = new Date(user.createdAt)
-      const matchesCreatedAfter = !filters.createdAfter || userCreatedAt >= new Date(filters.createdAfter)
-      const matchesCreatedBefore = !filters.createdBefore || userCreatedAt <= new Date(filters.createdBefore)
-
-      return matchesSearch && matchesRole && matchesStatus && matchesCreatedAfter && matchesCreatedBefore
-    })
-
-    // Sort users
-    filtered.sort((a, b) => {
-      let aValue: string | number
-      let bValue: string | number
-
-      switch (sortBy) {
-        case "name":
-          aValue = a.name
-          bValue = b.name
-          break
-        case "email":
-          aValue = a.email
-          bValue = b.email
-          break
-        case "role":
-          aValue = a.role
-          bValue = b.role
-          break
-        case "status":
-          aValue = a.status
-          bValue = b.status
-          break
-        case "createdAt":
-          aValue = new Date(a.createdAt).getTime()
-          bValue = new Date(b.createdAt).getTime()
-          break
-        case "lastLogin":
-          aValue = a.lastLogin ? new Date(a.lastLogin).getTime() : 0
-          bValue = b.lastLogin ? new Date(b.lastLogin).getTime() : 0
-          break
-        default:
-          aValue = a.name
-          bValue = b.name
-      }
-
-      if (typeof aValue === "string" && typeof bValue === "string") {
-        return sortOrder === "asc" ? aValue.localeCompare(bValue) : bValue.localeCompare(aValue)
-      } else {
-        return sortOrder === "asc" ? (aValue as number) - (bValue as number) : (bValue as number) - (aValue as number)
-      }
-    })
-
-    return filtered
-  }, [users, searchTerm, filters, sortBy, sortOrder])
-
-  // Pagination
-  const totalPages = Math.ceil(filteredAndSortedUsers.length / itemsPerPage)
-  const paginatedUsers = filteredAndSortedUsers.slice(
-    (currentPage - 1) * itemsPerPage,
-    currentPage * itemsPerPage
-  )
-
-  // Reset to first page when filters change
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, filters, sortBy, sortOrder])
 
-  // Clear all filters
+  useEffect(() => {
+    fetchUsers({
+      page: currentPage,
+      pageSize: itemsPerPage,
+      search: searchTerm || undefined,
+      role: filters.role || undefined,
+      status: filters.status || undefined,
+      createdAfter: filters.createdAfter || undefined,
+      createdBefore: filters.createdBefore || undefined,
+      sortBy: API_SORT_MAP[sortBy] || "created_at",
+      sortOrder,
+    }).catch(() => {})
+  }, [currentPage, itemsPerPage, searchTerm, filters.role, filters.status, filters.createdAfter, filters.createdBefore, sortBy, sortOrder])
+
+  const totalPages = Math.ceil(total / itemsPerPage) || 1
+  const paginatedUsers = users
+
   const clearFilters = () => {
     setSearchTerm("")
-    setFilters({
-      role: "",
-      status: "",
-      createdAfter: "",
-      createdBefore: ""
-    })
+    setFilters({ role: "", status: "", createdAfter: "", createdBefore: "" })
     setSortBy("name")
     setSortOrder("asc")
+    setCurrentPage(1)
   }
 
-  // Get unique roles for filter options
-  const uniqueRoles = useMemo(() => [...new Set(users.map(user => user.role))], [users])
+  const uniqueRoles = ROLES_FOR_FILTER
 
   const activeFilters = useMemo(() => {
     const pills: Array<{ label: string; value: string; onClear: () => void }> = []
@@ -186,9 +122,64 @@ export function UserManagement() {
     return pills
   }, [filters])
 
+  const toggleSelectAll = () => {
+    if (selectedIds.size === paginatedUsers.length) {
+      setSelectedIds(new Set())
+    } else {
+      setSelectedIds(new Set(paginatedUsers.map((u) => u.id)))
+    }
+  }
+
+  const toggleSelect = (id: string) => {
+    const next = new Set(selectedIds)
+    if (next.has(id)) next.delete(id)
+    else next.add(id)
+    setSelectedIds(next)
+  }
+
+  const runBulkAction = async (action: "activate" | "deactivate" | "changeRole", role?: string) => {
+    if (selectedIds.size === 0) return
+    setBulkLoading(true)
+    try {
+      const res = await fetch("/api/admin/users/bulk", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          action,
+          userIds: Array.from(selectedIds),
+          ...(action === "changeRole" && role ? { role } : {}),
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Bulk action failed")
+      toast.success(`${data.updated ?? selectedIds.size} user(s) updated`)
+      setSelectedIds(new Set())
+      setBulkRoleDialogOpen(false)
+      setBulkRoleValue("")
+      await refetch()
+    } catch (e: any) {
+      toast.error(e.message || "Bulk action failed")
+    } finally {
+      setBulkLoading(false)
+    }
+  }
+
+  const refetch = () => fetchUsers({
+    page: currentPage,
+    pageSize: itemsPerPage,
+    search: searchTerm || undefined,
+    role: filters.role || undefined,
+    status: filters.status || undefined,
+    createdAfter: filters.createdAfter || undefined,
+    createdBefore: filters.createdBefore || undefined,
+    sortBy: API_SORT_MAP[sortBy] || "created_at",
+    sortOrder,
+  })
+
   const handleAddUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
-    setLoading(true)
+    setFormLoading(true)
     try {
       const formData = new FormData(e.currentTarget)
       await addUser({
@@ -199,9 +190,9 @@ export function UserManagement() {
         status: "active",
       } as any)
       toast.success("User created successfully")
-      // Close dialog - form will reset automatically due to key prop
       setIsAddDialogOpen(false)
       setShowAddPassword(false)
+      await refetch()
     } catch (error: any) {
       // Display detailed password validation errors if available
       if (error.message && error.message.includes("Weak password")) {
@@ -212,14 +203,14 @@ export function UserManagement() {
         toast.error(error.message || "Failed to create user")
       }
     } finally {
-      setLoading(false)
+      setFormLoading(false)
     }
   }
 
   const handleUpdateUser = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault()
     if (!editingUser) return
-    setLoading(true)
+    setFormLoading(true)
     try {
       const formData = new FormData(e.currentTarget)
       // Only update role and status - name, email, and password are not editable here
@@ -230,10 +221,11 @@ export function UserManagement() {
       toast.success("User updated successfully")
       setEditingUser(null)
       setShowEditPassword(false)
+      await refetch()
     } catch (error: any) {
       toast.error(error.message || "Failed to update user")
     } finally {
-      setLoading(false)
+      setFormLoading(false)
     }
   }
 
@@ -355,8 +347,6 @@ export function UserManagement() {
                 <p className="text-muted-foreground">No user accounts yet. New activity will appear here once staff accounts are created.</p>
               ) : (
                 users
-                  .slice()
-                  .sort((a, b) => new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime())
                   .slice(0, 5)
                   .map((u) => (
                     <div key={u.id} className="flex items-start gap-2">
@@ -519,10 +509,7 @@ export function UserManagement() {
 
           {/* Results Summary */}
           <div className="text-sm text-muted-foreground">
-            Showing {paginatedUsers.length} of {filteredAndSortedUsers.length} users
-            {filteredAndSortedUsers.length !== users.length && (
-              <span> (filtered from {users.length} total)</span>
-            )}
+            Showing {paginatedUsers.length} of {total} users
           </div>
         </CardContent>
       </Card>
@@ -618,8 +605,8 @@ export function UserManagement() {
                   </SelectContent>
                 </Select>
               </div>
-              <Button type="submit" className="w-full" disabled={loading}>
-                {loading ? (
+              <Button type="submit" className="w-full" disabled={formLoading}>
+                {formLoading ? (
                   <>
                     <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                     Creating...
@@ -636,22 +623,27 @@ export function UserManagement() {
       {/* Users List */}
       <Card>
         <CardHeader>
-          <CardTitle>System Users ({filteredAndSortedUsers.length})</CardTitle>
+          <div className="flex items-center justify-between">
+            <CardTitle>System Users ({total})</CardTitle>
+            {users.length > 0 && (
+              <button
+                type="button"
+                className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
+                onClick={toggleSelectAll}
+              >
+                {selectedIds.size === paginatedUsers.length ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                {selectedIds.size === paginatedUsers.length ? "Deselect all" : "Select all"}
+              </button>
+            )}
+          </div>
         </CardHeader>
         <CardContent>
-          {users.length === 0 ? (
-            <div className="py-12 text-center">
-              <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
-              <h3 className="text-lg font-medium mb-2">No users in the system</h3>
-              <p className="text-muted-foreground mb-4">
-                Add users to start managing your hospital's staff
-              </p>
-              <Button onClick={() => setIsAddDialogOpen(true)}>
-                <Plus className="h-4 w-4 mr-2" />
-                Add First User
-              </Button>
+          {loading ? (
+            <div className="py-12 flex items-center justify-center gap-2 text-muted-foreground">
+              <Loader2 className="h-6 w-6 animate-spin" />
+              <span>Loading users...</span>
             </div>
-          ) : filteredAndSortedUsers.length === 0 ? (
+          ) : users.length === 0 && (searchTerm || Object.values(filters).some(Boolean)) ? (
             <div className="py-12 text-center">
               <Search className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-medium mb-2">No users match your search</h3>
@@ -663,11 +655,90 @@ export function UserManagement() {
                 Clear Filters
               </Button>
             </div>
+          ) : users.length === 0 ? (
+            <div className="py-12 text-center">
+              <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
+              <h3 className="text-lg font-medium mb-2">No users in the system</h3>
+              <p className="text-muted-foreground mb-4">
+                Add users to start managing your hospital's staff
+              </p>
+              <Button onClick={() => setIsAddDialogOpen(true)}>
+                <Plus className="h-4 w-4 mr-2" />
+                Add First User
+              </Button>
+            </div>
           ) : (
             <>
+              {selectedIds.size > 0 && (
+                <div className="flex flex-wrap items-center gap-2 p-3 mb-4 rounded-lg bg-muted/60 border">
+                  <span className="text-sm font-medium">{selectedIds.size} selected</span>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={bulkLoading}
+                    onClick={() => runBulkAction("activate")}
+                  >
+                    {bulkLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserCheck className="h-4 w-4 mr-1" />}
+                    Activate
+                  </Button>
+                  <Button
+                    variant="outline"
+                    size="sm"
+                    disabled={bulkLoading}
+                    onClick={() => runBulkAction("deactivate")}
+                  >
+                    {bulkLoading ? <Loader2 className="h-4 w-4 animate-spin" /> : <UserX className="h-4 w-4 mr-1" />}
+                    Deactivate
+                  </Button>
+                  <Dialog open={bulkRoleDialogOpen} onOpenChange={setBulkRoleDialogOpen}>
+                    <DialogTrigger asChild>
+                      <Button variant="outline" size="sm" disabled={bulkLoading}>
+                        Change Role
+                      </Button>
+                    </DialogTrigger>
+                    <DialogContent>
+                      <DialogHeader>
+                        <DialogTitle>Bulk Change Role</DialogTitle>
+                        <DialogDescription>Set role for {selectedIds.size} selected user(s)</DialogDescription>
+                      </DialogHeader>
+                      <div className="space-y-4">
+                        <div>
+                          <Label>New Role</Label>
+                          <Select value={bulkRoleValue} onValueChange={setBulkRoleValue}>
+                            <SelectTrigger>
+                              <SelectValue placeholder="Select role" />
+                            </SelectTrigger>
+                            <SelectContent>
+                              {uniqueRoles.map((r) => (
+                                <SelectItem key={r} value={r}>{r}</SelectItem>
+                              ))}
+                            </SelectContent>
+                          </Select>
+                        </div>
+                        <div className="flex justify-end gap-2">
+                          <Button variant="outline" onClick={() => setBulkRoleDialogOpen(false)}>Cancel</Button>
+                          <Button disabled={!bulkRoleValue} onClick={() => runBulkAction("changeRole", bulkRoleValue)}>
+                            Apply
+                          </Button>
+                        </div>
+                      </div>
+                    </DialogContent>
+                  </Dialog>
+                  <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Clear</Button>
+                </div>
+              )}
               <div className="space-y-4">
                 {paginatedUsers.map((user) => (
                 <div key={user.id} className="flex items-center justify-between rounded-lg border border-border p-4">
+                  <div className="flex items-center gap-3 flex-1">
+                    <button
+                      type="button"
+                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      onClick={() => toggleSelect(user.id)}
+                      aria-label={selectedIds.has(user.id) ? "Deselect" : "Select"}
+                    >
+                      {selectedIds.has(user.id) ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
+                    </button>
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
                       <p className="font-medium">{user.name}</p>
@@ -687,7 +758,7 @@ export function UserManagement() {
                           <Edit className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
-                    <DialogContent>
+                    <DialogContent key={user.id}>
                       <DialogHeader>
                         <DialogTitle>Edit User</DialogTitle>
                         <DialogDescription>Update user information</DialogDescription>
@@ -747,8 +818,8 @@ export function UserManagement() {
                             </SelectContent>
                           </Select>
                         </div>
-                        <Button type="submit" className="w-full" disabled={loading}>
-                          {loading ? (
+                        <Button type="submit" className="w-full" disabled={formLoading}>
+                          {formLoading ? (
                             <>
                               <Loader2 className="mr-2 h-4 w-4 animate-spin" />
                               Updating...
@@ -770,6 +841,7 @@ export function UserManagement() {
                         try {
                           await deleteUser(user.id)
                           toast.success("User deleted successfully")
+                          await refetch()
                         } catch (error: any) {
                           toast.error(error.message || "Failed to delete user")
                         } finally {
@@ -805,34 +877,41 @@ export function UserManagement() {
                       Previous
                     </Button>
                     <div className="flex items-center space-x-1">
-                      {Array.from({ length: Math.min(5, totalPages) }, (_, i) => {
-                        const pageNum = i + 1
-                        const isActive = pageNum === currentPage
+                      {(() => {
+                        const maxVisible = 5
+                        let start = Math.max(1, currentPage - Math.floor(maxVisible / 2))
+                        let end = Math.min(totalPages, start + maxVisible - 1)
+                        if (end - start + 1 < maxVisible) start = Math.max(1, end - maxVisible + 1)
+                        const pages: number[] = []
+                        for (let i = start; i <= end; i++) pages.push(i)
                         return (
-                          <Button
-                            key={pageNum}
-                            variant={isActive ? "default" : "outline"}
-                            size="sm"
-                            onClick={() => setCurrentPage(pageNum)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {pageNum}
-                          </Button>
+                          <>
+                            {start > 1 && (
+                              <>
+                                <Button variant="outline" size="sm" onClick={() => setCurrentPage(1)} className="w-8 h-8 p-0">1</Button>
+                                {start > 2 && <span className="text-muted-foreground px-1">...</span>}
+                              </>
+                            )}
+                            {pages.map((pageNum) => (
+                              <Button
+                                key={pageNum}
+                                variant={pageNum === currentPage ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => setCurrentPage(pageNum)}
+                                className="w-8 h-8 p-0"
+                              >
+                                {pageNum}
+                              </Button>
+                            ))}
+                            {end < totalPages && (
+                              <>
+                                {end < totalPages - 1 && <span className="text-muted-foreground px-1">...</span>}
+                                <Button variant="outline" size="sm" onClick={() => setCurrentPage(totalPages)} className="w-8 h-8 p-0">{totalPages}</Button>
+                              </>
+                            )}
+                          </>
                         )
-                      })}
-                      {totalPages > 5 && (
-                        <>
-                          <span className="text-muted-foreground">...</span>
-                          <Button
-                            variant="outline"
-                            size="sm"
-                            onClick={() => setCurrentPage(totalPages)}
-                            className="w-8 h-8 p-0"
-                          >
-                            {totalPages}
-                          </Button>
-                        </>
-                      )}
+                      })()}
                     </div>
                     <Button
                       variant="outline"

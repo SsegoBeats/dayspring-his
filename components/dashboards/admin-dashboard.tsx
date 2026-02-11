@@ -1,7 +1,9 @@
 "use client"
 
+import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LayoutDashboard, Users as UsersIcon, BedDouble, IdCard, BarChart3, ScrollText } from "lucide-react"
+import { LayoutDashboard, Users as UsersIcon, BedDouble, IdCard, BarChart3, ScrollText, Settings } from "lucide-react"
+import { Button } from "@/components/ui/button"
 import { SystemOverview } from "@/components/admin/system-overview"
 import { UserManagement } from "@/components/admin/user-management"
 import { FinancialReports } from "@/components/analytics/financial-reports"
@@ -12,9 +14,17 @@ import { AdminPatientManagement } from "@/components/admin/admin-patient-managem
 export function AdminDashboard() {
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-3xl font-semibold tracking-tight text-sky-900">Hospital Admin Dashboard</h2>
-        <p className="text-sm text-muted-foreground">Monitor operations, staff, beds, and finances from one control center.</p>
+      <div className="flex items-start justify-between gap-4">
+        <div>
+          <h2 className="text-3xl font-semibold tracking-tight text-sky-900">Hospital Admin Dashboard</h2>
+          <p className="text-sm text-muted-foreground">Monitor operations, staff, beds, and finances from one control center.</p>
+        </div>
+        <Button variant="outline" size="sm" asChild>
+          <Link href="/admin/settings" className="flex items-center gap-2">
+            <Settings className="h-4 w-4" />
+            Settings
+          </Link>
+        </Button>
       </div>
 
       <Tabs defaultValue="overview" className="space-y-4">

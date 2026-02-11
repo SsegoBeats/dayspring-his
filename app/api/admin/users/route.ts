@@ -16,15 +16,75 @@ export async function GET(req: Request) {
   const page = Math.max(1, Number(url.searchParams.get("page") || 1))
   const pageSize = Math.max(1, Math.min(50, Number(url.searchParams.get("pageSize") || 20)))
   const search = (url.searchParams.get("q") || "").trim()
+  const role = url.searchParams.get("role") || ""
+  const status = url.searchParams.get("status") || ""
+  const createdAfter = url.searchParams.get("createdAfter") || ""
+  const createdBefore = url.searchParams.get("createdBefore") || ""
+  const sortBy = url.searchParams.get("sortBy") || "created_at"
+  const sortOrder = url.searchParams.get("sortOrder") || "desc"
+
   const offset = (page - 1) * pageSize
+  const conditions: string[] = []
   const params: any[] = []
-  let where = ""
+  let idx = 1
+
   if (search) {
-    where = "WHERE name ILIKE $1 OR email ILIKE $1"
+    conditions.push(`(name ILIKE $${idx} OR email ILIKE $${idx})`)
     params.push(`%${search}%`)
+    idx++
   }
+  if (role) {
+    conditions.push(`role = $${idx}`)
+    params.push(role)
+    idx++
+  }
+  if (status) {
+    if (status === "active") conditions.push("is_active = true")
+    else if (status === "inactive") conditions.push("is_active = false")
+  }
+  if (createdAfter) {
+    conditions.push(`created_at >= $${idx}`)
+    params.push(createdAfter)
+    idx++
+  }
+  if (createdBefore) {
+    conditions.push(`created_at <= $${idx}`)
+    params.push(createdBefore)
+    idx++
+  }
+
+  const where = conditions.length ? `WHERE ${conditions.join(" AND ")}` : ""
+
+  // Summary-only request for dashboard stats
+  const summaryOnly = url.searchParams.get("summary") === "1"
+  if (summaryOnly) {
+    const { rows: summaryRows } = await query(
+      `SELECT 
+        COUNT(*)::int AS total,
+        COUNT(*) FILTER (WHERE is_active = true)::int AS active,
+        COUNT(*) FILTER (WHERE is_active = false)::int AS inactive
+       FROM users ${where}`,
+      params,
+    )
+    const { rows: roleRows } = await query(
+      `SELECT role, COUNT(*)::int AS count FROM users ${where} GROUP BY role`,
+      params,
+    )
+    const byRole: Record<string, number> = {}
+    for (const r of roleRows) byRole[r.role] = r.count
+    return NextResponse.json({
+      summary: { total: summaryRows[0]?.total || 0, active: summaryRows[0]?.active || 0, inactive: summaryRows[0]?.inactive || 0, byRole },
+    })
+  }
+
+  const allowedSort = ["name", "email", "role", "created_at", "last_login", "is_active"].includes(sortBy)
+    ? sortBy === "is_active" ? "is_active" : sortBy
+    : "created_at"
+  const orderDir = sortOrder === "asc" ? "ASC" : "DESC"
+  const orderCol = allowedSort === "is_active" ? "is_active" : allowedSort
+
   const { rows } = await query(
-    `SELECT id, name, email, role, is_active AS status, created_at, last_login, email_verified_at FROM users ${where} ORDER BY created_at DESC LIMIT $${params.length + 1} OFFSET $${params.length + 2}`,
+    `SELECT id, name, email, role, is_active AS status, created_at, last_login, email_verified_at FROM users ${where} ORDER BY ${orderCol} ${orderDir} LIMIT $${idx} OFFSET $${idx + 1}`,
     [...params, pageSize, offset],
   )
   const { rows: totalRows } = await query(`SELECT COUNT(1)::int AS total FROM users ${where}`, params)

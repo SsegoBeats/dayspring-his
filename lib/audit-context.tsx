@@ -74,7 +74,9 @@ interface AuditContextType {
     startDate?: Date
     endDate?: Date
     search?: string
-  }) => Promise<AuditLog[]>
+    page?: number
+    limit?: number
+  }) => Promise<{ logs: AuditLog[]; total: number; page: number; totalPages: number }>
   exportLogs: (filters?: any) => Promise<void>
   refreshLogs: () => Promise<void>
 }
@@ -94,6 +96,8 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     startDate?: Date
     endDate?: Date
     search?: string
+    page?: number
+    limit?: number
   }) => {
     try {
       setLoading(true)
@@ -105,6 +109,8 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       if (filters?.action) params.append('action', filters.action)
       if (filters?.startDate) params.append('startDate', filters.startDate.toISOString())
       if (filters?.endDate) params.append('endDate', filters.endDate.toISOString())
+      params.set('page', String(filters?.page ?? 1))
+      params.set('limit', String(filters?.limit ?? 50))
 
       const response = await fetch(`/api/audit-logs?${params.toString()}`, {
         credentials: 'include'
@@ -115,17 +121,23 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       }
 
       const data = await response.json()
-      const formattedLogs = data.logs.map((log: any) => ({
+      const formattedLogs = (data.logs || []).map((log: any) => ({
         ...log,
         timestamp: new Date(log.timestamp)
       }))
+      const pagination = data.pagination || { page: 1, total: 0, totalPages: 0 }
       
       setLogs(formattedLogs)
-      return formattedLogs
+      return {
+        logs: formattedLogs,
+        total: pagination.total,
+        page: pagination.page,
+        totalPages: pagination.totalPages
+      }
     } catch (err) {
       console.error('Error fetching audit logs:', err)
       setError(err instanceof Error ? err.message : 'Failed to fetch audit logs')
-      return []
+      return { logs: [], total: 0, page: 1, totalPages: 0 }
     } finally {
       setLoading(false)
     }
@@ -181,6 +193,8 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     startDate?: Date
     endDate?: Date
     search?: string
+    page?: number
+    limit?: number
   }) => {
     return await fetchLogs(filters)
   }
@@ -225,7 +239,7 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
   }
 
   const refreshLogs = async () => {
-    await fetchLogs()
+    return await fetchLogs()
   }
 
   useEffect(() => {

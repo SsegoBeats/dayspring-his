@@ -16,9 +16,12 @@ export function SystemOverview() {
   const { patients, appointments } = usePatients()
   const { medicalRecords, prescriptions, labResults } = useMedical()
   const { bills } = useBilling()
-  const { users } = useAdmin()
+  const { summary } = useAdmin()
+  const activeUsersCount = summary?.active ?? 0
+  const usersCount = summary?.total ?? 0
   const [bedOccupancy, setBedOccupancy] = useState(0)
   const [waitTimeData, setWaitTimeData] = useState(0)
+  const [patientSatisfaction, setPatientSatisfaction] = useState<{ avg: number | null; total: number } | null>(null)
   const [departmentStatuses, setDepartmentStatuses] = useState<Array<{
     name: string
     status: string
@@ -63,6 +66,21 @@ export function SystemOverview() {
       }
     })()
 
+    // Fetch patient satisfaction
+    ;(async () => {
+      try {
+        const res = await fetch("/api/analytics/patient-satisfaction", { credentials: "include" })
+        if (res.ok) {
+          const data = await res.json()
+          setPatientSatisfaction({ avg: data.avgRating ?? null, total: data.totalResponses ?? 0 })
+        } else {
+          setPatientSatisfaction({ avg: null, total: 0 })
+        }
+      } catch {
+        setPatientSatisfaction({ avg: null, total: 0 })
+      }
+    })()
+
     // Calculate average wait time if the data exists; otherwise show N/A
     const completedAppts = appointments.filter((a) => a.status === "completed")
     const withActualWait = completedAppts
@@ -87,13 +105,13 @@ export function SystemOverview() {
 
   const activePrescriptions = prescriptions.filter((p) => p.status === "active")
   const pendingLabTests = labResults.filter((r) => r.status === "pending")
-  const activeUsers = users.filter((u) => u.status === "active")
 
-  // Satisfaction not yet implemented - show N/A unless feedback module is present
-  const patientSatisfaction = 0
-  const staffUtilization = users.length > 0 ? Math.round((activeUsers.length / users.length) * 100) : 0
+  const satisfactionDisplay = patientSatisfaction?.total && patientSatisfaction?.avg != null
+    ? `${patientSatisfaction.avg.toFixed(1)}/5 (${patientSatisfaction.total} responses)`
+    : "Collecting data"
+  const staffUtilization = usersCount > 0 ? Math.round((activeUsersCount / usersCount) * 100) : 0
 
-  const inactiveStaff = users.length > 0 ? users.length - activeUsers.length : 0
+  const inactiveStaff = usersCount > 0 ? usersCount - activeUsersCount : 0
 
   const stats = [
     {
@@ -140,7 +158,7 @@ export function SystemOverview() {
     },
     {
       title: "Active Staff",
-      value: activeUsers.length,
+      value: activeUsersCount,
       icon: UserCheck,
       description: "System users",
       tone: "neutral" as const,
@@ -286,7 +304,7 @@ export function SystemOverview() {
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Patient Satisfaction</span>
-              <span className="text-sm font-medium">{patientSatisfaction > 0 ? `${patientSatisfaction}/5` : "Not configured"}</span>
+              <span className="text-sm font-medium">{satisfactionDisplay}</span>
             </div>
             <div className="flex items-center justify-between">
               <span className="text-sm">Staff Utilization</span>

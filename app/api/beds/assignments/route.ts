@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { query } from "@/lib/db"
+import { query, withClient } from "@/lib/db"
 import { writeAuditLog } from "@/lib/audit"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
@@ -163,48 +163,46 @@ export async function POST(request: Request) {
       )
     }
 
-    // Start transaction
-    const client = await query('BEGIN')
+    // Run in transaction
+    const newAssignment = await withClient(async (client) => {
+      await client.query('BEGIN')
+      try {
+        const assignmentResult = await client.query(
+          `INSERT INTO bed_assignments (bed_id, patient_id, assigned_by, notes)
+           VALUES ($1, $2, $3, $4)
+           RETURNING *`,
+          [bedId, patientId, assignedBy || authResult.user.id, notes || null]
+        )
 
-    try {
-      // Create bed assignment
-      const assignmentResult = await query(`
-        INSERT INTO bed_assignments (bed_id, patient_id, assigned_by, notes)
-        VALUES ($1, $2, $3, $4)
-        RETURNING *
-      `, [bedId, patientId, assignedBy || authResult.user.id, notes])
+        await client.query(
+          "UPDATE beds SET status = 'Occupied', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
+          [bedId]
+        )
 
-      // Update bed status to occupied
-      await query(
-        "UPDATE beds SET status = 'Occupied', updated_at = CURRENT_TIMESTAMP WHERE id = $1",
-        [bedId]
-      )
+        await client.query('COMMIT')
+        return assignmentResult.rows[0]
+      } catch (error) {
+        await client.query('ROLLBACK')
+        throw error
+      }
+    })
 
-      await query('COMMIT')
+    // Audit
+    try { await writeAuditLog({ userId: authResult.user.id, action: 'ASSIGN', entityType: 'BedAssignment', entityId: newAssignment.id, details: { bedId, patientId, notes } }) } catch {}
 
-      const newAssignment = assignmentResult.rows[0]
-
-      // Audit
-      try { await writeAuditLog({ userId: authResult.user.id, action: 'ASSIGN', entityType: 'BedAssignment', entityId: newAssignment.id, details: { bedId, patientId, notes } }) } catch {}
-
-      return NextResponse.json({
-        success: true,
-        assignment: {
-          id: newAssignment.id,
-          bedId: newAssignment.bed_id,
-          patientId: newAssignment.patient_id,
-          assignedBy: newAssignment.assigned_by,
-          assignedAt: newAssignment.assigned_at,
-          status: newAssignment.status,
-          notes: newAssignment.notes,
-          createdAt: newAssignment.created_at,
-        }
-      }, { status: 201 })
-
-    } catch (error) {
-      await query('ROLLBACK')
-      throw error
-    }
+    return NextResponse.json({
+      success: true,
+      assignment: {
+        id: newAssignment.id,
+        bedId: newAssignment.bed_id,
+        patientId: newAssignment.patient_id,
+        assignedBy: newAssignment.assigned_by,
+        assignedAt: newAssignment.assigned_at,
+        status: newAssignment.status,
+        notes: newAssignment.notes,
+        createdAt: newAssignment.created_at,
+      }
+    }, { status: 201 })
 
   } catch (error: any) {
     console.error("[Bed Assignments API] Create assignment error:", error)
@@ -240,21 +238,23 @@ export async function PATCH(request: Request) {
 
     const newStatus = status || 'Discharged'
 
-    const client = await query('BEGIN')
-    try {
-      await query(
-        `UPDATE bed_assignments SET status = $1, discharge_date = COALESCE($2, discharge_date), notes = COALESCE($3, notes), updated_at = CURRENT_TIMESTAMP WHERE id = $4`,
-        [newStatus, dischargeDate || new Date().toISOString(), notes || null, assignmentId]
-      )
-      // Free the bed when not Active
-      if (newStatus !== 'Active') {
-        await query(`UPDATE beds SET status = 'Available', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [bedId])
+    await withClient(async (client) => {
+      await client.query('BEGIN')
+      try {
+        await client.query(
+          `UPDATE bed_assignments SET status = $1, discharge_date = COALESCE($2, discharge_date), notes = COALESCE($3, notes), updated_at = CURRENT_TIMESTAMP WHERE id = $4`,
+          [newStatus, dischargeDate || new Date().toISOString(), notes || null, assignmentId]
+        )
+        // Free the bed when not Active
+        if (newStatus !== 'Active') {
+          await client.query(`UPDATE beds SET status = 'Available', updated_at = CURRENT_TIMESTAMP WHERE id = $1`, [bedId])
+        }
+        await client.query('COMMIT')
+      } catch (e) {
+        await client.query('ROLLBACK')
+        throw e
       }
-      await query('COMMIT')
-    } catch (e) {
-      await query('ROLLBACK')
-      throw e
-    }
+    })
 
     // Audit
     try { await writeAuditLog({ userId: authResult.user.id, action: 'DISCHARGE', entityType: 'BedAssignment', entityId: assignmentId, details: { bedId, status: newStatus, notes } }) } catch {}

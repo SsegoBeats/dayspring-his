@@ -122,8 +122,17 @@ interface PatientVisit {
   visits: number
 }
 
+interface PreviousPeriodSummary {
+  totalRevenue: number
+  outstandingBalance: number
+  avgTransactionValue: number
+  paidTransactions: number
+  pendingTransactions: number
+}
+
 interface FinancialData {
   summary: FinancialSummary
+  previousPeriod?: PreviousPeriodSummary
   dailyRevenue: DailyRevenue[]
   revenueByDepartment: DepartmentRevenue[]
   revenueByPaymentMethod: PaymentMethodRevenue[]
@@ -469,6 +478,72 @@ export function FinancialReports() {
         </Card>
       </div>
 
+      {/* Period Comparison */}
+      {data.previousPeriod && (
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <BarChart3 className="h-5 w-5" />
+              Period Comparison
+            </CardTitle>
+            <CardDescription>
+              Current period vs previous {period === "7days" ? "7" : period === "30days" ? "30" : "90"} days
+            </CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="overflow-x-auto">
+              <table className="w-full text-sm">
+                <thead>
+                  <tr className="border-b">
+                    <th className="text-left py-2 font-medium">Metric</th>
+                    <th className="text-right py-2 font-medium">This Period</th>
+                    <th className="text-right py-2 font-medium">Previous Period</th>
+                    <th className="text-right py-2 font-medium">Change</th>
+                  </tr>
+                </thead>
+                <tbody>
+                  <tr className="border-b">
+                    <td className="py-2">Total Revenue</td>
+                    <td className="text-right py-2 font-medium">{formatCurrency(data.summary.totalRevenue)}</td>
+                    <td className="text-right py-2 text-muted-foreground">{formatCurrency(data.previousPeriod.totalRevenue)}</td>
+                    <td className={`text-right py-2 font-medium ${getGrowthColor(data.summary.revenueGrowth)}`}>
+                      {data.summary.revenueGrowth >= 0 ? "+" : ""}{data.summary.revenueGrowth.toFixed(1)}%
+                    </td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2">Paid Transactions</td>
+                    <td className="text-right py-2 font-medium">{data.summary.paidTransactions}</td>
+                    <td className="text-right py-2 text-muted-foreground">{data.previousPeriod.paidTransactions}</td>
+                    <td className={`text-right py-2 ${data.summary.paidTransactions - data.previousPeriod.paidTransactions >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {data.summary.paidTransactions - data.previousPeriod.paidTransactions >= 0 ? "+" : ""}
+                      {data.summary.paidTransactions - data.previousPeriod.paidTransactions}
+                    </td>
+                  </tr>
+                  <tr className="border-b">
+                    <td className="py-2">Avg Transaction Value</td>
+                    <td className="text-right py-2 font-medium">{formatCurrency(data.summary.avgTransactionValue)}</td>
+                    <td className="text-right py-2 text-muted-foreground">{formatCurrency(data.previousPeriod.avgTransactionValue)}</td>
+                    <td className={`text-right py-2 ${data.summary.avgTransactionValue - data.previousPeriod.avgTransactionValue >= 0 ? "text-green-600" : "text-red-600"}`}>
+                      {data.previousPeriod.avgTransactionValue > 0
+                        ? `${((data.summary.avgTransactionValue - data.previousPeriod.avgTransactionValue) / data.previousPeriod.avgTransactionValue * 100).toFixed(1)}%`
+                        : "—"}
+                    </td>
+                  </tr>
+                  <tr>
+                    <td className="py-2">Outstanding Balance</td>
+                    <td className="text-right py-2 font-medium">{formatCurrency(data.summary.outstandingBalance)}</td>
+                    <td className="text-right py-2 text-muted-foreground">{formatCurrency(data.previousPeriod.outstandingBalance)}</td>
+                    <td className="text-right py-2 text-muted-foreground">
+                      {formatCurrency(data.summary.outstandingBalance - data.previousPeriod.outstandingBalance)}
+                    </td>
+                  </tr>
+                </tbody>
+              </table>
+            </div>
+          </CardContent>
+        </Card>
+      )}
+
       {/* Charts */}
       <Tabs value={activeTab} onValueChange={setActiveTab} className="space-y-4">
         <TabsList className="grid w-full grid-cols-5 bg-muted/60 rounded-xl p-1">
@@ -524,7 +599,7 @@ export function FinancialReports() {
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
                       dataKey="date" 
-                      tickFormatter={formatDate}
+                      tickFormatter={(v) => formatDate(v)}
                       tick={{ fontSize: 12 }}
                     />
                     <YAxis tick={{ fontSize: 12 }} />
@@ -678,6 +753,12 @@ export function FinancialReports() {
               <CardDescription>Most profitable services and procedures</CardDescription>
             </CardHeader>
             <CardContent>
+              {data.topServices.length === 0 ? (
+                <div className="flex h-64 flex-col items-center justify-center text-sm text-muted-foreground">
+                  <Activity className="mb-2 h-6 w-6" />
+                  <p>Top services will appear once billing transactions are recorded for this period.</p>
+                </div>
+              ) : (
               <div className="space-y-4">
                 {data.topServices.map((service, index) => (
                   <div key={service.service} className="flex items-center justify-between p-4 border rounded-lg">
@@ -699,6 +780,7 @@ export function FinancialReports() {
                   </div>
                 ))}
               </div>
+              )}
             </CardContent>
           </Card>
         </TabsContent>
@@ -710,6 +792,12 @@ export function FinancialReports() {
             <CardDescription>Daily patient visit trends</CardDescription>
           </CardHeader>
           <CardContent>
+            {data.patientVisits.length === 0 ? (
+              <div className="flex h-64 flex-col items-center justify-center text-sm text-muted-foreground">
+                <Users className="mb-2 h-6 w-6" />
+                <p>Patient visit data will appear once check-ins are recorded for this period.</p>
+              </div>
+            ) : (
             <FixedChartContainer 
               height={400}
               config={{
@@ -723,7 +811,7 @@ export function FinancialReports() {
                   <CartesianGrid strokeDasharray="3 3" />
                   <XAxis 
                     dataKey="date" 
-                    tickFormatter={formatDate}
+                    tickFormatter={(v) => formatDate(v)}
                     tick={{ fontSize: 12 }}
                   />
                   <YAxis tick={{ fontSize: 12 }} />
@@ -740,6 +828,7 @@ export function FinancialReports() {
                   />
                 </LineChart>
               </FixedChartContainer>
+            )}
           </CardContent>
           </Card>
         </TabsContent>

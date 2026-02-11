@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { useAudit, type AuditAction, type AuditCategory } from "@/lib/audit-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -9,10 +9,10 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Download, Search, RefreshCw, AlertCircle, Loader2, Trash2, Settings, BarChart3, Eye, CheckCircle2, LogOut, AlertTriangle, ShieldCheck } from "lucide-react"
+import { Download, Search, RefreshCw, AlertCircle, Loader2, Trash2, Settings, BarChart3, Eye, CheckCircle2, LogOut, AlertTriangle, ShieldCheck, X } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
-import { toast } from "@/hooks/use-toast"
+import { toast } from "sonner"
 
 export function AuditLogViewer() {
   const { logs, loading, error, getLogs, exportLogs, refreshLogs } = useAudit()
@@ -24,17 +24,21 @@ export function AuditLogViewer() {
   const [cleanupDays, setCleanupDays] = useState(30)
   const [managementLoading, setManagementLoading] = useState(false)
   const [filteredLogs, setFilteredLogs] = useState(logs)
+  const [currentPage, setCurrentPage] = useState(1)
+  const [totalPages, setTotalPages] = useState(1)
+  const [totalLogs, setTotalLogs] = useState(0)
   const [detailsOpen, setDetailsOpen] = useState(false)
   const [selectedLog, setSelectedLog] = useState<any | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
+  const limit = 50
 
   useEffect(() => {
     if (!autoRefresh) return
     const id = setInterval(() => {
-      refreshLogs().then(applyFilters).catch(() => {})
+      applyFilters(currentPage).catch(() => {})
     }, 60000)
     return () => clearInterval(id)
-  }, [autoRefresh, refreshLogs])
+  }, [autoRefresh, currentPage, applyFilters])
 
   const handleCleanup = async (days: number) => {
     try {
@@ -52,27 +56,19 @@ export function AuditLogViewer() {
       const result = await response.json()
       console.log('Cleanup result:', result)
       
-      // Refresh the logs first
-      await refreshLogs()
-      await applyFilters()
+      // Refresh the logs
+      await applyFilters(1)
       
       // Small delay to ensure UI has updated
       await new Promise(resolve => setTimeout(resolve, 100))
       
       // Show success message after data refresh
-      toast({
-        title: "Cleanup Successful",
-        description: `${result.deletedCount} audit logs older than ${days} days have been deleted`
-      })
+      toast.success(`${result.deletedCount} audit logs older than ${days} days have been deleted`)
       console.log('Cleanup success toast triggered')
       // No blocking alert; toast above already informs the user
     } catch (err) {
       console.error('Error cleaning up logs:', err)
-      toast({
-        title: "Cleanup Failed",
-        description: "Failed to cleanup audit logs",
-        variant: "destructive"
-      })
+      toast.error("Failed to cleanup audit logs")
     } finally {
       setManagementLoading(false)
     }
@@ -98,66 +94,70 @@ export function AuditLogViewer() {
       const result = await response.json()
       console.log('Delete all result:', result)
       
-      // Refresh the logs first
-      await refreshLogs()
-      await applyFilters()
+      // Refresh the logs
+      await applyFilters(1)
       
       // Small delay to ensure UI has updated
       await new Promise(resolve => setTimeout(resolve, 100))
       
       // Show success message after data refresh
-      toast({
-        title: "Deletion Successful",
-        description: `All ${result.deletedCount} audit logs have been deleted`
-      })
+      toast.success(`All ${result.deletedCount} audit logs have been deleted`)
       console.log('Delete all success toast triggered')
       // No blocking alert; toast above already informs the user
     } catch (err) {
       console.error('Error deleting all logs:', err)
-      toast({
-        title: "Deletion Failed",
-        description: "Failed to delete all audit logs",
-        variant: "destructive"
-      })
+      toast.error("Failed to delete all audit logs")
     } finally {
       setManagementLoading(false)
     }
   }
 
-  const getDateFilter = () => {
+  const getDateFilter = useCallback(() => {
     const now = new Date()
+    const endOfToday = new Date(now)
+    endOfToday.setHours(23, 59, 59, 999)
     switch (dateRange) {
-      case "today":
-        return { startDate: new Date(now.setHours(0, 0, 0, 0)) }
-      case "week":
-        return { startDate: new Date(now.setDate(now.getDate() - 7)) }
-      case "month":
-        return { startDate: new Date(now.setDate(now.getDate() - 30)) }
+      case "today": {
+        const start = new Date(now)
+        start.setHours(0, 0, 0, 0)
+        return { startDate: start, endDate: endOfToday }
+      }
+      case "week": {
+        const start = new Date(now)
+        start.setDate(start.getDate() - 7)
+        return { startDate: start, endDate: new Date(now) }
+      }
+      case "month": {
+        const start = new Date(now)
+        start.setDate(start.getDate() - 30)
+        return { startDate: start, endDate: new Date(now) }
+      }
       default:
         return {}
     }
-  }
+  }, [dateRange])
 
-  const applyFilters = async () => {
+  const applyFilters = useCallback(async (page: number) => {
     try {
-      const filters = {
+      const filterParams = {
         search: search || undefined,
         category: categoryFilter !== "ALL" ? categoryFilter : undefined,
         action: actionFilter !== "ALL" ? actionFilter : undefined,
         ...getDateFilter(),
+        page,
+        limit,
       }
       
-      const filtered = await getLogs(filters)
-      setFilteredLogs(filtered)
+      const result = await getLogs(filterParams)
+      setFilteredLogs(result.logs)
+      setTotalLogs(result.total)
+      setTotalPages(result.totalPages)
+      setCurrentPage(result.page)
     } catch (err) {
       console.error('Error applying filters:', err)
-      toast({
-        title: "Error",
-        description: "Failed to apply filters",
-        variant: "destructive"
-      })
+      toast.error("Failed to apply filters")
     }
-  }
+  }, [search, categoryFilter, actionFilter, getDateFilter, getLogs, limit])
 
   const handleExport = async () => {
     try {
@@ -169,41 +169,27 @@ export function AuditLogViewer() {
       }
       
       await exportLogs(filters)
-      toast({
-        title: "Export Successful",
-        description: "Audit logs exported successfully"
-      })
+      toast.success("Audit logs exported successfully")
     } catch (err) {
       console.error('Error exporting logs:', err)
-      toast({
-        title: "Export Failed",
-        description: "Failed to export audit logs",
-        variant: "destructive"
-      })
+      toast.error("Failed to export audit logs")
     }
   }
 
-  const handleRefresh = async () => {
+  const handleRefresh = useCallback(async () => {
     try {
-      await refreshLogs()
-      await applyFilters()
-      toast({
-        title: "Refreshed",
-        description: "Audit logs refreshed successfully"
-      })
+      await applyFilters(currentPage)
+      toast.success("Audit logs refreshed successfully")
     } catch (err) {
       console.error('Error refreshing logs:', err)
-      toast({
-        title: "Refresh Failed",
-        description: "Failed to refresh audit logs",
-        variant: "destructive"
-      })
+      toast.error("Failed to refresh audit logs")
     }
-  }
+  }, [applyFilters, currentPage])
 
   useEffect(() => {
-    applyFilters()
-  }, [search, categoryFilter, actionFilter, dateRange])
+    setCurrentPage(1)
+    applyFilters(1)
+  }, [search, categoryFilter, actionFilter, dateRange, applyFilters])
 
   useEffect(() => {
     setFilteredLogs(logs)
@@ -622,10 +608,33 @@ export function AuditLogViewer() {
           </DialogContent>
         </Dialog>
 
-        <div className="flex justify-between items-center text-sm text-muted-foreground">
+        <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
           <div>
-            Showing {filteredLogs.length} log{filteredLogs.length !== 1 ? "s" : ""}
+            Showing {filteredLogs.length} of {totalLogs} log{totalLogs !== 1 ? "s" : ""}
           </div>
+          {totalPages > 1 && (
+            <div className="flex items-center gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => applyFilters(Math.max(1, currentPage - 1))}
+                disabled={currentPage <= 1 || loading}
+              >
+                Previous
+              </Button>
+              <span className="text-xs">
+                Page {currentPage} of {totalPages}
+              </span>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => applyFilters(Math.min(totalPages, currentPage + 1))}
+                disabled={currentPage >= totalPages || loading}
+              >
+                Next
+              </Button>
+            </div>
+          )}
           <div className="text-xs">
             Last updated: {logs.length > 0 ? format(logs[0]?.timestamp || new Date(), "MMM dd, yyyy HH:mm:ss") : "Never"}
           </div>
