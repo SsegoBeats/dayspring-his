@@ -18,12 +18,15 @@ export interface Bill {
   items: BillItem[]
   subtotal: number
   tax: number
+  discount: number
   total: number
-  status: "pending" | "paid" | "cancelled"
+  paidAmount?: number
+  status: "pending" | "paid" | "partially paid" | "cancelled"
   paymentMethod?: string
   paymentDate?: string
   notes?: string
   barcode?: string
+  dueDate?: string
 }
 
 interface BillingContextType {
@@ -59,21 +62,38 @@ export function BillingProvider({ children }: { children: ReactNode }) {
           itemsByBillId.set(billId, arr)
         })
 
-        const mapped: Bill[] = (data.bills || []).map((b: any) => ({
-          id: b.id,
-          billNumber: b.bill_number,
-          patientId: b.patient_id,
-          patientName: `${b.first_name} ${b.last_name}`.trim(),
-          date: new Date(b.created_at).toISOString().slice(0, 10),
-          items: itemsByBillId.get(b.id) || [],
-          subtotal: Number(b.total_amount) - Number(b.tax_amount) + Number(b.discount_amount || 0),
-          tax: Number(b.tax_amount),
-          total: Number(b.final_amount),
-          status: (b.status || "Pending").toString().toLowerCase() as any,
-          paymentMethod: b.payment_method || undefined,
-          paymentDate: b.paid_at ? new Date(b.paid_at).toISOString().slice(0, 10) : undefined,
-          barcode: b.barcode || undefined,
-        }))
+        const mapped: Bill[] = (data.bills || []).map((b: any) => {
+          const status = (b.status || "Pending").toString().toLowerCase()
+          const paidAmount = Number(b.paid_amount) || 0
+          const finalAmount = Number(b.final_amount)
+          
+          // Determine status based on paid amount
+          let normalizedStatus: "pending" | "paid" | "partially paid" | "cancelled" = status as any
+          if (status === "pending" && paidAmount > 0 && paidAmount < finalAmount) {
+            normalizedStatus = "partially paid"
+          } else if (status === "pending" && paidAmount >= finalAmount) {
+            normalizedStatus = "paid"
+          }
+          
+          return {
+            id: b.id,
+            billNumber: b.bill_number,
+            patientId: b.patient_id,
+            patientName: `${b.first_name} ${b.last_name}`.trim(),
+            date: new Date(b.created_at).toISOString().slice(0, 10),
+            items: itemsByBillId.get(b.id) || [],
+            subtotal: Number(b.total_amount) - Number(b.tax_amount) + Number(b.discount_amount || 0),
+            tax: Number(b.tax_amount),
+            discount: Number(b.discount_amount) || 0,
+            total: finalAmount,
+            paidAmount: paidAmount > 0 ? paidAmount : undefined,
+            status: normalizedStatus,
+            paymentMethod: b.payment_method || undefined,
+            paymentDate: b.paid_at ? new Date(b.paid_at).toISOString().slice(0, 10) : undefined,
+            barcode: b.barcode || undefined,
+            dueDate: b.due_date ? new Date(b.due_date).toISOString().slice(0, 10) : undefined,
+          }
+        })
         setBills(mapped)
       } else {
         setBills([])
@@ -111,6 +131,26 @@ export function BillingProvider({ children }: { children: ReactNode }) {
     return bills.filter((b) => b.status === "pending")
   }
 
+  const getOverdueBills = () => {
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    
+    return bills.filter((b) => {
+      if (b.status === "paid" || b.status === "cancelled") return false
+      
+      // Consider bills overdue if they're pending/partially paid and older than 30 days
+      const billDate = new Date(b.date)
+      billDate.setHours(0, 0, 0, 0)
+      const daysDiff = Math.floor((today.getTime() - billDate.getTime()) / (1000 * 60 * 60 * 24))
+      
+      return daysDiff > 30
+    })
+  }
+
+  const getPartiallyPaidBills = () => {
+    return bills.filter((b) => b.status === "partially paid")
+  }
+
   return (
     <BillingContext.Provider
       value={{
@@ -121,6 +161,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
         getBill,
         getPatientBills,
         getPendingBills,
+        getOverdueBills,
+        getPartiallyPaidBills,
       }}
     >
       {children}

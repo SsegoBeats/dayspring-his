@@ -9,7 +9,9 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, CreditCard, Loader2 } from "lucide-react"
+import { ArrowLeft, CreditCard, Loader2, XCircle, AlertTriangle } from "lucide-react"
+import { Input } from "@/components/ui/input"
+import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { ReceiptPrinter } from "@/components/receipt-printer"
 import { toast } from "sonner"
@@ -30,6 +32,8 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const [notes, setNotes] = useState("")
   const [showReceipt, setShowReceipt] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [paymentType, setPaymentType] = useState<"full" | "partial" | "cancel">("full")
+  const [partialAmount, setPartialAmount] = useState<number>(0)
 
   if (!bill) {
     return (
@@ -45,20 +49,44 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   }
 
   const handleProcessPayment = async () => {
-    if (!paymentMethod) {
-      toast.error("Please select a payment method")
-      return
+    if (paymentType === "cancel") {
+      if (!confirm("Are you sure you want to cancel this bill? This action cannot be undone.")) {
+        return
+      }
+    } else if (paymentType === "partial") {
+      if (!paymentMethod) {
+        toast.error("Please select a payment method")
+        return
+      }
+      if (partialAmount <= 0 || partialAmount > bill.total - (bill.paidAmount || 0)) {
+        toast.error("Invalid payment amount")
+        return
+      }
+    } else {
+      if (!paymentMethod) {
+        toast.error("Please select a payment method")
+        return
+      }
     }
 
     setProcessing(true)
     try {
+      const currentPaidAmount = bill.paidAmount || 0
+      const newPaidAmount = paymentType === "cancel" 
+        ? 0 
+        : paymentType === "partial" 
+          ? currentPaidAmount + partialAmount 
+          : bill.total
+
       const res = await fetch(`/api/billing/${bill.id}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          status: "Paid",
-          paymentMethod,
+          status: paymentType === "cancel" ? "Cancelled" : paymentType === "partial" ? "Partially Paid" : "Paid",
+          paymentMethod: paymentType === "cancel" ? null : paymentMethod,
+          paidAmount: newPaidAmount,
+          notes,
         }),
       })
       if (!res.ok) {
@@ -66,15 +94,28 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
         toast.error(err.error || "Failed to process payment")
         return
       }
+      
+      const newStatus = paymentType === "cancel" 
+        ? "cancelled" 
+        : paymentType === "partial" 
+          ? "partially paid" 
+          : "paid"
+      
       updateBill(bill.id, {
-        status: "paid",
-        paymentMethod,
-        paymentDate: new Date().toISOString().split("T")[0],
+        status: newStatus as any,
+        paymentMethod: paymentType === "cancel" ? undefined : paymentMethod,
+        paymentDate: paymentType === "cancel" ? undefined : new Date().toISOString().split("T")[0],
+        paidAmount: newPaidAmount,
         notes,
       })
       await refreshBills()
-      toast.success("Payment processed successfully")
-      setShowReceipt(true)
+      toast.success(paymentType === "cancel" ? "Bill cancelled successfully" : "Payment processed successfully")
+      
+      if (paymentType !== "cancel") {
+        setShowReceipt(true)
+      } else {
+        onBack()
+      }
     } catch {
       toast.error("Failed to process payment")
     } finally {
@@ -83,6 +124,10 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   }
 
   if (showReceipt) {
+    const paidAmount = paymentType === "partial" ? partialAmount : bill.total
+    const originalTotal = bill.total
+    const remainingBalance = paymentType === "partial" ? originalTotal - (bill.paidAmount || 0) - partialAmount : 0
+    
     return (
       <ReceiptPrinter
         receiptNumber={bill.billNumber || bill.id}
@@ -91,10 +136,16 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
         items={bill.items}
         subtotal={bill.subtotal}
         tax={bill.tax}
-        total={bill.total}
+        total={paidAmount}
         paymentMethod={paymentMethod || bill.paymentMethod || "N/A"}
         barcode={bill.barcode || ""}
         type="payment"
+        onBack={() => {
+          setShowReceipt(false)
+          onBack()
+        }}
+        originalTotal={paymentType === "partial" ? originalTotal : undefined}
+        remainingBalance={paymentType === "partial" ? remainingBalance : undefined}
       />
     )
   }
@@ -114,9 +165,17 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
               <CardDescription>Invoice ID: {bill.id}</CardDescription>
             </div>
             <Badge
-              variant={bill.status === "paid" ? "default" : bill.status === "pending" ? "secondary" : "destructive"}
+              variant={
+                bill.status === "paid"
+                  ? "default"
+                  : bill.status === "pending"
+                    ? "secondary"
+                    : bill.status === "partially paid"
+                      ? "outline"
+                      : "destructive"
+              }
             >
-              {bill.status}
+              {bill.status === "partially paid" ? "Partially Paid" : bill.status}
             </Badge>
           </div>
         </CardHeader>
@@ -205,50 +264,141 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                 <span className="text-muted-foreground">Subtotal:</span>
                 <span className="text-foreground">{formatCurrency(bill.subtotal)}</span>
               </div>
+              {bill.tax > 0 && (
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Tax:</span>
+                  <span className="text-foreground">{formatCurrency(bill.tax)}</span>
+                </div>
+              )}
+              {bill.discount > 0 && (
+                <div className="flex justify-between text-sm text-green-600">
+                  <span className="text-muted-foreground">Discount:</span>
+                  <span className="text-foreground">-{formatCurrency(bill.discount)}</span>
+                </div>
+              )}
               <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
                 <span className="text-foreground">Total:</span>
                 <span className="text-foreground">{formatCurrency(bill.total)}</span>
               </div>
+              {bill.paidAmount && bill.paidAmount > 0 && (
+                <>
+                  <div className="flex justify-between text-sm text-amber-600">
+                    <span className="text-muted-foreground">Paid Amount:</span>
+                    <span className="text-foreground">{formatCurrency(bill.paidAmount)}</span>
+                  </div>
+                  <div className="flex justify-between text-sm font-semibold">
+                    <span className="text-muted-foreground">Remaining Balance:</span>
+                    <span className="text-foreground">{formatCurrency(bill.total - bill.paidAmount)}</span>
+                  </div>
+                </>
+              )}
             </div>
           </div>
 
-          {bill.status === "pending" && (
+          {(bill.status === "pending" || bill.status === "partially paid") && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="paymentMethod">Payment Method *</Label>
-                <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                  <SelectTrigger id="paymentMethod">
-                    <SelectValue placeholder="Select payment method" />
+                <Label>Payment Type</Label>
+                <Select value={paymentType} onValueChange={(v: "full" | "partial" | "cancel") => setPaymentType(v)}>
+                  <SelectTrigger>
+                    <SelectValue />
                   </SelectTrigger>
                   <SelectContent>
-                    <SelectItem value="Cash">Cash</SelectItem>
-                    <SelectItem value="Credit Card">Credit Card</SelectItem>
-                    <SelectItem value="Debit Card">Debit Card</SelectItem>
-                    <SelectItem value="Insurance">Insurance</SelectItem>
-                    <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                    <SelectItem value="full">Full Payment</SelectItem>
+                    <SelectItem value="partial">Partial Payment</SelectItem>
+                    <SelectItem value="cancel">Cancel Bill</SelectItem>
                   </SelectContent>
                 </Select>
               </div>
 
-              <div className="space-y-2">
-                <Label htmlFor="notes">Payment Notes</Label>
-                <Textarea
-                  id="notes"
-                  placeholder="Any additional notes about the payment..."
-                  value={notes}
-                  onChange={(e) => setNotes(e.target.value)}
-                  rows={3}
-                />
-              </div>
+              {paymentType === "cancel" && (
+                <Alert variant="destructive">
+                  <AlertTriangle className="h-4 w-4" />
+                  <AlertDescription>
+                    This will cancel the bill. This action cannot be undone.
+                  </AlertDescription>
+                </Alert>
+              )}
 
-              <Button onClick={handleProcessPayment} className="w-full" disabled={processing}>
-                {processing ? (
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                ) : (
-                  <CreditCard className="mr-2 h-4 w-4" />
-                )}
-                {processing ? "Processing..." : `Process Payment - ${formatCurrency(bill.total)}`}
-              </Button>
+              {paymentType !== "cancel" && (
+                <>
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentMethod">Payment Method *</Label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger id="paymentMethod">
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Credit Card">Credit Card</SelectItem>
+                        <SelectItem value="Debit Card">Debit Card</SelectItem>
+                        <SelectItem value="Insurance">Insurance</SelectItem>
+                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+
+                  {paymentType === "partial" && (
+                    <div className="space-y-2">
+                      <Label htmlFor="partialAmount">
+                        Payment Amount * (Remaining: {formatCurrency(bill.total - (bill.paidAmount || 0))})
+                      </Label>
+                      <Input
+                        id="partialAmount"
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        max={bill.total - (bill.paidAmount || 0)}
+                        value={partialAmount || ""}
+                        onChange={(e) => setPartialAmount(Number.parseFloat(e.target.value) || 0)}
+                        placeholder="Enter payment amount"
+                      />
+                    </div>
+                  )}
+
+                  <div className="space-y-2">
+                    <Label htmlFor="notes">Payment Notes</Label>
+                    <Textarea
+                      id="notes"
+                      placeholder="Any additional notes about the payment..."
+                      value={notes}
+                      onChange={(e) => setNotes(e.target.value)}
+                      rows={3}
+                    />
+                  </div>
+                </>
+              )}
+
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleProcessPayment}
+                  className="flex-1"
+                  disabled={processing}
+                  variant={paymentType === "cancel" ? "destructive" : "default"}
+                >
+                  {processing ? (
+                    <>
+                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                      Processing...
+                    </>
+                  ) : paymentType === "cancel" ? (
+                    <>
+                      <XCircle className="mr-2 h-4 w-4" />
+                      Cancel Bill
+                    </>
+                  ) : (
+                    <>
+                      <CreditCard className="mr-2 h-4 w-4" />
+                      {paymentType === "partial"
+                        ? `Process Partial Payment - ${formatCurrency(partialAmount)}`
+                        : `Process Full Payment - ${formatCurrency(bill.total - (bill.paidAmount || 0))}`}
+                    </>
+                  )}
+                </Button>
+                <Button variant="outline" onClick={onBack} disabled={processing}>
+                  Cancel
+                </Button>
+              </div>
             </div>
           )}
 

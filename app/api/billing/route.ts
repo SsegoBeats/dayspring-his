@@ -45,6 +45,8 @@ export async function POST(req: Request) {
       source?: string
       medications?: { name: string; dosage?: string; frequency?: string; duration?: string }[]
       items?: { description: string; quantity?: number; unitPrice?: number }[]
+      taxAmount?: number
+      discountAmount?: number
     }
 
     const patientId = (body.patientId || "").trim()
@@ -107,8 +109,8 @@ export async function POST(req: Request) {
     }
 
     const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
-    const taxAmount = 0
-    const discountAmount = 0
+    const taxAmount = body.taxAmount !== undefined ? Number(body.taxAmount) : 0
+    const discountAmount = body.discountAmount !== undefined ? Number(body.discountAmount) : 0
     const finalAmount = subtotal + taxAmount - discountAmount
 
     const billNumber = generateReceiptNumber()

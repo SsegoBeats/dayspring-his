@@ -5,7 +5,7 @@ import { Card } from "@/components/ui/card"
 import { BarcodeGenerator } from "./barcode-generator"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { useFormatDate } from "@/lib/date-utils"
-import { Printer } from "lucide-react"
+import { Printer, ArrowLeft } from "lucide-react"
 
 interface ReceiptItem {
   description: string
@@ -26,6 +26,9 @@ interface ReceiptPrinterProps {
   paymentMethod: string
   barcode: string
   type: "payment" | "prescription"
+  onBack?: () => void
+  originalTotal?: number
+  remainingBalance?: number
 }
 
 export function ReceiptPrinter({
@@ -38,6 +41,9 @@ export function ReceiptPrinter({
   paymentMethod,
   barcode,
   type,
+  onBack,
+  originalTotal,
+  remainingBalance,
 }: ReceiptPrinterProps) {
   const formatCurrency = useFormatCurrency()
   const { formatDateTime } = useFormatDate()
@@ -47,7 +53,13 @@ export function ReceiptPrinter({
 
   return (
     <div className="space-y-4">
-      <div className="flex justify-end print:hidden">
+      <div className="flex justify-between print:hidden">
+        {onBack && (
+          <Button variant="outline" onClick={onBack} className="gap-2">
+            <ArrowLeft className="h-4 w-4" />
+            Back
+          </Button>
+        )}
         <Button onClick={handlePrint} className="gap-2">
           <Printer className="h-4 w-4" />
           Print Receipt
@@ -120,8 +132,26 @@ export function ReceiptPrinter({
             <span className="text-muted-foreground">Subtotal:</span>
             <span>{formatCurrency(subtotal)}</span>
           </div>
+          {originalTotal && originalTotal > total && (
+            <>
+              <div className="flex justify-between">
+                <span className="text-muted-foreground">Total Amount:</span>
+                <span>{formatCurrency(originalTotal)}</span>
+              </div>
+              <div className="flex justify-between text-green-600">
+                <span>Amount Paid:</span>
+                <span>{formatCurrency(total)}</span>
+              </div>
+              {remainingBalance !== undefined && remainingBalance > 0 && (
+                <div className="flex justify-between text-amber-600 font-semibold">
+                  <span>Remaining Balance:</span>
+                  <span>{formatCurrency(remainingBalance)}</span>
+                </div>
+              )}
+            </>
+          )}
           <div className="flex justify-between text-lg font-bold border-t-2 pt-2">
-            <span>TOTAL PAID:</span>
+            <span>{originalTotal && originalTotal > total ? "AMOUNT PAID:" : "TOTAL PAID:"}</span>
             <span className="text-primary">{formatCurrency(total)}</span>
           </div>
         </div>

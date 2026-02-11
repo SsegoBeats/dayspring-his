@@ -1,32 +1,80 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { type BillItem } from "@/lib/billing-context"
-import { usePatients } from "@/lib/patient-context"
+import { useBilling } from "@/lib/billing-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { ArrowLeft, Plus, Trash2, Save, Loader2 } from "lucide-react"
 import { toast } from "sonner"
-import { Checkbox } from "@/components/ui/checkbox"
 
-interface CreateBillProps {
+interface EditBillProps {
+  billId: string
   onBack: () => void
   mode?: "page" | "dialog"
 }
 
-export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
-  const { patients } = usePatients()
+export function EditBill({ billId, onBack, mode = "page" }: EditBillProps) {
+  const { getBill, refreshBills } = useBilling()
+  const bill = getBill(billId)
 
-  const [patientId, setPatientId] = useState("")
-  const [items, setItems] = useState<BillItem[]>([{ description: "", quantity: 1, unitPrice: 0, total: 0 }])
+  const [items, setItems] = useState<BillItem[]>([])
   const [applyTax, setApplyTax] = useState(false)
-  const [taxRate, setTaxRate] = useState(10) // Default 10%
+  const [taxRate, setTaxRate] = useState(0)
   const [discountAmount, setDiscountAmount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [isLoading, setIsLoading] = useState(true)
+
+  useEffect(() => {
+    if (bill) {
+      setItems(bill.items || [])
+      setApplyTax(bill.tax > 0)
+      setTaxRate(bill.tax > 0 ? Math.round((bill.tax / bill.subtotal) * 100 * 10) / 10 : 0)
+      setDiscountAmount(bill.discount || 0)
+      setIsLoading(false)
+    }
+  }, [bill])
+
+  if (isLoading) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <Loader2 className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
+          <p className="text-muted-foreground">Loading bill...</p>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (!bill) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground">Bill not found</p>
+          <Button onClick={onBack} className="mt-4">
+            Go Back
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
+
+  if (bill.status !== "pending") {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground">Only pending bills can be edited</p>
+          <Button onClick={onBack} className="mt-4">
+            Go Back
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const handleAddItem = () => {
     setItems([...items, { description: "", quantity: 1, unitPrice: 0, total: 0 }])
@@ -64,11 +112,6 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!patientId) {
-      toast.error("Please select a patient")
-      return
-    }
-
     const validItems = items.filter((item) => item.description && item.quantity > 0 && item.unitPrice > 0)
 
     if (validItems.length === 0) {
@@ -104,21 +147,13 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
       return
     }
 
-    const patient = patients.find((p) => p.id === patientId)
-    if (!patient) {
-      toast.error("Patient not found")
-      return
-    }
-
     setIsSubmitting(true)
     try {
-      const res = await fetch("/api/billing", {
-        method: "POST",
+      const res = await fetch(`/api/billing/${billId}`, {
+        method: "PUT",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          patientId,
-          source: "manual",
           items: validItems.map((item) => ({
             description: item.description.trim(),
             quantity: item.quantity,
@@ -128,20 +163,18 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
           discountAmount: discountAmount,
         }),
       })
-      
+
       if (!res.ok) {
         const error = await res.json().catch(() => ({}))
-        toast.error(error.error || "Failed to create bill. Please try again.")
+        toast.error(error.error || "Failed to update bill. Please try again.")
         return
       }
-      
-      toast.success("Bill created successfully!")
+
+      toast.success("Bill updated successfully!")
+      await refreshBills()
       onBack()
-      if (typeof window !== "undefined") {
-        window.location.reload()
-      }
     } catch (err: any) {
-      toast.error(err.message || "Failed to create bill. Please check your connection and try again.")
+      toast.error(err.message || "Failed to update bill. Please check your connection and try again.")
     } finally {
       setIsSubmitting(false)
     }
@@ -158,27 +191,11 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
 
       <Card>
         <CardHeader>
-          <CardTitle>Create New Bill</CardTitle>
-          <CardDescription>Generate a new invoice for a patient</CardDescription>
+          <CardTitle>Edit Bill</CardTitle>
+          <CardDescription>Invoice ID: {bill.id} | Patient: {bill.patientName}</CardDescription>
         </CardHeader>
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
-            <div className="space-y-2">
-              <Label htmlFor="patient">Select Patient *</Label>
-              <Select value={patientId} onValueChange={setPatientId}>
-                <SelectTrigger id="patient">
-                  <SelectValue placeholder="Choose a patient" />
-                </SelectTrigger>
-                <SelectContent>
-                  {patients.map((patient) => (
-                    <SelectItem key={patient.id} value={patient.id}>
-                      {patient.firstName} {patient.lastName} ({patient.id})
-                    </SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-            </div>
-
             <div className="space-y-3">
               <div className="flex items-center justify-between">
                 <h3 className="font-semibold text-foreground">Bill Items</h3>
@@ -209,6 +226,7 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
                               placeholder="e.g., General Consultation"
                               value={item.description}
                               onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                              required
                             />
                           </div>
                           <div className="space-y-2">
@@ -217,17 +235,19 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
                               type="number"
                               min="1"
                               value={item.quantity}
-                              onChange={(e) => handleItemChange(index, "quantity", Number.parseInt(e.target.value))}
+                              onChange={(e) => handleItemChange(index, "quantity", Number.parseInt(e.target.value) || 1)}
+                              required
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Unit Price ($)</Label>
+                            <Label>Unit Price</Label>
                             <Input
                               type="number"
                               step="0.01"
                               min="0"
                               value={item.unitPrice}
-                              onChange={(e) => handleItemChange(index, "unitPrice", Number.parseFloat(e.target.value))}
+                              onChange={(e) => handleItemChange(index, "unitPrice", Number.parseFloat(e.target.value) || 0)}
+                              required
                             />
                           </div>
                         </div>
@@ -254,7 +274,7 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
                   Apply Tax
                 </Label>
               </div>
-              
+
               <div className="grid gap-4 md:grid-cols-2">
                 <div className="space-y-2">
                   <Label htmlFor="taxRate">Tax Rate (%)</Label>
@@ -282,7 +302,7 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
                   />
                 </div>
               </div>
-              
+
               <div className="space-y-2 pt-2 border-t border-border">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal:</span>
@@ -307,19 +327,24 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
               </div>
             </div>
 
-            <Button type="submit" className="w-full" disabled={isSubmitting}>
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                  Creating...
-                </>
-              ) : (
-                <>
-                  <Save className="mr-2 h-4 w-4" />
-                  Create Bill
-                </>
-              )}
-            </Button>
+            <div className="flex gap-2">
+              <Button type="submit" className="flex-1" disabled={isSubmitting}>
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                    Updating...
+                  </>
+                ) : (
+                  <>
+                    <Save className="mr-2 h-4 w-4" />
+                    Update Bill
+                  </>
+                )}
+              </Button>
+              <Button type="button" variant="outline" onClick={onBack} disabled={isSubmitting}>
+                Cancel
+              </Button>
+            </div>
           </form>
         </CardContent>
       </Card>
