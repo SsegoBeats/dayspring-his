@@ -39,6 +39,10 @@ export default function DashboardPage() {
       router.replace("/nurse")
       return
     }
+    if (user.role === "Lab Tech") {
+      router.replace("/lab-tech")
+      return
+    }
     if (user.emailVerified === false) {
       setShowVerificationModal(true)
     }

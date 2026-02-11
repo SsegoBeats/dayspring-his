@@ -37,6 +37,7 @@ export interface LabTest {
   loincClass?: string | null
   loincUnits?: string | null
   resultJson?: any
+  rejectionReason?: string | null
 }
 
 interface LabContextType {
@@ -103,6 +104,8 @@ export function LabProvider({ children }: { children: ReactNode }) {
 
   const updateTest = (id: string, updates: Partial<LabTest>) => {
     setTests(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
+    // Trigger a refresh to ensure data consistency
+    setTimeout(() => refresh().catch(() => {}), 500)
   }
 
   const value = useMemo(() => ({ tests, loading, refresh, orderTest, updateTest }), [tests, loading])

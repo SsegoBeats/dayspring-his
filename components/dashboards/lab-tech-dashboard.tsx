@@ -1,12 +1,16 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useEffect, useState, useMemo } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
 import { useLab } from "@/lib/lab-context"
 import { LabTestQueue } from "@/components/lab/lab-test-queue"
 import { LabTestDetails } from "@/components/lab/lab-test-details"
-import { TestTube, Clock, CheckCircle, XCircle } from "lucide-react"
+import { TestTube, Clock, CheckCircle, XCircle, Download, Loader2, TrendingUp, AlertCircle } from "lucide-react"
 import { toast } from "sonner"
 
 export function LabTechDashboard() {
@@ -24,8 +28,38 @@ export function LabTechDashboard() {
   }, [refresh])
 
   const pendingTests = tests.filter((t) => t.status.toLowerCase() === "pending")
+  const inProgressTests = tests.filter((t) => t.status.toLowerCase() === "in progress")
   const completedTests = tests.filter((t) => t.status.toLowerCase() === "completed")
   const cancelledTests = tests.filter((t) => t.status.toLowerCase() === "cancelled")
+
+  // Calculate TAT metrics
+  const tatMetrics = useMemo(() => {
+    const completed = completedTests.filter(t => t.completedAt && t.orderedAt)
+    if (completed.length === 0) return { avg: 0, min: 0, max: 0, count: 0 }
+    
+    const tats = completed.map(t => {
+      const ordered = new Date(t.orderedAt).getTime()
+      const completed = new Date(t.completedAt!).getTime()
+      return Math.round((completed - ordered) / 60000) // minutes
+    })
+    
+    return {
+      avg: Math.round(tats.reduce((a, b) => a + b, 0) / tats.length),
+      min: Math.min(...tats),
+      max: Math.max(...tats),
+      count: completed.length
+    }
+  }, [completedTests])
+
+  // Calculate overdue tests (pending > 4 hours)
+  const overdueTests = useMemo(() => {
+    const now = Date.now()
+    return pendingTests.filter(t => {
+      const ordered = new Date(t.orderedAt).getTime()
+      const hours = (now - ordered) / (1000 * 60 * 60)
+      return hours > 4
+    })
+  }, [pendingTests])
 
   if (selectedTestId) {
     return <LabTestDetails testId={selectedTestId} onBack={() => setSelectedTestId(null)} />
@@ -68,14 +102,26 @@ export function LabTechDashboard() {
             <p className="text-xs text-muted-foreground">All statuses · all time</p>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-sm transition-shadow border-amber-100 bg-amber-50/40">
+        <Card className={`hover:shadow-sm transition-shadow border-amber-100 bg-amber-50/40 ${overdueTests.length > 0 ? 'border-red-300 bg-red-50/40' : ''}`}>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium uppercase tracking-wide text-amber-700">Pending Tests</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
+            {overdueTests.length > 0 ? <AlertCircle className="h-4 w-4 text-red-500" /> : <Clock className="h-4 w-4 text-amber-500" />}
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold text-slate-900">{pendingTests.length}</div>
-            <p className="text-xs text-amber-800/80">Awaiting results · prioritize STAT first</p>
+            <p className="text-xs text-amber-800/80">
+              {overdueTests.length > 0 ? `${overdueTests.length} overdue (>4h)` : 'Awaiting results · prioritize STAT first'}
+            </p>
+          </CardContent>
+        </Card>
+        <Card className="hover:shadow-sm transition-shadow border-blue-100 bg-blue-50/40">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium uppercase tracking-wide text-blue-700">In Progress</CardTitle>
+            <Clock className="h-4 w-4 text-blue-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold text-slate-900">{inProgressTests.length}</div>
+            <p className="text-xs text-blue-800/80">Currently being processed</p>
           </CardContent>
         </Card>
         <Card className="hover:shadow-sm transition-shadow border-emerald-100 bg-emerald-50/50">
@@ -88,22 +134,50 @@ export function LabTechDashboard() {
             <p className="text-xs text-emerald-800/80">Results submitted to clinicians</p>
           </CardContent>
         </Card>
-        <Card className="hover:shadow-sm transition-shadow border-rose-100 bg-rose-50/50">
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-rose-700">Cancelled</CardTitle>
-            <XCircle className="h-4 w-4 text-rose-500" />
+      </div>
+
+      {/* TAT Analytics */}
+      {tatMetrics.count > 0 && (
+        <Card className="border-purple-100 bg-purple-50/40">
+          <CardHeader>
+            <CardTitle className="text-sm font-semibold text-purple-900 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4" />
+              Turnaround Time Analytics
+            </CardTitle>
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{cancelledTests.length}</div>
-            <p className="text-xs text-rose-800/80">Cancelled / rejected specimens</p>
+            <div className="grid gap-4 md:grid-cols-4">
+              <div>
+                <div className="text-2xl font-semibold text-slate-900">{tatMetrics.avg}m</div>
+                <p className="text-xs text-muted-foreground">Average TAT</p>
+              </div>
+              <div>
+                <div className="text-2xl font-semibold text-slate-900">{tatMetrics.min}m</div>
+                <p className="text-xs text-muted-foreground">Fastest</p>
+              </div>
+              <div>
+                <div className="text-2xl font-semibold text-slate-900">{tatMetrics.max}m</div>
+                <p className="text-xs text-muted-foreground">Slowest</p>
+              </div>
+              <div>
+                <div className="text-2xl font-semibold text-slate-900">{tatMetrics.count}</div>
+                <p className="text-xs text-muted-foreground">Samples analyzed</p>
+              </div>
+            </div>
           </CardContent>
         </Card>
-      </div>
+      )}
 
       <Tabs defaultValue="pending">
         <TabsList className="bg-muted/60">
-          <TabsTrigger value="pending">Pending</TabsTrigger>
-          <TabsTrigger value="completed">Completed</TabsTrigger>
+          <TabsTrigger value="pending">
+            Pending {pendingTests.length > 0 && `(${pendingTests.length})`}
+            {overdueTests.length > 0 && <span className="ml-1 text-red-600">⚠</span>}
+          </TabsTrigger>
+          <TabsTrigger value="inprogress">
+            In Progress {inProgressTests.length > 0 && `(${inProgressTests.length})`}
+          </TabsTrigger>
+          <TabsTrigger value="completed">Completed {completedTests.length > 0 && `(${completedTests.length})`}</TabsTrigger>
           <TabsTrigger value="all">All</TabsTrigger>
         </TabsList>
 
@@ -112,6 +186,14 @@ export function LabTechDashboard() {
             tests={pendingTests}
             onSelectTest={setSelectedTestId}
             emptyMessage="No pending tests. New lab orders will appear here."
+          />
+        </TabsContent>
+
+        <TabsContent value="inprogress">
+          <LabTestQueue
+            tests={inProgressTests}
+            onSelectTest={setSelectedTestId}
+            emptyMessage="No tests in progress. Tests will appear here when collection is started."
           />
         </TabsContent>
 
@@ -136,105 +218,180 @@ export function LabTechDashboard() {
 }
 
 function ExportLabsForm() {
-  const [from, setFrom] = (require("react") as any).useState(new Date(new Date().setHours(0,0,0,0)).toISOString())
-  const [to, setTo] = (require("react") as any).useState(new Date().toISOString())
-  const [status, setStatus] = (require("react") as any).useState('Completed')
-  const [format, setFormat] = (require("react") as any).useState<'csv'|'xlsx'|'pdf'>('csv')
-  const [exporting, setExporting] = (require("react") as any).useState(false)
-  const [rangePreset, setRangePreset] = (require("react") as any).useState<'custom'|'today'|'last7'|'month'>('today')
+  const [from, setFrom] = useState(new Date(new Date().setHours(0,0,0,0)).toISOString().split('T')[0])
+  const [to, setTo] = useState(new Date().toISOString().split('T')[0])
+  const [status, setStatus] = useState('Completed')
+  const [format, setFormat] = useState<'csv'|'xlsx'|'pdf'>('csv')
+  const [exporting, setExporting] = useState(false)
+  const [rangePreset, setRangePreset] = useState<'custom'|'today'|'last7'|'month'>('today')
 
-  const applyPreset = (preset: 'custom'|'today'|'last7'|'month') => {
+  useEffect(() => {
     const now = new Date()
-    if (preset === 'today') {
-      const start = new Date(now)
-      start.setHours(0,0,0,0)
-      setFrom(start.toISOString())
-      setTo(now.toISOString())
-    } else if (preset === 'last7') {
-      const start = new Date(now)
-      start.setDate(start.getDate()-7)
-      start.setHours(0,0,0,0)
-      setFrom(start.toISOString())
-      setTo(now.toISOString())
-    } else if (preset === 'month') {
-      const start = new Date(now.getFullYear(), now.getMonth(), 1)
-      setFrom(start.toISOString())
-      setTo(now.toISOString())
+    if (rangePreset === 'today') {
+      const today = now.toISOString().split('T')[0]
+      setFrom(today)
+      setTo(today)
+    } else if (rangePreset === 'last7') {
+      const last7 = new Date(now)
+      last7.setDate(last7.getDate() - 7)
+      setFrom(last7.toISOString().split('T')[0])
+      setTo(now.toISOString().split('T')[0])
+    } else if (rangePreset === 'month') {
+      const firstDay = new Date(now.getFullYear(), now.getMonth(), 1)
+      setFrom(firstDay.toISOString().split('T')[0])
+      setTo(now.toISOString().split('T')[0])
     }
-    setRangePreset(preset)
-  }
+  }, [rangePreset])
+
   const exportNow = async () => {
     setExporting(true)
     try {
+      const fromDate = new Date(from)
+      fromDate.setHours(0, 0, 0, 0)
+      const toDate = new Date(to)
+      toDate.setHours(23, 59, 59, 999)
+      
       let blob: Blob
       if (format === 'pdf') {
         const url = new URL('/api/lab-tests/pdf', window.location.origin)
-        url.searchParams.set('from', from)
-        url.searchParams.set('to', to)
+        url.searchParams.set('from', fromDate.toISOString())
+        url.searchParams.set('to', toDate.toISOString())
         if (status) url.searchParams.set('status', status)
         const resp = await fetch(url.toString(), { credentials: 'include' })
-        if (!resp.ok) throw new Error('Export failed')
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({}))
+          throw new Error(errorData.error || 'Export failed')
+        }
         blob = await resp.blob()
       } else if (format === 'xlsx') {
         const url = new URL('/api/lab-tests/xlsx', window.location.origin)
-        url.searchParams.set('from', from)
-        url.searchParams.set('to', to)
+        url.searchParams.set('from', fromDate.toISOString())
+        url.searchParams.set('to', toDate.toISOString())
         if (status) url.searchParams.set('status', status)
         const resp = await fetch(url.toString(), { credentials: 'include' })
-        if (!resp.ok) throw new Error('Export failed')
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({}))
+          throw new Error(errorData.error || 'Export failed')
+        }
         blob = await resp.blob()
       } else {
         const url = new URL('/api/lab-tests/csv', window.location.origin)
-        url.searchParams.set('from', from)
-        url.searchParams.set('to', to)
+        url.searchParams.set('from', fromDate.toISOString())
+        url.searchParams.set('to', toDate.toISOString())
         if (status) url.searchParams.set('status', status)
         const resp = await fetch(url.toString(), { credentials: 'include' })
-        if (!resp.ok) throw new Error('Export failed')
+        if (!resp.ok) {
+          const errorData = await resp.json().catch(() => ({}))
+          throw new Error(errorData.error || 'Export failed')
+        }
         blob = await resp.blob()
       }
       const url = URL.createObjectURL(blob)
       const a = document.createElement('a')
       a.href = url
       const ext = (format === 'pdf') ? 'pdf' : (format === 'xlsx' ? 'xlsx' : 'csv')
-      a.download = `labs-${new Date().toISOString().slice(0,10)}.${ext}`
-      document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(url)
-    } catch (e:any) {
-      alert(e?.message || 'Export failed')
-    } finally { setExporting(false) }
+      a.download = `labs-${from}-to-${to}.${ext}`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(url)
+      toast.success(`Lab tests exported successfully as ${format.toUpperCase()}`)
+    } catch (e: any) {
+      toast.error(e?.message || 'Export failed')
+    } finally { 
+      setExporting(false) 
+    }
   }
+
+  const exportAnalytes = async () => {
+    setExporting(true)
+    try {
+      const fromDate = new Date(from)
+      fromDate.setHours(0, 0, 0, 0)
+      const toDate = new Date(to)
+      toDate.setHours(23, 59, 59, 999)
+      
+      const url = new URL('/api/lab-tests/csv', window.location.origin)
+      url.searchParams.set('from', fromDate.toISOString())
+      url.searchParams.set('to', toDate.toISOString())
+      if (status) url.searchParams.set('status', status)
+      const r = await fetch(url.toString(), { credentials: 'include' })
+      if (!r.ok) {
+        const errorData = await r.json().catch(() => ({}))
+        throw new Error(errorData.error || 'CSV export failed')
+      }
+      const blob = await r.blob()
+      const obj = URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = obj
+      a.download = `labs-analytes-${from}-to-${to}.csv`
+      document.body.appendChild(a)
+      a.click()
+      a.remove()
+      URL.revokeObjectURL(obj)
+      toast.success('Analytes CSV exported successfully')
+    } catch (e: any) {
+      toast.error(e?.message || 'CSV export failed')
+    } finally {
+      setExporting(false)
+    }
+  }
+
   return (
     <div className="space-y-3">
       <div className="grid md:grid-cols-5 gap-3 items-end">
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">From</label>
-          <input type="datetime-local" className="border rounded px-2 py-1 text-sm w-full" value={from.slice(0,16)} onChange={(e)=> { setFrom(new Date(e.target.value).toISOString()); setRangePreset('custom') }} />
+          <Label className="text-xs">Quick Range</Label>
+          <Select value={rangePreset} onValueChange={(v: any) => setRangePreset(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="today">Today</SelectItem>
+              <SelectItem value="last7">Last 7 Days</SelectItem>
+              <SelectItem value="month">This Month</SelectItem>
+              <SelectItem value="custom">Custom</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">To</label>
-          <input type="datetime-local" className="border rounded px-2 py-1 text-sm w-full" value={to.slice(0,16)} onChange={(e)=> { setTo(new Date(e.target.value).toISOString()); setRangePreset('custom') }} />
+          <Label className="text-xs">From</Label>
+          <Input 
+            type="date" 
+            value={from} 
+            onChange={(e) => { setFrom(e.target.value); setRangePreset('custom') }}
+            disabled={rangePreset !== 'custom'}
+          />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Quick range</label>
-          <select className="border rounded px-2 py-1 text-sm w-full" value={rangePreset} onChange={(e)=> applyPreset(e.target.value)}>
-            <option value="today">Today</option>
-            <option value="last7">Last 7 days</option>
-            <option value="month">This month</option>
-            <option value="custom">Custom range</option>
-          </select>
+          <Label className="text-xs">To</Label>
+          <Input 
+            type="date" 
+            value={to} 
+            onChange={(e) => { setTo(e.target.value); setRangePreset('custom') }}
+            disabled={rangePreset !== 'custom'}
+          />
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Status</label>
-          <select className="border rounded px-2 py-1 text-sm w-full" value={status} onChange={(e)=> setStatus(e.target.value)}>
-            {['Pending','In Progress','Completed','Cancelled'].map(s=> <option key={s} value={s}>{s}</option>)}
-          </select>
+          <Label className="text-xs">Status</Label>
+          <Select value={status} onValueChange={setStatus}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="Pending">Pending</SelectItem>
+              <SelectItem value="In Progress">In Progress</SelectItem>
+              <SelectItem value="Completed">Completed</SelectItem>
+              <SelectItem value="Cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
         <div className="space-y-1">
-          <label className="text-xs text-muted-foreground">Format</label>
-          <select className="border rounded px-2 py-1 text-sm w-full" value={format} onChange={(e)=> setFormat((e.target.value as any))}>
-            <option value="csv">CSV</option>
-            <option value="xlsx">Excel</option>
-            <option value="pdf">PDF</option>
-          </select>
+          <Label className="text-xs">Format</Label>
+          <Select value={format} onValueChange={(v: any) => setFormat(v)}>
+            <SelectTrigger><SelectValue /></SelectTrigger>
+            <SelectContent>
+              <SelectItem value="csv">CSV</SelectItem>
+              <SelectItem value="xlsx">Excel (XLSX)</SelectItem>
+              <SelectItem value="pdf">PDF</SelectItem>
+            </SelectContent>
+          </Select>
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
@@ -244,34 +401,45 @@ function ExportLabsForm() {
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border border-slate-200">
           <span className="font-medium text-slate-600">Range:</span>
-          <span>{from.slice(0,16).replace('T',' ')} → {to.slice(0,16).replace('T',' ')}</span>
+          <span>{from} → {to}</span>
         </span>
         <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border border-slate-200">
           <span className="font-medium text-slate-600">Format:</span>
           <span>{format.toUpperCase()}</span>
         </span>
       </div>
-      <div>
-        <button className="rounded-md border px-3 py-1.5 text-sm bg-sky-600 text-white hover:bg-sky-700 disabled:opacity-60" disabled={exporting} onClick={exportNow}>{exporting ? "Exporting..." : "Export"}</button>
-        <div className="text-[11px] text-muted-foreground mt-2">Analytes-only export</div>
-        <button className="mt-1 rounded-md border px-3 py-1.5 text-sm" onClick={async ()=>{
-          try {
-            const url = new URL('/api/lab-tests/csv', window.location.origin)
-            url.searchParams.set('from', from)
-            url.searchParams.set('to', to)
-            if (status) url.searchParams.set('status', status)
-            const r = await fetch(url.toString(), { credentials: 'include' })
-            if (!r.ok) throw new Error('CSV export failed')
-            const blob = await r.blob()
-            const obj = URL.createObjectURL(blob)
-            const a = document.createElement('a')
-            a.href = obj
-            a.download = `labs-analytes-${new Date().toISOString().slice(0,10)}.csv`
-            document.body.appendChild(a); a.click(); a.remove(); URL.revokeObjectURL(obj)
-          } catch (e:any) {
-            toast.error(e?.message || 'CSV export failed')
-          }
-        }}>Analytes CSV</button>
+      <div className="flex gap-2">
+        <Button
+          onClick={exportNow}
+          disabled={exporting}
+          className="bg-sky-600 hover:bg-sky-700"
+        >
+          {exporting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Exporting...
+            </>
+          ) : (
+            <>
+              <Download className="mr-2 h-4 w-4" />
+              Export
+            </>
+          )}
+        </Button>
+        <Button
+          variant="outline"
+          onClick={exportAnalytes}
+          disabled={exporting}
+        >
+          {exporting ? (
+            <>
+              <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+              Exporting...
+            </>
+          ) : (
+            'Analytes CSV'
+          )}
+        </Button>
       </div>
     </div>
   )

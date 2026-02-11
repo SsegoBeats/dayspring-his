@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { query, queryWithSession } from "@/lib/db"
 import { writeAuditLog } from "@/lib/audit"
+import { checkCriticalValues } from "@/lib/lab-results-validation"
 
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -20,7 +21,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
               lt.ordered_at, lt.completed_at, lt.priority, lt.specimen_type, lt.accession_number, lt.collected_at, lt.collected_by,
               lt.reviewed_by, rb.name AS reviewed_by_name, lt.reviewed_at,
               lt.assigned_radiologist_id, ar.name AS assigned_radiologist_name, lt.assigned_at,
-              lt.loinc_code, lt.loinc_long_name, lt.loinc_property, lt.loinc_scale, lt.loinc_system, lt.loinc_time_aspct, lt.loinc_class, lt.loinc_units, lt.result_json
+              lt.loinc_code, lt.loinc_long_name, lt.loinc_property, lt.loinc_scale, lt.loinc_system, lt.loinc_time_aspct, lt.loinc_class, lt.loinc_units, lt.result_json,
+              lt.rejection_reason
          FROM lab_tests lt
          LEFT JOIN patients p ON p.id = lt.patient_id
          LEFT JOIN users d ON d.id = lt.doctor_id
@@ -65,6 +67,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       loincClass: r.loinc_class || null,
       loincUnits: r.loinc_units || null,
       resultJson: r.result_json || {},
+      rejectionReason: r.rejection_reason || null,
     }
     return NextResponse.json({ test })
   } catch (e) {
@@ -92,6 +95,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       priority?: string
       rejectionReason?: string
       assignedRadiologistId?: string | null
+      assignedLabTechId?: string | null
       resultJson?: any
     }
     const reviewed = body.reviewed
@@ -119,12 +123,23 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
       body.collectedAt !== undefined ||
       body.priority !== undefined ||
       body.rejectionReason !== undefined ||
-      body.assignedRadiologistId !== undefined
+      body.assignedRadiologistId !== undefined ||
+      body.assignedLabTechId !== undefined
 
     if (hasStatusLikeUpdate) {
       if (!["Hospital Admin", "Lab Tech", "Clinician", "Radiologist"].includes(role)) {
         return NextResponse.json({ error: "Forbidden" }, { status: 403 })
       }
+      
+      // Check if we need to auto-assign lab tech when completing
+      let shouldAutoAssignLabTech = false
+      if (body.status && body.status.toLowerCase() === 'completed' && body.assignedLabTechId === undefined && role === 'Lab Tech') {
+        const checkTech = await query("SELECT lab_tech_id FROM lab_tests WHERE id = $1", [id])
+        if (!checkTech.rows[0]?.lab_tech_id) {
+          shouldAutoAssignLabTech = true
+        }
+      }
+      
       const fields: string[] = []
       const params2: any[] = []
       if (body.status) { fields.push(`status = $${fields.length+1}`); params2.push(body.status) }
@@ -144,8 +159,22 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           fields.push(`assigned_at = NULL`)
         }
       }
-      if (body.status && body.status.toLowerCase() === 'completed') { fields.push(`completed_at = NOW()`) }
+      if (body.assignedLabTechId !== undefined) {
+        fields.push(`lab_tech_id = $${fields.length + 1}`)
+        params2.push(body.assignedLabTechId)
+      } else if (shouldAutoAssignLabTech) {
+        // Auto-assign to current user if completing and no lab tech assigned
+        fields.push(`lab_tech_id = $${fields.length + 1}`)
+        params2.push(auth.userId)
+      }
+      if (body.status && body.status.toLowerCase() === 'completed') { 
+        fields.push(`completed_at = NOW()`)
+      }
       params2.push(id)
+      
+      if (fields.length === 0) {
+        return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
+      }
       try {
         await queryWithSession({ role, userId: auth.userId }, `UPDATE lab_tests SET ${fields.join(', ')} WHERE id = $${params2.length}`, params2)
       } catch (err: any) {
@@ -190,6 +219,98 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             )
           }
         } catch {}
+      }
+
+      // Critical value alerting - notify clinician when critical results are submitted
+      if (body.status && body.status.toLowerCase() === 'completed' && body.results) {
+        try {
+          const { rows: testRows } = await query(
+            `SELECT lt.doctor_id, lt.test_name, lt.test_type, lt.patient_id, 
+                    p.first_name, p.last_name, p.gender, p.date_of_birth
+             FROM lab_tests lt
+             LEFT JOIN patients p ON p.id = lt.patient_id
+             WHERE lt.id = $1`,
+            [id]
+          )
+          const test = testRows[0]
+          if (test && test.doctor_id) {
+            const criticalCheck = checkCriticalValues(
+              body.results,
+              test.gender,
+              test.date_of_birth
+            )
+            
+            if (criticalCheck.hasCritical) {
+              const patientName = test.first_name && test.last_name 
+                ? `${test.first_name} ${test.last_name}`.trim()
+                : 'patient'
+              const criticalParams = criticalCheck.criticalValues
+                .filter(v => v.severity === 'critical')
+                .map(v => `${v.parameter} (${v.value})`)
+                .join(', ')
+              
+              await query(
+                `INSERT INTO notifications (user_id, title, message, type, priority, payload)
+                 VALUES ($1, $2, $3, $4, $5, $6)`,
+                [
+                  test.doctor_id,
+                  '🚨 CRITICAL LAB RESULTS',
+                  `CRITICAL values detected in ${test.test_name || test.test_type} for ${patientName}: ${criticalParams}. Please review immediately.`,
+                  'Lab Result',
+                  'High',
+                  JSON.stringify({ 
+                    testId: id, 
+                    patientId: test.patient_id,
+                    critical: true,
+                    criticalCount: criticalCheck.criticalCount,
+                    criticalValues: criticalCheck.criticalValues.filter(v => v.severity === 'critical')
+                  })
+                ]
+              )
+            }
+          }
+        } catch (err) {
+          console.error('Error sending critical value notification:', err)
+        }
+      }
+
+      // Notify clinician when test is rejected
+      if (body.status && body.status.toLowerCase() === 'cancelled' && body.rejectionReason) {
+        try {
+          const { rows: testRows } = await query(
+            `SELECT lt.doctor_id, lt.test_name, lt.test_type, lt.patient_id, 
+                    p.first_name, p.last_name
+             FROM lab_tests lt
+             LEFT JOIN patients p ON p.id = lt.patient_id
+             WHERE lt.id = $1`,
+            [id]
+          )
+          const test = testRows[0]
+          if (test && test.doctor_id) {
+            const patientName = test.first_name && test.last_name 
+              ? `${test.first_name} ${test.last_name}`.trim()
+              : 'patient'
+            
+            await query(
+              `INSERT INTO notifications (user_id, title, message, type, priority, payload)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                test.doctor_id,
+                'Specimen Rejected',
+                `Specimen rejected for ${test.test_name || test.test_type} - ${patientName}. Reason: ${body.rejectionReason}`,
+                'Lab Result',
+                'Standard',
+                JSON.stringify({ 
+                  testId: id, 
+                  patientId: test.patient_id,
+                  rejectionReason: body.rejectionReason
+                })
+              ]
+            )
+          }
+        } catch (err) {
+          console.error('Error sending rejection notification:', err)
+        }
       }
       
       return NextResponse.json({ success: true })

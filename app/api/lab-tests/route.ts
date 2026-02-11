@@ -225,17 +225,49 @@ export async function POST(req: Request) {
       t.testName && ["X-Ray", "CT Scan", "MRI", "Ultrasound", "Mammography"].includes(t.testName)
     )
 
-    // Notify Lab department for non-radiology tests
+    // Notify Lab Techs for non-radiology tests
     const nonRadiologyTests = created.filter((t: any) => !radiologyTests.includes(t))
     if (nonRadiologyTests.length > 0) {
       try {
-        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/notify/department`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ department: 'lab', title: 'New Lab Tests Ordered', message: `${nonRadiologyTests.length} test(s) ordered`, payload: { patientId } })
-        })
-      } catch {}
+        // Notify all active lab techs
+        const { rows: labTechs } = await query<{ id: string; name: string }>(
+          "SELECT id, name FROM users WHERE role = 'Lab Tech' AND is_active = true"
+        )
+        
+        const hasStat = nonRadiologyTests.some((t: any) => t.priority === 'Stat' || t.priority === 'Urgent')
+        const priority = hasStat ? 'High' : 'Standard'
+        
+        const testNames = nonRadiologyTests.map((t: any) => t.testName).filter(Boolean).join(', ')
+        const { rows: patientRows } = await query<{ first_name: string; last_name: string }>(
+          "SELECT first_name, last_name FROM patients WHERE id = $1",
+          [patientId]
+        )
+        const patientName = patientRows[0] 
+          ? `${patientRows[0].first_name} ${patientRows[0].last_name}`.trim()
+          : 'patient'
+        
+        for (const tech of labTechs) {
+          await query(
+            `INSERT INTO notifications (user_id, title, message, type, priority, payload)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              tech.id,
+              hasStat ? '🚨 STAT Lab Test Ordered' : 'New Lab Test Ordered',
+              `${hasStat ? 'STAT: ' : ''}${nonRadiologyTests.length} test(s) ordered for ${patientName}: ${testNames}`,
+              'Lab Test',
+              priority,
+              JSON.stringify({ 
+                patientId, 
+                testIds: nonRadiologyTests.map((t: any) => t.id),
+                count: nonRadiologyTests.length,
+                priority: hasStat ? 'Stat' : 'Routine'
+              })
+            ]
+          )
+        }
+      } catch (err) {
+        console.error('Error notifying lab techs:', err)
+      }
     }
 
     // Notify Radiologists for radiology tests
