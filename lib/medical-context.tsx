@@ -206,9 +206,9 @@ async function fetchAndMapMedicalData(): Promise<{
   const labs: LabResult[] = (data.labResults || []).map((l: any) => ({
     id: l.id,
     patientId: l.patient_id,
-    patientName: "",
+    patientName: l.patient_name ? String(l.patient_name).trim() : "",
     testType: l.test_type,
-    orderedBy: "",
+    orderedBy: l.doctor_name ? String(l.doctor_name).trim() : "",
     orderedDate: l.ordered_date ? new Date(l.ordered_date).toISOString() : "",
     completedDate: l.completed_date ? new Date(l.completed_date).toISOString() : undefined,
     priority: l.priority ? (l.priority.toString().toLowerCase() as LabResult["priority"]) : undefined,

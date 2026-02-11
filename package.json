@@ -9,7 +9,8 @@
         "start": "next start",
         "migrate:create": "node-pg-migrate create -m ./migrations",
         "migrate:up": "node-pg-migrate up -m ./migrations",
-        "migrate:down": "node-pg-migrate down -m ./migrations"
+        "migrate:down": "node-pg-migrate down -m ./migrations",
+        "migrate:radiologist": "node scripts/run-radiologist-lab-rls.js"
     },
     "dependencies": {
         "@fontsource/inter": "^5.1.0",

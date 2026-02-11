@@ -14,16 +14,20 @@ import { useAuth } from "@/lib/auth-context"
 import { useLab } from "@/lib/lab-context"
 import { RadiologyTestQueue } from "@/components/radiology/radiology-test-queue"
 import { RadiologyTestDetails } from "@/components/radiology/radiology-test-details"
-import { Scan, Clock, CheckCircle, XCircle, BarChart3, Info } from "lucide-react"
+import { Scan, Clock, CheckCircle, XCircle, BarChart3, Info, Download } from "lucide-react"
 import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxis } from "recharts"
+import { toast } from "sonner"
+import { runExport } from "@/lib/reception-export-utils"
 
 export function RadiologistDashboard() {
-  const { labResults, addMedicalDocument } = useMedical()
+  const { labResults, addMedicalDocument, refreshMedicalData } = useMedical()
   const { user } = useAuth()
   const { orderTest } = useLab()
   const [selectedTestId, setSelectedTestId] = useState<string | null>(null)
   const [modalityFilter, setModalityFilter] = useState<string>("all")
   const [priorityFilter, setPriorityFilter] = useState<string>("all")
+  const [assignmentFilter, setAssignmentFilter] = useState<string>("all") // "all" | "my-cases" | "unassigned"
+  const [sortBy, setSortBy] = useState<string>("date-desc") // "date-desc" | "date-asc" | "priority" | "age" | "patient"
   const [searchTerm, setSearchTerm] = useState<string>("")
 
   const [addScanOpen, setAddScanOpen] = useState(false)
@@ -31,8 +35,12 @@ export function RadiologistDashboard() {
   const [assignInfoOpen, setAssignInfoOpen] = useState(false)
   const [assigning, setAssigning] = useState(false)
   const [assignStudyId, setAssignStudyId] = useState<string>("")
+  const [assignStudyIds, setAssignStudyIds] = useState<string[]>([]) // For bulk assign
   const [assignRadiologistId, setAssignRadiologistId] = useState<string>("")
   const [radiologists, setRadiologists] = useState<{ id: string; name: string }[]>([])
+  const [bulkStatusOpen, setBulkStatusOpen] = useState(false)
+  const [bulkStatusValue, setBulkStatusValue] = useState<string>("Completed")
+  const [bulkStatusTestIds, setBulkStatusTestIds] = useState<string[]>([])
 
   const [newScanPatientId, setNewScanPatientId] = useState("")
   const [newScanPatientName, setNewScanPatientName] = useState("")
@@ -132,28 +140,73 @@ export function RadiologistDashboard() {
   }
 
   const handleAssign = async () => {
-    if (!assignStudyId || !assignRadiologistId || assigning) return
+    const testIdsToAssign = assignStudyIds.length > 0 ? assignStudyIds : [assignStudyId]
+    if (testIdsToAssign.length === 0 || !assignRadiologistId || assigning) return
     setAssigning(true)
     try {
-      await fetch(`/api/lab-tests/${assignStudyId}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ assignedRadiologistId: assignRadiologistId }),
-      })
+      const results = await Promise.all(
+        testIdsToAssign.map((id) =>
+          fetch(`/api/lab-tests/${id}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ assignedRadiologistId: assignRadiologistId }),
+          }).then(async (res) => ({ id, ok: res.ok, error: res.ok ? null : (async () => {
+            try { const data = await res.json(); return data.error } catch { return "Failed" }
+          })() }))
+        )
+      )
+      const errors = await Promise.all(results.map(async (r) => ({ id: r.id, error: await r.error })))
+      const failed = errors.filter((e) => e.error)
+      if (failed.length > 0) {
+        toast.error(`Failed to assign ${failed.length} case(s)`)
+      } else {
+        toast.success(`Assigned ${testIdsToAssign.length} case(s)`)
+      }
       setAssigning(false)
       setAssignInfoOpen(false)
-      if (typeof window !== "undefined") {
-        window.location.reload()
-      }
+      setAssignStudyIds([])
+      setSelectedTests(new Set())
+      await refreshMedicalData()
     } catch {
+      toast.error("Failed to assign cases")
       setAssigning(false)
+    }
+  }
+
+  const handleBulkStatusUpdate = async () => {
+    if (bulkStatusTestIds.length === 0 || !bulkStatusValue) return
+    try {
+      const results = await Promise.all(
+        bulkStatusTestIds.map((id) =>
+          fetch(`/api/lab-tests/${id}`, {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ status: bulkStatusValue }),
+          }).then((res) => ({ id, ok: res.ok }))
+        )
+      )
+      const failed = results.filter((r) => !r.ok).length
+      if (failed > 0) {
+        toast.error(`Failed to update ${failed} case(s)`)
+      } else {
+        toast.success(`Updated ${bulkStatusTestIds.length} case(s)`)
+      }
+      setBulkStatusOpen(false)
+      setBulkStatusTestIds([])
+      setSelectedTests(new Set())
+      await refreshMedicalData()
+    } catch {
+      toast.error("Failed to update cases")
     }
   }
   const applyFilters = (tests: typeof radiologyTests) => {
     return tests.filter((test) => {
       if (modalityFilter !== "all" && test.testType !== modalityFilter) return false
       if (priorityFilter !== "all" && test.priority !== priorityFilter) return false
+      if (assignmentFilter === "my-cases" && test.assignedToId !== myUserId) return false
+      if (assignmentFilter === "unassigned" && test.assignedToId) return false
       if (searchTerm.trim()) {
         const query = searchTerm.trim().toLowerCase()
         const haystack = `${test.patientName} ${test.patientId} ${test.id} ${test.testType}`.toLowerCase()
@@ -182,7 +235,7 @@ export function RadiologistDashboard() {
     const priorityForBackend =
       newScanPriority === "stat" ? "Stat" : newScanPriority === "urgent" ? "Urgent" : "Routine"
     try {
-      await orderTest({
+      const created = await orderTest({
         patientId: newScanPatientId.trim(),
         testName: newScanModality,
         testType: "Radiology",
@@ -190,19 +243,22 @@ export function RadiologistDashboard() {
         specimenType: "Imaging",
         notes: newScanNotes.trim() || undefined,
       })
+      if (!created) {
+        toast.error("Failed to create scan request")
+        setCreatingScan(false)
+        return
+      }
       setAddScanOpen(false)
       setNewScanPatientId("")
       setNewScanPatientName("")
       setNewScanNotes("")
       setNewScanModality("X-Ray")
       setNewScanPriority("routine")
-      // The radiologist dashboard pulls from /api/medical.
-      // For now, prompt the user to refresh to see the newly created scan reflected there.
-      if (typeof window !== "undefined") {
-        window.location.reload()
-      }
+      await refreshMedicalData()
+      toast.success("Scan request created")
+      setCreatingScan(false)
     } catch {
-      // Silently fail for now; in future we can surface a toast.
+      toast.error("Failed to create scan request")
       setCreatingScan(false)
     }
   }
@@ -217,15 +273,19 @@ export function RadiologistDashboard() {
       form.append("file", manualFile)
       const res = await fetch("/api/upload", {
         method: "POST",
+        credentials: "include",
         body: form,
       })
       if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err?.error || "Upload failed")
         setManualUploading(false)
         return
       }
       const data = await res.json()
       const url = typeof data?.url === "string" ? data.url : ""
       if (!url) {
+        toast.error("No file URL returned")
         setManualUploading(false)
         return
       }
@@ -242,6 +302,22 @@ export function RadiologistDashboard() {
         notes: manualNotes.trim() || undefined,
       })
 
+      // Persist to documents table when patientId is a valid UUID
+      const pid = manualPatientId.trim()
+      const isUuid = /^[0-9a-f]{8}-[0-9a-f]{4}-[1-5][0-9a-f]{3}-[89ab][0-9a-f]{3}-[0-9a-f]{12}$/i.test(pid)
+      if (isUuid) {
+        const docRes = await fetch("/api/documents", {
+          method: "POST",
+          credentials: "include",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify({ patientId: pid, type: "OTHER", fileUrl: url }),
+        })
+        if (!docRes.ok) {
+          toast.warning("Study uploaded; could not link to patient record.")
+        }
+      }
+
+      toast.success("Study uploaded successfully")
       setManualPatientId("")
       setManualPatientName("")
       setManualModality("X-Ray")
@@ -250,21 +326,113 @@ export function RadiologistDashboard() {
       setManualUploading(false)
       setUploadInfoOpen(false)
     } catch {
+      toast.error("Upload failed")
       setManualUploading(false)
     }
   }
 
+  const handleExport = async (format: "csv" | "xlsx" | "pdf") => {
+    if (exporting) return
+    setExporting(format)
+    const fromDate = new Date(exportFrom)
+    const toDate = new Date(exportTo)
+    toDate.setHours(23, 59, 59, 999)
+
+    const filters: any = {
+      from: fromDate.toISOString(),
+      to: toDate.toISOString(),
+    }
+    if (assignmentFilter === "my-cases" && myUserId) {
+      filters.assignedRadiologistId = myUserId
+    }
+    if (modalityFilter !== "all") {
+      filters.modality = modalityFilter
+    }
+
+    const filename = `radiology-workload-${exportFrom}-${exportTo}.${format}`
+    await runExport(
+      {
+        dataset: "radiology_lab_tests",
+        format,
+        filters,
+      },
+      filename,
+      {
+        onError: (msg) => toast.error(`Export failed: ${msg}`),
+        onSuccess: (fname) => toast.success(`Exported ${fname}`),
+      }
+    )
+    setExporting(null)
+  }
+
   if (selectedTestId) {
-    return <RadiologyTestDetails testId={selectedTestId} onBack={() => setSelectedTestId(null)} />
+    return (
+      <RadiologyTestDetails
+        testId={selectedTestId}
+        onBack={() => setSelectedTestId(null)}
+        onSelectTest={(id) => setSelectedTestId(id)}
+      />
+    )
   }
 
   return (
     <div className="space-y-6">
       <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-semibold tracking-tight text-sky-900">Radiologist Dashboard</h2>
-        <p className="max-w-2xl text-sm text-muted-foreground">
-          Monitor imaging workload, prioritize urgent studies, and keep turnaround time within agreed SLAs.
-        </p>
+        <div className="flex items-center justify-between">
+          <div>
+            <h2 className="text-3xl font-semibold tracking-tight text-sky-900">Radiologist Dashboard</h2>
+            <p className="max-w-2xl text-sm text-muted-foreground">
+              Monitor imaging workload, prioritize urgent studies, and keep turnaround time within agreed SLAs.
+            </p>
+          </div>
+          <div className="flex flex-col gap-2 items-end">
+            <div className="flex gap-2">
+              <Input
+                type="date"
+                value={exportFrom}
+                onChange={(e) => setExportFrom(e.target.value)}
+                className="w-40"
+                size={10}
+              />
+              <Input
+                type="date"
+                value={exportTo}
+                onChange={(e) => setExportTo(e.target.value)}
+                className="w-40"
+                size={10}
+              />
+            </div>
+            <div className="flex gap-2">
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport("csv")}
+                disabled={!!exporting}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {exporting === "csv" ? "Exporting..." : "CSV"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport("xlsx")}
+                disabled={!!exporting}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {exporting === "xlsx" ? "Exporting..." : "Excel"}
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => handleExport("pdf")}
+                disabled={!!exporting}
+              >
+                <Download className="h-4 w-4 mr-2" />
+                {exporting === "pdf" ? "Exporting..." : "PDF"}
+              </Button>
+            </div>
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -330,6 +498,9 @@ export function RadiologistDashboard() {
               <CardDescription>Filter by modality, priority, or patient to focus your reading list.</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
+              <Button variant="outline" size="sm" onClick={() => setBulkActionsEnabled(!bulkActionsEnabled)}>
+                {bulkActionsEnabled ? "Disable" : "Enable"} Bulk Actions
+              </Button>
               <Button variant="outline" size="sm" onClick={() => setAddScanOpen(true)}>
                 + Add Scan
               </Button>
@@ -368,6 +539,28 @@ export function RadiologistDashboard() {
                     <SelectItem value="routine">Routine</SelectItem>
                   </SelectContent>
                 </Select>
+                <Select value={assignmentFilter} onValueChange={setAssignmentFilter}>
+                  <SelectTrigger size="sm" className="min-w-[140px]">
+                    <SelectValue placeholder="Assignment" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="all">All cases</SelectItem>
+                    <SelectItem value="my-cases">My cases</SelectItem>
+                    <SelectItem value="unassigned">Unassigned</SelectItem>
+                  </SelectContent>
+                </Select>
+                <Select value={sortBy} onValueChange={setSortBy}>
+                  <SelectTrigger size="sm" className="min-w-[140px]">
+                    <SelectValue placeholder="Sort by" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="date-desc">Newest first</SelectItem>
+                    <SelectItem value="date-asc">Oldest first</SelectItem>
+                    <SelectItem value="priority">Priority</SelectItem>
+                    <SelectItem value="age">Age (oldest)</SelectItem>
+                    <SelectItem value="patient">Patient name</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div className="w-full max-w-xs">
                 <Input
@@ -396,6 +589,30 @@ export function RadiologistDashboard() {
                   tests={filteredPending}
                   onSelectTest={setSelectedTestId}
                   emptyMessage="No pending radiology requests for the current filters."
+                  sortBy={sortBy}
+                  selectedTests={selectedTests}
+                  onToggleTest={(id) => {
+                    setSelectedTests((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(id)) next.delete(id)
+                      else next.add(id)
+                      return next
+                    })
+                  }}
+                  onSelectAll={() => {
+                    setSelectedTests(new Set(filteredPending.map((t) => t.id)))
+                  }}
+                  onDeselectAll={() => setSelectedTests(new Set())}
+                  showBulkActions={bulkActionsEnabled}
+                  onBulkAssign={(testIds) => {
+                    if (testIds.length === 0) return
+                    openAssignDialog(testIds)
+                  }}
+                  onBulkUpdateStatus={(testIds) => {
+                    if (testIds.length === 0) return
+                    setBulkStatusTestIds(testIds)
+                    setBulkStatusOpen(true)
+                  }}
                 />
               </TabsContent>
 
@@ -404,6 +621,21 @@ export function RadiologistDashboard() {
                   tests={filteredCompleted}
                   onSelectTest={setSelectedTestId}
                   emptyMessage="No completed scans in this view."
+                  sortBy={sortBy}
+                  selectedTests={selectedTests}
+                  onToggleTest={(id) => {
+                    setSelectedTests((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(id)) next.delete(id)
+                      else next.add(id)
+                      return next
+                    })
+                  }}
+                  onSelectAll={() => {
+                    setSelectedTests(new Set(filteredCompleted.map((t) => t.id)))
+                  }}
+                  onDeselectAll={() => setSelectedTests(new Set())}
+                  showBulkActions={bulkActionsEnabled}
                 />
               </TabsContent>
 
@@ -412,6 +644,21 @@ export function RadiologistDashboard() {
                   tests={filteredAll}
                   onSelectTest={setSelectedTestId}
                   emptyMessage="No radiology scans match your filters."
+                  sortBy={sortBy}
+                  selectedTests={selectedTests}
+                  onToggleTest={(id) => {
+                    setSelectedTests((prev) => {
+                      const next = new Set(prev)
+                      if (next.has(id)) next.delete(id)
+                      else next.add(id)
+                      return next
+                    })
+                  }}
+                  onSelectAll={() => {
+                    setSelectedTests(new Set(filteredAll.map((t) => t.id)))
+                  }}
+                  onDeselectAll={() => setSelectedTests(new Set())}
+                  showBulkActions={bulkActionsEnabled}
                 />
               </TabsContent>
             </Tabs>
@@ -676,7 +923,9 @@ export function RadiologistDashboard() {
                         Me ({user?.name || "Current user"})
                       </SelectItem>
                     )}
-                    {radiologists.map((r) => (
+                    {radiologists
+                      .filter((r) => r.id !== myUserId)
+                      .map((r) => (
                       <SelectItem key={r.id} value={r.id}>
                         {r.name}
                       </SelectItem>
@@ -686,19 +935,59 @@ export function RadiologistDashboard() {
               </div>
             </div>
             <p className="text-xs">
-              Assigning a case updates the underlying lab test record and lets dashboards show per-radiologist workload
+              Assigning {assignStudyIds.length > 1 ? "cases" : "a case"} updates the underlying lab test record and lets dashboards show per-radiologist workload
               and ownership. You can reassign at any time.
             </p>
             <div className="flex justify-end gap-2 pt-1">
-              <Button variant="outline" size="sm" onClick={() => setAssignInfoOpen(false)}>
+              <Button variant="outline" size="sm" onClick={() => {
+                setAssignInfoOpen(false)
+                setAssignStudyIds([])
+              }}>
                 Cancel
               </Button>
               <Button
                 size="sm"
                 onClick={handleAssign}
-                disabled={!assignStudyId || !assignRadiologistId || assigning}
+                disabled={(!assignStudyId && assignStudyIds.length === 0) || !assignRadiologistId || assigning}
               >
-                {assigning ? "Assigning..." : "Assign case"}
+                {assigning ? "Assigning..." : assignStudyIds.length > 1 ? `Assign ${assignStudyIds.length} cases` : "Assign case"}
+              </Button>
+            </div>
+          </div>
+        </DialogContent>
+      </Dialog>
+
+      <Dialog open={bulkStatusOpen} onOpenChange={setBulkStatusOpen}>
+        <DialogContent>
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Info className="h-4 w-4 text-sky-500" />
+              Update Status for {bulkStatusTestIds.length} Case{bulkStatusTestIds.length > 1 ? "s" : ""}
+            </DialogTitle>
+          </DialogHeader>
+          <div className="space-y-4">
+            <div className="space-y-2">
+              <Label>New Status</Label>
+              <Select value={bulkStatusValue} onValueChange={setBulkStatusValue}>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="Completed">Completed</SelectItem>
+                  <SelectItem value="Cancelled">Cancelled</SelectItem>
+                  <SelectItem value="Pending">Pending</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="flex justify-end gap-2">
+              <Button variant="outline" onClick={() => {
+                setBulkStatusOpen(false)
+                setBulkStatusTestIds([])
+              }}>
+                Cancel
+              </Button>
+              <Button onClick={handleBulkStatusUpdate}>
+                Update {bulkStatusTestIds.length} Case{bulkStatusTestIds.length > 1 ? "s" : ""}
               </Button>
             </div>
           </div>

@@ -5,19 +5,73 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
-import { FileText, Scan } from "lucide-react"
+import { FileText, Scan, CheckSquare, Square } from "lucide-react"
 
 interface RadiologyTestQueueProps {
   tests: LabResult[]
   onSelectTest: (testId: string) => void
   emptyMessage: string
+  sortBy?: string
+  selectedTests?: Set<string>
+  onToggleTest?: (testId: string) => void
+  onSelectAll?: () => void
+  onDeselectAll?: () => void
+  showBulkActions?: boolean
+  onBulkAssign?: (testIds: string[]) => void
+  onBulkUpdateStatus?: (testIds: string[]) => void
 }
 
-export function RadiologyTestQueue({ tests, onSelectTest, emptyMessage }: RadiologyTestQueueProps) {
+export function RadiologyTestQueue({
+  tests,
+  onSelectTest,
+  emptyMessage,
+  sortBy = "date-desc",
+  selectedTests = new Set(),
+  onToggleTest,
+  onSelectAll,
+  onDeselectAll,
+  showBulkActions = false,
+  onBulkAssign,
+  onBulkUpdateStatus,
+}: RadiologyTestQueueProps) {
   const sortedTests = [...tests].sort((a, b) => {
-    const aDate = a.orderedDate ? new Date(a.orderedDate).getTime() : 0
-    const bDate = b.orderedDate ? new Date(b.orderedDate).getTime() : 0
-    return bDate - aDate
+    switch (sortBy) {
+      case "date-asc": {
+        const aDate = a.orderedDate ? new Date(a.orderedDate).getTime() : 0
+        const bDate = b.orderedDate ? new Date(b.orderedDate).getTime() : 0
+        return aDate - bDate
+      }
+      case "priority": {
+        const priorityOrder: Record<string, number> = { stat: 3, urgent: 2, routine: 1 }
+        const aPriority = priorityOrder[a.priority?.toLowerCase() || "routine"] || 0
+        const bPriority = priorityOrder[b.priority?.toLowerCase() || "routine"] || 0
+        if (bPriority !== aPriority) return bPriority - aPriority
+        // Fallback to date if same priority
+        const aDate = a.orderedDate ? new Date(a.orderedDate).getTime() : 0
+        const bDate = b.orderedDate ? new Date(b.orderedDate).getTime() : 0
+        return bDate - aDate
+      }
+      case "age": {
+        const aAge = a.orderedDate ? Date.now() - new Date(a.orderedDate).getTime() : 0
+        const bAge = b.orderedDate ? Date.now() - new Date(b.orderedDate).getTime() : 0
+        return bAge - aAge // Oldest first
+      }
+      case "patient": {
+        const aName = (a.patientName || "").toLowerCase()
+        const bName = (b.patientName || "").toLowerCase()
+        if (aName !== bName) return aName.localeCompare(bName)
+        // Fallback to date if same patient
+        const aDate = a.orderedDate ? new Date(a.orderedDate).getTime() : 0
+        const bDate = b.orderedDate ? new Date(b.orderedDate).getTime() : 0
+        return bDate - aDate
+      }
+      case "date-desc":
+      default: {
+        const aDate = a.orderedDate ? new Date(a.orderedDate).getTime() : 0
+        const bDate = b.orderedDate ? new Date(b.orderedDate).getTime() : 0
+        return bDate - aDate
+      }
+    }
   })
 
   const formatDate = (value?: string) => {
@@ -66,13 +120,42 @@ export function RadiologyTestQueue({ tests, onSelectTest, emptyMessage }: Radiol
     return "Unassigned"
   }
 
+  const allSelected = tests.length > 0 && tests.every((t) => selectedTests.has(t.id))
+  const someSelected = tests.some((t) => selectedTests.has(t.id))
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Radiology Scans</CardTitle>
-        <CardDescription>
-          High-priority worklist of radiology scan requests with aging, status, and assignment
-        </CardDescription>
+        <div className="flex items-center justify-between">
+          <div>
+            <CardTitle>Radiology Scans</CardTitle>
+            <CardDescription>
+              High-priority worklist of radiology scan requests with aging, status, and assignment
+            </CardDescription>
+          </div>
+          {showBulkActions && someSelected && (
+            <div className="flex gap-2">
+              {onBulkAssign && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onBulkAssign(Array.from(selectedTests))}
+                >
+                  Assign Selected ({selectedTests.size})
+                </Button>
+              )}
+              {onBulkUpdateStatus && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => onBulkUpdateStatus(Array.from(selectedTests))}
+                >
+                  Update Status ({selectedTests.size})
+                </Button>
+              )}
+            </div>
+          )}
+        </div>
       </CardHeader>
       <CardContent>
         {tests.length === 0 ? (
@@ -87,6 +170,23 @@ export function RadiologyTestQueue({ tests, onSelectTest, emptyMessage }: Radiol
           <Table>
             <TableHeader>
               <TableRow>
+                {showBulkActions && (
+                  <TableHead className="w-12">
+                    <button
+                      onClick={() => {
+                        if (allSelected && onDeselectAll) onDeselectAll()
+                        else if (onSelectAll) onSelectAll()
+                      }}
+                      className="p-1 hover:bg-muted rounded"
+                    >
+                      {allSelected ? (
+                        <CheckSquare className="h-4 w-4" />
+                      ) : (
+                        <Square className="h-4 w-4" />
+                      )}
+                    </button>
+                  </TableHead>
+                )}
                 <TableHead>Patient</TableHead>
                 <TableHead>Study</TableHead>
                 <TableHead>Status</TableHead>
@@ -125,6 +225,16 @@ export function RadiologyTestQueue({ tests, onSelectTest, emptyMessage }: Radiol
 
                 return (
                   <TableRow key={test.id} className={isPending ? "bg-background" : "bg-muted/30"}>
+                    {showBulkActions && onToggleTest && (
+                      <TableCell>
+                        <input
+                          type="checkbox"
+                          checked={selectedTests.has(test.id)}
+                          onChange={() => onToggleTest(test.id)}
+                          className="rounded border-border"
+                        />
+                      </TableCell>
+                    )}
                     <TableCell>
                       <div className="flex flex-col">
                         <span className="font-medium text-foreground">{test.patientName || "Unknown patient"}</span>

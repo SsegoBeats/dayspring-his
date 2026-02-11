@@ -160,6 +160,38 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         return NextResponse.json({ error: friendly, details: process.env.NODE_ENV === 'production' ? undefined : msg }, { status: code })
       }
       try { await writeAuditLog({ userId: auth.userId, action: 'UPDATE', entityType: 'LabTest', entityId: id, details: { ...body } }) } catch {}
+      
+      // Notify assigned radiologist when a case is assigned
+      if (body.assignedRadiologistId && body.assignedRadiologistId !== auth.userId) {
+        try {
+          const { rows: testRows } = await query(
+            `SELECT lt.test_name, lt.test_type, lt.priority, lt.patient_id, p.first_name, p.last_name
+             FROM lab_tests lt
+             LEFT JOIN patients p ON p.id = lt.patient_id
+             WHERE lt.id = $1`,
+            [id]
+          )
+          const test = testRows[0]
+          if (test) {
+            const patientName = test.first_name && test.last_name 
+              ? `${test.first_name} ${test.last_name}`.trim()
+              : 'patient'
+            await query(
+              `INSERT INTO notifications (user_id, title, message, type, priority, payload)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                body.assignedRadiologistId,
+                'Radiology Case Assigned',
+                `Case assigned: ${test.test_name || test.test_type} for ${patientName}`,
+                'Radiology',
+                test.priority === 'Stat' || test.priority === 'Urgent' ? 'High' : 'Standard',
+                JSON.stringify({ testId: id, patientId: test.patient_id })
+              ]
+            )
+          }
+        } catch {}
+      }
+      
       return NextResponse.json({ success: true })
     }
 

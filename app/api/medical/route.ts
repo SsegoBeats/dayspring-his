@@ -65,8 +65,12 @@ export async function GET() {
                 lt.ordered_at AS ordered_date,
                 lt.completed_at AS completed_date,
                 lt.assigned_radiologist_id,
-                ar.name AS assigned_radiologist_name
+                ar.name AS assigned_radiologist_name,
+                TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS patient_name,
+                d.name AS doctor_name
            FROM lab_tests lt
+           LEFT JOIN patients p ON p.id = lt.patient_id
+           LEFT JOIN users d ON d.id = lt.doctor_id
            LEFT JOIN users ar ON ar.id = lt.assigned_radiologist_id
           ORDER BY lt.ordered_at DESC
           LIMIT 500`,

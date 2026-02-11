@@ -220,15 +220,51 @@ export async function POST(req: Request) {
 
     if (!created.length) return NextResponse.json({ error: "No tests were created. Ensure testName or LOINC code is provided." }, { status: 400 })
 
-    // Notify Lab department
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/notify/department`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ department: 'lab', title: 'New Lab Tests Ordered', message: `${created.length} test(s) ordered`, payload: { patientId } })
-      })
-    } catch {}
+    // Check if any radiology tests were created
+    const radiologyTests = created.filter((t: any) => 
+      t.testName && ["X-Ray", "CT Scan", "MRI", "Ultrasound", "Mammography"].includes(t.testName)
+    )
+
+    // Notify Lab department for non-radiology tests
+    const nonRadiologyTests = created.filter((t: any) => !radiologyTests.includes(t))
+    if (nonRadiologyTests.length > 0) {
+      try {
+        await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ''}/api/notify/department`, {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ department: 'lab', title: 'New Lab Tests Ordered', message: `${nonRadiologyTests.length} test(s) ordered`, payload: { patientId } })
+        })
+      } catch {}
+    }
+
+    // Notify Radiologists for radiology tests
+    if (radiologyTests.length > 0) {
+      try {
+        const { query } = await import("@/lib/db")
+        const { rows: radiologists } = await query<{ id: string }>(
+          "SELECT id FROM users WHERE role = 'Radiologist' AND is_active = true"
+        )
+        const priority = created.some((t: any) => radiologyTests.includes(t) && (t.priority === 'Stat' || t.priority === 'Urgent')) 
+          ? 'High' 
+          : 'Standard'
+        
+        for (const rad of radiologists) {
+          await query(
+            `INSERT INTO notifications (user_id, title, message, type, priority, payload)
+             VALUES ($1, $2, $3, $4, $5, $6)`,
+            [
+              rad.id,
+              `New Radiology ${radiologyTests.length > 1 ? 'Studies' : 'Study'} Ordered`,
+              `${radiologyTests.length} radiology ${radiologyTests.length > 1 ? 'studies' : 'study'} ordered${priority === 'High' ? ' (Priority: STAT/Urgent)' : ''}`,
+              'Radiology',
+              priority,
+              JSON.stringify({ patientId, testIds: radiologyTests.map((t: any) => t.id), count: radiologyTests.length })
+            ]
+          )
+        }
+      } catch {}
+    }
 
     return NextResponse.json({ tests: created })
   } catch (e:any) {

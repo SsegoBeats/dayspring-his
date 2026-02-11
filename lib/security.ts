@@ -143,8 +143,10 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
     beds: ["read"], // Can view bed status for patient care decisions
   },
   Radiologist: {
+    medical: ["read", "create"], // Lab/radiology worklist and Add Scan
     radiology: ["read", "create", "update"],
     patients: ["read"],
+    documents: ["create", "read"], // Upload Study (manual uploads)
     beds: ["read"], // Can view bed status for patient care decisions
   },
   Nurse: {
