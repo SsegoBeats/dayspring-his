@@ -856,8 +856,9 @@ export function UserManagement() {
                       <Trash2 className="h-4 w-4 text-destructive" />
                     )}
                   </Button>
+                    </div>
+                  </div>
                 </div>
-              </div>
               ))}
               </div>
 

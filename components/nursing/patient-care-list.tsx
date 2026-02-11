@@ -11,7 +11,6 @@ import { Badge } from "@/components/ui/badge"
 import { Search, Stethoscope, Loader2 } from "lucide-react"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
-import { useNursing } from "@/lib/nursing-context"
 
 interface PatientCareListProps {
   onSelectPatient: (patientId: string, tab?: 'vitals'|'notes') => void
