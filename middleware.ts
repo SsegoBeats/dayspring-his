@@ -1,8 +1,7 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-// Note: Avoid heavy JWT verification in proxy (edge runtime).
 
-export function proxy(req: NextRequest) {
+export function middleware(req: NextRequest) {
   const url = req.nextUrl
   const token = req.cookies.get("session")?.value || req.cookies.get("session_dev")?.value
   const protectedPrefixes = ["/appointments", "/billing", "/medical-history"]
@@ -26,9 +25,8 @@ export const config = {
      * Match all request paths except for the ones starting with:
      * - _next (Next.js internals)
      * - api/public (public API routes)
-     * - public (public folder path)
-     * - Static files (images, fonts, etc.)
+     * - Static files (images, fonts, CSS, JS, etc.) - files ending with common extensions
      */
-    "/((?!_next|api/public|public|.*\\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|css|js|json|xml|pdf|txt|webmanifest|sw\\.js)).*)"
+    "/((?!_next/static|_next/image|api/public|favicon.ico|.*\\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|css|js|json|xml|pdf|txt|webmanifest|sw\\.js)$).*)"
   ]
 }
