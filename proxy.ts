@@ -25,7 +25,7 @@ export const config = {
      * Match all request paths except:
      * - _next (Next.js internals)
      * - api/public (public API routes)
-     * - Static files (common extensions)
+     * - Static files (common extensions) - using simpler pattern
      */
     "/((?!_next|api/public|.*\\.(png|jpg|jpeg|gif|svg|ico|webp|woff|woff2|ttf|eot|css|js|json|xml|pdf|txt|webmanifest|sw\\.js)).*)"
   ]
