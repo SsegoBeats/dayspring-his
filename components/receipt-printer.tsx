@@ -1,5 +1,6 @@
 "use client"
 
+import { useState, useEffect } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { BarcodeGenerator } from "./barcode-generator"
@@ -47,6 +48,20 @@ export function ReceiptPrinter({
 }: ReceiptPrinterProps) {
   const formatCurrency = useFormatCurrency()
   const { formatDateTime } = useFormatDate()
+  const [org, setOrg] = useState<{ logoUrl?: string; name?: string; phone?: string; location?: string } | null>(null)
+
+  useEffect(() => {
+    fetch("/api/settings/org", { credentials: "include" })
+      .then((r) => r.ok ? r.json() : null)
+      .then((data) => data?.settings && setOrg(data.settings))
+      .catch(() => {})
+  }, [])
+
+  const logoUrl = (org?.logoUrl && org.logoUrl !== "/logo.png") ? org.logoUrl : "/logo0.png"
+  const orgName = org?.name || "Dayspring Medical Center"
+  const orgPhone = org?.phone || process.env.NEXT_PUBLIC_ORG_PHONE || "See reception for contact details"
+  const orgLocation = org?.location || org?.address || "Kampala, Uganda"
+
   const handlePrint = () => {
     window.print()
   }
@@ -66,14 +81,24 @@ export function ReceiptPrinter({
         </Button>
       </div>
 
-      <Card className="p-8 max-w-2xl mx-auto print:shadow-none print:border-0">
-        {/* Header */}
+      <Card className="receipt-print-only p-8 max-w-2xl mx-auto print:shadow-none print:border print:border-gray-200 print:max-w-none print:mx-0">
+        {/* Header with logo */}
         <div className="text-center border-b-2 border-primary pb-4 mb-6">
-          <h1 className="text-2xl font-bold text-primary">Dayspring Medical Center</h1>
-          <p className="text-sm text-muted-foreground">Quality Healthcare for Everyone</p>
-          <p className="text-xs text-muted-foreground mt-1">
-            Kampala, Uganda | Tel: {process.env.NEXT_PUBLIC_ORG_PHONE || "See reception for contact details"}
-          </p>
+          <div className="flex flex-col items-center gap-3">
+            <img
+              src={logoUrl}
+              alt={`${orgName} logo`}
+              className="h-14 w-14 object-contain print:h-16 print:w-16"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+            />
+            <div>
+              <h1 className="text-2xl font-bold text-primary">{orgName}</h1>
+              <p className="text-sm text-muted-foreground">Quality Healthcare for Everyone</p>
+              <p className="text-xs text-muted-foreground mt-1">
+                {orgLocation} | Tel: {orgPhone}
+              </p>
+            </div>
+          </div>
         </div>
 
         {/* Receipt Type */}
@@ -163,7 +188,7 @@ export function ReceiptPrinter({
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground border-t pt-4">
-          <p>Thank you for choosing Dayspring Medical Center</p>
+          <p>Thank you for choosing {orgName}</p>
           <p className="mt-1">Please keep this receipt for your records</p>
           {type === "payment" && (
             <p className="mt-2 font-semibold">Present this receipt at the pharmacy to collect your medications</p>

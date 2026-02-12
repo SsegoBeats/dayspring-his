@@ -36,7 +36,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
 
   return (
     <div className="flex min-h-screen flex-col">
-      <header className="sticky top-0 z-50 border-b border-border bg-card">
+      <header className="sticky top-0 z-50 border-b border-border bg-card print:hidden">
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
             <Hospital className="h-6 w-6 text-primary" />
@@ -71,7 +71,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </div>
       </header>
-      <main className="flex-1 bg-secondary/30 p-6">{children}</main>
+      <main className="flex-1 bg-secondary/30 p-6 print:p-0 print:bg-white print:min-h-0">{children}</main>
       <AdminDeletionWatcher userRole={user?.role} />
 
     </div>

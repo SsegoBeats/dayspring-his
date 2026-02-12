@@ -124,3 +124,28 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* Print: only receipt/content, hide app chrome */
+@media print {
+  body {
+    background: white !important;
+  }
+  /* Hide header, nav, dialogs, notifications, back/print buttons */
+  header,
+  [data-sonner-toaster],
+  [role="dialog"],
+  .print\:hidden {
+    display: none !important;
+  }
+  /* Main content: no padding, fit receipt */
+  main {
+    padding: 0 !important;
+    background: white !important;
+  }
+  /* Receipt: single page, no extra margins */
+  .receipt-print-only {
+    max-width: 100% !important;
+    box-shadow: none !important;
+    page-break-inside: avoid;
+  }
+}
