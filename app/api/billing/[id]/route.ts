@@ -5,7 +5,7 @@ import { queryWithSession, query } from "@/lib/db"
 
 export async function GET(
   _req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const cookieStore = await cookies()
@@ -16,7 +16,7 @@ export async function GET(
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const billId = params.id
+    const { id: billId } = await params
     if (!billId) return NextResponse.json({ error: "Missing id" }, { status: 400 })
 
     const [billRes, itemsRes] = await Promise.all([
@@ -63,7 +63,11 @@ export async function GET(
       items: itemsRes.rows,
     })
   } catch (err: any) {
-    return NextResponse.json({ error: "Failed to fetch bill" }, { status: 500 })
+    console.error("[billing] GET bill error:", err?.message || err)
+    return NextResponse.json(
+      { error: err?.message || "Failed to fetch bill" },
+      { status: 500 },
+    )
   }
 }
 
@@ -104,8 +108,16 @@ export async function PATCH(
     const finalAmount = Number(currentBill.final_amount)
     const currentPaidAmount = Number(currentBill.paid_amount) || 0
     const requestedPaidAmount = body.paidAmount !== undefined ? Number(body.paidAmount) : finalAmount
-    const paymentMethod = body.paymentMethod || null
-    const notes = body.notes || null
+
+    // Validate requested paid amount
+    if (Number.isNaN(requestedPaidAmount) || requestedPaidAmount < 0) {
+      return NextResponse.json({ error: "Invalid payment amount" }, { status: 400 })
+    }
+    if (requestedPaidAmount > finalAmount && body.status !== "Cancelled") {
+      return NextResponse.json({ error: "Payment amount cannot exceed bill total" }, { status: 400 })
+    }
+
+    const paymentMethod = body.paymentMethod != null ? String(body.paymentMethod).trim().slice(0, 50) : null
 
     // Determine status based on paid amount
     let status = body.status
@@ -144,7 +156,11 @@ export async function PATCH(
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {
-    return NextResponse.json({ error: "Failed to update bill" }, { status: 500 })
+    console.error("[billing] PATCH payment error:", err?.message || err)
+    return NextResponse.json(
+      { error: err?.message || "Failed to process payment" },
+      { status: 500 },
+    )
   }
 }
 

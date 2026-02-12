@@ -34,6 +34,8 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const [processing, setProcessing] = useState(false)
   const [paymentType, setPaymentType] = useState<"full" | "partial" | "cancel">("full")
   const [partialAmount, setPartialAmount] = useState<number>(0)
+  const [mobileMoneyPhone, setMobileMoneyPhone] = useState("")
+  const [awaitingMobileMoney, setAwaitingMobileMoney] = useState(false)
 
   if (!bill) {
     return (
@@ -46,6 +48,39 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
         </CardContent>
       </Card>
     )
+  }
+
+  const isOnlinePayment = paymentMethod === "Mobile Money" || paymentMethod === "Card"
+
+  const handleInitiatePesapal = async () => {
+    setProcessing(true)
+    try {
+      const res = await fetch("/api/pesapal/initiate", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          billId: bill.id,
+          amount: paymentType === "partial" ? partialAmount : bill.total - (bill.paidAmount || 0),
+          email: patient?.email,
+          phoneNumber: (mobileMoneyPhone || patient?.phone || "").trim() || undefined,
+        }),
+      })
+      const data = (await res.json()) as { redirectUrl?: string; error?: string }
+      if (!res.ok) {
+        toast.error(data?.error || "Failed to initiate payment")
+        return
+      }
+      if (data.redirectUrl) {
+        window.open(data.redirectUrl, "_blank", "noopener,noreferrer")
+        setAwaitingMobileMoney(true)
+        toast.success("Payment page opened. Patient should complete payment. This page will update when payment is received.")
+      }
+    } catch (err) {
+      toast.error("Failed to initiate payment")
+    } finally {
+      setProcessing(false)
+    }
   }
 
   const handleProcessPayment = async () => {
@@ -65,6 +100,10 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
     } else {
       if (!paymentMethod) {
         toast.error("Please select a payment method")
+        return
+      }
+      if (isOnlinePayment) {
+        toast.error("Use the 'Initiate Payment' button to pay via Mobile Money or Card")
         return
       }
     }
@@ -90,8 +129,9 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
         }),
       })
       if (!res.ok) {
-        const err = await res.json().catch(() => ({}))
-        toast.error(err.error || "Failed to process payment")
+        const err = await res.json().catch(() => ({})) as { error?: string }
+        const message = err?.error || `Payment failed (${res.status})`
+        toast.error(message)
         return
       }
       
@@ -116,8 +156,10 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
       } else {
         onBack()
       }
-    } catch {
-      toast.error("Failed to process payment")
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : ""
+      const isNetworkError = /fetch|network|failed to fetch/i.test(msg)
+      toast.error(isNetworkError ? "Network error. Please check your connection and try again." : "Failed to process payment")
     } finally {
       setProcessing(false)
     }
@@ -330,13 +372,29 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                       </SelectTrigger>
                       <SelectContent>
                         <SelectItem value="Cash">Cash</SelectItem>
-                        <SelectItem value="Credit Card">Credit Card</SelectItem>
-                        <SelectItem value="Debit Card">Debit Card</SelectItem>
-                        <SelectItem value="Insurance">Insurance</SelectItem>
-                        <SelectItem value="Bank Transfer">Bank Transfer</SelectItem>
+                        <SelectItem value="Mobile Money">Mobile Money (MTN, Airtel)</SelectItem>
+                        <SelectItem value="Card">Card</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>
+
+                  {isOnlinePayment && (
+                    <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
+                      <Label htmlFor="mobileMoneyPhone">Patient phone (optional, for pre-fill)</Label>
+                      <Input
+                        id="mobileMoneyPhone"
+                        type="tel"
+                        placeholder={patient?.phone ? `e.g. ${patient.phone}` : "e.g. 0771234567"}
+                        value={mobileMoneyPhone}
+                        onChange={(e) => setMobileMoneyPhone(e.target.value)}
+                      />
+                      <p className="text-xs text-muted-foreground">
+                        {paymentMethod === "Mobile Money"
+                          ? "Patient will select MTN or Airtel on the payment page."
+                          : "Patient will complete card payment on the secure payment page."}
+                      </p>
+                    </div>
+                  )}
 
                   {paymentType === "partial" && (
                     <div className="space-y-2">
@@ -369,32 +427,54 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                 </>
               )}
 
-              <div className="flex gap-2">
-                <Button
-                  onClick={handleProcessPayment}
-                  className="flex-1"
-                  disabled={processing}
-                  variant={paymentType === "cancel" ? "destructive" : "default"}
-                >
-                  {processing ? (
-                    <>
-                      <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                      Processing...
-                    </>
-                  ) : paymentType === "cancel" ? (
-                    <>
-                      <XCircle className="mr-2 h-4 w-4" />
-                      Cancel Bill
-                    </>
-                  ) : (
-                    <>
-                      <CreditCard className="mr-2 h-4 w-4" />
-                      {paymentType === "partial"
-                        ? `Process Partial Payment - ${formatCurrency(partialAmount)}`
-                        : `Process Full Payment - ${formatCurrency(bill.total - (bill.paidAmount || 0))}`}
-                    </>
-                  )}
-                </Button>
+              <div className="flex flex-wrap gap-2">
+                {isOnlinePayment ? (
+                  <Button
+                    onClick={handleInitiatePesapal}
+                    className="flex-1"
+                    disabled={processing || (paymentType === "partial" && (partialAmount <= 0 || partialAmount > bill.total - (bill.paidAmount || 0)))}
+                  >
+                    {processing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Initiating...
+                      </>
+                    ) : (
+                      <>Initiate Payment</>
+                    )}
+                  </Button>
+                ) : (
+                  <Button
+                    onClick={handleProcessPayment}
+                    className="flex-1"
+                    disabled={processing}
+                    variant={paymentType === "cancel" ? "destructive" : "default"}
+                  >
+                    {processing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : paymentType === "cancel" ? (
+                      <>
+                        <XCircle className="mr-2 h-4 w-4" />
+                        Cancel Bill
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        {paymentType === "partial"
+                          ? `Process Partial Payment - ${formatCurrency(partialAmount)}`
+                          : `Process Full Payment - ${formatCurrency(bill.total - (bill.paidAmount || 0))}`}
+                      </>
+                    )}
+                  </Button>
+                )}
+                {awaitingMobileMoney && (
+                  <Button variant="outline" onClick={async () => { await refreshBills(); setAwaitingMobileMoney(false); }}>
+                    Check Payment Status
+                  </Button>
+                )}
                 <Button variant="outline" onClick={onBack} disabled={processing}>
                   Cancel
                 </Button>
