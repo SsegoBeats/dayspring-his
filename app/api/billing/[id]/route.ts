@@ -138,16 +138,17 @@ export async function PATCH(
       ? requestedPaidAmount 
       : (status === "Paid" ? finalAmount : currentPaidAmount)
 
+    const paidNum = Number(newPaidAmount)
     const { rowCount } = await queryWithSession(
       { role: auth.role, userId: auth.userId },
       `UPDATE bills SET
          status = $1,
          payment_method = COALESCE($2, payment_method),
-         paid_amount = $3,
-         paid_at = CASE WHEN $3 > 0 AND paid_at IS NULL THEN CURRENT_TIMESTAMP ELSE paid_at END,
+         paid_amount = $3::numeric,
+         paid_at = CASE WHEN ($3::numeric) > 0 AND paid_at IS NULL THEN CURRENT_TIMESTAMP ELSE paid_at END,
          cashier_id = $4
        WHERE id = $5`,
-      [status, paymentMethod, newPaidAmount, auth.userId, billId],
+      [status, paymentMethod, paidNum, auth.userId, billId],
     )
 
     if (!rowCount || rowCount === 0) {

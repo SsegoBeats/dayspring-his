@@ -11,9 +11,10 @@ import { BillQueue } from "./bill-queue"
 interface OverdueBillsProps {
   onBack: () => void
   onSelectBill?: (billId: string) => void
+  onEditBill?: (billId: string) => void
 }
 
-export function OverdueBills({ onBack, onSelectBill }: OverdueBillsProps) {
+export function OverdueBills({ onBack, onSelectBill, onEditBill }: OverdueBillsProps) {
   const { getOverdueBills } = useBilling()
   const formatCurrency = useFormatCurrency()
   const overdueBills = getOverdueBills()
@@ -25,15 +26,17 @@ export function OverdueBills({ onBack, onSelectBill }: OverdueBillsProps) {
 
   return (
     <div className="space-y-6">
-      <div className="flex items-center justify-between">
-        <div className="flex items-center gap-3">
-          <Button variant="outline" onClick={onBack}>
-            <ArrowLeft className="mr-2 h-4 w-4" />
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+        <div className="flex items-center gap-4">
+          <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 shrink-0">
+            <ArrowLeft className="h-4 w-4" />
             Back
           </Button>
           <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">Overdue Bills</h2>
-            <p className="text-muted-foreground">Bills that are past their due date</p>
+            <h2 className="text-xl font-bold tracking-tight text-foreground sm:text-2xl">
+              Overdue Bills
+            </h2>
+            <p className="text-sm text-muted-foreground">Bills that are past their due date</p>
           </div>
         </div>
       </div>
@@ -101,7 +104,8 @@ export function OverdueBills({ onBack, onSelectBill }: OverdueBillsProps) {
       ) : (
         <BillQueue
           bills={overdueBills}
-          onSelectBill={onSelectBill}
+          onSelectBill={onSelectBill ?? (() => {})}
+          onEditBill={onEditBill}
           emptyMessage="No overdue bills found."
           showCreateButton={false}
         />

@@ -1,6 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { useAuth } from "@/lib/auth-context"
+import { can } from "@/lib/security"
 
 export interface MedicalRecord {
   id: string
@@ -222,6 +224,7 @@ async function fetchAndMapMedicalData(): Promise<{
 }
 
 export function MedicalProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([])
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [labResults, setLabResults] = useState<LabResult[]>([])
@@ -230,7 +233,10 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
   const [immunizations, setImmunizations] = useState<Immunization[]>([])
   const [chronicConditions, setChronicConditions] = useState<ChronicCondition[]>([])
 
+  const hasMedicalAccess = user && can(user.role, "medical", "read")
+
   const loadMedicalData = async () => {
+    if (!hasMedicalAccess) return
     try {
       const result = await fetchAndMapMedicalData()
       if (result) {
@@ -253,8 +259,9 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    if (!hasMedicalAccess) return
     loadMedicalData()
-  }, [])
+  }, [hasMedicalAccess])
 
   const addMedicalRecord = (record: Omit<MedicalRecord, "id">) => {
     const newRecord: MedicalRecord = {

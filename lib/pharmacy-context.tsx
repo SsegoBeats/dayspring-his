@@ -1,6 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { useAuth } from "@/lib/auth-context"
+import { can } from "@/lib/security"
 
 export interface Medication {
   id: string
@@ -82,12 +84,16 @@ interface PharmacyContextType {
 const PharmacyContext = createContext<PharmacyContextType | undefined>(undefined)
 
 export function PharmacyProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [medications, setMedications] = useState<Medication[]>([])
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([])
 
+  const hasPharmacyAccess = user && can(user.role, "pharmacy", "read")
+
   const refreshMedications = async () => {
+    if (!hasPharmacyAccess) return
     try {
       const res = await fetch("/api/pharmacy/medications", { credentials: 'include' })
       if (res.ok) {
@@ -127,12 +133,13 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
   }
 
   useEffect(() => {
+    if (!hasPharmacyAccess) return
     ;(async () => {
       await refreshMedications()
       // Suppliers are loaded from backend once related APIs are wired
       setSuppliers([])
     })()
-  }, [])
+  }, [hasPharmacyAccess])
 
   // Removed localStorage persistence in favor of backend as source of truth
 

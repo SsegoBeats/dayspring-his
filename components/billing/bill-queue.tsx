@@ -10,6 +10,7 @@ import { useFormatCurrency } from "@/lib/settings-context"
 interface BillQueueProps {
   bills: Bill[]
   onSelectBill: (billId: string) => void
+  onEditBill?: (billId: string) => void
   onCreateBill?: () => void
   emptyMessage: string
   showCreateButton?: boolean
@@ -19,16 +20,16 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, empty
   const formatCurrency = useFormatCurrency()
   
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-border/60">
+      <CardHeader className="pb-3">
         <div className="flex items-center justify-between">
           <div>
-            <CardTitle>Bills & Invoices</CardTitle>
-            <CardDescription>View and process patient bills</CardDescription>
+            <CardTitle className="text-base">Bills & Invoices</CardTitle>
+            <CardDescription className="text-xs">View and process patient bills</CardDescription>
           </div>
-          {showCreateButton && (
-            <Button onClick={onCreateBill}>
-              <Plus className="mr-2 h-4 w-4" />
+          {showCreateButton && onCreateBill && (
+            <Button size="sm" onClick={onCreateBill} className="gap-1.5">
+              <Plus className="h-4 w-4" />
               Create Bill
             </Button>
           )}
@@ -36,14 +37,14 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, empty
       </CardHeader>
       <CardContent>
         {bills.length === 0 ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-10 text-center">
-            <div className="flex h-10 w-10 items-center justify-center rounded-full bg-slate-50 text-slate-500">
-              <FileText className="h-5 w-5" />
+          <div className="flex flex-col items-center justify-center gap-3 rounded-lg border border-dashed border-border/60 bg-muted/30 py-12 text-center">
+            <div className="flex h-12 w-12 items-center justify-center rounded-full bg-muted text-muted-foreground">
+              <FileText className="h-6 w-6" />
             </div>
             <p className="text-sm font-medium text-foreground">{emptyMessage}</p>
             {showCreateButton && onCreateBill && (
-              <Button variant="outline" size="sm" className="mt-1" onClick={onCreateBill}>
-                <Plus className="mr-2 h-4 w-4" />
+              <Button variant="outline" size="sm" onClick={onCreateBill} className="gap-1.5">
+                <Plus className="h-4 w-4" />
                 Create Bill
               </Button>
             )}
@@ -53,7 +54,7 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, empty
             {bills.map((bill) => (
               <div
                 key={bill.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-all hover:bg-accent hover:shadow-sm"
+                className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -89,14 +90,14 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, empty
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{bill.items.length} item(s)</p>
                 </div>
-                <div className="flex gap-2">
+                <div className="flex shrink-0 gap-2">
                   {bill.status === "pending" && onEditBill && (
-                    <Button variant="outline" size="sm" onClick={() => onEditBill(bill.id)}>
+                    <Button variant="outline" size="sm" onClick={() => onEditBill(bill.id)} title="Edit bill">
                       <Edit className="h-4 w-4" />
                     </Button>
                   )}
-                  <Button variant="outline" size="sm" onClick={() => onSelectBill(bill.id)}>
-                    <FileText className="mr-2 h-4 w-4" />
+                  <Button size="sm" onClick={() => onSelectBill(bill.id)}>
+                    <FileText className="mr-1.5 h-4 w-4" />
                     {bill.status === "pending" || bill.status === "partially paid" ? "Process" : "View"}
                   </Button>
                 </div>

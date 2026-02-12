@@ -15,9 +15,19 @@ import { EditBill } from "@/components/billing/edit-bill"
 import { FinancialReports } from "@/components/analytics/financial-reports"
 import { OverdueBills } from "@/components/billing/overdue-bills"
 import { ExportTransactions } from "@/components/billing/export-transactions"
-import { DollarSign, Clock, CheckCircle, Receipt } from "lucide-react"
+import {
+  DollarSign,
+  Clock,
+  CheckCircle,
+  Receipt,
+  BarChart3,
+  Plus,
+  FileSpreadsheet,
+  AlertCircle,
+  Search,
+  ArrowLeft,
+} from "lucide-react"
 import { useFormatCurrency } from "@/lib/settings-context"
-import { toast } from "sonner"
 
 export function CashierDashboard() {
   const { bills, getPendingBills, getPartiallyPaidBills } = useBilling()
@@ -25,8 +35,9 @@ export function CashierDashboard() {
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
   const [editingBillId, setEditingBillId] = useState<string | null>(null)
   const [showCreateBill, setShowCreateBill] = useState(false)
-  const [view, setView] = useState<"dashboard" | "reports">("dashboard")
+  const [view, setView] = useState<"dashboard" | "reports" | "overdue" | "export">("dashboard")
   const [searchTerm, setSearchTerm] = useState("")
+  const [activeTab, setActiveTab] = useState("pending")
 
   const pendingBills = getPendingBills()
   const partiallyPaidBills = getPartiallyPaidBills()
@@ -34,9 +45,22 @@ export function CashierDashboard() {
   const todayRevenue = paidBills
     .filter((b) => b.paymentDate === new Date().toISOString().split("T")[0])
     .reduce((sum, b) => sum + b.total, 0)
-  
-  const partiallyPaidAmount = partiallyPaidBills.reduce((sum, b) => sum + (b.paidAmount || 0), 0)
-  const partiallyPaidRemaining = partiallyPaidBills.reduce((sum, b) => sum + (b.total - (b.paidAmount || 0)), 0)
+
+  const partiallyPaidRemaining = partiallyPaidBills.reduce(
+    (sum, b) => sum + (b.total - (b.paidAmount || 0)),
+    0
+  )
+
+  const filterBills = (list: typeof bills) =>
+    list.filter((b) => {
+      const q = searchTerm.trim().toLowerCase()
+      if (!q) return true
+      return (
+        b.patientName.toLowerCase().includes(q) ||
+        b.id.toLowerCase().includes(q) ||
+        (b.billNumber || "").toLowerCase().includes(q)
+      )
+    })
 
   if (editingBillId) {
     return <EditBill billId={editingBillId} onBack={() => setEditingBillId(null)} />
@@ -49,9 +73,15 @@ export function CashierDashboard() {
   if (view === "reports") {
     return (
       <div className="space-y-6">
-        <button onClick={() => setView("dashboard")} className="text-sm text-muted-foreground hover:text-foreground">
-          ← Back to Dashboard
-        </button>
+        <Button
+          variant="ghost"
+          size="sm"
+          onClick={() => setView("dashboard")}
+          className="gap-2 text-muted-foreground hover:text-foreground"
+        >
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
+        </Button>
         <FinancialReports />
       </div>
     )
@@ -62,131 +92,172 @@ export function CashierDashboard() {
       <OverdueBills
         onBack={() => setView("dashboard")}
         onSelectBill={(billId) => setSelectedBillId(billId)}
+        onEditBill={(billId) => {
+          const bill = bills.find((b) => b.id === billId)
+          if (bill?.status === "pending") setEditingBillId(billId)
+        }}
       />
     )
   }
 
   if (view === "export") {
-    return (
-      <ExportTransactions onBack={() => setView("dashboard")} />
-    )
+    return <ExportTransactions onBack={() => setView("dashboard")} />
   }
 
   return (
-    <div className="space-y-6">
-      <div className="flex items-center justify-between">
+    <div className="space-y-8">
+      {/* Header */}
+      <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Cashier Dashboard</h2>
-          <p className="text-muted-foreground">Process payments and manage billing</p>
+          <h1 className="text-2xl font-bold tracking-tight text-foreground sm:text-3xl">
+            Cashier Dashboard
+          </h1>
+          <p className="mt-1 text-muted-foreground">
+            Process payments, manage bills, and track revenue
+          </p>
         </div>
-        <button
-          onClick={() => setView("reports")}
-          className="rounded-md bg-primary px-4 py-2 text-sm font-medium text-primary-foreground shadow-sm hover:bg-primary/90"
-        >
-          View Financial Reports
-        </button>
+        <div className="flex gap-2">
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => setView("reports")}
+            className="gap-2"
+          >
+            <BarChart3 className="h-4 w-4" />
+            Financial Reports
+          </Button>
+          <Button size="sm" onClick={() => setShowCreateBill(true)} className="gap-2">
+            <Plus className="h-4 w-4" />
+            Create Bill
+          </Button>
+        </div>
       </div>
 
-      <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-5">
-        <Card className="border-slate-100 bg-slate-50/60 transition-shadow hover:shadow-sm">
+      {/* Stats */}
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-slate-50 to-slate-100/80 shadow-sm dark:from-slate-900/50 dark:to-slate-800/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-700">Total Bills</CardTitle>
-            <Receipt className="h-4 w-4 text-slate-500" />
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400">
+              Total Bills
+            </CardTitle>
+            <Receipt className="h-5 w-5 text-slate-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{bills.length}</div>
+            <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{bills.length}</div>
             <p className="text-xs text-muted-foreground">All time</p>
           </CardContent>
         </Card>
-        <Card className="border-amber-100 bg-amber-50/50 transition-shadow hover:shadow-sm">
+
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-amber-50 to-orange-50/80 shadow-sm dark:from-amber-950/30 dark:to-orange-950/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-amber-700">Pending Bills</CardTitle>
-            <Clock className="h-4 w-4 text-amber-500" />
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-amber-700 dark:text-amber-400">
+              Pending
+            </CardTitle>
+            <Clock className="h-5 w-5 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{pendingBills.length}</div>
-            <p className="text-xs text-amber-800/80">Awaiting payment</p>
+            <div className="text-2xl font-bold text-amber-900 dark:text-amber-100">
+              {pendingBills.length}
+            </div>
+            <p className="text-xs text-amber-700/80 dark:text-amber-400/80">Awaiting payment</p>
           </CardContent>
         </Card>
-        <Card className="border-blue-100 bg-blue-50/50 transition-shadow hover:shadow-sm">
+
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-blue-50 to-indigo-50/80 shadow-sm dark:from-blue-950/30 dark:to-indigo-950/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-blue-700">Partially Paid</CardTitle>
-            <Clock className="h-4 w-4 text-blue-500" />
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-blue-700 dark:text-blue-400">
+              Partially Paid
+            </CardTitle>
+            <Clock className="h-5 w-5 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{partiallyPaidBills.length}</div>
-            <p className="text-xs text-blue-800/80">{formatCurrency(partiallyPaidRemaining)} remaining</p>
+            <div className="text-2xl font-bold text-blue-900 dark:text-blue-100">
+              {partiallyPaidBills.length}
+            </div>
+            <p className="text-xs text-blue-700/80 dark:text-blue-400/80">
+              {formatCurrency(partiallyPaidRemaining)} remaining
+            </p>
           </CardContent>
         </Card>
-        <Card className="border-emerald-100 bg-emerald-50/60 transition-shadow hover:shadow-sm">
+
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-emerald-50 to-teal-50/80 shadow-sm dark:from-emerald-950/30 dark:to-teal-950/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-emerald-700">Paid Bills</CardTitle>
-            <CheckCircle className="h-4 w-4 text-emerald-500" />
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-emerald-700 dark:text-emerald-400">
+              Paid
+            </CardTitle>
+            <CheckCircle className="h-5 w-5 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{paidBills.length}</div>
-            <p className="text-xs text-emerald-800/80">Completed</p>
+            <div className="text-2xl font-bold text-emerald-900 dark:text-emerald-100">
+              {paidBills.length}
+            </div>
+            <p className="text-xs text-emerald-700/80 dark:text-emerald-400/80">Completed</p>
           </CardContent>
         </Card>
-        <Card className="border-sky-100 bg-sky-50/60 transition-shadow hover:shadow-sm">
+
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-violet-50 to-purple-50/80 shadow-sm dark:from-violet-950/30 dark:to-purple-950/20">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-sky-700">Today's Revenue</CardTitle>
-            <DollarSign className="h-4 w-4 text-sky-500" />
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-violet-700 dark:text-violet-400">
+              Today&apos;s Revenue
+            </CardTitle>
+            <DollarSign className="h-5 w-5 text-violet-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{formatCurrency(todayRevenue)}</div>
-            <p className="text-xs text-slate-700/80">Collected today</p>
+            <div className="text-2xl font-bold text-violet-900 dark:text-violet-100">
+              {formatCurrency(todayRevenue)}
+            </div>
+            <p className="text-xs text-violet-700/80 dark:text-violet-400/80">Collected today</p>
           </CardContent>
         </Card>
       </div>
 
-      <div className="grid gap-4 lg:grid-cols-[minmax(0,2.1fr)_minmax(260px,1fr)]">
-        <div className="space-y-3">
-          <div className="flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
-            <Tabs defaultValue="pending">
-              <TabsList className="bg-muted/60">
-                <TabsTrigger value="pending">
-                  Pending Bills <Badge variant="secondary">{pendingBills.length}</Badge>
+      {/* Bill queue + Quick actions */}
+      <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
+        <div className="space-y-4">
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+            <Tabs value={activeTab} onValueChange={setActiveTab}>
+              <TabsList className="h-auto flex-wrap gap-1 bg-muted/60 p-1">
+                <TabsTrigger value="pending" className="gap-1.5 text-sm">
+                  Pending
+                  <Badge variant="secondary" className="ml-0.5 px-1.5 py-0 text-xs">
+                    {pendingBills.length}
+                  </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="partially">
-                  Partially Paid <Badge variant="outline">{partiallyPaidBills.length}</Badge>
+                <TabsTrigger value="partially" className="gap-1.5 text-sm">
+                  Partially Paid
+                  <Badge variant="outline" className="ml-0.5 px-1.5 py-0 text-xs">
+                    {partiallyPaidBills.length}
+                  </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="paid">
-                  Paid Bills <Badge variant="outline">{paidBills.length}</Badge>
+                <TabsTrigger value="paid" className="gap-1.5 text-sm">
+                  Paid
+                  <Badge variant="outline" className="ml-0.5 px-1.5 py-0 text-xs">
+                    {paidBills.length}
+                  </Badge>
                 </TabsTrigger>
-                <TabsTrigger value="all">
-                  All Bills <Badge variant="outline">{bills.length}</Badge>
+                <TabsTrigger value="all" className="gap-1.5 text-sm">
+                  All
+                  <Badge variant="outline" className="ml-0.5 px-1.5 py-0 text-xs">
+                    {bills.length}
+                  </Badge>
                 </TabsTrigger>
               </TabsList>
             </Tabs>
-            <div className="w-full max-w-xs">
+            <div className="relative w-full sm:w-64">
+              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
-                placeholder="Search by patient or invoice"
+                placeholder="Search patient or invoice..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
+                className="pl-9"
               />
             </div>
           </div>
 
-          <Tabs defaultValue="pending">
-            <TabsList className="sr-only">
-              <TabsTrigger value="pending">Pending</TabsTrigger>
-              <TabsTrigger value="partially">Partially Paid</TabsTrigger>
-              <TabsTrigger value="paid">Paid</TabsTrigger>
-              <TabsTrigger value="all">All</TabsTrigger>
-            </TabsList>
-
-            <TabsContent value="pending">
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <TabsContent value="pending" className="mt-0">
               <BillQueue
-                bills={pendingBills.filter((b) => {
-                  const q = searchTerm.trim().toLowerCase()
-                  if (!q) return true
-                  return (
-                    b.patientName.toLowerCase().includes(q) ||
-                    b.id.toLowerCase().includes(q) ||
-                    (b.billNumber || "").toLowerCase().includes(q)
-                  )
-                })}
+                bills={filterBills(pendingBills)}
                 onSelectBill={setSelectedBillId}
                 onEditBill={setEditingBillId}
                 onCreateBill={() => setShowCreateBill(true)}
@@ -194,56 +265,28 @@ export function CashierDashboard() {
                 showCreateButton
               />
             </TabsContent>
-
-            <TabsContent value="partially">
+            <TabsContent value="partially" className="mt-0">
               <BillQueue
-                bills={partiallyPaidBills.filter((b) => {
-                  const q = searchTerm.trim().toLowerCase()
-                  if (!q) return true
-                  return (
-                    b.patientName.toLowerCase().includes(q) ||
-                    b.id.toLowerCase().includes(q) ||
-                    (b.billNumber || "").toLowerCase().includes(q)
-                  )
-                })}
+                bills={filterBills(partiallyPaidBills)}
                 onSelectBill={setSelectedBillId}
+                onEditBill={setEditingBillId}
                 emptyMessage="No partially paid bills."
               />
             </TabsContent>
-
-            <TabsContent value="paid">
+            <TabsContent value="paid" className="mt-0">
               <BillQueue
-                bills={paidBills.filter((b) => {
-                  const q = searchTerm.trim().toLowerCase()
-                  if (!q) return true
-                  return (
-                    b.patientName.toLowerCase().includes(q) ||
-                    b.id.toLowerCase().includes(q) ||
-                    (b.billNumber || "").toLowerCase().includes(q)
-                  )
-                })}
+                bills={filterBills(paidBills)}
                 onSelectBill={setSelectedBillId}
-                emptyMessage="No paid bills for this view."
+                emptyMessage="No paid bills in this view."
               />
             </TabsContent>
-
-            <TabsContent value="all">
+            <TabsContent value="all" className="mt-0">
               <BillQueue
-                bills={bills.filter((b) => {
-                  const q = searchTerm.trim().toLowerCase()
-                  if (!q) return true
-                  return (
-                    b.patientName.toLowerCase().includes(q) ||
-                    b.id.toLowerCase().includes(q) ||
-                    (b.billNumber || "").toLowerCase().includes(q)
-                  )
-                })}
+                bills={filterBills(bills)}
                 onSelectBill={setSelectedBillId}
                 onEditBill={(billId) => {
                   const bill = bills.find((b) => b.id === billId)
-                  if (bill?.status === "pending") {
-                    setEditingBillId(billId)
-                  }
+                  if (bill?.status === "pending") setEditingBillId(billId)
                 }}
                 emptyMessage="No bills recorded yet."
               />
@@ -251,39 +294,37 @@ export function CashierDashboard() {
           </Tabs>
         </div>
 
-        <Card className="border-slate-100 bg-white/60">
+        <Card className="h-fit border-border/60 bg-card/80 backdrop-blur-sm">
           <CardHeader>
-            <CardTitle className="text-sm font-semibold text-slate-900">Quick Actions</CardTitle>
+            <CardTitle className="text-base">Quick Actions</CardTitle>
+            <p className="text-xs text-muted-foreground">Common tasks</p>
           </CardHeader>
           <CardContent className="space-y-2">
-            <Button className="w-full justify-start" variant="outline" size="sm" onClick={() => setShowCreateBill(true)}>
+            <Button
+              className="w-full justify-start gap-2"
+              variant="default"
+              size="sm"
+              onClick={() => setShowCreateBill(true)}
+            >
+              <Plus className="h-4 w-4" />
               Create Bill
             </Button>
-            <Button 
-              className="w-full justify-start" 
-              variant="outline" 
-              size="sm" 
-              onClick={() => {
-                toast.info("Terminal payment integration coming soon. Use 'Process Payment' from the bill queue for now.")
-              }}
-              title="Record payment from payment terminal (coming soon)"
-            >
-              Record Payment (from terminal)
-            </Button>
-            <Button 
-              className="w-full justify-start" 
-              variant="outline" 
-              size="sm" 
+            <Button
+              className="w-full justify-start gap-2"
+              variant="outline"
+              size="sm"
               onClick={() => setView("overdue")}
             >
-              View Overdue Bills
+              <AlertCircle className="h-4 w-4" />
+              Overdue Bills
             </Button>
-            <Button 
-              className="w-full justify-start" 
-              variant="outline" 
-              size="sm" 
+            <Button
+              className="w-full justify-start gap-2"
+              variant="outline"
+              size="sm"
               onClick={() => setView("export")}
             >
+              <FileSpreadsheet className="h-4 w-4" />
               Export Transactions
             </Button>
           </CardContent>
@@ -291,7 +332,7 @@ export function CashierDashboard() {
       </div>
 
       <Dialog open={showCreateBill} onOpenChange={setShowCreateBill}>
-        <DialogContent className="max-w-4xl max-h-[85vh] overflow-y-auto">
+        <DialogContent className="max-h-[85vh] max-w-4xl overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Create New Bill</DialogTitle>
           </DialogHeader>

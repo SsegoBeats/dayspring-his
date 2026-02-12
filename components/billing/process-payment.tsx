@@ -194,8 +194,8 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
 
   return (
     <div className="space-y-4">
-      <Button variant="outline" onClick={onBack}>
-        <ArrowLeft className="mr-2 h-4 w-4" />
+      <Button variant="ghost" size="sm" onClick={onBack} className="gap-2">
+        <ArrowLeft className="h-4 w-4" />
         Back to Queue
       </Button>
 

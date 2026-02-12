@@ -6,7 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, Loader2, FileText, FileSpreadsheet, File } from "lucide-react"
+import { Download, Loader2, FileText, FileSpreadsheet, File, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import { useFormatDate } from "@/lib/date-utils"
 
@@ -95,8 +95,9 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
   return (
     <div className="space-y-6">
       {onBack && (
-        <Button variant="outline" onClick={onBack}>
-          ← Back
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-2">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Dashboard
         </Button>
       )}
 
