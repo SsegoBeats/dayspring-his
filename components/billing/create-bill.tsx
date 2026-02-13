@@ -12,6 +12,9 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { ArrowLeft, Plus, Trash2, Save, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
+import { useBilling } from "@/lib/billing-context"
+import { useFormatCurrency } from "@/lib/settings-context"
+import { formatPatientNumber } from "@/lib/patients"
 
 interface CreateBillProps {
   onBack: () => void
@@ -20,6 +23,8 @@ interface CreateBillProps {
 
 export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
   const { patients } = usePatients()
+  const { refreshBills } = useBilling()
+  const formatCurrency = useFormatCurrency()
 
   const [patientId, setPatientId] = useState("")
   const [items, setItems] = useState<BillItem[]>([{ description: "", quantity: 1, unitPrice: 0, total: 0 }])
@@ -135,11 +140,9 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
         return
       }
       
+      await refreshBills()
       toast.success("Bill created successfully!")
       onBack()
-      if (typeof window !== "undefined") {
-        window.location.reload()
-      }
     } catch (err: any) {
       toast.error(err.message || "Failed to create bill. Please check your connection and try again.")
     } finally {
@@ -172,7 +175,7 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
                 <SelectContent>
                   {patients.map((patient) => (
                     <SelectItem key={patient.id} value={patient.id}>
-                      {patient.firstName} {patient.lastName} ({patient.id})
+                      {patient.firstName} {patient.lastName} ({formatPatientNumber(patient.patientNumber)})
                     </SelectItem>
                   ))}
                 </SelectContent>
@@ -221,7 +224,7 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
                             />
                           </div>
                           <div className="space-y-2">
-                            <Label>Unit Price ($)</Label>
+                            <Label>Unit Price</Label>
                             <Input
                               type="number"
                               step="0.01"
@@ -234,7 +237,7 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
 
                         <div className="text-right">
                           <span className="text-sm text-muted-foreground">Total: </span>
-                          <span className="text-sm font-medium text-foreground">${item.total.toFixed(2)}</span>
+                          <span className="text-sm font-medium text-foreground">{formatCurrency(item.total)}</span>
                         </div>
                       </div>
                     </CardContent>

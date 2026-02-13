@@ -242,7 +242,7 @@ export function UserManagement() {
       "Pharmacist": "bg-teal-100 text-teal-800",
       "Cashier": "bg-indigo-100 text-indigo-800",
     }
-    return colors[role] || "bg-gray-100 text-gray-800"
+    return colors[role] || "bg-muted text-foreground"
   }
 
   return (
@@ -255,7 +255,7 @@ export function UserManagement() {
             <Users className="h-4 w-4 text-sky-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{userSummary.total}</div>
+            <div className="text-3xl font-semibold text-foreground">{userSummary.total}</div>
             <p className="text-xs text-muted-foreground">System users</p>
           </CardContent>
         </Card>
@@ -287,7 +287,7 @@ export function UserManagement() {
             <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{Object.keys(userSummary.byRole).length}</div>
+            <div className="text-3xl font-semibold text-foreground">{Object.keys(userSummary.byRole).length}</div>
             <p className="text-xs text-muted-foreground">Different roles</p>
           </CardContent>
         </Card>
@@ -314,7 +314,7 @@ export function UserManagement() {
                     {Object.entries(userSummary.byRole).map(([role, count]) => (
                       count > 0 && (
                         <div key={role} className="flex items-center gap-2">
-                          <div className="flex-1 h-2 rounded-full bg-slate-100 overflow-hidden">
+                          <div className="flex-1 h-2 rounded-full bg-muted overflow-hidden">
                             <div
                               className="h-full rounded-full bg-gradient-to-r from-sky-400 via-indigo-400 to-purple-400"
                               style={{ width: `${(count / (userSummary.total || 1)) * 100}%` }}
@@ -350,7 +350,7 @@ export function UserManagement() {
                   .slice(0, 5)
                   .map((u) => (
                     <div key={u.id} className="flex items-start gap-2">
-                      <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-slate-100 text-[11px] font-medium text-slate-700">
+                      <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">
                         {u.name.split(' ').map(part => part[0]).join('').slice(0,2).toUpperCase()}
                       </div>
                       <div className="flex-1">
@@ -495,12 +495,12 @@ export function UserManagement() {
                   <button
                     key={`${f.label}-${f.value}`}
                     type="button"
-                    className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-0.5 text-slate-700"
+                    className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-muted-foreground"
                     onClick={f.onClear}
                   >
                     <span className="font-medium">{f.label}:</span>
                     <span>{f.value}</span>
-                    <X className="h-3 w-3 text-slate-400" />
+                    <X className="h-3 w-3 text-muted-foreground" />
                   </button>
                 ))}
               </div>

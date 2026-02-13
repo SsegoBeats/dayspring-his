@@ -9,8 +9,11 @@ import Link from "next/link"
 
 function PaymentCompleteContent() {
   const searchParams = useSearchParams()
-  const orderTrackingId = searchParams.get("OrderTrackingId")
-  const merchantRef = searchParams.get("OrderMerchantReference")
+  // Pesapal may use different param casing depending on redirect
+  const orderTrackingId =
+    searchParams.get("OrderTrackingId") || searchParams.get("orderTrackingId")
+  const merchantRef =
+    searchParams.get("OrderMerchantReference") || searchParams.get("orderMerchantReference")
   const [status, setStatus] = useState<{
     payment_status_description?: string
     status_code?: number

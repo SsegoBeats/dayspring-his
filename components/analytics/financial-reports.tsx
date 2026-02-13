@@ -395,7 +395,7 @@ export function FinancialReports() {
         <Button
           variant="ghost"
           size="sm"
-          className={period === "7days" ? "bg-background shadow-sm text-slate-900" : "text-muted-foreground"}
+          className={period === "7days" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}
           onClick={() => setPeriod("7days")}
         >
           7 Days
@@ -403,7 +403,7 @@ export function FinancialReports() {
         <Button
           variant="ghost"
           size="sm"
-          className={period === "30days" ? "bg-background shadow-sm text-slate-900" : "text-muted-foreground"}
+          className={period === "30days" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}
           onClick={() => setPeriod("30days")}
         >
           30 Days
@@ -411,7 +411,7 @@ export function FinancialReports() {
         <Button
           variant="ghost"
           size="sm"
-          className={period === "90days" ? "bg-background shadow-sm text-slate-900" : "text-muted-foreground"}
+          className={period === "90days" ? "bg-background shadow-sm text-foreground" : "text-muted-foreground"}
           onClick={() => setPeriod("90days")}
         >
           90 Days
@@ -426,7 +426,7 @@ export function FinancialReports() {
             <DollarSign className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{formatCurrency(data.summary.totalRevenue)}</div>
+            <div className="text-3xl font-semibold text-foreground">{formatCurrency(data.summary.totalRevenue)}</div>
             <div className="mt-1 flex items-center gap-1.5 text-xs">
               {getGrowthIcon(data.summary.revenueGrowth)}
               <span className={getGrowthColor(data.summary.revenueGrowth)}>
@@ -440,11 +440,11 @@ export function FinancialReports() {
 
         <Card className="hover:shadow-sm transition-shadow border-amber-100 bg-amber-50/40">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-amber-700">Outstanding Balance</CardTitle>
+            <CardTitle className="text-xs font-medium uppercase tracking-wide text-amber-700 dark:text-amber-400">Outstanding Balance</CardTitle>
             <AlertCircle className="h-4 w-4 text-amber-600" />
           </CardHeader>
           <CardContent>
-            <div className={`text-3xl font-semibold ${data.summary.outstandingBalance > 0 ? 'text-amber-700' : 'text-slate-900'}`}>{formatCurrency(data.summary.outstandingBalance)}</div>
+            <div className={`text-3xl font-semibold ${data.summary.outstandingBalance > 0 ? 'text-amber-700 dark:text-amber-400' : 'text-foreground'}`}>{formatCurrency(data.summary.outstandingBalance)}</div>
             <p className="text-xs text-muted-foreground mt-1">
               {data.summary.pendingTransactions} pending payments
             </p>
@@ -457,7 +457,7 @@ export function FinancialReports() {
             <TrendingUp className="h-4 w-4 text-sky-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{formatCurrency(data.summary.avgTransactionValue)}</div>
+            <div className="text-3xl font-semibold text-foreground">{formatCurrency(data.summary.avgTransactionValue)}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Per transaction
             </p>
@@ -470,7 +470,7 @@ export function FinancialReports() {
             <CreditCard className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{data.summary.activePaymentMethods}</div>
+            <div className="text-3xl font-semibold text-foreground">{data.summary.activePaymentMethods}</div>
             <p className="text-xs text-muted-foreground mt-1">
               Active methods
             </p>

@@ -12,15 +12,31 @@ async function ensure() {
       email VARCHAR(200),
       phone VARCHAR(100),
       address TEXT,
+      currency VARCHAR(10) DEFAULT 'UGX',
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`)
+    await query(`ALTER TABLE organization_settings ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'UGX'`).catch(() => {})
     await query(`INSERT INTO organization_settings (id, name) VALUES (1, 'Dayspring Medical Center') ON CONFLICT (id) DO NOTHING`)
   } catch {}
 }
 
-export async function GET() {
+/**
+ * Org settings are NOT used on the login route. The login page does not fetch org.
+ * For extra safety: if the request originates from the login page, return empty settings.
+ */
+export async function GET(req: Request) {
+  const referer = req.headers.get("referer")
+  if (referer) {
+    try {
+      const u = new URL(referer)
+      const path = u.pathname.replace(/\/$/, "") || "/"
+      if (path === "/" || path.startsWith("/login")) {
+        return NextResponse.json({ settings: {} })
+      }
+    } catch {}
+  }
   await ensure()
-  const { rows } = await query(`SELECT name, logo_url, email, phone, address FROM organization_settings WHERE id = 1`)
+  const { rows } = await query(`SELECT name, logo_url, email, phone, address, currency FROM organization_settings WHERE id = 1`)
   const s = rows?.[0] || {}
   return NextResponse.json({ settings: {
     name: s.name || 'Dayspring Medical Center',
@@ -28,7 +44,8 @@ export async function GET() {
     email: s.email || 'dayspringmedicalcenter@gmail.com',
     phone: s.phone || '+256 703-942-230 / +256 703-844-396 / +256 742-918-253',
     location: s.location || 'Wanyange, Uganda',
-    address: s.address || 'Kampala, Uganda'
+    address: s.address || 'Kampala, Uganda',
+    currency: s.currency || 'UGX',
   } })
 }
 
@@ -44,15 +61,16 @@ export async function POST(req: Request) {
     }
     await ensure()
     const body = await req.json().catch(()=>({})) as any
-    const { name, logoUrl, email, phone, address } = body || {}
+    const { name, logoUrl, email, phone, address, currency } = body || {}
     await query(`UPDATE organization_settings SET 
       name = COALESCE($1, name),
       logo_url = COALESCE($2, logo_url),
       email = COALESCE($3, email),
       phone = COALESCE($4, phone),
       address = COALESCE($5, address),
+      currency = COALESCE($6, currency),
       updated_at = NOW()
-      WHERE id = 1`, [name ?? null, logoUrl ?? null, email ?? null, phone ?? null, address ?? null])
+      WHERE id = 1`, [name ?? null, logoUrl ?? null, email ?? null, phone ?? null, address ?? null, currency ?? null])
     return NextResponse.json({ success: true })
   } catch (e:any) {
     return NextResponse.json({ error: 'Failed to update settings', details: e?.message }, { status: 500 })

@@ -96,7 +96,7 @@ export function PatientList({ initialSelectedPatientId }: { initialSelectedPatie
                     ? 'bg-green-600 text-white'
                     : triage === 'Non-urgent'
                     ? 'bg-slate-500 text-white'
-                    : 'bg-slate-200 text-slate-700'
+                    : 'bg-muted text-muted-foreground dark:bg-muted dark:text-foreground'
                   return (
                     <tr key={p.id} className="border-b hover:bg-muted/30">
                       <td className="py-2 px-2 font-mono">{pid}</td>

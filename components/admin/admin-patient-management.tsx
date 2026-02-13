@@ -402,8 +402,8 @@ export function AdminPatientManagement() {
           {/* Analytics strip */}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-md border border-sky-100 bg-sky-50/40 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-slate-600">Total patients</p>
-              <p className="text-lg font-semibold text-slate-900">{totalPatients}</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total patients</p>
+              <p className="text-lg font-semibold text-foreground">{totalPatients}</p>
             </div>
             <div className="rounded-md border border-emerald-100 bg-emerald-50/40 px-3 py-2">
               <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">Registered today</p>
@@ -413,15 +413,15 @@ export function AdminPatientManagement() {
               <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700">Not triaged</p>
               <p className="text-lg font-semibold text-amber-800">{notTriaged}</p>
             </div>
-            <div className="rounded-md border border-slate-200 bg-slate-50 px-3 py-2 flex items-center justify-between">
+            <div className="rounded-md border border-border bg-muted px-3 py-2 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-slate-600">Gender mix</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Gender mix</p>
                 <p className="text-xs text-muted-foreground">M:{maleCount} · F:{femaleCount}</p>
               </div>
               {avgAge && (
                 <div className="text-right">
-                  <p className="text-[11px] font-medium uppercase tracking-wide text-slate-600">Avg age</p>
-                  <p className="text-sm font-semibold text-slate-900">{avgAge} yrs</p>
+                  <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Avg age</p>
+                  <p className="text-sm font-semibold text-foreground">{avgAge} yrs</p>
                 </div>
               )}
             </div>
@@ -446,12 +446,12 @@ export function AdminPatientManagement() {
                   <button
                     key={`${key}-${value}`}
                     type="button"
-                    className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-0.5 text-slate-700"
+                    className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-slate-700"
                     onClick={() => setFilters({ ...filters, [key]: "" })}
                   >
                     <span className="font-medium">{key.replace(/([A-Z])/g,' $1')}:</span>
                     <span>{String(value)}</span>
-                    <X className="h-3 w-3 text-slate-400" />
+                    <X className="h-3 w-3 text-muted-foreground" />
                   </button>
                 ))}
               </div>
@@ -550,11 +550,11 @@ export function AdminPatientManagement() {
                     <TableRow key={patient.id} className={idx % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                       <TableCell>
                         <div className="flex items-center gap-2">
-                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-slate-100 text-[11px] font-medium text-slate-700">
+                          <div className="flex h-7 w-7 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-slate-700">
                             {`${patient.first_name?.[0] || ''}${patient.last_name?.[0] || ''}`.toUpperCase() || 'P'}
                           </div>
                           <div>
-                            <div className="text-sm font-semibold text-slate-900 flex items-center gap-1">
+                            <div className="text-sm font-semibold text-foreground flex items-center gap-1">
                               <span>{patient.first_name} {patient.last_name}</span>
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">

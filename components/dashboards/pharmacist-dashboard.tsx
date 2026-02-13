@@ -219,7 +219,7 @@ export function PharmacistDashboard() {
       <Card className="border border-slate-100 bg-gradient-to-r from-slate-50/80 to-background">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
-            <Boxes className="h-4 w-4 text-slate-500" />
+            <Boxes className="h-4 w-4 text-muted-foreground" />
             Inventory Summary
           </CardTitle>
         </CardHeader>

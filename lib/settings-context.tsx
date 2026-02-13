@@ -1,5 +1,9 @@
 "use client"
 
+/**
+ * User settings must NOT affect the login page. When there is no session, we use defaults
+ * and do not run preference logic. Currency is system-wide (org-level), set by Admin only.
+ */
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { convertFromUGX } from "@/lib/utils"
 
@@ -32,41 +36,47 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
   const [loading, setLoading] = useState(true)
 
   const refreshSettings = async () => {
-    // Check if user has a session cookie before making request
-    const hasCookie = typeof document !== 'undefined' && 
+    // IMPORTANT: Never run preference logic when there is no session.
+    // User settings must not affect the login page or unauthenticated views.
+    const hasCookie = typeof document !== 'undefined' &&
       /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
-    
+
     if (!hasCookie) {
-      // No session cookie - user not authenticated, use defaults
       setSettings(DEFAULT_SETTINGS)
       setLoading(false)
       return
     }
 
     try {
-      const res = await fetch("/api/settings/preferences", { credentials: "include" })
-      if (res.ok) {
-        const data = await res.json()
+      const [prefRes, orgRes] = await Promise.all([
+        fetch("/api/settings/preferences", { credentials: "include" }),
+        fetch("/api/settings/org", { credentials: "include" }),
+      ])
+      let currency = DEFAULT_SETTINGS.currency
+      if (orgRes.ok) {
+        const orgData = await orgRes.json()
+        currency = orgData?.settings?.currency || DEFAULT_SETTINGS.currency
+      }
+      if (prefRes.ok) {
+        const data = await prefRes.json()
         if (data.preferences) {
           setSettings({
             theme: data.preferences.theme || DEFAULT_SETTINGS.theme,
             locale: data.preferences.locale || DEFAULT_SETTINGS.locale,
             timezone: data.preferences.timezone || DEFAULT_SETTINGS.timezone,
-            currency: data.preferences.currency || DEFAULT_SETTINGS.currency,
+            currency,
             notifyEmailReminders: true,
           })
         } else {
-          setSettings(DEFAULT_SETTINGS)
+          setSettings({ ...DEFAULT_SETTINGS, currency })
         }
-      } else if (res.status === 401 || res.status === 403) {
-        // User not authenticated or no permission - use defaults silently
-        // This is expected for unauthenticated users, don't log as error
-        setSettings(DEFAULT_SETTINGS)
+      } else if (prefRes.status === 401 || prefRes.status === 403) {
+        setSettings({ ...DEFAULT_SETTINGS, currency })
       } else if (process.env.NODE_ENV === "development") {
-        console.warn("[SettingsContext] Failed to fetch preferences:", res.status, res.statusText)
-        setSettings(DEFAULT_SETTINGS)
+        console.warn("[SettingsContext] Failed to fetch preferences:", prefRes.status, prefRes.statusText)
+        setSettings({ ...DEFAULT_SETTINGS, currency })
       } else {
-        setSettings(DEFAULT_SETTINGS)
+        setSettings({ ...DEFAULT_SETTINGS, currency })
       }
     } catch (error) {
       // Only log in development to avoid console noise

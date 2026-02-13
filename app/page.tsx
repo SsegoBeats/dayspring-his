@@ -1,5 +1,9 @@
 "use client"
 
+/**
+ * Login page: User settings (theme, locale, currency, etc.) must NOT affect this page.
+ * The login page always uses system defaults for appearance and layout.
+ */
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"

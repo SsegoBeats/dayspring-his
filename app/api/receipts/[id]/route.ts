@@ -3,6 +3,8 @@ import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { query } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
+import { getSystemCurrency } from "@/lib/org"
+import { convertFromUGX, formatCurrencyStatic } from "@/lib/utils"
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -36,7 +38,10 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       cashier = u.rows?.[0]?.name || ''
     } catch {}
 
-    // Load line items if any
+    // System-wide currency (Admin-set); must be resolved before building data
+    const currency = await getSystemCurrency()
+    const amountUGX = Number(r.amount)
+
     const items = await query(`SELECT description, amount FROM payment_items WHERE payment_id = $1 ORDER BY description ASC`, [id])
     let data: any[]
     let meta: Record<string, string> = {
@@ -49,17 +54,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       Cashier: cashier,
     }
     if (items.rows.length) {
-      data = items.rows.map((it: any) => ({ item: it.description, amount: Number(it.amount).toFixed(2) }))
-      // Add a total row visually by appending one more object
-      data.push({ item: 'TOTAL', amount: Number(r.amount).toFixed(2) })
+      data = items.rows.map((it: any) => ({ item: it.description, amount: formatCurrencyStatic(Number(it.amount), currency) }))
+      data.push({ item: 'TOTAL', amount: formatCurrencyStatic(amountUGX, currency) })
     } else {
-      // Fallback to key/value table
       data = [
         { field: 'Receipt No', value: r.receipt_no },
         { field: 'Patient', value: `${r.first_name} ${r.last_name}`.trim() },
         { field: 'Patient Number', value: r.patient_number },
         { field: 'Phone', value: r.phone || '' },
-        { field: 'Amount', value: `${Number(r.amount).toLocaleString()}` },
+        { field: 'Amount', value: formatCurrencyStatic(amountUGX, currency) },
         { field: 'Method', value: r.method },
         { field: 'Reference', value: r.reference || '' },
         { field: 'Date', value: new Date(r.created_at).toLocaleString() },
@@ -96,14 +99,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return s(Math.floor(n)) || 'Zero'
     }
 
-    // Currency-aware wording
-    let currency = 'UGX'
-    try {
-      const cur = await query(`SELECT currency FROM user_settings WHERE user_id = $1`, [auth.userId])
-      if (cur.rows?.[0]?.currency) currency = cur.rows[0].currency
-    } catch {}
     const unit = currency === 'USD' ? 'Dollars' : currency === 'KES' ? 'Shillings' : 'Shillings'
-    const amountWords = numberToWords(Number(r.amount)) + ` ${unit} Only`
+    const amountConverted = convertFromUGX(amountUGX, currency)
+    const amountWords = numberToWords(amountConverted) + ` ${unit} Only`
 
     const buf = await toPDF(title, data as any[], { userId: auth.userId, timestamp: new Date().toISOString() }, false, {
       colors: { headerBg: [14,165,233], headerText: [255,255,255], rowAltBg: [243,244,246], text: [17,24,39] },

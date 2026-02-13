@@ -68,7 +68,7 @@ export function LabTechDashboard() {
   return (
     <div className="space-y-8">
       <div className="flex flex-col gap-2">
-        <h2 className="text-3xl font-semibold tracking-tight text-sky-900">Lab Technician Dashboard</h2>
+        <h2 className="text-3xl font-semibold tracking-tight text-foreground">Lab Technician Dashboard</h2>
         <p className="text-sm text-muted-foreground max-w-2xl">
           Monitor pending work, turn around results quickly, and share structured lab reports with the care team.
         </p>
@@ -77,7 +77,7 @@ export function LabTechDashboard() {
       <Card className="border-sky-100 bg-sky-50/40">
         <CardHeader className="flex flex-col gap-1 sm:flex-row sm:items-center sm:justify-between">
           <div>
-            <CardTitle className="text-base font-semibold text-sky-900">Exports & Reports</CardTitle>
+            <CardTitle className="text-base font-semibold text-foreground">Exports & Reports</CardTitle>
             <p className="text-xs text-muted-foreground">Download patient-level analytes or bulk lab reports for a given period.</p>
           </div>
           {lastUpdated && (
@@ -94,11 +94,11 @@ export function LabTechDashboard() {
       <div className="grid gap-4 md:grid-cols-4">
         <Card className="hover:shadow-sm transition-shadow border-slate-100 bg-white">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-500">Total Tests</CardTitle>
+            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Tests</CardTitle>
             <TestTube className="h-4 w-4 text-sky-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{tests.length}</div>
+            <div className="text-3xl font-semibold text-foreground">{tests.length}</div>
             <p className="text-xs text-muted-foreground">All statuses · all time</p>
           </CardContent>
         </Card>
@@ -108,7 +108,7 @@ export function LabTechDashboard() {
             {overdueTests.length > 0 ? <AlertCircle className="h-4 w-4 text-red-500" /> : <Clock className="h-4 w-4 text-amber-500" />}
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{pendingTests.length}</div>
+            <div className="text-3xl font-semibold text-foreground">{pendingTests.length}</div>
             <p className="text-xs text-amber-800/80">
               {overdueTests.length > 0 ? `${overdueTests.length} overdue (>4h)` : 'Awaiting results · prioritize STAT first'}
             </p>
@@ -120,7 +120,7 @@ export function LabTechDashboard() {
             <Clock className="h-4 w-4 text-blue-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{inProgressTests.length}</div>
+            <div className="text-3xl font-semibold text-foreground">{inProgressTests.length}</div>
             <p className="text-xs text-blue-800/80">Currently being processed</p>
           </CardContent>
         </Card>
@@ -130,7 +130,7 @@ export function LabTechDashboard() {
             <CheckCircle className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{completedTests.length}</div>
+            <div className="text-3xl font-semibold text-foreground">{completedTests.length}</div>
             <p className="text-xs text-emerald-800/80">Results submitted to clinicians</p>
           </CardContent>
         </Card>
@@ -148,19 +148,19 @@ export function LabTechDashboard() {
           <CardContent>
             <div className="grid gap-4 md:grid-cols-4">
               <div>
-                <div className="text-2xl font-semibold text-slate-900">{tatMetrics.avg}m</div>
+                <div className="text-2xl font-semibold text-foreground">{tatMetrics.avg}m</div>
                 <p className="text-xs text-muted-foreground">Average TAT</p>
               </div>
               <div>
-                <div className="text-2xl font-semibold text-slate-900">{tatMetrics.min}m</div>
+                <div className="text-2xl font-semibold text-foreground">{tatMetrics.min}m</div>
                 <p className="text-xs text-muted-foreground">Fastest</p>
               </div>
               <div>
-                <div className="text-2xl font-semibold text-slate-900">{tatMetrics.max}m</div>
+                <div className="text-2xl font-semibold text-foreground">{tatMetrics.max}m</div>
                 <p className="text-xs text-muted-foreground">Slowest</p>
               </div>
               <div>
-                <div className="text-2xl font-semibold text-slate-900">{tatMetrics.count}</div>
+                <div className="text-2xl font-semibold text-foreground">{tatMetrics.count}</div>
                 <p className="text-xs text-muted-foreground">Samples analyzed</p>
               </div>
             </div>
@@ -395,16 +395,16 @@ function ExportLabsForm() {
         </div>
       </div>
       <div className="flex flex-wrap items-center gap-2 text-[11px] text-muted-foreground">
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border border-slate-200">
-          <span className="font-medium text-slate-600">Status:</span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 border border-border">
+          <span className="font-medium text-muted-foreground">Status:</span>
           <span>{status}</span>
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border border-slate-200">
-          <span className="font-medium text-slate-600">Range:</span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 border border-border">
+          <span className="font-medium text-muted-foreground">Range:</span>
           <span>{from} → {to}</span>
         </span>
-        <span className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border border-slate-200">
-          <span className="font-medium text-slate-600">Format:</span>
+        <span className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 border border-border">
+          <span className="font-medium text-muted-foreground">Format:</span>
           <span>{format.toUpperCase()}</span>
         </span>
       </div>

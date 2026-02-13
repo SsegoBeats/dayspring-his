@@ -4,6 +4,7 @@ import type { ReactNode } from "react"
 import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
+import { ErrorBoundary } from "@/components/error-boundary"
 import { LogOut, Hospital, Bell } from "lucide-react"
 import Link from 'next/link'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
@@ -72,7 +73,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
           </div>
         </div>
       </header>
-      <main className="flex-1 bg-secondary/30 p-6 print:p-0 print:bg-white print:min-h-0">{children}</main>
+      <main className="flex-1 bg-secondary/30 p-6 print:p-0 print:bg-white print:min-h-0">
+        <ErrorBoundary fallbackTitle="Dashboard error" fallbackDescription="Something went wrong. Try again or refresh the page.">
+          {children}
+        </ErrorBoundary>
+      </main>
       <AdminDeletionWatcher userRole={user?.role} />
 
     </div>

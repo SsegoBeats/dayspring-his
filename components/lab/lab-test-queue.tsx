@@ -411,38 +411,38 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
             {anyFilters && (
               <div className="flex flex-wrap gap-2 text-[11px]">
                 {q.trim() && (
-                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border text-slate-600" onClick={() => setQ('')}>
+                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 border text-muted-foreground" onClick={() => setQ('')}>
                     <span>Search:</span>
                     <span className="font-medium">{q}</span>
-                    <span className="text-slate-400">×</span>
+                    <span className="text-muted-foreground">×</span>
                   </button>
                 )}
                 {status !== 'all' && (
-                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border text-slate-600" onClick={() => setStatus('all')}>
+                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 border text-muted-foreground" onClick={() => setStatus('all')}>
                     <span>Status:</span>
                     <span className="font-medium capitalize">{status}</span>
-                    <span className="text-slate-400">×</span>
+                    <span className="text-muted-foreground">×</span>
                   </button>
                 )}
                 {prio !== 'all' && (
-                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border text-slate-600" onClick={() => setPrio('all')}>
+                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 border text-muted-foreground" onClick={() => setPrio('all')}>
                     <span>Priority:</span>
                     <span className="font-medium uppercase">{prio}</span>
-                    <span className="text-slate-400">×</span>
+                    <span className="text-muted-foreground">×</span>
                   </button>
                 )}
                 {testType !== 'all' && (
-                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border text-slate-600" onClick={() => setTestType('all')}>
+                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 border text-muted-foreground" onClick={() => setTestType('all')}>
                     <span>Type:</span>
                     <span className="font-medium">{testType}</span>
-                    <span className="text-slate-400">×</span>
+                    <span className="text-muted-foreground">×</span>
                   </button>
                 )}
                 {assignedTech !== 'all' && (
-                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-slate-50 px-2 py-0.5 border text-slate-600" onClick={() => setAssignedTech('all')}>
+                  <button type="button" className="inline-flex items-center gap-1 rounded-full bg-muted px-2 py-0.5 border text-muted-foreground" onClick={() => setAssignedTech('all')}>
                     <span>Tech:</span>
                     <span className="font-medium">{assignedTech === 'unassigned' ? 'Unassigned' : assignedTech}</span>
-                    <span className="text-slate-400">×</span>
+                    <span className="text-muted-foreground">×</span>
                   </button>
                 )}
               </div>
@@ -519,7 +519,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                     const agingBadge = (() => {
                       if (mins == null) return null
                       const label = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`
-                      const cls = s === 'completed' ? 'bg-green-100 text-green-800 border-green-200' : mins > 240 ? 'bg-red-100 text-red-800 border-red-200' : mins > 120 ? 'bg-yellow-100 text-yellow-800 border-yellow-200' : 'bg-blue-100 text-blue-800 border-blue-200'
+                      const cls = s === 'completed' ? 'bg-green-100 text-green-800 border-green-200 dark:bg-green-900/40 dark:text-green-300 dark:border-green-700' : mins > 240 ? 'bg-red-100 text-red-800 border-red-200 dark:bg-red-900/40 dark:text-red-300 dark:border-red-700' : mins > 120 ? 'bg-yellow-100 text-yellow-800 border-yellow-200 dark:bg-yellow-900/40 dark:text-yellow-300 dark:border-yellow-700' : 'bg-blue-100 text-blue-800 border-blue-200 dark:bg-blue-900/40 dark:text-blue-300 dark:border-blue-700'
                       return <span className={`rounded px-1.5 py-0.5 text-[10px] border ${cls}`}>{label}</span>
                     })()
                     const flags = flagCounts(test)

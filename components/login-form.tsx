@@ -129,7 +129,7 @@ export function LoginForm() {
           {error && (
             <>
               {isAccountInactive ? (
-                <Alert className="border-amber-200 bg-amber-50">
+                <Alert className="border-amber-200 bg-amber-50 dark:border-amber-800 dark:bg-amber-950/50">
                   <AlertCircle className="h-4 w-4 text-amber-600" />
                   <AlertDescription className="text-amber-800">
                     <div className="space-y-3">
@@ -147,7 +147,7 @@ export function LoginForm() {
                             <span>carolynemirey@gmail.com</span>
                           </div>
                         </div>
-                        <p className="text-xs mt-2 text-amber-700">
+                        <p className="text-xs mt-2 text-amber-700 dark:text-amber-300">
                           Include your email address and role when contacting support.
                         </p>
                       </div>

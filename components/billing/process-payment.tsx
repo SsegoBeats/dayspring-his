@@ -33,6 +33,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const [notes, setNotes] = useState("")
   const [showReceipt, setShowReceipt] = useState(false)
   const [processing, setProcessing] = useState(false)
+  const [checkingPayment, setCheckingPayment] = useState(false)
   const [paymentType, setPaymentType] = useState<"full" | "partial" | "cancel">("full")
   const [partialAmount, setPartialAmount] = useState<number>(0)
   const [mobileMoneyPhone, setMobileMoneyPhone] = useState("")
@@ -63,10 +64,10 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
         body: JSON.stringify({
           billId: bill.id,
           amount: paymentType === "partial" ? partialAmount : bill.total - (bill.paidAmount || 0),
-          email: patient?.email,
+          email: bill.patientEmail || patient?.email || undefined,
           phoneNumber: paymentMethod === "Mobile Money"
-            ? ((mobileMoneyPhone || patient?.phone || "").trim() || undefined)
-            : (paymentMethod === "Card" ? (patient?.phone || undefined) : undefined),
+            ? ((mobileMoneyPhone || bill.patientPhone || patient?.phone || "").trim() || undefined)
+            : (bill.patientPhone || patient?.phone || undefined),
           paymentMethod,
         }),
       })
@@ -197,18 +198,20 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <Button variant="ghost" size="sm" onClick={onBack} className="gap-2">
+    <div className="mx-auto max-w-2xl space-y-4">
+      <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 -ml-1">
         <ArrowLeft className="h-4 w-4" />
         Back to Queue
       </Button>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+      <Card className="overflow-hidden border-border/80 shadow-lg shadow-black/5">
+        <CardHeader className="border-b border-border/60 bg-gradient-to-b from-muted/30 to-transparent pb-6">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
-              <CardTitle>Invoice Details</CardTitle>
-              <CardDescription>Invoice ID: {bill.id}</CardDescription>
+              <CardTitle className="text-xl tracking-tight">Invoice Details</CardTitle>
+              <CardDescription className="mt-1 font-mono text-xs">
+                {bill.billNumber || bill.id.slice(0, 8) + "…"}
+              </CardDescription>
             </div>
             <Badge
               variant={
@@ -220,59 +223,60 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                       ? "outline"
                       : "destructive"
               }
+              className="w-fit capitalize"
             >
               {bill.status === "partially paid" ? "Partially Paid" : bill.status}
             </Badge>
           </div>
         </CardHeader>
-        <CardContent className="space-y-6">
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-3">
-              <h3 className="font-semibold text-foreground">Patient Information</h3>
+        <CardContent className="space-y-6 pt-6">
+          <div className="grid gap-6 sm:grid-cols-2">
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Patient</h3>
               <div className="space-y-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Name:</span>{" "}
-                  <span className="text-foreground">{bill.patientName}</span>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground shrink-0">Name</span>
+                  <span className="text-right font-medium text-foreground">{bill.patientName}</span>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Patient ID:</span>{" "}
-                  <span className="text-foreground font-mono">{formatPatientNumber(bill.patientNumber ?? patient?.patientNumber ?? bill.patientId)}</span>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground shrink-0">Patient ID</span>
+                  <span className="font-mono text-foreground">{formatPatientNumber(bill.patientNumber ?? patient?.patientNumber ?? bill.patientId)}</span>
                 </div>
-                {patient && (
-                  <>
-                    <div>
-                      <span className="text-muted-foreground">Phone:</span>{" "}
-                      <span className="text-foreground">{patient.phone}</span>
-                    </div>
-                    <div>
-                      <span className="text-muted-foreground">Email:</span>{" "}
-                      <span className="text-foreground">{patient.email}</span>
-                    </div>
-                  </>
+                {patient?.phone && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground shrink-0">Phone</span>
+                    <span className="text-foreground">{patient.phone}</span>
+                  </div>
+                )}
+                {patient?.email && (
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground shrink-0">Email</span>
+                    <span className="truncate text-foreground">{patient.email}</span>
+                  </div>
                 )}
               </div>
             </div>
 
-            <div className="space-y-3">
-              <h3 className="font-semibold text-foreground">Invoice Information</h3>
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <h3 className="mb-3 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Invoice</h3>
               <div className="space-y-2 text-sm">
-                <div>
-                  <span className="text-muted-foreground">Invoice Date:</span>{" "}
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground shrink-0">Date</span>
                   <span className="text-foreground">{bill.date}</span>
                 </div>
-                <div>
-                  <span className="text-muted-foreground">Status:</span>{" "}
-                  <span className="text-foreground">{bill.status}</span>
+                <div className="flex justify-between gap-4">
+                  <span className="text-muted-foreground shrink-0">Status</span>
+                  <span className="capitalize text-foreground">{bill.status}</span>
                 </div>
                 {bill.paymentDate && (
-                  <div>
-                    <span className="text-muted-foreground">Payment Date:</span>{" "}
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground shrink-0">Paid on</span>
                     <span className="text-foreground">{bill.paymentDate}</span>
                   </div>
                 )}
                 {bill.paymentMethod && (
-                  <div>
-                    <span className="text-muted-foreground">Payment Method:</span>{" "}
+                  <div className="flex justify-between gap-4">
+                    <span className="text-muted-foreground shrink-0">Method</span>
                     <span className="text-foreground">{bill.paymentMethod}</span>
                   </div>
                 )}
@@ -281,59 +285,59 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           </div>
 
           <div className="space-y-3">
-            <h3 className="font-semibold text-foreground">Bill Items</h3>
-            <div className="rounded-lg border border-border">
+            <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Bill Items</h3>
+            <div className="overflow-hidden rounded-xl border border-border/60">
               <table className="w-full">
-                <thead className="border-b border-border bg-muted/50">
-                  <tr>
-                    <th className="p-3 text-left text-sm font-medium text-foreground">Description</th>
-                    <th className="p-3 text-right text-sm font-medium text-foreground">Qty</th>
-                    <th className="p-3 text-right text-sm font-medium text-foreground">Unit Price</th>
-                    <th className="p-3 text-right text-sm font-medium text-foreground">Total</th>
+                <thead>
+                  <tr className="border-b border-border/60 bg-muted/40">
+                    <th className="px-4 py-3 text-left text-xs font-medium tracking-wider text-muted-foreground">Description</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium tracking-wider text-muted-foreground">Qty</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium tracking-wider text-muted-foreground">Unit</th>
+                    <th className="px-4 py-3 text-right text-xs font-medium tracking-wider text-muted-foreground">Total</th>
                   </tr>
                 </thead>
                 <tbody>
                   {bill.items.map((item, index) => (
-                    <tr key={index} className="border-b border-border last:border-0">
-                      <td className="p-3 text-sm text-foreground">{item.description}</td>
-                      <td className="p-3 text-right text-sm text-foreground">{item.quantity}</td>
-                      <td className="p-3 text-right text-sm text-foreground">{formatCurrency(item.unitPrice)}</td>
-                      <td className="p-3 text-right text-sm text-foreground">{formatCurrency(item.total)}</td>
+                    <tr key={index} className="border-b border-border/40 last:border-0 transition-colors hover:bg-muted/20">
+                      <td className="px-4 py-3 text-sm font-medium text-foreground">{item.description}</td>
+                      <td className="px-4 py-3 text-right text-sm text-muted-foreground">{item.quantity}</td>
+                      <td className="px-4 py-3 text-right text-sm text-muted-foreground">{formatCurrency(item.unitPrice)}</td>
+                      <td className="px-4 py-3 text-right text-sm font-medium text-foreground">{formatCurrency(item.total)}</td>
                     </tr>
                   ))}
                 </tbody>
               </table>
             </div>
 
-            <div className="space-y-2 rounded-lg border border-border bg-muted/30 p-4">
+            <div className="space-y-2 rounded-xl border border-border/60 bg-muted/20 p-4">
               <div className="flex justify-between text-sm">
-                <span className="text-muted-foreground">Subtotal:</span>
+                <span className="text-muted-foreground">Subtotal</span>
                 <span className="text-foreground">{formatCurrency(bill.subtotal)}</span>
               </div>
               {bill.tax > 0 && (
                 <div className="flex justify-between text-sm">
-                  <span className="text-muted-foreground">Tax:</span>
+                  <span className="text-muted-foreground">Tax</span>
                   <span className="text-foreground">{formatCurrency(bill.tax)}</span>
                 </div>
               )}
               {bill.discount > 0 && (
-                <div className="flex justify-between text-sm text-green-600">
-                  <span className="text-muted-foreground">Discount:</span>
+                <div className="flex justify-between text-sm text-emerald-600">
+                  <span className="text-muted-foreground">Discount</span>
                   <span className="text-foreground">-{formatCurrency(bill.discount)}</span>
                 </div>
               )}
-              <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
-                <span className="text-foreground">Total:</span>
+              <div className="flex justify-between border-t border-border/60 pt-3 text-base font-semibold">
+                <span className="text-foreground">Total</span>
                 <span className="text-foreground">{formatCurrency(bill.total)}</span>
               </div>
               {bill.paidAmount && bill.paidAmount > 0 && (
                 <>
-                  <div className="flex justify-between text-sm text-amber-600">
-                    <span className="text-muted-foreground">Paid Amount:</span>
+                  <div className="flex justify-between text-sm text-amber-600 dark:text-amber-400">
+                    <span className="text-muted-foreground">Paid</span>
                     <span className="text-foreground">{formatCurrency(bill.paidAmount)}</span>
                   </div>
                   <div className="flex justify-between text-sm font-semibold">
-                    <span className="text-muted-foreground">Remaining Balance:</span>
+                    <span className="text-muted-foreground">Balance due</span>
                     <span className="text-foreground">{formatCurrency(bill.total - bill.paidAmount)}</span>
                   </div>
                 </>
@@ -342,19 +346,37 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           </div>
 
           {(bill.status === "pending" || bill.status === "partially paid") && (
-            <div className="space-y-4">
-              <div className="space-y-2">
-                <Label>Payment Type</Label>
-                <Select value={paymentType} onValueChange={(v: "full" | "partial" | "cancel") => setPaymentType(v)}>
-                  <SelectTrigger>
-                    <SelectValue />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="full">Full Payment</SelectItem>
-                    <SelectItem value="partial">Partial Payment</SelectItem>
-                    <SelectItem value="cancel">Cancel Bill</SelectItem>
-                  </SelectContent>
-                </Select>
+            <div className="space-y-5 rounded-xl border border-border/60 bg-muted/10 p-5">
+              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Payment</h3>
+              <div className="grid gap-4 sm:grid-cols-2">
+                <div className="space-y-2">
+                  <Label className="text-sm font-medium">Payment Type</Label>
+                  <Select value={paymentType} onValueChange={(v: "full" | "partial" | "cancel") => setPaymentType(v)}>
+                    <SelectTrigger className="h-10">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="full">Full Payment</SelectItem>
+                      <SelectItem value="partial">Partial Payment</SelectItem>
+                      <SelectItem value="cancel">Cancel Bill</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                {paymentType !== "cancel" && (
+                  <div className="space-y-2">
+                    <Label htmlFor="paymentMethod" className="text-sm font-medium">Payment Method *</Label>
+                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
+                      <SelectTrigger id="paymentMethod" className="h-10">
+                        <SelectValue placeholder="Select payment method" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Cash">Cash</SelectItem>
+                        <SelectItem value="Mobile Money">Mobile Money (MTN, Airtel)</SelectItem>
+                        <SelectItem value="Card">Card</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                )}
               </div>
 
               {paymentType === "cancel" && (
@@ -368,20 +390,6 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
 
               {paymentType !== "cancel" && (
                 <>
-                  <div className="space-y-2">
-                    <Label htmlFor="paymentMethod">Payment Method *</Label>
-                    <Select value={paymentMethod} onValueChange={setPaymentMethod}>
-                      <SelectTrigger id="paymentMethod">
-                        <SelectValue placeholder="Select payment method" />
-                      </SelectTrigger>
-                      <SelectContent>
-                        <SelectItem value="Cash">Cash</SelectItem>
-                        <SelectItem value="Mobile Money">Mobile Money (MTN, Airtel)</SelectItem>
-                        <SelectItem value="Card">Card</SelectItem>
-                      </SelectContent>
-                    </Select>
-                  </div>
-
                   {paymentMethod === "Mobile Money" && (
                     <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
                       <Label htmlFor="mobileMoneyPhone">Mobile money phone (optional, for pre-fill)</Label>
@@ -424,19 +432,20 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                   )}
 
                   <div className="space-y-2">
-                    <Label htmlFor="notes">Payment Notes</Label>
+                    <Label htmlFor="notes" className="text-sm font-medium">Payment Notes</Label>
                     <Textarea
                       id="notes"
                       placeholder="Any additional notes about the payment..."
                       value={notes}
                       onChange={(e) => setNotes(e.target.value)}
-                      rows={3}
+                      rows={2}
+                      className="resize-none"
                     />
                   </div>
                 </>
               )}
 
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap gap-2 pt-2">
                 {isOnlinePayment ? (
                   <Button
                     onClick={handleInitiatePesapal}
@@ -480,8 +489,37 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                   </Button>
                 )}
                 {awaitingMobileMoney && (
-                  <Button variant="outline" onClick={async () => { await refreshBills(); setAwaitingMobileMoney(false); }}>
-                    Check Payment Status
+                  <Button
+                    variant="outline"
+                    disabled={checkingPayment}
+                    onClick={async () => {
+                      setCheckingPayment(true)
+                      try {
+                        const updated = await refreshBills()
+                        const b = updated?.find((x) => x.id === billId)
+                        if (b?.status === "paid") {
+                          toast.success("Payment received! Preparing receipt…")
+                          setAwaitingMobileMoney(false)
+                          setPaymentMethod(b.paymentMethod || "N/A")
+                          setShowReceipt(true)
+                        } else {
+                          toast.info("Payment not yet received. Ask the patient to complete payment, then try again.")
+                        }
+                      } catch {
+                        toast.error("Failed to check payment status")
+                      } finally {
+                        setCheckingPayment(false)
+                      }
+                    }}
+                  >
+                    {checkingPayment ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Checking…
+                      </>
+                    ) : (
+                      "Check Payment Status"
+                    )}
                   </Button>
                 )}
                 <Button variant="outline" onClick={onBack} disabled={processing}>
@@ -492,11 +530,9 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           )}
 
           {bill.notes && (
-            <div className="space-y-2">
-              <h3 className="font-semibold text-foreground">Payment Notes</h3>
-              <div className="rounded-lg border border-border bg-muted/50 p-3">
-                <p className="text-sm text-foreground">{bill.notes}</p>
-              </div>
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Notes</h3>
+              <p className="text-sm text-foreground">{bill.notes}</p>
             </div>
           )}
         </CardContent>

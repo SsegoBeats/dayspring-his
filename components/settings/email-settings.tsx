@@ -41,13 +41,13 @@ export function EmailSettings() {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
       return () => clearTimeout(timer)
-    } else if (resendCooldown === 0 && showOtpInput) {
-      console.log("[OTP Frontend] Resend cooldown completed - resend button is now active")
+    } else if (resendCooldown === 0 && showOtpInput && process.env.NODE_ENV === "development") {
+      console.log("[OTP Frontend] Resend cooldown completed")
     }
   }, [resendCooldown, showOtpInput])
 
   const sendOtp = async () => {
-    console.log("[OTP Frontend] Requesting new OTP for:", email)
+    if (process.env.NODE_ENV === "development") console.log("[OTP Frontend] Requesting OTP")
     setSending(true)
     try {
       const r = await fetch("/api/settings/send-otp", {
@@ -65,18 +65,18 @@ export function EmailSettings() {
       } else {
         const d = await r.json().catch(() => ({}))
         toast.error(d.error || "Failed to send verification code")
-        console.error("[OTP Frontend] Failed to send OTP:", d.error)
+        if (process.env.NODE_ENV === "development") console.error("[OTP Frontend] Failed:", d.error)
       }
     } catch (error) {
       toast.error("Failed to send verification code")
-      console.error("[OTP Frontend] Exception sending OTP:", error)
+      if (process.env.NODE_ENV === "development") console.error("[OTP Frontend] Exception:", error)
     } finally {
       setSending(false)
     }
   }
 
   const verifyOtp = async () => {
-    console.log("[OTP Frontend] Attempting to verify code:", otp)
+    if (process.env.NODE_ENV === "development") console.log("[OTP Frontend] Verifying code (value never logged)")
     setVerifying(true)
     try {
       const r = await fetch("/api/settings/verify-otp", {
@@ -91,7 +91,6 @@ export function EmailSettings() {
         setShowOtpInput(false)
         setOtp("")
         setVerified(true)
-        console.log("[OTP Frontend] Email verified successfully")
         // Refresh user data to get updated email and verification status
         const me = await fetch("/api/auth/me", { credentials: "include" })
         if (me.ok) {
@@ -99,15 +98,14 @@ export function EmailSettings() {
           setEmail(data.user?.email || "")
           setOriginalEmail(data.user?.email || "") // Update original email after verification
           setVerified(!!data.user?.email_verified_at)
-          console.log("[OTP Frontend] Updated email:", data.user?.email, "Verified:", !!data.user?.email_verified_at)
         }
       } else {
         const d = await r.json().catch(() => ({}))
-        console.error("[OTP Frontend] Verification failed:", d.error)
+        if (process.env.NODE_ENV === "development") console.error("[OTP Frontend] Verification failed:", d.error)
         toast.error(d.error || "Invalid verification code")
       }
     } catch (error) {
-      console.error("[OTP Frontend] Exception verifying OTP:", error)
+      if (process.env.NODE_ENV === "development") console.error("[OTP Frontend] Exception:", error)
       toast.error("Failed to verify code")
     } finally {
       setVerifying(false)
@@ -161,7 +159,7 @@ export function EmailSettings() {
           
           {/* Show info message when button is disabled for verified email */}
           {verified === true && email === originalEmail && (
-            <p className="text-sm text-gray-500 italic">
+            <p className="text-sm text-muted-foreground italic">
               Email is verified. Enter a new email address to change it.
             </p>
           )}
@@ -180,7 +178,7 @@ export function EmailSettings() {
               className="w-full text-center text-lg tracking-widest"
               maxLength={6}
             />
-            <p className="text-sm text-gray-600">
+            <p className="text-sm text-muted-foreground">
               Enter the 6-digit code sent to {email}
             </p>
           </div>

@@ -88,7 +88,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
               </Select>
             </div>
             <label
-              className="flex-1 rounded-md border border-input bg-white px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm transition hover:border-slate-400 hover:bg-slate-50 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 cursor-pointer"
+              className="flex-1 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm transition hover:border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 cursor-pointer"
               role="button"
             >
               {file ? file.name : "Choose a file"}
@@ -117,7 +117,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
                 <div className="text-muted-foreground">{new Date(d.uploaded_at).toLocaleString()}</div>
               </div>
               <div className="flex items-center gap-2">
-                <a className="text-blue-600 underline" href={d.file_url} target="_blank" rel="noreferrer">Open</a>
+                <a className="text-primary underline" href={d.file_url} target="_blank" rel="noreferrer">Open</a>
                 <Button size="sm" variant="ghost" onClick={() => deleteDocument(d.id)} disabled={deletingId === d.id}>
                   {deletingId === d.id ? 'Removing...' : 'Remove'}
                 </Button>

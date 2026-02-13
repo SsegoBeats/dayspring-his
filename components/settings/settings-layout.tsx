@@ -24,8 +24,8 @@ export function SettingsLayout({ children, title, description, icon }: SettingsL
             {icon}
           </div>
           <div>
-            <h1 className="text-2xl font-semibold text-gray-900">{title}</h1>
-            <p className="text-sm text-gray-600">{description}</p>
+            <h1 className="text-2xl font-semibold text-foreground">{title}</h1>
+            <p className="text-sm text-muted-foreground">{description}</p>
           </div>
         </div>
         <Badge variant="outline" className="text-blue-600 border-blue-200">

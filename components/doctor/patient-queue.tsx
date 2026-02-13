@@ -30,7 +30,7 @@ export function PatientQueue({ onSelectPatient, filterPatientIds, filterEmptyMes
   return (
     <Card className="border-0 shadow-md bg-gradient-to-br from-slate-50 via-white to-sky-50">
       <CardHeader>
-        <CardTitle className="text-sky-900">Patient Queue</CardTitle>
+        <CardTitle className="text-foreground">Patient Queue</CardTitle>
         <CardDescription className="text-sky-700">Select a patient to begin consultation</CardDescription>
       </CardHeader>
       <CardContent className="space-y-4">

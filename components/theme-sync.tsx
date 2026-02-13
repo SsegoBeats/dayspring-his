@@ -1,5 +1,9 @@
 "use client"
 
+/**
+ * User settings (theme) must NOT affect the login page.
+ * ThemeSync runs preference logic ONLY when a session exists—never when unauthenticated.
+ */
 import { useEffect, useState, useRef } from "react"
 import { useTheme } from "next-themes"
 import { useSettings } from "@/lib/settings-context"
@@ -18,6 +22,7 @@ export function ThemeSync() {
     const fetchUserTheme = async () => {
       try {
         if (loading) return
+        // Never run preference logic when there is no session (login page, etc.)
         const hasCookie = typeof document !== 'undefined' && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
         if (!hasCookie) return
         let userId: string | null = null

@@ -15,6 +15,8 @@ export interface Bill {
   patientId: string
   patientNumber?: string
   patientName: string
+  patientPhone?: string
+  patientEmail?: string
   date: string
   items: BillItem[]
   subtotal: number
@@ -34,7 +36,7 @@ interface BillingContextType {
   bills: Bill[]
   addBill: (bill: Omit<Bill, "id">) => void
   updateBill: (id: string, updates: Partial<Bill>) => void
-  refreshBills: () => Promise<void>
+  refreshBills: () => Promise<Bill[]>
   getBill: (id: string) => Bill | undefined
   getPatientBills: (patientId: string) => Bill[]
   getPendingBills: () => Bill[]
@@ -45,7 +47,7 @@ const BillingContext = createContext<BillingContextType | undefined>(undefined)
 export function BillingProvider({ children }: { children: ReactNode }) {
   const [bills, setBills] = useState<Bill[]>([])
 
-  const refreshBills = useCallback(async () => {
+  const refreshBills = useCallback(async (): Promise<Bill[]> => {
     try {
       const res = await fetch("/api/billing", { credentials: 'include' })
       if (res.ok) {
@@ -82,6 +84,8 @@ export function BillingProvider({ children }: { children: ReactNode }) {
             patientId: b.patient_id,
             patientNumber: b.patient_number,
             patientName: `${b.first_name} ${b.last_name}`.trim(),
+            patientPhone: b.phone || undefined,
+            patientEmail: b.email || undefined,
             date: new Date(b.created_at).toISOString().slice(0, 10),
             items: itemsByBillId.get(b.id) || [],
             subtotal: Number(b.total_amount) - Number(b.tax_amount) + Number(b.discount_amount || 0),
@@ -97,11 +101,14 @@ export function BillingProvider({ children }: { children: ReactNode }) {
           }
         })
         setBills(mapped)
+        return mapped
       } else {
         setBills([])
+        return []
       }
     } catch {
       setBills([])
+      return []
     }
   }, [])
 

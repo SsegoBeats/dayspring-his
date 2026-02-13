@@ -538,7 +538,7 @@ export function BedManagement() {
       case "Reserved":
         return "bg-blue-100 text-blue-800"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-muted text-foreground"
     }
   }
 
@@ -573,11 +573,11 @@ export function BedManagement() {
       <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
         <Card className="hover:shadow-sm transition-shadow border-sky-100 bg-sky-50/40">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-600">Total Beds</CardTitle>
+            <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">Total Beds</CardTitle>
             <Bed className="h-4 w-4 text-sky-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{summary.total}</div>
+            <div className="text-3xl font-semibold text-foreground">{summary.total}</div>
             <p className="text-xs text-muted-foreground">Across {summary.totalWards} wards</p>
           </CardContent>
         </Card>
@@ -640,7 +640,7 @@ export function BedManagement() {
                       <Badge className={getWardBadgeColor(ward.ward)}>{ward.ward}</Badge>
                       <span className="text-sm font-medium">{occupiedPct}% occupied</span>
                     </div>
-                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-slate-100 mb-2">
+                    <div className="flex h-2 w-full overflow-hidden rounded-full bg-muted mb-2">
                       <div
                         className="h-full bg-rose-400"
                         style={{ width: `${occupiedPct}%` }}
@@ -811,12 +811,12 @@ export function BedManagement() {
                   <button
                     key={`${f.label}-${f.value}`}
                     type="button"
-                    className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-0.5 text-slate-700"
+                    className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5 text-muted-foreground"
                     onClick={f.onClear}
                   >
                     <span className="font-medium">{f.label}:</span>
                     <span>{f.value}</span>
-                    <X className="h-3 w-3 text-slate-400" />
+                    <X className="h-3 w-3 text-muted-foreground" />
                   </button>
                 ))}
               </div>
@@ -1244,7 +1244,7 @@ export function BedManagement() {
       ) : (
         <>
           <div className="flex flex-wrap items-center gap-3 text-[11px] text-muted-foreground">
-            <span className="font-medium text-slate-600">Status legend:</span>
+            <span className="font-medium text-muted-foreground">Status legend:</span>
             <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-emerald-500" /> Available</span>
             <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-rose-500" /> Occupied</span>
             <span className="inline-flex items-center gap-1"><span className="h-2 w-2 rounded-full bg-amber-400" /> Maintenance</span>

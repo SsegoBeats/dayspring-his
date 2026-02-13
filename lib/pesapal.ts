@@ -58,7 +58,7 @@ export async function submitPesapalOrder(params: SubmitOrderParams): Promise<{ r
     notification_id: params.notificationId,
     redirect_mode: "TOP_WINDOW",
     billing_address: {
-      email_address: params.billingAddress.email_address || "patient@dayspring.local",
+      email_address: params.billingAddress.email_address?.trim() || "",
       phone_number: params.billingAddress.phone_number || "",
       first_name: params.billingAddress.first_name || "",
       last_name: params.billingAddress.last_name || "",

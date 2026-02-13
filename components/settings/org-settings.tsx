@@ -6,10 +6,13 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
+import { useSettings } from "@/lib/settings-context"
 
 export function OrgSettings() {
-  const [form, setForm] = useState({ name: "", logoUrl: "", email: "", phone: "", address: "" })
+  const { refreshSettings } = useSettings()
+  const [form, setForm] = useState({ name: "", logoUrl: "", email: "", phone: "", address: "", currency: "UGX" })
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -33,6 +36,7 @@ export function OrgSettings() {
       const res = await fetch('/api/settings/org', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
       if (!res.ok) throw new Error((await res.json().catch(()=>({} as any)))?.error || 'Failed')
       toast.success('Organization settings saved')
+      await refreshSettings()
     } catch (e:any) {
       toast.error('Failed to save organization settings', { description: e?.message || 'Error' })
     } finally { setSaving(false) }
@@ -80,6 +84,18 @@ export function OrgSettings() {
             <div className="space-y-1">
               <Label>Address</Label>
               <Textarea value={form.address} onChange={(e)=> setForm({ ...form, address: e.target.value })} rows={3} />
+            </div>
+            <div className="space-y-1">
+              <Label>System Currency</Label>
+              <p className="text-xs text-muted-foreground mb-1">Admin-only. Affects receipts, exports, billing, and the entire system.</p>
+              <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v })}>
+                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="UGX">UGX (Ugandan Shilling)</SelectItem>
+                  <SelectItem value="USD">USD (US Dollar)</SelectItem>
+                  <SelectItem value="KES">KES (Kenyan Shilling)</SelectItem>
+                </SelectContent>
+              </Select>
             </div>
             <div className="flex justify-end">
               <Button onClick={save} disabled={saving}>{saving? 'Saving…' : 'Save Changes'}</Button>

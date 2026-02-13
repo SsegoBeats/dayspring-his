@@ -122,7 +122,7 @@ export function PasswordSettings() {
               <button
                 type="button"
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -145,7 +145,7 @@ export function PasswordSettings() {
               <button
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-gray-400 hover:text-gray-600"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
               >
                 {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -168,23 +168,23 @@ export function PasswordSettings() {
                 />
                 
                 <div className="grid grid-cols-2 gap-2 text-xs">
-                  <div className={`flex items-center gap-1 ${passwordCriteria.length ? 'text-green-600' : 'text-gray-400'}`}>
+                  <div className={`flex items-center gap-1 ${passwordCriteria.length ? 'text-green-600' : 'text-muted-foreground'}`}>
                     <CheckCircle className="h-3 w-3" />
                     8+ characters
                   </div>
-                  <div className={`flex items-center gap-1 ${passwordCriteria.uppercase ? 'text-green-600' : 'text-gray-400'}`}>
+                  <div className={`flex items-center gap-1 ${passwordCriteria.uppercase ? 'text-green-600' : 'text-muted-foreground'}`}>
                     <CheckCircle className="h-3 w-3" />
                     Uppercase letter
                   </div>
-                  <div className={`flex items-center gap-1 ${passwordCriteria.lowercase ? 'text-green-600' : 'text-gray-400'}`}>
+                  <div className={`flex items-center gap-1 ${passwordCriteria.lowercase ? 'text-green-600' : 'text-muted-foreground'}`}>
                     <CheckCircle className="h-3 w-3" />
                     Lowercase letter
                   </div>
-                  <div className={`flex items-center gap-1 ${passwordCriteria.number ? 'text-green-600' : 'text-gray-400'}`}>
+                  <div className={`flex items-center gap-1 ${passwordCriteria.number ? 'text-green-600' : 'text-muted-foreground'}`}>
                     <CheckCircle className="h-3 w-3" />
                     Number
                   </div>
-                  <div className={`flex items-center gap-1 ${passwordCriteria.symbol ? 'text-green-600' : 'text-gray-400'}`}>
+                  <div className={`flex items-center gap-1 ${passwordCriteria.symbol ? 'text-green-600' : 'text-muted-foreground'}`}>
                     <CheckCircle className="h-3 w-3" />
                     Special character
                   </div>

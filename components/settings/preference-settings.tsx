@@ -218,7 +218,7 @@ export function NotificationSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="emailReminders">Email Reminders</Label>
-              <p className="text-sm text-gray-600">Receive email notifications for appointments and tasks</p>
+              <p className="text-sm text-muted-foreground">Receive email notifications for appointments and tasks</p>
             </div>
             <Switch 
               id="emailReminders"
@@ -231,7 +231,7 @@ export function NotificationSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="appointmentAlerts">Appointment Alerts</Label>
-              <p className="text-sm text-gray-600">Get notified about upcoming appointments</p>
+              <p className="text-sm text-muted-foreground">Get notified about upcoming appointments</p>
             </div>
             <Switch 
               id="appointmentAlerts"
@@ -244,7 +244,7 @@ export function NotificationSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="labResults">Lab Results</Label>
-              <p className="text-sm text-gray-600">Notifications when lab results are ready</p>
+              <p className="text-sm text-muted-foreground">Notifications when lab results are ready</p>
             </div>
             <Switch 
               id="labResults"
@@ -257,7 +257,7 @@ export function NotificationSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="systemUpdates">System Updates</Label>
-              <p className="text-sm text-gray-600">General system announcements and updates</p>
+              <p className="text-sm text-muted-foreground">General system announcements and updates</p>
             </div>
             <Switch 
               id="systemUpdates"
@@ -270,7 +270,7 @@ export function NotificationSettings() {
           <div className="flex items-center justify-between">
             <div>
               <Label htmlFor="emergencyAlerts">Emergency Alerts</Label>
-              <p className="text-sm text-gray-600">Critical alerts that require immediate attention</p>
+              <p className="text-sm text-muted-foreground">Critical alerts that require immediate attention</p>
             </div>
             <Switch 
               id="emergencyAlerts"
@@ -293,12 +293,11 @@ export function PreferenceSettings() {
   const { setTheme } = useTheme()
   const previewedRef = (typeof window !== 'undefined' ? (window as any) : {}).__prefPreviewRef || { current: false }
   if (typeof window !== 'undefined') { (window as any).__prefPreviewRef = previewedRef }
-  const { refreshSettings } = useSettings()
+  const { refreshSettings, settings } = useSettings()
   const [preferences, setPreferences] = useState({
     theme: "system",
     locale: "en-GB",
     timezone: "Africa/Kampala",
-    currency: "UGX",
     dateFormat: "DD/MM/YYYY",
     defaultDashboard: "overview",
     queue_wait_warn: 30,
@@ -310,7 +309,6 @@ export function PreferenceSettings() {
     theme: "system",
     locale: "en-GB",
     timezone: "Africa/Kampala",
-    currency: "UGX",
     queue_wait_warn: 30,
     queue_wait_crit: 60,
     service_warn: 30,
@@ -367,14 +365,14 @@ export function PreferenceSettings() {
     fetchPreferences()
   }, [setTheme])
 
-  // Track unsaved changes (including queue SLA thresholds used by reception queue board)
+  // Track unsaved changes (including queue SLA thresholds used by reception queue board).
+  // Currency is admin-only (org-level), not editable here.
   useEffect(() => {
     if (loading) return
     const hasChanges =
       preferences.theme !== originalPreferences.theme ||
       preferences.locale !== originalPreferences.locale ||
       preferences.timezone !== originalPreferences.timezone ||
-      preferences.currency !== originalPreferences.currency ||
       preferences.queue_wait_warn !== originalPreferences.queue_wait_warn ||
       preferences.queue_wait_crit !== originalPreferences.queue_wait_crit ||
       preferences.service_warn !== originalPreferences.service_warn ||
@@ -389,7 +387,7 @@ export function PreferenceSettings() {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify(preferences)
+        body: JSON.stringify({ ...preferences, currency: settings?.currency || "UGX" })
       })
       
       if (res.ok) {
@@ -398,7 +396,6 @@ export function PreferenceSettings() {
           theme: preferences.theme,
           locale: preferences.locale,
           timezone: preferences.timezone,
-          currency: preferences.currency,
           queue_wait_warn: preferences.queue_wait_warn,
           queue_wait_crit: preferences.queue_wait_crit,
           service_warn: preferences.service_warn,
@@ -420,7 +417,6 @@ export function PreferenceSettings() {
           theme: originalPreferences.theme,
           locale: originalPreferences.locale,
           timezone: originalPreferences.timezone,
-          currency: originalPreferences.currency,
           queue_wait_warn: originalPreferences.queue_wait_warn,
           queue_wait_crit: originalPreferences.queue_wait_crit,
           service_warn: originalPreferences.service_warn,
@@ -429,14 +425,12 @@ export function PreferenceSettings() {
       }
     } catch (error) {
       toast.error("Failed to update preferences")
-      // Revert preferences if save failed
       setTheme(originalPreferences.theme)
       setPreferences(prev => ({
         ...prev,
         theme: originalPreferences.theme,
         locale: originalPreferences.locale,
         timezone: originalPreferences.timezone,
-        currency: originalPreferences.currency,
         queue_wait_warn: originalPreferences.queue_wait_warn,
         queue_wait_crit: originalPreferences.queue_wait_crit,
         service_warn: originalPreferences.service_warn,
@@ -517,24 +511,7 @@ export function PreferenceSettings() {
               </SelectContent>
             </Select>
           </div>
-          
-          <div className="space-y-2">
-            <Label htmlFor="currency">Currency</Label>
-            <Select 
-              name="currency"
-              value={preferences.currency} 
-              onValueChange={(value) => setPreferences(prev => ({ ...prev, currency: value }))}
-            >
-              <SelectTrigger id="currency">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="UGX">UGX (Ugandan Shilling)</SelectItem>
-                <SelectItem value="USD">USD (US Dollar)</SelectItem>
-                <SelectItem value="KES">KES (Kenyan Shilling)</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {/* Currency is admin-only; set in Organization Settings. */}
         </div>
 
         {/* Queue SLA Thresholds (minutes) */}
@@ -592,7 +569,7 @@ export function PreferenceSettings() {
         </div>
 
         {hasUnsavedChanges && (
-          <p className="text-sm text-amber-600 text-center">
+          <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
             You have unsaved changes. Changes are in preview mode.
           </p>
         )}

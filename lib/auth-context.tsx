@@ -22,17 +22,6 @@ interface User {
   emailVerified?: boolean
 }
 
-export interface SystemUser {
-  id: string
-  name: string
-  email: string
-  password: string
-  role: UserRole
-  status: "active" | "inactive"
-  createdAt: string
-  lastLogin?: string
-}
-
 interface AuthContextType {
   user: User | null
   login: (email: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>
@@ -42,27 +31,11 @@ interface AuthContextType {
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
 
-const DEFAULT_ADMIN: SystemUser = {
-  id: "admin-default",
-  name: "System Administrator",
-  email: "admin@dayspring.com",
-  password: "Admin@123",
-  role: "admin",
-  status: "active",
-  createdAt: new Date().toISOString(),
-}
-
-const initializeSystemUsers = () => {
-  // Legacy no-op retained to avoid breaking initial render paths
-  return [DEFAULT_ADMIN]
-}
-
 export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
   useEffect(() => {
-    initializeSystemUsers()
     ;(async () => {
       try {
         const res = await fetch("/api/auth/me", { credentials: "include" })

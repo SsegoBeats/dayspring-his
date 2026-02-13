@@ -380,7 +380,7 @@ export function RadiologistDashboard() {
       <div className="flex flex-col gap-2">
         <div className="flex items-center justify-between">
           <div>
-            <h2 className="text-3xl font-semibold tracking-tight text-sky-900">Radiologist Dashboard</h2>
+            <h2 className="text-3xl font-semibold tracking-tight text-foreground">Radiologist Dashboard</h2>
             <p className="max-w-2xl text-sm text-muted-foreground">
               Monitor imaging workload, prioritize urgent studies, and keep turnaround time within agreed SLAs.
             </p>
@@ -444,7 +444,7 @@ export function RadiologistDashboard() {
             <Clock className="h-4 w-4 text-amber-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{pendingTests.length}</div>
+            <div className="text-3xl font-semibold text-foreground">{pendingTests.length}</div>
             <p className="text-xs text-amber-800/80">Across all radiology modalities</p>
           </CardContent>
         </Card>
@@ -456,8 +456,8 @@ export function RadiologistDashboard() {
             <Scan className="h-4 w-4 text-sky-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{scansOrderedToday.length}</div>
-            <p className="text-xs text-slate-700/80">New studies added to queue</p>
+            <div className="text-3xl font-semibold text-foreground">{scansOrderedToday.length}</div>
+            <p className="text-xs text-muted-foreground/80">New studies added to queue</p>
           </CardContent>
         </Card>
         <Card className="border-emerald-100 bg-emerald-50/50 transition-shadow hover:shadow-sm">
@@ -468,7 +468,7 @@ export function RadiologistDashboard() {
             <CheckCircle className="h-4 w-4 text-emerald-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">{scansCompletedToday.length}</div>
+            <div className="text-3xl font-semibold text-foreground">{scansCompletedToday.length}</div>
             <p className="text-xs text-emerald-800/80">Final reports submitted</p>
           </CardContent>
         </Card>
@@ -480,7 +480,7 @@ export function RadiologistDashboard() {
             <XCircle className="h-4 w-4 text-rose-500" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-slate-900">
+            <div className="text-3xl font-semibold text-foreground">
               {averageTurnaroundHours !== null ? `${averageTurnaroundHours}h` : "-"}
             </div>
             <p className="text-xs text-muted-foreground">
@@ -494,7 +494,7 @@ export function RadiologistDashboard() {
         <Card className="border-slate-100 bg-white/60">
           <CardHeader className="flex flex-col gap-3 border-b md:flex-row md:items-center md:justify-between">
             <div className="space-y-1">
-              <CardTitle className="text-sm font-semibold text-slate-900">Radiology Worklist</CardTitle>
+              <CardTitle className="text-sm font-semibold text-foreground">Radiology Worklist</CardTitle>
               <CardDescription>Filter by modality, priority, or patient to focus your reading list.</CardDescription>
             </div>
             <div className="flex flex-wrap items-center gap-2">
@@ -665,13 +665,13 @@ export function RadiologistDashboard() {
           </CardContent>
         </Card>
 
-        <Card className="border-slate-100 bg-slate-50/60">
+        <Card className="border-border bg-muted/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <div>
-              <CardTitle className="text-sm font-semibold text-slate-900">Workload by Modality</CardTitle>
+              <CardTitle className="text-sm font-semibold text-foreground">Workload by Modality</CardTitle>
               <CardDescription>Snapshot of studies currently on your list.</CardDescription>
             </div>
-            <BarChart3 className="h-4 w-4 text-slate-500" />
+            <BarChart3 className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent className="h-56 pt-0">
             {modalityData.length === 0 ? (
@@ -793,7 +793,7 @@ export function RadiologistDashboard() {
           </DialogHeader>
           <div className="space-y-5 text-sm text-muted-foreground">
             <div className="space-y-3">
-              <p className="text-xs font-semibold uppercase tracking-wide text-slate-600">
+              <p className="text-xs font-semibold uppercase tracking-wide text-muted-foreground">
                 Manual upload (external images / CDs)
               </p>
               <div className="grid gap-3 md:grid-cols-2">
@@ -868,7 +868,7 @@ export function RadiologistDashboard() {
             </div>
 
             <div className="space-y-2 border-t pt-4 text-xs">
-              <p className="font-semibold text-slate-700">PACS / imaging system</p>
+              <p className="font-semibold text-muted-foreground">PACS / imaging system</p>
               <p>
                 For routine clinical workflow, continue pushing studies from your DICOM workstation into the PACS /
                 archive. Once indexed, those studies will be available for reporting here without any manual upload.

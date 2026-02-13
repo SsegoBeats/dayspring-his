@@ -185,7 +185,7 @@ export function SystemOverview() {
             </Badge>
           ) : null}
           {inactiveStaff > 0 ? (
-            <Badge variant="outline" className="border-slate-300 bg-slate-50 text-slate-800 h-5 text-[11px]">
+            <Badge variant="outline" className="border-border bg-muted text-foreground h-5 text-[11px]">
               {inactiveStaff} staff inactive in system
             </Badge>
           ) : null}
@@ -222,13 +222,13 @@ export function SystemOverview() {
           return (
             <Card key={stat.title} className={`hover:shadow-sm transition-shadow ${cardClasses}`}>
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs font-medium uppercase tracking-wide text-slate-600">
+                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
                   {stat.title}
                 </CardTitle>
                 <Icon className={`h-4 w-4 ${iconColor}`} />
               </CardHeader>
               <CardContent>
-                <div className="text-2xl font-semibold text-slate-900">{stat.value}</div>
+                <div className="text-2xl font-semibold text-foreground">{stat.value}</div>
                 <p className="text-xs text-muted-foreground">{stat.description}</p>
               </CardContent>
             </Card>

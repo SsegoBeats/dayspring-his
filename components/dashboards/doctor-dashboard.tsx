@@ -95,7 +95,7 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
                 <Users className="h-4 w-4 text-sky-500" />
               </CardHeader>
               <CardContent>
-                <div className="text-3xl font-bold text-sky-900">{patients.length}</div>
+                <div className="text-3xl font-bold text-foreground">{patients.length}</div>
                 <p className="text-xs text-sky-700">Registered patients</p>
               </CardContent>
             </Card>

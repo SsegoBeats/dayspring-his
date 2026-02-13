@@ -58,7 +58,8 @@ export function CashierDashboard() {
       return (
         b.patientName.toLowerCase().includes(q) ||
         b.id.toLowerCase().includes(q) ||
-        (b.billNumber || "").toLowerCase().includes(q)
+        (b.billNumber || "").toLowerCase().includes(q) ||
+        (b.patientNumber || "").toLowerCase().includes(q)
       )
     })
 
@@ -140,7 +141,7 @@ export function CashierDashboard() {
             <CardTitle className="text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400">
               Total Bills
             </CardTitle>
-            <Receipt className="h-5 w-5 text-slate-500" />
+            <Receipt className="h-5 w-5 text-muted-foreground" />
           </CardHeader>
           <CardContent>
             <div className="text-2xl font-bold text-slate-900 dark:text-slate-100">{bills.length}</div>

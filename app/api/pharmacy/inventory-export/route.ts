@@ -36,12 +36,8 @@ export async function POST(req: Request) {
       [],
     )
 
-    // Load user currency for formatting/meta
-    let currency = "UGX"
-    try {
-      const cur = await query(`SELECT currency FROM user_settings WHERE user_id = $1`, [auth.userId])
-      if (cur.rows?.[0]?.currency) currency = cur.rows[0].currency
-    } catch {}
+    const { getSystemCurrency } = await import("@/lib/org")
+    const currency = await getSystemCurrency()
 
     const prepared = rows.map((r: any) => {
       const unitPriceUGX = Number(r.unit_price) || 0

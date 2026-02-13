@@ -76,10 +76,13 @@ export async function POST(req: Request) {
     }
 
     const merchantRef = `BILL-${billId}`.slice(0, 50)
-    // Pre-fill: Mobile Money uses entered phone (or patient's); Card uses patient's phone
-    const rawPhone = body.phoneNumber || bill.phone || ""
-    const phoneClean = String(rawPhone).replace(/\D/g, "")
-    const ugPhone = phoneClean ? (phoneClean.startsWith("256") ? phoneClean : `256${phoneClean.replace(/^0/, "")}`) : ""
+    // Pre-fill: normalize Uganda phone to 256XXXXXXXXX (Pesapal expects this format)
+    const rawPhone = String(body.phoneNumber || bill.phone || "").trim()
+    const phoneClean = rawPhone.replace(/\D/g, "")
+    // Uganda: 256 + 9 digits. Accept 256XXXXXXXXX, 078XXXXXXXX, or 7XXXXXXXX
+    const ugPhone = phoneClean.length >= 9
+      ? (phoneClean.startsWith("256") && phoneClean.length === 12 ? phoneClean : `256${phoneClean.replace(/^0+/, "").replace(/^256/, "").slice(-9)}`)
+      : ""
 
     const result = await submitPesapalOrder({
       id: merchantRef,
@@ -89,7 +92,7 @@ export async function POST(req: Request) {
       callbackUrl,
       notificationId: ipnId,
       billingAddress: {
-        email_address: body.email || bill.email || "patient@dayspring.local",
+        email_address: (body.email || bill.email || "").trim() || undefined,
         phone_number: ugPhone || undefined,
         first_name: bill.first_name || "",
         last_name: bill.last_name || "",

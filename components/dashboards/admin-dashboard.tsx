@@ -16,7 +16,7 @@ export function AdminDashboard() {
     <div className="space-y-6">
       <div className="flex items-start justify-between gap-4">
         <div>
-          <h2 className="text-3xl font-semibold tracking-tight text-sky-900">Hospital Admin Dashboard</h2>
+          <h2 className="text-3xl font-semibold tracking-tight text-foreground">Hospital Admin Dashboard</h2>
           <p className="text-sm text-muted-foreground">Monitor operations, staff, beds, and finances from one control center.</p>
         </div>
         <Button variant="outline" size="sm" asChild>

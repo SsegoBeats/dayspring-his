@@ -49,16 +49,13 @@ export async function POST(req: Request) {
     const parsedFilters = ds.validateFilters(input.filters)
     // Resolve requestor full name
     let requestedBy = auth.email
-    // Load user currency for formatting/meta
     let currency = 'UGX'
     try {
       const { rows } = await query('SELECT name FROM users WHERE id = $1', [auth.userId])
       if (rows?.[0]?.name) requestedBy = `${rows[0].name} <${auth.email}>`
     } catch {}
-    try {
-      const { rows } = await query(`SELECT currency FROM user_settings WHERE user_id = $1`, [auth.userId])
-      if (rows?.[0]?.currency) currency = rows[0].currency
-    } catch {}
+    const { getSystemCurrency } = await import('@/lib/org')
+    currency = await getSystemCurrency()
     const toDate = (d?: string) => (d ? new Date(d).toLocaleDateString('en-GB') : '-')
     const extraInfoBase: Record<string,string> | undefined = (() => {
       const f: any = parsedFilters || {}

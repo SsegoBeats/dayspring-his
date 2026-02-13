@@ -13,7 +13,8 @@ export async function GET() {
     const [bills, items] = await Promise.all([
       queryWithSession(
         { role: auth.role, userId: auth.userId },
-        `SELECT b.id, b.bill_number, b.patient_id, p.patient_number, p.first_name, p.last_name, b.total_amount, b.tax_amount, b.discount_amount,
+        `SELECT b.id, b.bill_number, b.patient_id, p.patient_number, p.first_name, p.last_name, p.phone, p.email,
+                b.total_amount, b.tax_amount, b.discount_amount,
                 b.final_amount, b.status, b.payment_method, b.paid_amount, b.created_at, b.paid_at
          FROM bills b
          JOIN patients p ON p.id = b.patient_id
@@ -126,9 +127,19 @@ export async function POST(req: Request) {
 
     const billId = billInsert.rows[0].id as string
 
+    const isMedicationBill = medications.length > 0
     const barcodePayload = generateBarcodeData("payment", billId, {
       patientId,
-      source: body.source || (medications.length ? "prescription" : "manual"),
+      source: body.source || (isMedicationBill ? "prescription" : "manual"),
+      // Include medication items for pharmacist receipt verification (name, qty, amount)
+      items: isMedicationBill
+        ? items.map((i) => ({
+            d: i.description.slice(0, 40),
+            q: i.quantity,
+            u: i.unitPrice,
+            t: i.totalPrice,
+          }))
+        : undefined,
     })
 
     await query(`UPDATE bills SET barcode = $1 WHERE id = $2`, [barcodePayload, billId])

@@ -48,7 +48,15 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
       }
 
       if (status !== "all") {
-        filters.status = status
+        // Billing dataset expects capitalized status: Pending, Paid, Partially Paid, Cancelled
+        filters.status =
+          status === "pending"
+            ? "Pending"
+            : status === "paid"
+              ? "Paid"
+              : status === "partially paid"
+                ? "Partially Paid"
+                : "Cancelled"
       }
 
       const response = await fetch("/api/exports/direct", {

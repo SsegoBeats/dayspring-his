@@ -45,9 +45,10 @@ export async function POST(req: Request) {
     const otp = crypto.randomInt(100000, 999999).toString()
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
 
-    console.log(`[OTP] Current time (UTC): ${new Date().toISOString()}`)
-    console.log(`[OTP] Expires at (UTC): ${expiresAt.toISOString()}`)
-    console.log(`[OTP] Code: ${otp}, Expires in: ${(expiresAt.getTime() - Date.now()) / 1000} seconds`)
+    // Security: Never log OTP codes. Only log generic info in development.
+    if (process.env.NODE_ENV === "development") {
+      console.log("[OTP] Sent verification code to user", auth.userId, "(code never logged)")
+    }
 
     // Delete ALL existing OTPs for this user (including valid ones) - this invalidates the old code
     await query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [auth.userId])
@@ -58,8 +59,6 @@ export async function POST(req: Request) {
        VALUES ($1, $2, $3, $4, false)`,
       [auth.userId, otp, email, expiresAt.toISOString()],
     )
-
-    console.log(`[OTP] Generated new code ${otp} for user ${auth.userId}`)
 
     // Fetch user details for personalization
     const { rows: userRows } = await query(`SELECT name FROM users WHERE id = $1`, [auth.userId])

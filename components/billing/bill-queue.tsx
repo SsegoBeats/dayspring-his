@@ -6,6 +6,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { FileText, Plus, Edit } from "lucide-react"
 import { useFormatCurrency } from "@/lib/settings-context"
+import { formatPatientNumber } from "@/lib/patients"
 
 interface BillQueueProps {
   bills: Bill[]
@@ -59,6 +60,11 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, empty
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
                     <p className="font-medium text-foreground">{bill.patientName}</p>
+                    {bill.patientNumber && (
+                      <span className="font-mono text-xs text-muted-foreground">
+                        {formatPatientNumber(bill.patientNumber)}
+                      </span>
+                    )}
                     <Badge
                       variant={
                         bill.status === "paid"
@@ -74,7 +80,7 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, empty
                     </Badge>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-4 text-sm text-muted-foreground">
-                    <span>Invoice: {bill.id}</span>
+                    <span>Invoice: {bill.billNumber || bill.id.slice(0, 8) + "…"}</span>
                     <span>Date: {bill.date}</span>
                     <span>Total: {formatCurrency(bill.total)}</span>
                     {bill.status === "partially paid" && bill.paidAmount && (

@@ -107,9 +107,9 @@ export function DentistDashboard() {
           </CardHeader>
           <CardContent>
             {summaryLoading ? (
-              <div className="text-2xl font-bold text-sky-900">—</div>
+              <div className="text-2xl font-bold text-foreground">—</div>
             ) : (
-              <div className="text-3xl font-bold text-sky-900">{summary?.visitsCount ?? 0}</div>
+              <div className="text-3xl font-bold text-foreground">{summary?.visitsCount ?? 0}</div>
             )}
             <p className="text-xs text-sky-700">Recorded by you today</p>
           </CardContent>

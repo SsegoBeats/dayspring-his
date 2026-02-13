@@ -54,8 +54,7 @@ export function AuditLogViewer() {
       }
 
       const result = await response.json()
-      console.log('Cleanup result:', result)
-      
+
       // Refresh the logs
       await applyFilters(1)
       
@@ -64,10 +63,8 @@ export function AuditLogViewer() {
       
       // Show success message after data refresh
       toast.success(`${result.deletedCount} audit logs older than ${days} days have been deleted`)
-      console.log('Cleanup success toast triggered')
-      // No blocking alert; toast above already informs the user
     } catch (err) {
-      console.error('Error cleaning up logs:', err)
+      if (process.env.NODE_ENV === "development") console.error("Error cleaning up logs:", err)
       toast.error("Failed to cleanup audit logs")
     } finally {
       setManagementLoading(false)
@@ -102,10 +99,8 @@ export function AuditLogViewer() {
       
       // Show success message after data refresh
       toast.success(`All ${result.deletedCount} audit logs have been deleted`)
-      console.log('Delete all success toast triggered')
-      // No blocking alert; toast above already informs the user
     } catch (err) {
-      console.error('Error deleting all logs:', err)
+      if (process.env.NODE_ENV === "development") console.error("Error deleting all logs:", err)
       toast.error("Failed to delete all audit logs")
     } finally {
       setManagementLoading(false)
@@ -154,7 +149,7 @@ export function AuditLogViewer() {
       setTotalPages(result.totalPages)
       setCurrentPage(result.page)
     } catch (err) {
-      console.error('Error applying filters:', err)
+      if (process.env.NODE_ENV === "development") console.error("Error applying filters:", err)
       toast.error("Failed to apply filters")
     }
   }, [search, categoryFilter, actionFilter, getDateFilter, getLogs, limit])
@@ -171,7 +166,7 @@ export function AuditLogViewer() {
       await exportLogs(filters)
       toast.success("Audit logs exported successfully")
     } catch (err) {
-      console.error('Error exporting logs:', err)
+      if (process.env.NODE_ENV === "development") console.error("Error exporting logs:", err)
       toast.error("Failed to export audit logs")
     }
   }
@@ -181,7 +176,7 @@ export function AuditLogViewer() {
       await applyFilters(currentPage)
       toast.success("Audit logs refreshed successfully")
     } catch (err) {
-      console.error('Error refreshing logs:', err)
+      if (process.env.NODE_ENV === "development") console.error("Error refreshing logs:", err)
       toast.error("Failed to refresh audit logs")
     }
   }, [applyFilters, currentPage])
@@ -230,19 +225,19 @@ export function AuditLogViewer() {
   const getCategoryColor = (category: AuditCategory) => {
     switch (category) {
       case "AUTHENTICATION":
-        return "bg-blue-100 text-blue-800"
+        return "bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300"
       case "PATIENT":
-        return "bg-green-100 text-green-800"
+        return "bg-green-100 text-green-800 dark:bg-green-900/40 dark:text-green-300"
       case "APPOINTMENT":
-        return "bg-yellow-100 text-yellow-800"
+        return "bg-yellow-100 text-yellow-800 dark:bg-yellow-900/40 dark:text-yellow-300"
       case "BILLING":
-        return "bg-purple-100 text-purple-800"
+        return "bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300"
       case "USER_MANAGEMENT":
-        return "bg-red-100 text-red-800"
+        return "bg-red-100 text-red-800 dark:bg-red-900/40 dark:text-red-300"
       case "SYSTEM":
-        return "bg-gray-100 text-gray-800"
+        return "bg-muted text-foreground"
       default:
-        return "bg-gray-100 text-gray-800"
+        return "bg-muted text-foreground"
     }
   }
 
@@ -328,7 +323,7 @@ export function AuditLogViewer() {
         <div className="rounded-md border bg-muted/40 p-3 flex flex-wrap items-center gap-3 text-xs">
           {failedLogins > 0 || deletions > 0 || userMgmt > 0 ? (
             <>
-              <span className="font-medium text-slate-700 flex items-center gap-1">
+              <span className="font-medium text-muted-foreground flex items-center gap-1">
                 <AlertTriangle className="h-3.5 w-3.5 text-amber-600" />
                 Anomalies snapshot
               </span>
@@ -469,31 +464,31 @@ export function AuditLogViewer() {
           {activeFilterCount > 0 && (
             <div className="flex flex-wrap gap-2 text-[11px] ml-auto">
               {search && (
-                <button type="button" className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-0.5" onClick={() => setSearch("")}>
+                <button type="button" className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5" onClick={() => setSearch("")}>
                   <span className="font-medium">Search:</span>
                   <span>{search}</span>
-                  <X className="h-3 w-3 text-slate-400" />
+                  <X className="h-3 w-3 text-muted-foreground" />
                 </button>
               )}
               {categoryFilter !== 'ALL' && (
-                <button type="button" className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-0.5" onClick={() => setCategoryFilter('ALL')}>
+                <button type="button" className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5" onClick={() => setCategoryFilter('ALL')}>
                   <span className="font-medium">Category:</span>
                   <span>{categoryFilter}</span>
-                  <X className="h-3 w-3 text-slate-400" />
+                  <X className="h-3 w-3 text-muted-foreground" />
                 </button>
               )}
               {actionFilter !== 'ALL' && (
-                <button type="button" className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-0.5" onClick={() => setActionFilter('ALL')}>
+                <button type="button" className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5" onClick={() => setActionFilter('ALL')}>
                   <span className="font-medium">Action:</span>
                   <span>{actionFilter}</span>
-                  <X className="h-3 w-3 text-slate-400" />
+                  <X className="h-3 w-3 text-muted-foreground" />
                 </button>
               )}
               {dateRange !== 'week' && (
-                <button type="button" className="inline-flex items-center gap-1 rounded-full border bg-slate-50 px-2 py-0.5" onClick={() => setDateRange('week')}>
+                <button type="button" className="inline-flex items-center gap-1 rounded-full border bg-muted px-2 py-0.5" onClick={() => setDateRange('week')}>
                   <span className="font-medium">Range:</span>
                   <span>{dateRange}</span>
-                  <X className="h-3 w-3 text-slate-400" />
+                  <X className="h-3 w-3 text-muted-foreground" />
                 </button>
               )}
               <span className="text-muted-foreground">{activeFilterCount} active filter{activeFilterCount === 1 ? '' : 's'}</span>

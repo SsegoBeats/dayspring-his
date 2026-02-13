@@ -27,7 +27,9 @@ async function processSuccessfulPayment(billId: string, orderTrackingId: string,
      WHERE id = $1`,
     [billId, status, paymentMethod, paidAmountToSet],
   )
-  console.log("[Pesapal] Bill updated:", billId, orderTrackingId, status, "amount:", effectiveAmount)
+  if (process.env.NODE_ENV === "development") {
+    console.log("[Pesapal] Bill updated:", billId, orderTrackingId, status)
+  }
 }
 
 /**
