@@ -13,6 +13,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Bed, Plus, Edit, Trash2, Users, Activity, UserPlus, Search, Filter, X, ChevronDown, ChevronUp, SortAsc, SortDesc, Eye, BarChart3, ArrowRightLeft } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
+import { formatPatientNumber } from "@/lib/patients"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
 
 interface Bed {
@@ -417,7 +418,7 @@ export function BedManagement() {
         bed.ward.toLowerCase().includes(searchLower) ||
         bed.location.toLowerCase().includes(searchLower) ||
         bed.patient?.name.toLowerCase().includes(searchLower) ||
-        bed.patient?.patientNumber.toLowerCase().includes(searchLower)
+        formatPatientNumber(bed.patient?.patientNumber).toLowerCase().includes(searchLower)
 
       // Status filter
       const matchesStatus = !filters.status || bed.status === filters.status
@@ -1095,7 +1096,7 @@ export function BedManagement() {
             {transferringBed?.patient && (
               <div className="p-3 bg-muted rounded-md text-sm">
                 <span className="font-medium">{transferringBed.patient.name}</span>
-                <span className="text-muted-foreground"> #{transferringBed.patient.patientNumber}</span>
+                <span className="text-muted-foreground"> #{formatPatientNumber(transferringBed.patient.patientNumber)}</span>
               </div>
             )}
             <div>
@@ -1166,14 +1167,14 @@ export function BedManagement() {
                       onClick={() => setSelectedPatient(p)}
                     >
                       <div className="text-sm font-medium">{p.name}</div>
-                      <div className="text-xs text-muted-foreground">{p.patient_number}</div>
+                      <div className="text-xs text-muted-foreground">{formatPatientNumber(p.patient_number)}</div>
                     </button>
                   ))}
                 </div>
               )}
               {selectedPatient && (
                 <div className="mt-2 text-sm">
-                  Selected: <span className="font-medium">{selectedPatient.name}</span> ({selectedPatient.patient_number})
+                  Selected: <span className="font-medium">{selectedPatient.name}</span> ({formatPatientNumber(selectedPatient.patient_number)})
                 </div>
               )}
             </div>
@@ -1372,7 +1373,7 @@ export function BedManagement() {
                   <div className="p-2 bg-blue-50 rounded">
                     <p className="text-sm font-medium text-blue-800">Patient Assigned</p>
                     <p className="text-xs text-blue-600">{bed.patient.name}</p>
-                    <p className="text-xs text-blue-600">#{bed.patient.patientNumber}</p>
+                    <p className="text-xs text-blue-600">#{formatPatientNumber(bed.patient.patientNumber)}</p>
                     <p className="text-xs text-blue-600">Assigned {new Date(bed.patient.assignedAt).toLocaleString()}</p>
                   </div>
                 )}

@@ -12,6 +12,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
+import { formatPatientNumber } from "@/lib/patients"
 
 type AppointmentFormProps = {
   onSubmitted?: () => void
@@ -151,7 +152,7 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
                 <div className="text-xs text-muted-foreground">
                   Selected: {(() => {
                     const o = options.find((p) => p.id === formData.patientId)
-                    if (o) return `${o.patient_number} - ${o.first_name} ${o.last_name}`
+                    if (o) return `${formatPatientNumber(o.patient_number)} - ${o.first_name} ${o.last_name}`
                     const p = patients.find((pp) => pp.id === formData.patientId)
                     return p ? `${p.firstName} ${p.lastName}` : formData.patientId
                   })()}
@@ -164,7 +165,7 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
                   <div className="p-2 text-sm text-muted-foreground">No results</div>
                 ) : options.map((p) => (
                   <button key={p.id} type="button" onClick={() => setFormData({ ...formData, patientId: p.id })} className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${formData.patientId===p.id?'bg-muted':''}`}>
-                    {p.patient_number} - {p.first_name} {p.last_name}
+                    {formatPatientNumber(p.patient_number)} - {p.first_name} {p.last_name}
                   </button>
                 ))}
               </div>

@@ -1,4 +1,4 @@
-﻿"use client"
+"use client"
 
 import React, { useState, useEffect } from "react"
 import { usePatients } from "@/lib/patient-context"
@@ -12,7 +12,7 @@ import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } f
 import { Textarea } from "@/components/ui/textarea"
 import { toast } from "sonner"
 import { PatientDetails } from "./patient-details"
-import { formatPatientDigits } from "@/lib/patients"
+import { formatPatientNumber } from "@/lib/patients"
 
 export function PatientList({ initialSelectedPatientId }: { initialSelectedPatientId?: string }) {
   const { patients, searchPatients, refreshPatients } = usePatients()
@@ -74,7 +74,7 @@ export function PatientList({ initialSelectedPatientId }: { initialSelectedPatie
               </thead>
               <tbody>
                 {displayedPatients.map((p) => {
-                  const pid = formatPatientDigits(p.patientNumber)
+                  const pid = formatPatientNumber(p.patientNumber)
                   // Age: prefer ageYears, else approximate from dateOfBirth
                   let age: string | number = p.ageYears || ''
                   if (!age && p.dateOfBirth) {

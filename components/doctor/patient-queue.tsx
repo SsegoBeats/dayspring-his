@@ -2,7 +2,7 @@
 
 import { useState } from "react"
 import { usePatients } from "@/lib/patient-context"
-import { formatPatientDigits } from "@/lib/patients"
+import { formatPatientNumber } from "@/lib/patients"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -64,7 +64,7 @@ export function PatientQueue({ onSelectPatient, filterPatientIds, filterEmptyMes
               </thead>
               <tbody>
                 {displayedPatients.map((patient) => {
-                  const pid = formatPatientDigits(patient.patientNumber)
+                  const pid = formatPatientNumber(patient.patientNumber)
                   const derivedAge =
                     patient.dateOfBirth && !Number.isNaN(new Date(patient.dateOfBirth).getTime())
                       ? Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear())

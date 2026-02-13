@@ -6,6 +6,7 @@ import { toCSV } from "@/lib/exports/writers/csv"
 import { toXLSX } from "@/lib/exports/writers/xlsx"
 import { toPDF } from "@/lib/exports/writers/pdf"
 import { writeAuditLog } from "@/lib/audit"
+import { formatPatientNumber } from "@/lib/patients"
 
 export async function GET(req: Request) {
   try {
@@ -58,7 +59,7 @@ export async function GET(req: Request) {
     const { rows } = await query(queryStr, params)
 
     const data = rows.map((r: any) => ({
-      "Patient ID": r.patient_number ? `P.${String(r.patient_number).padStart(6, "0")}` : r.patient_id.slice(0, 8),
+      "Patient ID": formatPatientNumber(r.patient_number),
       "Patient Name": [r.first_name, r.last_name].filter(Boolean).join(" "),
       "Date": new Date(r.recorded_at).toISOString().split("T")[0],
       "Time": new Date(r.recorded_at).toTimeString().slice(0, 5),

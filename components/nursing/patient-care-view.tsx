@@ -329,7 +329,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                 {patient.firstName} {patient.lastName}
               </CardTitle>
               <CardDescription>
-                Patient ID: {patient.patientNumber ? formatPatientNumber(patient.patientNumber) : patient.id}
+                Patient ID: {formatPatientNumber(patient.patientNumber)}
               </CardDescription>
             </div>
             <div className="flex gap-2">

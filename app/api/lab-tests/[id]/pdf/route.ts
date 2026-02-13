@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
+import { formatPatientNumber } from "@/lib/patients"
 
 export const runtime = 'nodejs'
 
@@ -123,7 +124,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // Compute flags summary
     const highCount = analyteRows.filter((x:any)=> x.Flag === 'H').length
     const lowCount = analyteRows.filter((x:any)=> x.Flag === 'L').length
-    const meta = { Patient: patientName, 'P.ID': r.patient_number || '-', Gender: r.gender || '-', Age: (ageYears!=null? String(ageYears)+' yr' : '-'), Test: r.test_name || r.test_type, Accession: r.accession_number || '-', Ordered: String(r.ordered_at||''), Flags: (highCount||lowCount) ? `H:${highCount} L:${lowCount}` : undefined as any }
+    const meta = { Patient: patientName, 'P.ID': formatPatientNumber(r.patient_number), Gender: r.gender || '-', Age: (ageYears!=null? String(ageYears)+' yr' : '-'), Test: r.test_name || r.test_type, Accession: r.accession_number || '-', Ordered: String(r.ordered_at||''), Flags: (highCount||lowCount) ? `H:${highCount} L:${lowCount}` : undefined as any }
     const title = `${org.name} - Laboratory Result`
     const preparedRows = analyteRows.length ? [...analyteRows] : [{ Note: (r.results || '').slice(0, 1000) }]
     if (highCount || lowCount) {

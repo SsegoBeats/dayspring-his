@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { query, queryWithSession } from "@/lib/db"
+import { formatPatientNumber } from "@/lib/patients"
 import { writeAuditLog } from "@/lib/audit"
 import { checkCriticalValues } from "@/lib/lab-results-validation"
 
@@ -37,7 +38,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
       id: r.id,
       patientId: r.patient_id,
       patientName: [r.first_name, r.last_name].filter(Boolean).join(' '),
-      patientNumber: r.patient_number,
+      patientNumber: formatPatientNumber(r.patient_number),
       doctorName: r.doctor_name || '',
       testName: r.test_name,
       testType: r.test_type,

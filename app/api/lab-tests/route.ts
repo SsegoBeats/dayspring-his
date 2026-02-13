@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
+import { formatPatientNumber } from "@/lib/patients"
 import { query, queryWithSession } from "@/lib/db"
 import { writeAuditLog } from "@/lib/audit"
 
@@ -63,7 +64,7 @@ export async function GET(req: Request) {
     params.push(offset)
 
     const { rows } = await query(
-      `SELECT lt.*, p.first_name, p.last_name, p.gender, p.date_of_birth,
+      `SELECT lt.*, p.first_name, p.last_name, p.patient_number, p.gender, p.date_of_birth,
               d.name AS doctor_name,
               t.name AS lab_tech_name,
               ar.name AS assigned_radiologist_name
@@ -81,6 +82,7 @@ export async function GET(req: Request) {
     const tests = rows.map((r:any)=>({
       id: r.id,
       patientId: r.patient_id,
+      patientNumber: formatPatientNumber(r.patient_number),
       patientName: [r.first_name, r.last_name].filter(Boolean).join(' '),
       doctorId: r.doctor_id,
       doctorName: r.doctor_name || '',

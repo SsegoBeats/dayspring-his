@@ -11,7 +11,7 @@ import { PatientConsultation } from "@/components/doctor/patient-consultation"
 import { PatientQueue } from "@/components/doctor/patient-queue"
 import { Users, FileText, Pill, Activity, Calendar } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { formatPatientDigits } from "@/lib/patients"
+import { formatPatientNumber } from "@/lib/patients"
 
 interface DoctorDashboardProps {
   title?: string
@@ -215,7 +215,7 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
               {selectedPatientId ? (function(){
                 const p = patients.find(function(x){ return x.id === selectedPatientId })
                 if (!p) return 'Consultation'
-                const pid = formatPatientDigits(p.patientNumber)
+                const pid = formatPatientNumber(p.patientNumber)
                 return 'Consultation – ' + p.firstName + ' ' + p.lastName + (pid ? ' (P.' + pid + ')' : '')
               })() : 'Consultation'}
             </DialogTitle>

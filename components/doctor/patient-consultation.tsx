@@ -570,7 +570,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
       <style>{`@media print {.no-print { display:none !important; } .only-print { display:block !important; } } @media screen { .only-print { display:none; } }`}</style>
       <div className="only-print hidden border rounded p-4 text-sm space-y-2 bg-white">
         <h2 className="text-lg font-semibold">Clinician Summary</h2>
-        <div>Patient: {patient.firstName} {patient.lastName} (PID: {patient.patientNumber ? formatPatientNumber(patient.patientNumber) : patient.id})</div>
+        <div>Patient: {patient.firstName} {patient.lastName} (PID: {formatPatientNumber(patient.patientNumber)})</div>
         <div>Printed by: {user?.email || user?.name || "-"}</div>
         <div className="grid grid-cols-2 gap-2">
           <div>Age: {(patient as any).ageYears ?? "-"}</div>
@@ -654,7 +654,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                 {patient.firstName} {patient.lastName}
               </CardTitle>
               <CardDescription>
-                Patient ID: {patient.patientNumber ? formatPatientNumber(patient.patientNumber) : patient.id}
+                Patient ID: {formatPatientNumber(patient.patientNumber)}
               </CardDescription>
             </div>
             <div className="flex gap-2">

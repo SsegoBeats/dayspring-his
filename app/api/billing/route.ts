@@ -13,7 +13,7 @@ export async function GET() {
     const [bills, items] = await Promise.all([
       queryWithSession(
         { role: auth.role, userId: auth.userId },
-        `SELECT b.id, b.bill_number, b.patient_id, p.first_name, p.last_name, b.total_amount, b.tax_amount, b.discount_amount,
+        `SELECT b.id, b.bill_number, b.patient_id, p.patient_number, p.first_name, p.last_name, b.total_amount, b.tax_amount, b.discount_amount,
                 b.final_amount, b.status, b.payment_method, b.paid_amount, b.created_at, b.paid_at
          FROM bills b
          JOIN patients p ON p.id = b.patient_id

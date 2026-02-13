@@ -12,7 +12,7 @@ import { TriageForm } from "@/components/patient/triage-form"
 import { useState } from "react"
 import { Separator } from "@/components/ui/separator"
 import { EditPatientDialog } from "@/components/patient/edit-patient-dialog"
-import { formatPatientDigits } from "@/lib/patients"
+import { formatPatientNumber } from "@/lib/patients"
 interface PatientDetailsProps {
   patientId: string
   onBack: () => void
@@ -54,8 +54,7 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
       </CardTitle>
       <CardDescription>
         {(() => {
-          const pidDigits = formatPatientDigits(patient.patientNumber)
-          return `P.ID: ${pidDigits ? `P.${pidDigits}` : "-"}`
+          return `P.ID: ${formatPatientNumber(patient.patientNumber)}`
         })()}
       </CardDescription>
     </div>

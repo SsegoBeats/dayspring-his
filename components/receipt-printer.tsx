@@ -6,6 +6,7 @@ import { Card } from "@/components/ui/card"
 import { BarcodeGenerator } from "./barcode-generator"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { useFormatDate } from "@/lib/date-utils"
+import { formatPatientNumber } from "@/lib/patients"
 import { Printer, ArrowLeft } from "lucide-react"
 
 interface ReceiptItem {
@@ -114,8 +115,8 @@ export function ReceiptPrinter({
             <p className="font-semibold">{patientName}</p>
           </div>
           <div>
-            <p className="text-muted-foreground">Patient Number:</p>
-            <p className="font-semibold">{patientNumber}</p>
+            <p className="text-muted-foreground">Patient ID:</p>
+            <p className="font-semibold font-mono">{formatPatientNumber(patientNumber)}</p>
           </div>
           <div>
             <p className="text-muted-foreground">Date:</p>

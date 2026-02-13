@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 import { toXLSX } from "@/lib/exports/writers/xlsx"
+import { formatPatientNumber } from "@/lib/patients"
 
 export const runtime = 'nodejs'
 
@@ -47,14 +48,14 @@ function getAnalyteRows(test: any) {
       const val = toNum(v)
       let flag = ''
       if (val != null && lo != null && hi != null) flag = val < lo ? 'L' : (val > hi ? 'H' : '')
-      rows.push({ Patient: test.patientName, PID: test.patient_number || test.patientNumber || '', Test: test.testName || test.test_type || test.testType, Parameter: k, Value: v, RefRange: (lo!=null&&hi!=null) ? `${lo}-${hi} ${unit}` : undefined, Flag: flag || undefined, Accession: test.accession_number || test.accessionNumber, Ordered: test.ordered_at || test.orderedAt, Completed: test.completed_at || test.completedAt })
+      rows.push({ Patient: test.patientName, PID: formatPatientNumber(test.patient_number || test.patientNumber), Test: test.testName || test.test_type || test.testType, Parameter: k, Value: v, RefRange: (lo!=null&&hi!=null) ? `${lo}-${hi} ${unit}` : undefined, Flag: flag || undefined, Accession: test.accession_number || test.accessionNumber, Ordered: test.ordered_at || test.orderedAt, Completed: test.completed_at || test.completedAt })
     }
     // Interpretations block
     const idx = resStr.indexOf('Interpretation:')
     if (idx !== -1) {
       const block = resStr.slice(idx)
       const lines = block.split(/\r?\n/).slice(1).map((l:string)=> l.replace(/^[-\s]+/,'').trim()).filter(Boolean)
-      if (lines.length) rows.push({ Patient: test.patientName, PID: test.patient_number || test.patientNumber || '', Test: test.testName || test.test_type || test.testType, Parameter: 'Interpretation', Value: lines.join(' | '), Accession: test.accession_number || test.accessionNumber, Ordered: test.ordered_at || test.orderedAt, Completed: test.completed_at || test.completedAt })
+      if (lines.length) rows.push({ Patient: test.patientName, PID: formatPatientNumber(test.patient_number || test.patientNumber), Test: test.testName || test.test_type || test.testType, Parameter: 'Interpretation', Value: lines.join(' | '), Accession: test.accession_number || test.accessionNumber, Ordered: test.ordered_at || test.orderedAt, Completed: test.completed_at || test.completedAt })
     }
   } catch {}
   return rows

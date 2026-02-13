@@ -1,7 +1,5 @@
 import { NextResponse } from "next/server"
-
-
-
+import { formatPatientNumber } from "@/lib/patients"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { verifyToken, can } from "@/lib/security"
@@ -98,6 +96,13 @@ export async function POST(req: Request) {
         return out
       },
     )
+
+    // Standardize patient_number to canonical P#### format across all exports
+    for (const r of rows as any[]) {
+      if (r && typeof r.patient_number !== "undefined") {
+        r.patient_number = formatPatientNumber(r.patient_number)
+      }
+    }
 
     const filename = `${input.dataset}-${new Date().toISOString().slice(0, 19).replace(/[:T]/g, "-")}.${input.format}`
 
@@ -260,11 +265,9 @@ export async function POST(req: Request) {
                     age = now.getFullYear() - dob.getFullYear() - ((now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) ? 1 : 0)
                   }
                 } catch {}
-                let pn = String(r.patient_number || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(-4)
-                if (pn.length < 4) pn = pn.padStart(4, "0")
                 const nextOfKinName = [r.next_of_kin_first_name, r.next_of_kin_last_name].filter(Boolean).join(" ")
                 return {
-                  patient_number: pn, first_name: r.first_name, last_name: r.last_name, age, gender: r.gender, phone: r.phone,
+                  patient_number: formatPatientNumber(r.patient_number), first_name: r.first_name, last_name: r.last_name, age, gender: r.gender, phone: r.phone,
                   next_of_kin: nextOfKinName, next_of_kin_phone: r.next_of_kin_phone, next_of_kin_relation: r.next_of_kin_relation,
                 }
               })

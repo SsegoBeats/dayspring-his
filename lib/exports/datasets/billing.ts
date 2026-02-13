@@ -10,13 +10,14 @@ const Filter = z.object({
 
 export class BillingDataset implements Dataset {
   name = "billing"
-  defaultColumns = ["bill_number", "patient_name", "final_amount", "status", "paid_at"]
+  defaultColumns = ["bill_number", "patient_number", "patient_name", "final_amount", "status", "paid_at"]
   validateFilters(input: any) { return Filter.parse(input) }
   async queryPage(ctx: ExportContext, f: z.infer<typeof Filter>, cursor?: { after?: string }, pageSize = 5000) {
     const after = cursor?.after ?? null
     const { rows } = await query(
       `
       SELECT b.bill_number,
+             p.patient_number,
              CONCAT(p.first_name,' ',p.last_name) as patient_name,
              b.final_amount,
              b.status,

@@ -15,7 +15,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { formatPatientDigits } from "@/lib/patients"
+import { formatPatientNumber } from "@/lib/patients"
 import { hasCriticalVitals, parseBloodPressure, extractNumericValue } from "@/lib/vital-signs-validation"
 
 export function NurseDashboard() {
@@ -121,7 +121,7 @@ export function NurseDashboard() {
     if (q.trim()) {
       const searchLower = q.toLowerCase()
       const name = `${v.first_name || ''} ${v.last_name || ''}`.toLowerCase()
-      const pid = formatPatientDigits(v.patient_number) || ''
+      const pid = formatPatientNumber(v.patient_number) || ''
       if (!name.includes(searchLower) && !pid.includes(searchLower)) return false
     }
     // Triage filter
@@ -151,7 +151,7 @@ export function NurseDashboard() {
   })
 
   const sortedVitals = filteredVitals.slice().sort((a, b) => {
-    const getPid = (v:any) => formatPatientDigits(v.patient_number)
+    const getPid = (v:any) => formatPatientNumber(v.patient_number)
     const timeA = new Date(a.recorded_at || a.created_at || Date.now()).getTime()
     const timeB = new Date(b.recorded_at || b.created_at || Date.now()).getTime()
     const tempA = a.temperature != null ? Number(a.temperature) : Number.NEGATIVE_INFINITY
@@ -482,7 +482,7 @@ export function NurseDashboard() {
                     const d = new Date(v.recorded_at || v.created_at || Date.now())
                     const minsAgo = Math.max(0, Math.floor((Date.now() - d.getTime()) / 60000))
                     const rel = minsAgo < 60 ? `${minsAgo}m ago` : `${Math.floor(minsAgo/60)}h ago`
-                    const pid = formatPatientDigits(v.patient_number)
+                    const pid = formatPatientNumber(v.patient_number)
                     const temp = v.temperature != null ? `${Number(v.temperature).toFixed(1)} °C` : ''
                     const hr = v.heart_rate != null ? `${v.heart_rate} bpm` : ''
                     const rr = v.respiratory_rate != null ? `${v.respiratory_rate}/min` : ''
@@ -512,7 +512,7 @@ export function NurseDashboard() {
                         onKeyDown={onKeyDown}
                         aria-label={`Open patient ${[v.first_name, v.last_name].filter(Boolean).join(' ')}`}
                       >
-                        <TableCell className="font-mono">{pid ? `P.${pid}` : ''}</TableCell>
+                        <TableCell className="font-mono">{pid}</TableCell>
                         <TableCell>{[v.first_name, v.last_name].filter(Boolean).join(' ')}</TableCell>
                         <TableCell>{d.toTimeString().slice(0,5)} <span className="text-xs text-muted-foreground">• {rel}</span></TableCell>
                         <TableCell>{temp}</TableCell>
@@ -557,8 +557,8 @@ export function NurseDashboard() {
               {selected ? (()=>{
                 const p = patients.find(x=>x.id===selected.id)
                 if (!p) return 'Patient Care'
-                const pid = formatPatientDigits(p.patientNumber)
-                return `Patient Care – ${p.firstName} ${p.lastName}${pid ? ` (P.${pid})` : ''}`
+                const pid = formatPatientNumber(p.patientNumber)
+                return `Patient Care – ${p.firstName} ${p.lastName} (${pid})`
               })() : 'Patient Care'}
             </DialogTitle>
           </DialogHeader>

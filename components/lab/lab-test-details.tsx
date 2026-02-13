@@ -154,7 +154,7 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2 text-sm">
               <div><span className="text-muted-foreground">Patient:</span> <span className="text-foreground">{test.patientName}</span></div>
-              <div><span className="text-muted-foreground">P.ID:</span> <span className="font-mono">{formatPatientNumber((patient as any)?.patientNumber) || test.patientId}</span></div>
+              <div><span className="text-muted-foreground">P.ID:</span> <span className="font-mono">{formatPatientNumber(test.patientNumber ?? (patient as any)?.patientNumber)}</span></div>
               <div><span className="text-muted-foreground">Clinician:</span> <span className="text-foreground">{test.doctorName || '-'}</span></div>
               <div><span className="text-muted-foreground">Ordered:</span> <span className="text-foreground">{new Date(test.orderedAt).toLocaleString()}</span></div>
             </div>

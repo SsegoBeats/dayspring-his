@@ -1,4 +1,5 @@
 import { query } from "@/lib/db"
+import { formatPatientNumber } from "@/lib/patients"
 import { notFound, redirect } from "next/navigation"
 import type { Metadata } from "next"
 import { cookies } from "next/headers"
@@ -23,7 +24,7 @@ export async function generateMetadata({ params }: { params: Promise<{ id: strin
     return { title: "Patient Receipt - Not Found" }
   }
   const p = rows[0] as any
-  const pid = String(p.patient_number || "").replace(/\D/g, "").slice(-4).padStart(4, "0")
+  const pid = formatPatientNumber(p.patient_number)
   return {
     title: `Patient Receipt - ${pid}`,
   }
@@ -43,7 +44,7 @@ export default async function PatientReceiptPage({ params }: { params: Promise<{
   `, [id])
   if (!rows || rows.length === 0) return notFound()
   const p = rows[0] as any
-  const pid = String(p.patient_number || "").replace(/\D/g, "").slice(-4).padStart(4, "0")
+  const pid = formatPatientNumber(p.patient_number)
   const created = p.created_at ? new Date(p.created_at).toISOString().slice(0, 10) : ""
 
   return (
@@ -68,7 +69,7 @@ export default async function PatientReceiptPage({ params }: { params: Promise<{
               <div><strong>Date:</strong> {created}</div>
             </div>
             <div style={{ textAlign: 'right' }}>
-              <div className="receipt-muted">P.ID</div>
+              <div className="receipt-muted">Patient ID</div>
               <div className="receipt-pid">{pid}</div>
             </div>
           </div>

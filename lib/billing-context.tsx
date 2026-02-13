@@ -13,6 +13,7 @@ export interface Bill {
   id: string
   billNumber?: string
   patientId: string
+  patientNumber?: string
   patientName: string
   date: string
   items: BillItem[]
@@ -79,6 +80,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
             id: b.id,
             billNumber: b.bill_number,
             patientId: b.patient_id,
+            patientNumber: b.patient_number,
             patientName: `${b.first_name} ${b.last_name}`.trim(),
             date: new Date(b.created_at).toISOString().slice(0, 10),
             items: itemsByBillId.get(b.id) || [],

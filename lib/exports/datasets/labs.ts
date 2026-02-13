@@ -10,7 +10,7 @@ const Filter = z.object({
 
 export class LabsDataset implements Dataset {
   name = "labs"
-  defaultColumns = ["test_id", "ordered_at", "status", "patient_name", "test_name", "doctor_name"]
+  defaultColumns = ["test_id", "ordered_at", "status", "patient_number", "patient_name", "test_name", "doctor_name"]
   validateFilters(input: any) { return Filter.parse(input) }
   async queryPage(ctx: ExportContext, f: z.infer<typeof Filter>, cursor?: { after?: string }, pageSize = 5000) {
     const after = cursor?.after ?? null
@@ -19,6 +19,7 @@ export class LabsDataset implements Dataset {
       SELECT l.id as test_id,
              l.ordered_at,
              l.status,
+             p.patient_number,
              CONCAT(p.first_name,' ',p.last_name) as patient_name,
              l.test_name,
              u.name as doctor_name

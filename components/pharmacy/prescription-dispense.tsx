@@ -4,6 +4,7 @@ import { useState } from "react"
 import { useMedical } from "@/lib/medical-context"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { usePatients } from "@/lib/patient-context"
+import { formatPatientNumber } from "@/lib/patients"
 import { useAudit } from "@/lib/audit-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -318,7 +319,7 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
                 </div>
                 <div>
                   <span className="text-muted-foreground">Patient ID:</span>{" "}
-                  <span className="text-foreground">{prescription.patientId}</span>
+                  <span className="text-foreground font-mono">{formatPatientNumber(patient?.patientNumber) ?? "-"}</span>
                 </div>
                 {patient && (
                   <>

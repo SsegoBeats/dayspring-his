@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { LogOut, Hospital, Bell } from "lucide-react"
 import Link from 'next/link'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
+import { formatPatientNumber } from "@/lib/patients"
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -365,7 +366,7 @@ function AdminDeletionWatcher({ userRole }: { userRole?: string }) {
         {pendingReq ? (
           <div className='space-y-2 text-sm'>
             <div><span className='text-muted-foreground'>Requested by:</span> {pendingReq.requested_by_name} ({pendingReq.requested_by_role})</div>
-            <div><span className='text-muted-foreground'>Patient:</span> {pendingReq.first_name} {pendingReq.last_name} ({pendingReq.patient_number})</div>
+            <div><span className='text-muted-foreground'>Patient:</span> {pendingReq.first_name} {pendingReq.last_name} ({formatPatientNumber(pendingReq.patient_number)})</div>
             <div><span className='text-muted-foreground'>Reason:</span> {pendingReq.reason}</div>
           </div>
         ) : null}

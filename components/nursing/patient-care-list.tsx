@@ -3,7 +3,7 @@
 import { useMemo, useState } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { useNursing } from "@/lib/nursing-context"
-import { formatPatientDigits } from "@/lib/patients"
+import { formatPatientNumber } from "@/lib/patients"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -225,7 +225,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
               <tbody>
                 {displayedPatients.map((patient) => {
                   const latestVitals = getLatestVitals(patient.id)
-                  const pid = formatPatientDigits(patient.patientNumber)
+                  const pid = formatPatientNumber(patient.patientNumber)
                   let age = '' as any
                   try {
                     if (patient.ageYears) age = patient.ageYears

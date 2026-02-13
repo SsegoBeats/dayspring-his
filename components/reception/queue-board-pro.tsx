@@ -9,6 +9,7 @@ import { Switch } from "@/components/ui/switch"
 import { toast } from "sonner"
 import { runExport } from "@/lib/reception-export-utils"
 import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
+import { formatPatientNumber } from "@/lib/patients"
 
 type QueueRow = {
   id: string
@@ -405,7 +406,7 @@ export function QueueBoardPro() {
                       }}
                     >
                       <div className="text-sm">
-                        <div className="font-medium">{r.patient_number} - {r.first_name} {r.last_name}</div>
+                        <div className="font-medium">{formatPatientNumber(r.patient_number)} - {r.first_name} {r.last_name}</div>
                         <div className="text-muted-foreground">{r.department} | Priority {r.priority} | Position {r.position}</div>
                         {lane.status === 'waiting' && typeof r.waiting_minutes === 'number' && (
                           <div className="text-xs text-amber-600">Waiting: {Math.max(0, Math.round(r.waiting_minutes))} min</div>

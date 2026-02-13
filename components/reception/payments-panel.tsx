@@ -8,6 +8,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { Loader2 } from "lucide-react"
+import { formatPatientNumber } from "@/lib/patients"
 
 type CompactPatient = { id: string; patient_number: string; first_name: string; last_name: string }
 type PaymentRow = { id: string; receipt_no: string; amount: number; method: string; created_at: string; first_name: string; last_name: string; patient_number: string }
@@ -152,7 +153,7 @@ export function PaymentsPanel() {
             <Input placeholder="Search patient" value={q} onChange={(e) => setQ(e.target.value)} />
             {selectedPatientId && (
               <div className="text-xs text-muted-foreground">
-                Selected: {selectedPatient ? `${selectedPatient.patient_number} - ${selectedPatient.first_name} ${selectedPatient.last_name}` : selectedPatientId}
+                Selected: {selectedPatient ? `${formatPatientNumber(selectedPatient.patient_number)} - ${selectedPatient.first_name} ${selectedPatient.last_name}` : selectedPatientId}
                 <button type="button" className="ml-2 text-blue-600 hover:underline" onClick={() => setSelectedPatientId("")}>Clear</button>
               </div>
             )}
@@ -160,7 +161,7 @@ export function PaymentsPanel() {
             <div className="max-h-40 overflow-auto border rounded">
               {(patients || []).map((p) => (
                 <button key={p.id} type="button" onClick={() => setSelectedPatientId(p.id)} className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${selectedPatientId===p.id?'bg-muted':''}`}>
-                  {p.patient_number} Ã¢â‚¬â€ {p.first_name} {p.last_name}
+                  {formatPatientNumber(p.patient_number)} - {p.first_name} {p.last_name}
                 </button>
               ))}
             </div>
@@ -274,7 +275,7 @@ export function PaymentsPanel() {
           ) : recent.map((r) => (
             <div key={r.id} className="p-3 text-sm flex items-center justify-between">
               <div>
-                <div className="font-medium">{r.receipt_no} Ã¢â‚¬â€ {r.first_name} {r.last_name} ({r.patient_number})</div>
+                <div className="font-medium">{r.receipt_no} Ã¢â‚¬â€ {r.first_name} {r.last_name} ({formatPatientNumber(r.patient_number)})</div>
                 <div className="text-muted-foreground">{r.method} Ã¢â‚¬Â¢ {new Date(r.created_at).toLocaleString()}</div>
               </div>
               <div className="flex gap-2">

@@ -10,6 +10,7 @@ import { Loader2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import AppointmentForm from "@/components/appointments/appointment-form"
 import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
+import { formatPatientNumber } from "@/lib/patients"
 
 type CompactPatient = { id: string; patient_number: string; first_name: string; last_name: string }
 
@@ -149,7 +150,7 @@ export function CheckInPanel() {
             {selectedPatientId && (
               <div className="text-xs text-muted-foreground flex items-center gap-2">
                 <span>
-                  Selected: {selectedPatient ? `${selectedPatient.patient_number} - ${selectedPatient.first_name} ${selectedPatient.last_name}` : selectedPatientId}
+                  Selected: {selectedPatient ? `${formatPatientNumber(selectedPatient.patient_number)} - ${selectedPatient.first_name} ${selectedPatient.last_name}` : selectedPatientId}
                 </span>
                 <button
                   type="button"
@@ -189,7 +190,7 @@ export function CheckInPanel() {
                     }}
                     className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${selectedPatientId === p.id ? "bg-muted" : ""}`}
                   >
-                    {p.patient_number} - {p.first_name} {p.last_name}
+                    {formatPatientNumber(p.patient_number)} - {p.first_name} {p.last_name}
                   </button>
                 ))
               )}

@@ -13,6 +13,7 @@ import { ArrowLeft, CreditCard, Loader2, XCircle, AlertTriangle } from "lucide-r
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useFormatCurrency } from "@/lib/settings-context"
+import { formatPatientNumber } from "@/lib/patients"
 import { ReceiptPrinter } from "@/components/receipt-printer"
 import { toast } from "sonner"
 
@@ -63,7 +64,10 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           billId: bill.id,
           amount: paymentType === "partial" ? partialAmount : bill.total - (bill.paidAmount || 0),
           email: patient?.email,
-          phoneNumber: (mobileMoneyPhone || patient?.phone || "").trim() || undefined,
+          phoneNumber: paymentMethod === "Mobile Money"
+            ? ((mobileMoneyPhone || patient?.phone || "").trim() || undefined)
+            : (paymentMethod === "Card" ? (patient?.phone || undefined) : undefined),
+          paymentMethod,
         }),
       })
       const data = (await res.json()) as { redirectUrl?: string; error?: string }
@@ -174,7 +178,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
       <ReceiptPrinter
         receiptNumber={bill.billNumber || bill.id}
         patientName={bill.patientName}
-        patientNumber={patient?.patientNumber ?? bill.patientId}
+        patientNumber={formatPatientNumber(bill.patientNumber ?? patient?.patientNumber ?? bill.patientId)}
         items={bill.items}
         subtotal={bill.subtotal}
         tax={bill.tax}
@@ -232,7 +236,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                 </div>
                 <div>
                   <span className="text-muted-foreground">Patient ID:</span>{" "}
-                  <span className="text-foreground">{bill.patientId}</span>
+                  <span className="text-foreground font-mono">{formatPatientNumber(bill.patientNumber ?? patient?.patientNumber ?? bill.patientId)}</span>
                 </div>
                 {patient && (
                   <>
@@ -378,20 +382,25 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                     </Select>
                   </div>
 
-                  {isOnlinePayment && (
+                  {paymentMethod === "Mobile Money" && (
                     <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
-                      <Label htmlFor="mobileMoneyPhone">Patient phone (optional, for pre-fill)</Label>
+                      <Label htmlFor="mobileMoneyPhone">Mobile money phone (optional, for pre-fill)</Label>
                       <Input
                         id="mobileMoneyPhone"
                         type="tel"
-                        placeholder={patient?.phone ? `e.g. ${patient.phone}` : "e.g. 0771234567"}
+                        placeholder={patient?.phone ? `e.g. ${patient.phone}` : "e.g. 0785493106 or 0751234567"}
                         value={mobileMoneyPhone}
                         onChange={(e) => setMobileMoneyPhone(e.target.value)}
                       />
                       <p className="text-xs text-muted-foreground">
-                        {paymentMethod === "Mobile Money"
-                          ? "Patient will select MTN or Airtel on the payment page."
-                          : "Patient will complete card payment on the secure payment page."}
+                        MTN: 077/078/076 | Airtel: 075/074/070. Pesapal will pre-fill this number and auto-select the correct network (MTN or Airtel) based on the prefix.
+                      </p>
+                    </div>
+                  )}
+                  {paymentMethod === "Card" && (
+                    <div className="space-y-2 rounded-lg border border-blue-200 bg-blue-50/50 p-4">
+                      <p className="text-sm text-muted-foreground">
+                        Patient&apos;s name, email, and phone will be pre-filled on Pesapal. They will enter card details on the secure payment page (card numbers cannot be pre-filled for security).
                       </p>
                     </div>
                   )}

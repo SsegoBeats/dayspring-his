@@ -34,6 +34,7 @@ export async function POST(req: Request) {
       amount?: number
       email?: string
       phoneNumber?: string
+      paymentMethod?: string
     }
 
     const { billId } = body
@@ -75,8 +76,9 @@ export async function POST(req: Request) {
     }
 
     const merchantRef = `BILL-${billId}`.slice(0, 50)
-    const phone = body.phoneNumber || bill.phone || ""
-    const phoneClean = String(phone).replace(/\D/g, "")
+    // Pre-fill: Mobile Money uses entered phone (or patient's); Card uses patient's phone
+    const rawPhone = body.phoneNumber || bill.phone || ""
+    const phoneClean = String(rawPhone).replace(/\D/g, "")
     const ugPhone = phoneClean ? (phoneClean.startsWith("256") ? phoneClean : `256${phoneClean.replace(/^0/, "")}`) : ""
 
     const result = await submitPesapalOrder({
