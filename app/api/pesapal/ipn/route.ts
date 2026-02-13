@@ -2,6 +2,22 @@ import { NextResponse } from "next/server"
 import { getPesapalTransactionStatus } from "@/lib/pesapal"
 import { queryWithSession } from "@/lib/db"
 
+/**
+ * Parse merchant reference to get billId and user's chosen payment method.
+ * Format: BILL-{billId}-MOBILE, BILL-{billId}-CARD, or legacy BILL-{billId}
+ */
+function parseMerchantRef(merchantRef: string, pesapalMethod?: string): { billId: string | null; paymentMethod: string } {
+  const withSuffix = merchantRef.match(/^BILL-(.+)-(CARD|MOBILE)$/i)
+  if (withSuffix) {
+    const billId = withSuffix[1].trim()
+    const method = withSuffix[2].toUpperCase() === "CARD" ? "Card" : "Mobile Money"
+    return { billId, paymentMethod: method }
+  }
+  const plain = merchantRef.match(/^BILL-(.+)$/)
+  const billId = plain?.[1]?.trim() || null
+  return { billId, paymentMethod: pesapalMethod || "Mobile Money" }
+}
+
 async function processSuccessfulPayment(billId: string, orderTrackingId: string, paymentMethod: string, amountPaid: number) {
   // Never mark as paid when Pesapal reports zero or missing amount (e.g. user only visited payment page and left)
   if (!amountPaid || amountPaid <= 0) {
@@ -66,10 +82,8 @@ export async function POST(req: Request) {
     const status = await getPesapalTransactionStatus(orderTrackingId)
 
     if (status.payment_status_description === "COMPLETED" && status.status_code === 1) {
-      const billIdMatch = merchantRef.match(/^BILL-(.+)$/)
-      const billId = billIdMatch?.[1]
+      const { billId, paymentMethod } = parseMerchantRef(merchantRef, status.payment_method)
       if (billId) {
-        const paymentMethod = status.payment_method || "Mobile Money"
         const amountPaid = Number(status.amount) || 0
         await processSuccessfulPayment(billId, orderTrackingId, paymentMethod, amountPaid)
       }
@@ -103,10 +117,8 @@ export async function GET(req: Request) {
     const status = await getPesapalTransactionStatus(orderTrackingId)
 
     if (status.payment_status_description === "COMPLETED" && status.status_code === 1) {
-      const billIdMatch = merchantRef.match(/^BILL-(.+)$/)
-      const billId = billIdMatch?.[1]
+      const { billId, paymentMethod } = parseMerchantRef(merchantRef, status.payment_method)
       if (billId) {
-        const paymentMethod = status.payment_method || "Mobile Money"
         const amountPaid = Number(status.amount) || 0
         await processSuccessfulPayment(billId, orderTrackingId, paymentMethod, amountPaid)
       }

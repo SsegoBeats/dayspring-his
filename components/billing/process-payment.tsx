@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, CreditCard, Loader2, XCircle, AlertTriangle } from "lucide-react"
+import { ArrowLeft, CreditCard, Loader2, XCircle, AlertTriangle, Printer } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useFormatCurrency } from "@/lib/settings-context"
@@ -199,12 +199,18 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
 
   return (
     <div className="mx-auto max-w-2xl space-y-4">
-      <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 -ml-1">
-        <ArrowLeft className="h-4 w-4" />
-        Back to Queue
-      </Button>
+      <div className="flex flex-wrap items-center gap-2 print:hidden">
+        <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 -ml-1">
+          <ArrowLeft className="h-4 w-4" />
+          Back to Queue
+        </Button>
+        <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
+          <Printer className="h-4 w-4" />
+          Print invoice
+        </Button>
+      </div>
 
-      <Card className="overflow-hidden border-border/80 shadow-lg shadow-black/5">
+      <Card className="overflow-hidden border-border/80 shadow-lg shadow-black/5 print:shadow-none print:border">
         <CardHeader className="border-b border-border/60 bg-gradient-to-b from-muted/30 to-transparent pb-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
@@ -242,10 +248,10 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                   <span className="text-muted-foreground shrink-0">Patient ID</span>
                   <span className="font-mono text-foreground">{formatPatientNumber(bill.patientNumber ?? patient?.patientNumber ?? bill.patientId)}</span>
                 </div>
-                {patient?.phone && (
+                {(patient?.phone || bill.patientPhone) && (
                   <div className="flex justify-between gap-4">
                     <span className="text-muted-foreground shrink-0">Phone</span>
-                    <span className="text-foreground">{patient.phone}</span>
+                    <span className="text-foreground">{patient?.phone || bill.patientPhone}</span>
                   </div>
                 )}
                 {patient?.email && (
@@ -346,7 +352,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           </div>
 
           {(bill.status === "pending" || bill.status === "partially paid") && (
-            <div className="space-y-5 rounded-xl border border-border/60 bg-muted/10 p-5">
+            <div className="space-y-5 rounded-xl border border-border/60 bg-muted/10 p-5 print:hidden">
               <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Payment</h3>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">

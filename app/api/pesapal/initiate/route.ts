@@ -75,7 +75,9 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "No amount to pay" }, { status: 400 })
     }
 
-    const merchantRef = `BILL-${billId}`.slice(0, 50)
+    // Encode user's payment method so IPN can store it accurately (Mobile Money vs Card)
+    const methodSuffix = (body.paymentMethod || "").toLowerCase().includes("card") ? "CARD" : "MOBILE"
+    const merchantRef = `BILL-${billId}-${methodSuffix}`.slice(0, 50)
     // Pre-fill: normalize Uganda phone to 256XXXXXXXXX (Pesapal expects this format)
     const rawPhone = String(body.phoneNumber || bill.phone || "").trim()
     const phoneClean = rawPhone.replace(/\D/g, "")
