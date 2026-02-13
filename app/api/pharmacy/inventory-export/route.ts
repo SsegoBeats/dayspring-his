@@ -6,6 +6,7 @@ import { query } from "@/lib/db"
 import { toXLSX } from "@/lib/exports/writers/xlsx"
 import { toPDF } from "@/lib/exports/writers/pdf"
 import { convertFromUGX } from "@/lib/utils"
+import { ORG_NAME } from "@/lib/org-constants"
 
 const Schema = z.object({
   format: z.enum(["xlsx", "pdf"]).default("xlsx"),
@@ -75,7 +76,7 @@ export async function POST(req: Request) {
       const buf = await toXLSX(prepared, {
         meta: { title: "Pharmacy Inventory", exportedBy: auth.email, timestamp: new Date().toISOString() },
         columns: ["Medication", "Category", "Manufacturer", "Stock", "Reorder", "Expiry", "UnitPrice", "Barcode"],
-        headerTitle: "Dayspring Medical Center",
+        headerTitle: ORG_NAME,
         headerSubtitle: "Pharmacy Inventory",
         currencyCode: currency,
         logoDataUrl,
@@ -93,7 +94,7 @@ export async function POST(req: Request) {
     }
 
     const buf = await toPDF(
-      "Dayspring Medical Center - Pharmacy Inventory",
+      `${ORG_NAME} - Pharmacy Inventory`,
       prepared.map((r) => ({
         medication: r.Medication,
         category: r.Category,

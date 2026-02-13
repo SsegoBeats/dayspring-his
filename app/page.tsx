@@ -8,6 +8,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { LoginForm } from "@/components/login-form"
+import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
 
 export default function HomePage() {
   const { user, isLoading } = useAuth()
@@ -34,13 +35,13 @@ export default function HomePage() {
         <div className="mb-8 text-center">
           <div className="mb-6 flex justify-center">
             <img 
-              src="/logo0.png" 
-              alt="Dayspring Medical Center Logo" 
+              src={ORG_LOGO_PATH} 
+              alt={`${ORG_NAME} Logo`} 
               className="h-48 w-auto object-contain sm:h-56"
             />
           </div>
-          <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground">Dayspring Medical Center</h1>
-          <p className="mt-2 text-muted-foreground">Hospital Information System</p>
+          <h1 className="text-balance text-3xl font-bold tracking-tight text-foreground">{ORG_NAME}</h1>
+          <p className="mt-2 text-muted-foreground">{ORG_SUBTITLE}</p>
         </div>
         <LoginForm />
       </div>

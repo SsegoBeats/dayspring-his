@@ -5,6 +5,7 @@ import { rateLimitPg } from "@/lib/rate-limit-pg"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { writeAuditLog } from "@/lib/audit"
+import { ORG_EMAIL } from "@/lib/org-constants"
 
 // SMTP configuration from environment variables
 const transporter = nodemailer.createTransport({
@@ -12,7 +13,7 @@ const transporter = nodemailer.createTransport({
   port: Number.parseInt(process.env.SMTP_PORT || "465"),
   secure: process.env.SMTP_SECURE === "true",
   auth: {
-    user: process.env.SMTP_USER || "dayspringmedicalcenter@gmail.com",
+    user: process.env.SMTP_USER || ORG_EMAIL,
     pass: process.env.SMTP_PASS || "",
   },
 })
@@ -43,7 +44,7 @@ export async function POST(request: NextRequest) {
 
     // Send email
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || "Dayspring HIS <dayspringmedicalcenter@gmail.com>",
+      from: process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`,
       to,
       subject,
       html,

@@ -17,6 +17,7 @@ import { ThemeSync } from "@/components/theme-sync"
 import { SettingsProvider } from "@/lib/settings-context"
 import { RootProviders } from "@/components/root-providers"
 import { AuthenticatedProviders } from "@/components/authenticated-providers"
+import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
 import "./globals.css"
 
 const geist = localFont({
@@ -32,8 +33,8 @@ const geistMono = localFont({
 })
 
 export const metadata: Metadata = {
-  title: "Dayspring Medical Center - HIS",
-  description: "Hospital Information System for Dayspring Medical Center",
+  title: `${ORG_NAME} - HIS`,
+  description: `${ORG_SUBTITLE} for ${ORG_NAME}`,
   generator: "v0.app",
   manifest: "/manifest.webmanifest",
   icons: {

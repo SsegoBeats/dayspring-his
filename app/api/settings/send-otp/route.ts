@@ -66,7 +66,7 @@ export async function POST(req: Request) {
 
     // Send OTP email with personalized and professional template
     const template = {
-    subject: "Email Verification Code - Dayspring Medical Center",
+    subject: `Email Verification Code - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -100,7 +100,7 @@ export async function POST(req: Request) {
                       Hello <strong>${userName}</strong>,
                     </p>
                     <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      We received a request to change your email address for your Dayspring Medical Center account. 
+                      We received a request to change your email address for your ${ORG_NAME} account. 
                       To complete this change, please use the verification code below:
                     </p>
                     
@@ -160,10 +160,10 @@ export async function POST(req: Request) {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Kampala, Uganda | Trusted Healthcare Since 2015

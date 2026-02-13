@@ -3,6 +3,7 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/security"
+import { ORG_NAME, ORG_EMAIL } from "@/lib/org-constants"
 
 export interface Medication {
   id: string
@@ -361,7 +362,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     if (lowStockMeds.length === 0) return
 
     const html = `
-      <h2>Low Stock Alert - Dayspring Medical Center</h2>
+      <h2>Low Stock Alert - ${ORG_NAME}</h2>
       <p>The following medications are running low on stock:</p>
       <table style="border-collapse: collapse; width: 100%;">
         <thead>
@@ -395,7 +396,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: process.env.NOTIFY_TO || "dayspringmedicalcenter@gmail.com",
+          to: process.env.NOTIFY_TO || ORG_EMAIL,
           subject: "Low Stock Alert - Pharmacy Inventory",
           html,
         }),
@@ -410,7 +411,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     if (expiringMeds.length === 0) return
 
     const html = `
-      <h2>Medication Expiry Alert - Dayspring Medical Center</h2>
+      <h2>Medication Expiry Alert - ${ORG_NAME}</h2>
       <p>The following medications will expire within the next 90 days:</p>
       <table style="border-collapse: collapse; width: 100%;">
         <thead>
@@ -444,7 +445,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          to: process.env.NOTIFY_TO || "dayspringmedicalcenter@gmail.com",
+          to: process.env.NOTIFY_TO || ORG_EMAIL,
           subject: "Medication Expiry Alert - Pharmacy Inventory",
           html,
         }),

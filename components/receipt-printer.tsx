@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState } from "react"
 import { Button } from "@/components/ui/button"
 import { Card } from "@/components/ui/card"
 import { BarcodeGenerator } from "./barcode-generator"
@@ -8,6 +8,8 @@ import { useFormatCurrency } from "@/lib/settings-context"
 import { useFormatDate } from "@/lib/date-utils"
 import { formatPatientNumber } from "@/lib/patients"
 import { Printer, ArrowLeft } from "lucide-react"
+import { groupItemsByCategory } from "@/lib/receipt-utils"
+import { ORG_NAME, ORG_LOGO_PATH, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
 
 interface ReceiptItem {
   description: string
@@ -49,19 +51,9 @@ export function ReceiptPrinter({
 }: ReceiptPrinterProps) {
   const formatCurrency = useFormatCurrency()
   const { formatDateTime } = useFormatDate()
-  const [org, setOrg] = useState<{ logoUrl?: string; name?: string; phone?: string; location?: string } | null>(null)
 
-  useEffect(() => {
-    fetch("/api/settings/org", { credentials: "include" })
-      .then((r) => r.ok ? r.json() : null)
-      .then((data) => data?.settings && setOrg(data.settings))
-      .catch(() => {})
-  }, [])
-
-  const logoUrl = (org?.logoUrl && org.logoUrl !== "/logo.png") ? org.logoUrl : "/logo0.png"
-  const orgName = org?.name || "Dayspring Medical Center"
-  const orgPhone = org?.phone || process.env.NEXT_PUBLIC_ORG_PHONE || "See reception for contact details"
-  const orgLocation = org?.location || org?.address || "Kampala, Uganda"
+  // Group items by category
+  const groupedItems = groupItemsByCategory(items)
 
   const handlePrint = () => {
     window.print()
@@ -87,16 +79,16 @@ export function ReceiptPrinter({
         <div className="text-center border-b-2 border-primary pb-4 mb-6">
           <div className="flex flex-col items-center gap-3">
             <img
-              src={logoUrl}
-              alt={`${orgName} logo`}
+              src={ORG_LOGO_PATH}
+              alt={`${ORG_NAME} logo`}
               className="h-14 w-14 object-contain print:h-16 print:w-16"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
             />
             <div>
-              <h1 className="text-2xl font-bold text-primary">{orgName}</h1>
+              <h1 className="text-2xl font-bold text-primary">{ORG_NAME}</h1>
               <p className="text-sm text-muted-foreground">Quality Healthcare for Everyone</p>
               <p className="text-xs text-muted-foreground mt-1">
-                {orgLocation} | Tel: {orgPhone}
+                {ORG_ADDRESS} | Tel: {ORG_PHONE}
               </p>
             </div>
           </div>
@@ -134,17 +126,13 @@ export function ReceiptPrinter({
             <thead className="border-b">
               <tr className="text-left">
                 <th className="pb-2">Description</th>
-                <th className="pb-2 text-center">Qty</th>
-                <th className="pb-2 text-right">Unit Price</th>
                 <th className="pb-2 text-right">Total</th>
               </tr>
             </thead>
             <tbody>
-              {items.map((item, index) => (
+              {groupedItems.map((item, index) => (
                 <tr key={index} className="border-b">
                   <td className="py-2">{item.description}</td>
-                  <td className="py-2 text-center">{item.quantity}</td>
-                  <td className="py-2 text-right">{formatCurrency(item.unitPrice)}</td>
                   <td className="py-2 text-right">{formatCurrency(item.total)}</td>
                 </tr>
               ))}
@@ -189,7 +177,7 @@ export function ReceiptPrinter({
 
         {/* Footer */}
         <div className="text-center text-xs text-muted-foreground border-t pt-4">
-          <p>Thank you for choosing {orgName}</p>
+          <p>Thank you for choosing {ORG_NAME}</p>
           <p className="mt-1">Please keep this receipt for your records</p>
           {type === "payment" && (
             <p className="mt-2 font-semibold">Present this receipt at the pharmacy to collect your medications</p>

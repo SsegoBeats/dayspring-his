@@ -5,6 +5,8 @@ import { query } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
 import { getSystemCurrency } from "@/lib/org"
 import { convertFromUGX, formatCurrencyStatic } from "@/lib/utils"
+import { groupItemsByCategory } from "@/lib/receipt-utils"
+import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -54,7 +56,16 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       Cashier: cashier,
     }
     if (items.rows.length) {
-      data = items.rows.map((it: any) => ({ item: it.description, amount: formatCurrencyStatic(Number(it.amount), currency) }))
+      // Group items by category - payment_items only has description and amount
+      // We need to create ReceiptItem-like objects for grouping
+      const receiptItems = items.rows.map((it: any) => ({
+        description: it.description,
+        quantity: 1,
+        unitPrice: Number(it.amount),
+        total: Number(it.amount)
+      }))
+      const groupedItems = groupItemsByCategory(receiptItems)
+      data = groupedItems.map((it: any) => ({ item: it.description, amount: formatCurrencyStatic(it.total, currency) }))
       data.push({ item: 'TOTAL', amount: formatCurrencyStatic(amountUGX, currency) })
     } else {
       data = [
@@ -75,7 +86,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     let logoDataUrl: string | undefined
     try {
       const origin = new URL(req.url).origin
-      const resp = await fetch(`${origin}/logo0.png`)
+      const resp = await fetch(`${origin}${ORG_LOGO_PATH}`)
       if (resp.ok) {
         const ct = resp.headers.get('content-type') || 'image/png'
         const ab = await resp.arrayBuffer()
@@ -83,7 +94,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       }
     } catch {}
 
-    const title = 'Dayspring Medical Center'
+    const title = ORG_NAME
     // Amount in words helper (simple English for integers)
     function numberToWords(n: number): string {
       const a = ['','One','Two','Three','Four','Five','Six','Seven','Eight','Nine','Ten','Eleven','Twelve','Thirteen','Fourteen','Fifteen','Sixteen','Seventeen','Eighteen','Nineteen']
@@ -106,7 +117,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     const buf = await toPDF(title, data as any[], { userId: auth.userId, timestamp: new Date().toISOString() }, false, {
       colors: { headerBg: [14,165,233], headerText: [255,255,255], rowAltBg: [243,244,246], text: [17,24,39] },
       logoDataUrl,
-      subtitle: 'Dayspring Medical Center - Information System',
+      subtitle: `${ORG_NAME} - ${ORG_SUBTITLE}`,
       meta: { ...meta, 'Amount in Words': amountWords },
     })
     const res = new NextResponse(buf, { status: 200, headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename=receipt-${r.receipt_no}.pdf` } })

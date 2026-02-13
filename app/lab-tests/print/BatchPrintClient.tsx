@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { BarcodeGenerator } from "@/components/barcode-generator"
+import { ORG_NAME, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
 
 function ResultCard({ test }: { test: any }) {
   const parts = useMemo(() => {
@@ -23,7 +24,7 @@ function ResultCard({ test }: { test: any }) {
     <div className="mb-6 break-inside-avoid">
       <div className="hdr flex items-start justify-between">
         <div>
-          <div className="text-xl font-semibold">Dayspring Medical Center</div>
+          <div className="text-xl font-semibold">{ORG_NAME}</div>
           <div className="text-xs text-muted-foreground">Laboratory Result</div>
         </div>
         <div className="text-right">
@@ -214,10 +215,10 @@ export default function BatchPrintClient() {
             }}
           />
           <div>
-            <div className="text-xl font-semibold">{org?.name || "Dayspring Medical Center"}</div>
+            <div className="text-xl font-semibold">{ORG_NAME}</div>
             <div className="text-xs text-muted-foreground">Laboratory Results (Batch)</div>
             <div className="text-[10px] text-muted-foreground">
-              Email: {org?.email || "dayspringmedicalcenter@gmail.com"} • Tel: {org?.phone || "+256 703-942-230 / +256 703-844-396 / +256 742-918-253"} • {org?.location || "Wanyange, Uganda"}
+              Email: {org?.email || ORG_EMAIL} • Tel: {org?.phone || ORG_PHONE} • {org?.location || ORG_ADDRESS}
             </div>
           </div>
         </div>

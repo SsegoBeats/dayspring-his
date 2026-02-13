@@ -1,6 +1,7 @@
  
 
 import { Resend } from "resend"
+import { ORG_NAME, ORG_SUBTITLE, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
 
 // Email configuration from environment variables
 const resend = new Resend(process.env.RESEND_API_KEY)
@@ -9,8 +10,8 @@ const SMTP_CONFIG = {
   host: process.env.SMTP_HOST || "smtp.gmail.com",
   port: Number.parseInt(process.env.SMTP_PORT || "465"),
   secure: process.env.SMTP_SECURE === "true",
-  from: process.env.SMTP_FROM || "Dayspring HIS <dayspringmedicalcenter@gmail.com>",
-  user: process.env.SMTP_USER || "dayspringmedicalcenter@gmail.com",
+  from: process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`,
+  user: process.env.SMTP_USER || ORG_EMAIL,
   pass: process.env.SMTP_PASS || "",
 }
 
@@ -18,7 +19,7 @@ const SMTP_CONFIG = {
 export const emailTemplates = {
   // Welcome email for new users
   welcome: (name: string, email: string, password: string, role: string, verificationCode?: string) => ({
-    subject: "Welcome to Dayspring Medical Center HIS",
+    subject: `Welcome to ${ORG_NAME} HIS`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -38,7 +39,7 @@ export const emailTemplates = {
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
-                          <h1 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: 600;">🏥 Welcome to Dayspring Medical Center</h1>
+                          <h1 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: 600;">🏥 Welcome to ${ORG_NAME}</h1>
                           <p style="margin: 0; color: #ffffff; font-size: 16px; opacity: 0.95;">Hospital Information System</p>
                         </td>
                       </tr>
@@ -53,7 +54,7 @@ export const emailTemplates = {
                       Hello <strong>${name}</strong>,
                     </p>
                     <p style="margin: 0 0 32px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      Your account has been successfully created in the Dayspring Medical Center Hospital Information System. 
+                      Your account has been successfully created in the ${ORG_NAME} Hospital Information System. 
                       We're excited to have you join our team!
                     </p>
                     
@@ -160,10 +161,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -185,7 +186,7 @@ export const emailTemplates = {
 
   // Email verification code for new users
   verificationCode: (name: string, code: string) => ({
-    subject: "Verify Your Email - Dayspring Medical Center",
+    subject: `Verify Your Email - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -219,7 +220,7 @@ export const emailTemplates = {
                       Hello <strong>${name}</strong>,
                     </p>
                     <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      Thank you for joining Dayspring Medical Center. To complete your account setup and start using the Hospital Information System, please verify your email address using the code below.
+                      Thank you for joining ${ORG_NAME}. To complete your account setup and start using the Hospital Information System, please verify your email address using the code below.
                     </p>
 
                     <!-- Verification Code Box -->
@@ -289,10 +290,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -314,7 +315,7 @@ export const emailTemplates = {
 
   // Password reset request
   passwordReset: (name: string, resetToken: string) => ({
-    subject: "Password Reset Request - Dayspring Medical Center",
+    subject: `Password Reset Request - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -342,7 +343,7 @@ export const emailTemplates = {
                       Hello <strong>${name}</strong>,
                     </p>
                     <p style="margin: 0 0 32px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      We received a request to reset your password for your Dayspring Medical Center HIS account. 
+                      We received a request to reset your password for your ${ORG_NAME} HIS account. 
                       Click the button below to create a new password.
                     </p>
                     
@@ -407,10 +408,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -432,7 +433,7 @@ export const emailTemplates = {
 
   // Password changed confirmation
   passwordChanged: (name: string) => ({
-    subject: "Password Changed Successfully - Dayspring Medical Center",
+    subject: `Password Changed Successfully - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -510,10 +511,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -541,7 +542,7 @@ export const emailTemplates = {
     time: string,
     department: string,
   ) => ({
-    subject: "Appointment Confirmation - Dayspring Medical Center",
+    subject: `Appointment Confirmation - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -559,7 +560,7 @@ export const emailTemplates = {
                 <tr>
                   <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: 600;">📅 Appointment Confirmed</h1>
-                    <p style="margin: 0; color: #ffffff; font-size: 16px; opacity: 0.95;">Dayspring Medical Center</p>
+                    <p style="margin: 0; color: #ffffff; font-size: 16px; opacity: 0.95;">${ORG_NAME}</p>
                   </td>
                 </tr>
                 
@@ -570,7 +571,7 @@ export const emailTemplates = {
                       Hello <strong>${patientName}</strong>,
                     </p>
                     <p style="margin: 0 0 32px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      Your appointment has been successfully scheduled at Dayspring Medical Center. 
+                      Your appointment has been successfully scheduled at ${ORG_NAME}. 
                       Please find your appointment details below:
                     </p>
                     
@@ -617,7 +618,7 @@ export const emailTemplates = {
                     
                     <!-- Location -->
                     <p style="margin: 0 0 32px 0; color: #374151; font-size: 14px; line-height: 20px;">
-                      <strong>📍 Location:</strong> Dayspring Medical Center<br>
+                      <strong>📍 Location:</strong> ${ORG_NAME}<br>
                       <strong>📞 Contact:</strong> ${process.env.NEXT_PUBLIC_ORG_PHONE || "See reception for contact details"}
                     </p>
                     
@@ -636,10 +637,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -661,7 +662,7 @@ export const emailTemplates = {
 
   // Lab results ready
   labResultsReady: (patientName: string, testName: string) => ({
-    subject: "Lab Results Ready - Dayspring Medical Center",
+    subject: `Lab Results Ready - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -745,10 +746,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -770,7 +771,7 @@ export const emailTemplates = {
 
   // Prescription ready
   prescriptionReady: (patientName: string, medications: string[]) => ({
-    subject: "Prescription Ready for Pickup - Dayspring Medical Center",
+    subject: `Prescription Ready for Pickup - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -816,7 +817,7 @@ export const emailTemplates = {
                             </tr>
                           </table>
                           <p style="margin: 16px 0 0 0; color: #065f46; font-size: 14px;">
-                            <strong>📍 Pickup Location:</strong> Dayspring Medical Center Pharmacy<br>
+                            <strong>📍 Pickup Location:</strong> ${ORG_NAME} Pharmacy<br>
                             <strong>🕒 Pharmacy Hours:</strong> Monday - Friday: 8:00 AM - 6:00 PM | Saturday: 9:00 AM - 2:00 PM
                           </p>
                         </td>
@@ -852,10 +853,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -882,7 +883,7 @@ export const emailTemplates = {
     amount: number,
     items: Array<{ description: string; amount: number }>,
   ) => ({
-    subject: `Payment Receipt #${receiptNumber} - Dayspring Medical Center`,
+    subject: `Payment Receipt #${receiptNumber} - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -918,7 +919,7 @@ export const emailTemplates = {
                     <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f0f9ff; border: 2px solid #dbeafe; border-radius: 8px; padding: 24px; margin: 0 0 24px 0;">
                       <tr>
                         <td align="center" style="border-bottom: 2px solid #2563eb; padding-bottom: 16px; margin-bottom: 20px;">
-                          <h2 style="margin: 0 0 8px 0; color: #2563eb; font-size: 20px;">Dayspring Medical Center</h2>
+                          <h2 style="margin: 0 0 8px 0; color: #2563eb; font-size: 20px;">${ORG_NAME}</h2>
                           <p style="margin: 0 0 4px 0; color: #64748b; font-size: 14px;">Official Payment Receipt</p>
                           <p style="margin: 0; color: #9ca3af; font-size: 12px;">Receipt #${receiptNumber}</p>
                         </td>
@@ -974,7 +975,7 @@ export const emailTemplates = {
                     
                     <!-- Thank You Message -->
                     <p style="margin: 0 0 8px 0; color: #374151; font-size: 16px; line-height: 24px; text-align: center;">
-                      Thank you for choosing Dayspring Medical Center
+                      Thank you for choosing ${ORG_NAME}
                     </p>
                     <p style="margin: 0 0 32px 0; color: #64748b; font-size: 14px; text-align: center;">
                       Please keep this receipt for your records
@@ -995,10 +996,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -1020,7 +1021,7 @@ export const emailTemplates = {
 
   // Low stock alert
   lowStockAlert: (medicationName: string, currentStock: number, reorderLevel: number) => ({
-    subject: `⚠️ Low Stock Alert: ${medicationName} - Dayspring Medical Center`,
+    subject: `⚠️ Low Stock Alert: ${medicationName} - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -1048,7 +1049,7 @@ export const emailTemplates = {
                       Hello,
                     </p>
                     <p style="margin: 0 0 32px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      This is an automated alert from the Dayspring Medical Center inventory management system.
+                      This is an automated alert from the ${ORG_NAME} inventory management system.
                     </p>
                     
                     <!-- Alert Box -->
@@ -1120,10 +1121,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -1145,7 +1146,7 @@ export const emailTemplates = {
 
   // Email change notification (to old email)
   emailChanged: (name: string, oldEmail: string, newEmail: string) => ({
-    subject: "Email Address Changed - Dayspring Medical Center",
+    subject: `Email Address Changed - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -1173,7 +1174,7 @@ export const emailTemplates = {
                       Hello <strong>${name}</strong>,
                     </p>
                     <p style="margin: 0 0 32px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      We're writing to inform you that the email address associated with your Dayspring Medical Center account has been changed.
+                      We're writing to inform you that the email address associated with your ${ORG_NAME} account has been changed.
                     </p>
                     
                     <!-- Change Notification Box -->
@@ -1228,10 +1229,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -1253,7 +1254,7 @@ export const emailTemplates = {
 
   // Email verification successful
   emailVerified: (name: string, newEmail: string) => ({
-    subject: "Email Verified Successfully - Dayspring Medical Center",
+    subject: `Email Verified Successfully - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -1281,7 +1282,7 @@ export const emailTemplates = {
                       Hello <strong>${name}</strong>,
                     </p>
                     <p style="margin: 0 0 32px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      Your email address has been successfully verified and updated. You can now use your new email address to log in to your Dayspring Medical Center account.
+                      Your email address has been successfully verified and updated. You can now use your new email address to log in to your ${ORG_NAME} account.
                     </p>
                     
                     <!-- Success Box -->
@@ -1331,10 +1332,10 @@ export const emailTemplates = {
                       <tr>
                         <td align="center">
                           <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            Dayspring Medical Center - Information System
+                            ${ORG_NAME} - ${ORG_SUBTITLE}
                           </p>
                           <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            © ${new Date().getFullYear()} Dayspring Medical Center. All rights reserved.
+                            © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
                             Wanyange, Uganda | Trusted Healthcare Since 2024
@@ -1363,7 +1364,7 @@ const transporter = nodemailer.createTransport({
   port: Number.parseInt(process.env.SMTP_PORT || "465"),
   secure: process.env.SMTP_SECURE === "true",
   auth: {
-    user: process.env.SMTP_USER || "dayspringmedicalcenter@gmail.com",
+    user: process.env.SMTP_USER || ORG_EMAIL,
     pass: process.env.SMTP_PASS || "",
   },
 })
@@ -1372,7 +1373,7 @@ const transporter = nodemailer.createTransport({
 export async function sendEmailServer(to: string, template: { subject: string; html: string }) {
   try {
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || "Dayspring HIS <dayspringmedicalcenter@gmail.com>",
+      from: process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`,
       to,
       subject: template.subject,
       html: template.html,
@@ -1463,7 +1464,7 @@ export async function sendPaymentReceipt(
 }
 
 export async function sendLowStockAlert(medication: { name: string; currentStock: number; reorderLevel: number }) {
-  const adminEmail = process.env.NOTIFY_TO || "dayspringmedicalcenter@gmail.com"
+  const adminEmail = process.env.NOTIFY_TO || ORG_EMAIL
   const template = emailTemplates.lowStockAlert(medication.name, medication.currentStock, medication.reorderLevel)
   return sendEmail(adminEmail, template)
 }
@@ -1484,7 +1485,7 @@ export function buildDepartmentNotificationEmail(department: string, title: stri
           <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px; background-color:#ffffff; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.05);">
             <tr>
               <td style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%); padding:24px 32px; border-radius:12px 12px 0 0;">
-                <h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:600;">Dayspring Medical Center</h1>
+                <h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:600;">${ORG_NAME}</h1>
                 <p style="margin:4px 0 0 0; color:#e0e7ff; font-size:13px;">Hospital Information System - ${department}</p>
               </td>
             </tr>
@@ -1497,7 +1498,7 @@ export function buildDepartmentNotificationEmail(department: string, title: stri
             </tr>
             <tr>
               <td style="background-color:#f9fafb; padding:16px 32px; border-radius:0 0 12px 12px; border-top:1px solid #e5e7eb; color:#6b7280; font-size:12px;">
-                Dayspring Medical Center - Information System
+                ${ORG_NAME} - ${ORG_SUBTITLE}
               </td>
             </tr>
           </table>

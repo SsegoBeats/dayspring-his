@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
+import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
 
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
@@ -27,7 +28,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const r: any = rows[0]
 
-    const title = 'Dayspring Medical Center - Queue Token'
+    const title = `${ORG_NAME} - Queue Token`
     const data = [
       { field: 'Patient', value: `${r.first_name} ${r.last_name}`.trim() },
       { field: 'Patient Number', value: r.patient_number },
@@ -42,7 +43,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
       const origin = (() => {
         try { return new URL(req.url).origin } catch { return process.env.NEXT_PUBLIC_APP_URL || 'http://localhost:3000' }
       })()
-      const resp = await fetch(`${origin}/logo0.png`)
+      const resp = await fetch(`${origin}${ORG_LOGO_PATH}`)
       if (resp.ok) {
         const ct = resp.headers.get('content-type') || 'image/png'
         const ab = await resp.arrayBuffer()
@@ -58,7 +59,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const buf = await toPDF(title, data as any[], { userId: auth.userId, timestamp: new Date().toISOString() }, false, {
       colors: { headerBg: [14,165,233], headerText: [255,255,255], rowAltBg: [243,244,246], text: [17,24,39] },
       logoDataUrl,
-      subtitle: 'Dayspring Medical Center - Information System',
+      subtitle: `${ORG_NAME} - ${ORG_SUBTITLE}`,
       meta,
     })
     return new NextResponse(buf, { status: 200, headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `inline; filename=queue-token-${r.patient_number}.pdf` } })

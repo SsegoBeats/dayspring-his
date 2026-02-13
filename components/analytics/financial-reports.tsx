@@ -39,6 +39,7 @@ import {
 } from "recharts"
 import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
 import { ExportPdfButton } from "@/components/reports/ExportPdfButton"
+import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
 
 // Custom chart container that bypasses ResponsiveContainer issues
 const FixedChartContainer = ({ 
@@ -377,7 +378,7 @@ export function FinancialReports() {
           {data && (
             <ExportPdfButton
               size="sm"
-              hospitalName="Dayspring Medical Center - Information System"
+              hospitalName={`${ORG_NAME} - ${ORG_SUBTITLE}`}
               logoUrl="/logo0.png"
               periodLabel={
                 period === '7days' ? 'Last 7 Days' : period === '30days' ? 'Last 30 Days' : 'Last 90 Days'

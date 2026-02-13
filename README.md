@@ -1,4 +1,4 @@
-# Dayspring Medical Center HIS
+# Dayspring Community Health Care HIS
 
 A production-grade Next.js (App Router) HIS with secure Postgres backend, RBAC + RLS, email/SMS, background jobs, and PWA.
 

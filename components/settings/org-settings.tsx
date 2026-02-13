@@ -1,18 +1,19 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
-import { Input } from "@/components/ui/input"
-import { Textarea } from "@/components/ui/textarea"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { useSettings } from "@/lib/settings-context"
+import { ORG_NAME, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Info } from "lucide-react"
 
 export function OrgSettings() {
   const { refreshSettings } = useSettings()
-  const [form, setForm] = useState({ name: "", logoUrl: "", email: "", phone: "", address: "", currency: "UGX" })
+  const [currency, setCurrency] = useState("UGX")
   const [loading, setLoading] = useState(true)
   const [saving, setSaving] = useState(false)
 
@@ -23,7 +24,7 @@ export function OrgSettings() {
         if (!res.ok) throw new Error('Failed to load org settings')
         const data = await res.json()
         const s = data.settings || {}
-        setForm({ name: s.name || '', logoUrl: s.logoUrl || '', email: s.email || '', phone: s.phone || '', address: s.address || '' })
+        setCurrency(s.currency || 'UGX')
       } catch (e:any) {
         toast.error('Failed to load organization settings', { description: e?.message || 'Error' })
       } finally { setLoading(false) }
@@ -33,62 +34,62 @@ export function OrgSettings() {
   const save = async () => {
     setSaving(true)
     try {
-      const res = await fetch('/api/settings/org', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
+      const res = await fetch('/api/settings/org', { 
+        method: 'POST', 
+        credentials: 'include', 
+        headers: { 'Content-Type': 'application/json' }, 
+        body: JSON.stringify({ currency }) 
+      })
       if (!res.ok) throw new Error((await res.json().catch(()=>({} as any)))?.error || 'Failed')
-      toast.success('Organization settings saved')
+      toast.success('Currency setting saved')
       await refreshSettings()
     } catch (e:any) {
-      toast.error('Failed to save organization settings', { description: e?.message || 'Error' })
+      toast.error('Failed to save currency setting', { description: e?.message || 'Error' })
     } finally { setSaving(false) }
   }
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Organization Profile</CardTitle>
+        <CardTitle>Organization Settings</CardTitle>
+        <CardDescription>Manage system-wide organization settings</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        {loading ? <div className="text-sm text-muted-foreground">Loading…</div> : (
-          <>
-            <div className="grid md:grid-cols-2 gap-3">
-              <div className="space-y-1">
-                <Label>Name</Label>
-                <Input value={form.name} onChange={(e)=> setForm({ ...form, name: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>Logo URL</Label>
-                <div className="text-[11px] text-muted-foreground">Upload a logo and we will fill the URL automatically.</div>
-                <div className="flex items-center gap-2">
-                  <input type="file" accept="image/*" onChange={async (e)=>{
-                    const f = e.target.files?.[0]; if (!f) return;
-                    try {
-                      const fd = new FormData(); fd.append("file", f)
-                      const r = await fetch("/api/upload", { method: "POST", credentials: "include", body: fd })
-                      const d = await r.json(); if ((r as any).ok && d?.url) { setForm(prev=> ({...prev, logoUrl: d.url})); (require("sonner") as any).toast.success("Logo uploaded") }
-                      else (require("sonner") as any).toast.error("Upload failed", { description: d?.error || "Error" })
-                    } catch (err:any) { (require("sonner") as any).toast.error("Upload failed", { description: err?.message || "Error" }) }
-                  }} />
-                  {form.logoUrl && (<img src={form.logoUrl} alt="Logo preview" className="h-10 w-10 object-contain border rounded" onError={(e:any)=> { (e.currentTarget as any).style.display='none' }} />)}
-                </div>
-                <Input placeholder="/logo.png or https://…" value={form.logoUrl} onChange={(e)=> setForm({ ...form, logoUrl: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>Email</Label>
-                <Input value={form.email} onChange={(e)=> setForm({ ...form, email: e.target.value })} />
-              </div>
-              <div className="space-y-1">
-                <Label>Phone</Label>
-                <Input value={form.phone} onChange={(e)=> setForm({ ...form, phone: e.target.value })} />
-              </div>
+      <CardContent className="space-y-4">
+        <Alert>
+          <Info className="h-4 w-4" />
+          <AlertDescription>
+            Organization details (name, logo, email, phone, address) are system-managed and cannot be changed through this interface. 
+            Only the system currency can be modified.
+          </AlertDescription>
+        </Alert>
+
+        <div className="space-y-4 border-t pt-4">
+          <div className="space-y-2">
+            <div>
+              <Label className="text-sm font-medium">Organization Name</Label>
+              <p className="text-sm text-muted-foreground mt-1">{ORG_NAME}</p>
             </div>
-            <div className="space-y-1">
-              <Label>Address</Label>
-              <Textarea value={form.address} onChange={(e)=> setForm({ ...form, address: e.target.value })} rows={3} />
+            <div>
+              <Label className="text-sm font-medium">Email</Label>
+              <p className="text-sm text-muted-foreground mt-1">{ORG_EMAIL}</p>
             </div>
-            <div className="space-y-1">
-              <Label>System Currency</Label>
-              <p className="text-xs text-muted-foreground mb-1">Admin-only. Affects receipts, exports, billing, and the entire system.</p>
-              <Select value={form.currency} onValueChange={(v) => setForm({ ...form, currency: v })}>
+            <div>
+              <Label className="text-sm font-medium">Phone</Label>
+              <p className="text-sm text-muted-foreground mt-1">{ORG_PHONE}</p>
+            </div>
+            <div>
+              <Label className="text-sm font-medium">Address</Label>
+              <p className="text-sm text-muted-foreground mt-1">{ORG_ADDRESS}</p>
+            </div>
+          </div>
+
+          <div className="space-y-1 border-t pt-4">
+            <Label>System Currency</Label>
+            <p className="text-xs text-muted-foreground mb-1">Admin-only. Affects receipts, exports, billing, and the entire system.</p>
+            {loading ? (
+              <div className="text-sm text-muted-foreground">Loading…</div>
+            ) : (
+              <Select value={currency} onValueChange={setCurrency}>
                 <SelectTrigger><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="UGX">UGX (Ugandan Shilling)</SelectItem>
@@ -96,12 +97,12 @@ export function OrgSettings() {
                   <SelectItem value="KES">KES (Kenyan Shilling)</SelectItem>
                 </SelectContent>
               </Select>
-            </div>
-            <div className="flex justify-end">
-              <Button onClick={save} disabled={saving}>{saving? 'Saving…' : 'Save Changes'}</Button>
-            </div>
-          </>
-        )}
+            )}
+          </div>
+          <div className="flex justify-end">
+            <Button onClick={save} disabled={saving || loading}>{saving? 'Saving…' : 'Save Changes'}</Button>
+          </div>
+        </div>
       </CardContent>
     </Card>
   )

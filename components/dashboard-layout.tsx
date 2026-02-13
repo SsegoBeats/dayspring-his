@@ -5,10 +5,11 @@ import { useEffect, useState, useCallback } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/error-boundary"
-import { LogOut, Hospital, Bell } from "lucide-react"
+import { LogOut, Bell } from "lucide-react"
 import Link from 'next/link'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { formatPatientNumber } from "@/lib/patients"
+import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -41,10 +42,15 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <header className="sticky top-0 z-50 border-b border-border bg-card print:hidden">
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <Hospital className="h-6 w-6 text-primary" />
+            <img 
+              src={ORG_LOGO_PATH} 
+              alt={`${ORG_NAME} logo`}
+              className="h-8 w-8 object-contain"
+              onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
+            />
             <div>
-              <h1 className="text-lg font-semibold text-foreground">Dayspring Medical Center</h1>
-              <p className="text-xs text-muted-foreground">Hospital Information System</p>
+              <h1 className="text-lg font-semibold text-foreground">{ORG_NAME}</h1>
+              <p className="text-xs text-muted-foreground">{ORG_SUBTITLE}</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from 'react'
 import { useParams } from 'next/navigation'
 import { BarcodeGenerator } from '@/components/barcode-generator'
+import { ORG_NAME, ORG_LOGO_PATH, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from '@/lib/org-constants'
 
 export default function PrintLabTestPage() {
   const params = useParams() as { id: string }
@@ -129,12 +130,12 @@ export default function PrintLabTestPage() {
       <style>{`@media print {.no-print{display:none}} .hdr{border-bottom:1px solid #ddd; padding-bottom:8px; margin-bottom:12px}`}</style>
       <div className="hdr flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <img src={(org?.logoUrl) || "/logo.png"} alt="Logo" className="h-10 w-10 object-contain" onError={(e:any)=>{ (e.currentTarget as any).style.display='none' }} />
+          <img src={ORG_LOGO_PATH} alt="Logo" className="h-10 w-10 object-contain" onError={(e:any)=>{ (e.currentTarget as any).style.display='none' }} />
           <div>
-            <div className="text-xl font-semibold">{org?.name || 'Dayspring Medical Center'}</div>
+            <div className="text-xl font-semibold">{ORG_NAME}</div>
             <div className="text-xs text-muted-foreground">Laboratory Result</div>
             <div className="text-[10px] text-muted-foreground">
-              Email: {org?.email || 'dayspringmedicalcenter@gmail.com'} | Tel: {org?.phone || '+256 703-942-230 / +256 703-844-396 / +256 742-918-253'} | {org?.location || 'Wanyange, Uganda'}
+              Email: {ORG_EMAIL} | Tel: {ORG_PHONE} | {ORG_ADDRESS}
             </div>
           </div>
         </div>

@@ -10,6 +10,7 @@ import { toXLSX } from "@/lib/exports/writers/xlsx"
 import { writeAuditLog } from "@/lib/audit"
 import { toPDF } from "@/lib/exports/writers/pdf"
 import { query, withSession } from "@/lib/db"
+import { ORG_NAME, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS, ORG_SUBTITLE } from "@/lib/org-constants"
 const Schema = z.object({
   dataset: z.enum([
     "appointments",
@@ -67,11 +68,11 @@ export async function POST(req: Request) {
       if ((input.dataset === 'reception_register' || input.dataset === 'reception_register_detailed' || input.dataset === 'queue_events' || input.dataset === 'reception_dashboard') && typeof f.department === 'string' && f.department) info['Department'] = f.department
       if (input.dataset === 'reception_register' && typeof f.department === 'string' && f.department) info['Department'] = f.department
       info['Currency'] = currency
-      info['Email'] = "dayspringmedicalcenter@gmail.com"
-      info['Tel'] = "+256 703-942-230 / +256 703-844-396 / +256 742-918-253"
-      info['Location'] = "Wanyange, Uganda"
+      info['Email'] = ORG_EMAIL
+      info['Tel'] = ORG_PHONE
+      info['Location'] = ORG_ADDRESS
       info['Requested By'] = requestedBy
-      info['Organization'] = 'Dayspring Medical Center'
+      info['Organization'] = ORG_NAME
       return Object.keys(info).length ? info : undefined
     })()
 
@@ -216,7 +217,7 @@ export async function POST(req: Request) {
             }
           }
         } catch {}
-        const buf = Buffer.from(await toXLSX(rows, { meta: { title: `${input.dataset.replace(/_/g, " ")} Export`, exportedBy: auth.email, timestamp: new Date().toISOString() }, columns: input.columns && input.columns.length ? input.columns : ds.defaultColumns, extraInfo, headerTitle: 'Dayspring Medical Center', headerSubtitle: 'Dayspring Medical Center - Information System', logoDataUrl, currencyCode: currency, sheets }))
+        const buf = Buffer.from(await toXLSX(rows, { meta: { title: `${input.dataset.replace(/_/g, " ")} Export`, exportedBy: auth.email, timestamp: new Date().toISOString() }, columns: input.columns && input.columns.length ? input.columns : ds.defaultColumns, extraInfo, headerTitle: ORG_NAME, headerSubtitle: `${ORG_NAME} - ${ORG_SUBTITLE}`, logoDataUrl, currencyCode: currency, sheets }))
         try {
           await writeAuditLog({
             userId: auth.userId,
@@ -276,7 +277,7 @@ export async function POST(req: Request) {
             return base
           })()
           // Standardize PDF title to include org + dataset for all exports
-          const pdfTitle = `Dayspring Medical Center — ${reportTitle}`
+          const pdfTitle = `${ORG_NAME} — ${reportTitle}`
           // For reception register/dashboard/daily, enrich meta with quick totals
           let pdfMeta = meta
           try {
@@ -352,7 +353,7 @@ export async function POST(req: Request) {
               colors: { headerBg: [14,165,233], headerText: [255,255,255], rowAltBg: [243,244,246], text: [17,24,39] },
               logoDataUrl,
               meta: pdfMeta,
-              subtitle: "Dayspring Medical Center - Information System",
+              subtitle: `${ORG_NAME} - ${ORG_SUBTITLE}`,
               watermarkOpacity: 0.08,
               groupByKey: (input.dataset === 'reception_register' || input.dataset === 'reception_register_detailed' || input.dataset === 'reception_dashboard' || input.dataset === 'reception_daily') ? 'section' : (input.dataset === 'queue_events' ? 'department' : undefined),
               subGroupKey: (input.dataset === 'reception_register_detailed') ? 'subsection' : (input.dataset === 'queue_events' ? 'to_status' : undefined),

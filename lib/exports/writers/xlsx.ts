@@ -1,5 +1,6 @@
 import ExcelJS from "exceljs"
 import sharp from "sharp"
+import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
 
 function titleCase(s: string) {
   return s
@@ -53,8 +54,8 @@ export async function toXLSX(
     })
 
     // Insert branded header rows above the table
-    const titleText = opts?.headerTitle || "Dayspring Medical Center"
-    const subtitleText = opts?.headerSubtitle || "Dayspring Medical Center - Information System"
+    const titleText = opts?.headerTitle || ORG_NAME
+    const subtitleText = opts?.headerSubtitle || `${ORG_NAME} - ${ORG_SUBTITLE}`
     ws.spliceRows(1, 0, [titleText], [subtitleText])
 
     // Re-style the now-shifted table header row (which moved to row 3)
@@ -208,7 +209,7 @@ export async function toXLSX(
         })
         // Branded header
         const lastCol2 = Math.max(1, keys2.length)
-        ws2.spliceRows(1, 0, [opts?.headerTitle || 'Dayspring Medical Center'], [opts?.headerSubtitle || 'Dayspring Medical Center - Information System'])
+        ws2.spliceRows(1, 0, [opts?.headerTitle || ORG_NAME], [opts?.headerSubtitle || `${ORG_NAME} - ${ORG_SUBTITLE}`])
         const headerRow2 = ws2.getRow(3)
         headerRow2.font = { bold: true, color: { argb: 'FFFFFFFF' } }
         headerRow2.alignment = { vertical: 'middle', horizontal: 'left' }

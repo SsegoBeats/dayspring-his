@@ -5,6 +5,7 @@ import type { Metadata } from "next"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { PrintButton } from "./PrintButton"
+import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
 
 export const dynamic = "force-dynamic"
 
@@ -60,7 +61,7 @@ export default async function PatientReceiptPage({ params }: { params: Promise<{
       `}} />
       <div className="receipt-container">
         <div className="receipt-card">
-          <div className="receipt-title">Dayspring Medical Center - Information System</div>
+          <div className="receipt-title">{ORG_NAME} - {ORG_SUBTITLE}</div>
           <div className="receipt-muted">Patient Registration Receipt</div>
           <div className="receipt-row" style={{ marginTop: 16 }}>
             <div>

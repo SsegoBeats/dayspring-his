@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { query } from "@/lib/db"
+import { ORG_NAME, ORG_LOGO_PATH, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
 
 async function ensure() {
   try {
@@ -16,7 +17,7 @@ async function ensure() {
       updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )`)
     await query(`ALTER TABLE organization_settings ADD COLUMN IF NOT EXISTS currency VARCHAR(10) DEFAULT 'UGX'`).catch(() => {})
-    await query(`INSERT INTO organization_settings (id, name) VALUES (1, 'Dayspring Medical Center') ON CONFLICT (id) DO NOTHING`)
+    await query(`INSERT INTO organization_settings (id, name) VALUES (1, $1) ON CONFLICT (id) DO NOTHING`, [ORG_NAME])
   } catch {}
 }
 
@@ -36,15 +37,16 @@ export async function GET(req: Request) {
     } catch {}
   }
   await ensure()
-  const { rows } = await query(`SELECT name, logo_url, email, phone, address, currency FROM organization_settings WHERE id = 1`)
+  const { rows } = await query(`SELECT currency FROM organization_settings WHERE id = 1`)
   const s = rows?.[0] || {}
+  // Return hardcoded organization details from constants, only currency from database
   return NextResponse.json({ settings: {
-    name: s.name || 'Dayspring Medical Center',
-    logoUrl: s.logo_url || '/logo.png',
-    email: s.email || 'dayspringmedicalcenter@gmail.com',
-    phone: s.phone || '+256 703-942-230 / +256 703-844-396 / +256 742-918-253',
-    location: s.location || 'Wanyange, Uganda',
-    address: s.address || 'Kampala, Uganda',
+    name: ORG_NAME,
+    logoUrl: ORG_LOGO_PATH,
+    email: ORG_EMAIL,
+    phone: ORG_PHONE,
+    address: ORG_ADDRESS,
+    location: ORG_ADDRESS,
     currency: s.currency || 'UGX',
   } })
 }
@@ -61,16 +63,18 @@ export async function POST(req: Request) {
     }
     await ensure()
     const body = await req.json().catch(()=>({})) as any
-    const { name, logoUrl, email, phone, address, currency } = body || {}
+    const { currency } = body || {}
+    // Only currency can be updated - all other fields are hardcoded constants
+    if (!currency) {
+      return NextResponse.json({ error: 'Currency is required' }, { status: 400 })
+    }
+    if (!['UGX', 'USD', 'KES'].includes(currency)) {
+      return NextResponse.json({ error: 'Invalid currency' }, { status: 400 })
+    }
     await query(`UPDATE organization_settings SET 
-      name = COALESCE($1, name),
-      logo_url = COALESCE($2, logo_url),
-      email = COALESCE($3, email),
-      phone = COALESCE($4, phone),
-      address = COALESCE($5, address),
-      currency = COALESCE($6, currency),
+      currency = $1,
       updated_at = NOW()
-      WHERE id = 1`, [name ?? null, logoUrl ?? null, email ?? null, phone ?? null, address ?? null, currency ?? null])
+      WHERE id = 1`, [currency])
     return NextResponse.json({ success: true })
   } catch (e:any) {
     return NextResponse.json({ error: 'Failed to update settings', details: e?.message }, { status: 500 })

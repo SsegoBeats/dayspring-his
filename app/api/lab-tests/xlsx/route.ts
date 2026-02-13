@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 import { toXLSX } from "@/lib/exports/writers/xlsx"
 import { formatPatientNumber } from "@/lib/patients"
+import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
 
 export const runtime = 'nodejs'
 
@@ -106,12 +107,10 @@ export async function GET(req: Request) {
     const tableRows = tests.flatMap(getAnalyteRows)
 
     // Organization branding (logo as data URL)
-    let org = { name: 'Dayspring Medical Center', logoUrl: '/logo.png' } as any
-    try { const orgRes = await fetch(new URL('/api/settings/org', req.url).toString()); const data = await orgRes.json(); if (data?.settings) org = { ...org, ...data.settings } } catch {}
     let logoDataUrl: string | undefined
     try {
       const origin = new URL(req.url).origin
-      const safeLogo = org.logoUrl?.startsWith('http') ? org.logoUrl : `${origin}${org.logoUrl}`
+      const safeLogo = ORG_LOGO_PATH.startsWith('http') ? ORG_LOGO_PATH : `${origin}${ORG_LOGO_PATH}`
       const lr = await fetch(safeLogo)
       if (lr.ok) {
         const ct = lr.headers.get('content-type') || 'image/png'
@@ -120,8 +119,8 @@ export async function GET(req: Request) {
       }
     } catch {}
 
-    const headerTitle = `${org.name} - Laboratory Results`
-    const headerSubtitle = `${org.name} - Information System`
+    const headerTitle = `${ORG_NAME} - Laboratory Results`
+    const headerSubtitle = `${ORG_NAME} - ${ORG_SUBTITLE}`
     const buf = await toXLSX(
       tableRows.map(r => ({
         Patient: r.Patient || '',

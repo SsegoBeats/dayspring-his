@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react"
 import { isQzEnabled, loadQz, initQz, listPrinters, getDefaultPrinterName, printCurrentPageViaQz } from "@/lib/printing"
+import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
 
 export default function QzTestPage() {
   const [status, setStatus] = useState<string>("")
@@ -88,7 +89,7 @@ export default function QzTestPage() {
       <div style={{ marginTop: 24, borderTop: "1px solid #e5e7eb", paddingTop: 12 }}>
         <div style={{ fontWeight: 600 }}>Sample Receipt Preview</div>
         <div style={{ maxWidth: 520, border: "1px solid #e5e7eb", borderRadius: 8, padding: 12, marginTop: 8 }}>
-          <div style={{ fontWeight: 600 }}>Dayspring Medical Center - Information System</div>
+          <div style={{ fontWeight: 600 }}>{ORG_NAME} - {ORG_SUBTITLE}</div>
           <div style={{ color: "#6b7280", fontSize: 12 }}>Receipt Test</div>
           <div style={{ marginTop: 8 }}>
             <div><strong>Name:</strong> John Doe</div>

@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { query, withClient } from "@/lib/db"
 import { emailTemplates } from "@/lib/email-service"
 import nodemailer from "nodemailer"
+import { ORG_EMAIL } from "@/lib/org-constants"
 
 function getTransporter() {
   return nodemailer.createTransport({
@@ -9,7 +10,7 @@ function getTransporter() {
     port: Number.parseInt(process.env.SMTP_PORT || "465"),
     secure: process.env.SMTP_SECURE === "true",
     auth: {
-      user: process.env.SMTP_USER || "dayspringmedicalcenter@gmail.com",
+      user: process.env.SMTP_USER || ORG_EMAIL,
       pass: process.env.SMTP_PASS || "",
     },
   })
@@ -70,7 +71,7 @@ export async function POST() {
 
     const transporter = getTransporter()
     let sentCount = 0
-    const from = process.env.SMTP_FROM || "Dayspring HIS <dayspringmedicalcenter@gmail.com>"
+    const from = process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`
 
     for (const a of appts) {
       if (!a.patient_email) continue

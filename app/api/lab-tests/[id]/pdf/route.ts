@@ -4,6 +4,7 @@ import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
 import { formatPatientNumber } from "@/lib/patients"
+import { ORG_NAME, ORG_LOGO_PATH, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
 
 export const runtime = 'nodejs'
 
@@ -101,8 +102,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const patientName = [r.first_name, r.last_name].filter(Boolean).join(' ')
 
     // Org settings and logo data URL
-    let org = { name: 'Dayspring Medical Center', logoUrl: '/logo0.png', email: 'dayspringmedicalcenter@gmail.com', phone: '+256 703-942-230 / +256 703-844-396 / +256 742-918-253', location: 'Wanyange, Uganda' } as any
-    try { const orgRes = await fetch(new URL('/api/settings/org', req.url).toString()); const data = await orgRes.json(); if (data?.settings) org = { ...org, ...data.settings } } catch {}
+    const org = { name: ORG_NAME, logoUrl: ORG_LOGO_PATH, email: ORG_EMAIL, phone: ORG_PHONE, location: ORG_ADDRESS }
     let logoDataUrl: string | undefined
     try {
       const origin = new URL(req.url).origin

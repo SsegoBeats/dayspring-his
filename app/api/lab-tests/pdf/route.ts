@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
+import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
 
 export const runtime = 'nodejs'
 
@@ -145,9 +146,8 @@ export async function GET(req: Request) {
     tableRows.push({ Patient: "", Test: "", Parameter: "Printed By", Value: auth.email, RefRange: undefined, Flag: undefined, Accession: undefined, Ordered: undefined, Completed: undefined })
     tableRows.push({ Patient: "", Test: "", Parameter: "Signature", Value: "____________________    Stamp: ____________________", RefRange: undefined, Flag: undefined, Accession: undefined, Ordered: undefined, Completed: undefined })
 
-    // Organization branding
-    let org = { name: 'Dayspring Medical Center', logoUrl: '/logo0.png' } as any
-    try { const orgRes = await fetch(new URL('/api/settings/org', req.url).toString()); const data = await orgRes.json(); if (data?.settings) org = { ...org, ...data.settings } } catch {}
+    // Organization branding - use constants
+    const org = { name: ORG_NAME, logoUrl: ORG_LOGO_PATH, email: ORG_EMAIL, phone: ORG_PHONE, location: ORG_ADDRESS }
     let logoDataUrl: string | undefined
     try {
       const origin = new URL(req.url).origin
@@ -160,7 +160,7 @@ export async function GET(req: Request) {
       }
     } catch {}
 
-    const title = `${org.name} - Laboratory Results`
+    const title = `${ORG_NAME} - Laboratory Results`
     const periodStr = [from || '', to || ''].filter(Boolean).join(' to ')
     const buf = await toPDF(
       title,
@@ -170,7 +170,7 @@ export async function GET(req: Request) {
       {
         logoDataUrl,
         meta: { Period: periodStr, Email: org.email, Tel: org.phone, Location: org.location, "Printed By": auth.email },
-        subtitle: `${org.name} - Information System`,
+        subtitle: `${ORG_NAME} - ${ORG_SUBTITLE}`,
         watermarkOpacity: 0.08,
         groupByKey: 'Patient',
         subGroupKey: 'Test'
