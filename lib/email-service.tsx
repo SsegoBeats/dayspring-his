@@ -40,7 +40,7 @@ export const emailTemplates = {
                       <tr>
                         <td>
                           <h1 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: 600;">🏥 Welcome to ${ORG_NAME}</h1>
-                          <p style="margin: 0; color: #ffffff; font-size: 16px; opacity: 0.95;">Hospital Information System</p>
+                          <p style="margin: 0; color: #ffffff; font-size: 16px; opacity: 0.95;">Information System</p>
                         </td>
                       </tr>
                     </table>
@@ -54,7 +54,7 @@ export const emailTemplates = {
                       Hello <strong>${name}</strong>,
                     </p>
                     <p style="margin: 0 0 32px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      Your account has been successfully created in the ${ORG_NAME} Hospital Information System. 
+                      Your account has been successfully created in the ${ORG_NAME} Information System. 
                       We're excited to have you join our team!
                     </p>
                     
@@ -220,7 +220,7 @@ export const emailTemplates = {
                       Hello <strong>${name}</strong>,
                     </p>
                     <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      Thank you for joining ${ORG_NAME}. To complete your account setup and start using the Hospital Information System, please verify your email address using the code below.
+                      Thank you for joining ${ORG_NAME}. To complete your account setup and start using the Information System, please verify your email address using the code below.
                     </p>
 
                     <!-- Verification Code Box -->
@@ -1486,7 +1486,7 @@ export function buildDepartmentNotificationEmail(department: string, title: stri
             <tr>
               <td style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%); padding:24px 32px; border-radius:12px 12px 0 0;">
                 <h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:600;">${ORG_NAME}</h1>
-                <p style="margin:4px 0 0 0; color:#e0e7ff; font-size:13px;">Hospital Information System - ${department}</p>
+                <p style="margin:4px 0 0 0; color:#e0e7ff; font-size:13px;">Information System - ${department}</p>
               </td>
             </tr>
             <tr>

@@ -3,6 +3,13 @@ import { getPesapalTransactionStatus } from "@/lib/pesapal"
 import { queryWithSession } from "@/lib/db"
 
 async function processSuccessfulPayment(billId: string, orderTrackingId: string, paymentMethod: string, amountPaid: number) {
+  // Never mark as paid when Pesapal reports zero or missing amount (e.g. user only visited payment page and left)
+  if (!amountPaid || amountPaid <= 0) {
+    if (process.env.NODE_ENV === "development") {
+      console.log("[Pesapal] Skipping bill update: no amount paid", billId, orderTrackingId)
+    }
+    return
+  }
   const billRes = await queryWithSession(
     { role: "Hospital Admin", userId: "ipn" },
     `SELECT final_amount, paid_amount FROM bills WHERE id = $1 AND status != 'Paid'`,
@@ -12,7 +19,7 @@ async function processSuccessfulPayment(billId: string, orderTrackingId: string,
   const bill = billRes.rows[0] as { final_amount: number; paid_amount: number }
   const finalAmount = Number(bill.final_amount)
   const currentPaidAmount = Number(bill.paid_amount) || 0
-  const effectiveAmount = amountPaid > 0 ? amountPaid : Math.max(0, finalAmount - currentPaidAmount)
+  const effectiveAmount = amountPaid
   const newPaidAmount = currentPaidAmount + effectiveAmount
   const status = newPaidAmount >= finalAmount ? "Paid" : "Partially Paid"
   const paidAmountToSet = status === "Paid" ? finalAmount : newPaidAmount

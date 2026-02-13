@@ -42,8 +42,34 @@ export function CashierDashboard() {
   const pendingBills = getPendingBills()
   const partiallyPaidBills = getPartiallyPaidBills()
   const paidBills = bills.filter((b) => b.status === "paid")
+  // Use local date so "today" is the user's calendar day (resets correctly each new day)
+  const todayLocal =
+    typeof Intl !== "undefined"
+      ? new Date().toLocaleDateString("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" })
+      : `${new Date().getFullYear()}-${String(new Date().getMonth() + 1).padStart(2, "0")}-${String(new Date().getDate()).padStart(2, "0")}`
   const todayRevenue = paidBills
-    .filter((b) => b.paymentDate === new Date().toISOString().split("T")[0])
+    .filter((b) => b.paymentDate === todayLocal)
+    .reduce((sum, b) => sum + b.total, 0)
+
+  // Current calendar week (Monday–Sunday) in local time for week's revenue
+  const getWeekBounds = () => {
+    const now = new Date()
+    const day = now.getDay()
+    const daysToMonday = day === 0 ? 6 : day - 1
+    const monday = new Date(now)
+    monday.setDate(now.getDate() - daysToMonday)
+    monday.setHours(0, 0, 0, 0)
+    const sunday = new Date(monday)
+    sunday.setDate(monday.getDate() + 6)
+    const opts: Intl.DateTimeFormatOptions = { year: "numeric", month: "2-digit", day: "2-digit" }
+    return {
+      start: monday.toLocaleDateString("en-CA", opts),
+      end: sunday.toLocaleDateString("en-CA", opts),
+    }
+  }
+  const weekBounds = getWeekBounds()
+  const weekRevenue = paidBills
+    .filter((b) => b.paymentDate && b.paymentDate >= weekBounds.start && b.paymentDate <= weekBounds.end)
     .reduce((sum, b) => sum + b.total, 0)
 
   const partiallyPaidRemaining = partiallyPaidBills.reduce(
@@ -135,7 +161,7 @@ export function CashierDashboard() {
       </div>
 
       {/* Stats */}
-      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <Card className="overflow-hidden border-0 bg-gradient-to-br from-slate-50 to-slate-100/80 shadow-sm dark:from-slate-900/50 dark:to-slate-800/50">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-xs font-medium uppercase tracking-wider text-slate-600 dark:text-slate-400">
@@ -210,13 +236,28 @@ export function CashierDashboard() {
             <p className="text-xs text-violet-700/80 dark:text-violet-400/80">Collected today</p>
           </CardContent>
         </Card>
+
+        <Card className="overflow-hidden border-0 bg-gradient-to-br from-fuchsia-50 to-pink-50/80 shadow-sm dark:from-fuchsia-950/30 dark:to-pink-950/20">
+          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+            <CardTitle className="text-xs font-medium uppercase tracking-wider text-fuchsia-700 dark:text-fuchsia-400">
+              Week&apos;s Revenue
+            </CardTitle>
+            <DollarSign className="h-5 w-5 text-fuchsia-500" />
+          </CardHeader>
+          <CardContent>
+            <div className="text-2xl font-bold text-fuchsia-900 dark:text-fuchsia-100">
+              {formatCurrency(weekRevenue)}
+            </div>
+            <p className="text-xs text-fuchsia-700/80 dark:text-fuchsia-400/80">This week (Mon–Sun)</p>
+          </CardContent>
+        </Card>
       </div>
 
       {/* Bill queue + Quick actions */}
       <div className="grid gap-6 lg:grid-cols-[1fr_280px]">
         <div className="space-y-4">
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
-            <Tabs value={activeTab} onValueChange={setActiveTab}>
+          <Tabs value={activeTab} onValueChange={setActiveTab}>
+            <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
               <TabsList className="h-auto flex-wrap gap-1 bg-muted/60 p-1">
                 <TabsTrigger value="pending" className="gap-1.5 text-sm">
                   Pending
@@ -243,20 +284,18 @@ export function CashierDashboard() {
                   </Badge>
                 </TabsTrigger>
               </TabsList>
-            </Tabs>
-            <div className="relative w-full sm:w-64">
-              <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
-              <Input
-                placeholder="Search patient or invoice..."
-                value={searchTerm}
-                onChange={(e) => setSearchTerm(e.target.value)}
-                className="pl-9"
-              />
+              <div className="relative w-full sm:w-64">
+                <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+                <Input
+                  placeholder="Search patient or invoice..."
+                  value={searchTerm}
+                  onChange={(e) => setSearchTerm(e.target.value)}
+                  className="pl-9"
+                />
+              </div>
             </div>
-          </div>
 
-          <Tabs value={activeTab} onValueChange={setActiveTab}>
-            <TabsContent value="pending" className="mt-0">
+            <TabsContent value="pending" className="mt-4">
               <BillQueue
                 bills={filterBills(pendingBills)}
                 onSelectBill={setSelectedBillId}
@@ -266,7 +305,7 @@ export function CashierDashboard() {
                 showCreateButton
               />
             </TabsContent>
-            <TabsContent value="partially" className="mt-0">
+            <TabsContent value="partially" className="mt-4">
               <BillQueue
                 bills={filterBills(partiallyPaidBills)}
                 onSelectBill={setSelectedBillId}
@@ -274,14 +313,14 @@ export function CashierDashboard() {
                 emptyMessage="No partially paid bills."
               />
             </TabsContent>
-            <TabsContent value="paid" className="mt-0">
+            <TabsContent value="paid" className="mt-4">
               <BillQueue
                 bills={filterBills(paidBills)}
                 onSelectBill={setSelectedBillId}
                 emptyMessage="No paid bills in this view."
               />
             </TabsContent>
-            <TabsContent value="all" className="mt-0">
+            <TabsContent value="all" className="mt-4">
               <BillQueue
                 bills={filterBills(bills)}
                 onSelectBill={setSelectedBillId}

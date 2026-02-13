@@ -37,7 +37,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <Hospital className="h-6 w-6 text-primary" />
             <div>
               <h1 className="text-lg font-semibold text-foreground">Dayspring Medical Center</h1>
-              <p className="text-xs text-muted-foreground">Hospital Information System</p>
+              <p className="text-xs text-muted-foreground">Information System</p>
             </div>
           </div>
           <div className="flex items-center gap-4">

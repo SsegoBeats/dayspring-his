@@ -40,6 +40,8 @@ interface BillingContextType {
   getBill: (id: string) => Bill | undefined
   getPatientBills: (patientId: string) => Bill[]
   getPendingBills: () => Bill[]
+  getOverdueBills: () => Bill[]
+  getPartiallyPaidBills: () => Bill[]
 }
 
 const BillingContext = createContext<BillingContextType | undefined>(undefined)
@@ -95,7 +97,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
             paidAmount: paidAmount > 0 ? paidAmount : undefined,
             status: normalizedStatus,
             paymentMethod: b.payment_method || undefined,
-            paymentDate: b.paid_at ? new Date(b.paid_at).toISOString().slice(0, 10) : undefined,
+            paymentDate: b.paid_at
+              ? new Date(b.paid_at).toLocaleDateString("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" })
+              : undefined,
             barcode: b.barcode || undefined,
             dueDate: b.due_date ? new Date(b.due_date).toISOString().slice(0, 10) : undefined,
           }
