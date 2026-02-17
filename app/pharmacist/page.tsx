@@ -24,8 +24,11 @@ export default function PharmacistPage() {
 
   if (isLoading || !user) {
     return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
+      <div className="flex min-h-screen items-center justify-center bg-muted/20">
+        <div className="flex flex-col items-center gap-3 text-muted-foreground animate-in fade-in-0 duration-300">
+          <div className="h-8 w-8 rounded-full border-2 border-primary border-t-transparent animate-spin" />
+          <span>Loading...</span>
+        </div>
       </div>
     )
   }

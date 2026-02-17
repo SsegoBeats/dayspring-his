@@ -64,28 +64,32 @@ export function UsageAnalytics() {
 
   if (loading && !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Usage Analytics & Demand Forecasting</CardTitle>
-          <CardDescription>Loading...</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Usage Analytics & Demand Forecasting</CardTitle>
+            <CardDescription>Loading...</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
   if (error && !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Usage Analytics & Demand Forecasting</CardTitle>
-          <CardDescription className="text-destructive">{error}</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Usage Analytics & Demand Forecasting</CardTitle>
+            <CardDescription className="text-destructive">{error}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

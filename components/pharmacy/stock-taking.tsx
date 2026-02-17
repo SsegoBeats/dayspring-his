@@ -367,17 +367,20 @@ export function StockTaking() {
 
   if (loading && medicationStockTakings.length === 0 && nonMedicationStockTakings.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Stock Taking (Physical Inventory)</CardTitle>
-          <CardDescription>Loading...</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Stock Taking (Physical Inventory)</CardTitle>
+            <CardDescription>Loading...</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
   return (
     <>
+      <div className="mx-auto max-w-6xl">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
@@ -600,6 +603,7 @@ export function StockTaking() {
           </Tabs>
         </CardContent>
       </Card>
+      </div>
 
       <Dialog open={showMedicationDialog} onOpenChange={setShowMedicationDialog}>
         <DialogContent>

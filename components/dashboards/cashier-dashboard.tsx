@@ -30,7 +30,7 @@ import {
 import { useFormatCurrency } from "@/lib/settings-context"
 
 export function CashierDashboard() {
-  const { bills, getPendingBills, getPartiallyPaidBills } = useBilling()
+  const { bills, getPendingBills, getPartiallyPaidBills, refreshBills } = useBilling()
   const formatCurrency = useFormatCurrency()
   const [selectedBillId, setSelectedBillId] = useState<string | null>(null)
   const [editingBillId, setEditingBillId] = useState<string | null>(null)
@@ -300,6 +300,11 @@ export function CashierDashboard() {
                 bills={filterBills(pendingBills)}
                 onSelectBill={setSelectedBillId}
                 onEditBill={setEditingBillId}
+                onDeleteBill={async (id) => {
+                  await refreshBills()
+                  if (selectedBillId === id) setSelectedBillId(null)
+                  if (editingBillId === id) setEditingBillId(null)
+                }}
                 onCreateBill={() => setShowCreateBill(true)}
                 emptyMessage='No pending bills. Click "Create Bill" to get started.'
                 showCreateButton
@@ -327,6 +332,11 @@ export function CashierDashboard() {
                 onEditBill={(billId) => {
                   const bill = bills.find((b) => b.id === billId)
                   if (bill?.status === "pending") setEditingBillId(billId)
+                }}
+                onDeleteBill={async (id) => {
+                  await refreshBills()
+                  if (selectedBillId === id) setSelectedBillId(null)
+                  if (editingBillId === id) setEditingBillId(null)
                 }}
                 emptyMessage="No bills recorded yet."
               />

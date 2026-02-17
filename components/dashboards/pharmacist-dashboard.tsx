@@ -16,6 +16,8 @@ import { StockTaking } from "@/components/pharmacy/stock-taking"
 import { UsageAnalytics } from "@/components/pharmacy/usage-analytics"
 import { ABCAnalysis } from "@/components/pharmacy/abc-analysis"
 import { NonMedicationInventory } from "@/components/pharmacy/non-medication-inventory"
+import { StockAdjustments } from "@/components/pharmacy/stock-adjustments"
+import { SupplierManagement } from "@/components/pharmacy/supplier-management"
 import {
   Pill,
   Clock,
@@ -30,6 +32,8 @@ import {
   ClipboardCheck,
   BarChart3,
   TrendingUp,
+  SlidersHorizontal,
+  Truck,
 } from "lucide-react"
 import { decodeBarcodeData } from "@/lib/security"
 
@@ -47,7 +51,7 @@ export function PharmacistDashboard() {
     items: { description: string; quantity: number }[]
     billStatus: string
   } | null>(null)
-  const [tab, setTab] = useState<"prescriptions" | "inventory" | "non-medication" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc">("prescriptions")
+  const [tab, setTab] = useState<"prescriptions" | "inventory" | "non-medication" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc" | "adjustments">("prescriptions")
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const scanInputRef = useRef<HTMLInputElement>(null)
 
@@ -150,13 +154,13 @@ export function PharmacistDashboard() {
 
   return (
     <div className="space-y-6">
-      <div>
-        <h2 className="text-2xl font-bold tracking-tight text-foreground">Pharmacist Dashboard</h2>
-        <p className="text-muted-foreground">Manage prescriptions and inventory</p>
+      <div className="pharmacist-animate-in border-b border-border/60 pb-6">
+        <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Pharmacist Dashboard</h2>
+        <p className="mt-1 text-muted-foreground">Manage prescriptions and inventory</p>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border border-sky-100 bg-gradient-to-b from-sky-50/80 to-background shadow-sm transition hover:shadow-md">
+        <Card className="pharmacist-animate-in pharmacist-stagger-1 opacity-0 border border-sky-100/80 bg-gradient-to-br from-sky-50/90 to-background rounded-xl shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Total Medications</CardTitle>
             <Pill className="h-4 w-4 text-sky-500" />
@@ -166,7 +170,7 @@ export function PharmacistDashboard() {
             <p className="text-xs text-muted-foreground">In inventory</p>
           </CardContent>
         </Card>
-        <Card className="border border-amber-100 bg-gradient-to-b from-amber-50/80 to-background shadow-sm transition hover:shadow-md">
+        <Card className="pharmacist-animate-in pharmacist-stagger-2 opacity-0 border border-amber-100/80 bg-gradient-to-br from-amber-50/90 to-background rounded-xl shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Active Prescriptions</CardTitle>
             <Clock className="h-4 w-4 text-amber-500" />
@@ -176,7 +180,7 @@ export function PharmacistDashboard() {
             <p className="text-xs text-muted-foreground">To be dispensed</p>
           </CardContent>
         </Card>
-        <Card className="border border-emerald-100 bg-gradient-to-b from-emerald-50/80 to-background shadow-sm transition hover:shadow-md">
+        <Card className="pharmacist-animate-in pharmacist-stagger-3 opacity-0 border border-emerald-100/80 bg-gradient-to-br from-emerald-50/90 to-background rounded-xl shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5">
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
             <CardTitle className="text-sm font-medium">Dispensed</CardTitle>
             <CheckCircle className="h-4 w-4 text-emerald-500" />
@@ -187,8 +191,8 @@ export function PharmacistDashboard() {
           </CardContent>
         </Card>
         <Card
-          className={`border shadow-sm transition hover:shadow-md ${
-            lowStockMeds.length > 0 ? "border-red-300 bg-red-50/70" : "border-emerald-100 bg-emerald-50/40"
+          className={`pharmacist-animate-in pharmacist-stagger-4 opacity-0 rounded-xl shadow-sm transition-all duration-300 hover:shadow-md hover:-translate-y-0.5 ${
+            lowStockMeds.length > 0 ? "border-red-200/80 bg-gradient-to-br from-red-50/80 to-background" : "border-emerald-100/80 bg-gradient-to-br from-emerald-50/80 to-background"
           }`}
         >
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
@@ -216,7 +220,7 @@ export function PharmacistDashboard() {
         </Card>
       </div>
 
-      <Card className="border border-slate-100 bg-gradient-to-r from-slate-50/80 to-background">
+      <Card className="pharmacist-animate-in pharmacist-stagger-5 opacity-0 border border-slate-100/80 bg-gradient-to-r from-slate-50/80 to-background rounded-xl shadow-sm transition-all duration-300 hover:shadow-sm">
         <CardHeader className="pb-2">
           <CardTitle className="text-sm font-medium flex items-center gap-2">
             <Boxes className="h-4 w-4 text-muted-foreground" />
@@ -239,12 +243,13 @@ export function PharmacistDashboard() {
         </CardContent>
       </Card>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)}>
-        <TabsList className="grid w-full grid-cols-7">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-4">
+        <TabsList className="flex w-full flex-wrap gap-1.5 rounded-xl bg-muted/60 p-1.5 transition-colors">
           <TabsTrigger value="prescriptions">
             Prescriptions ({prescriptions.length})
           </TabsTrigger>
           <TabsTrigger value="inventory">Inventory ({medications.length})</TabsTrigger>
+          <TabsTrigger value="non-medication">Non-Meds</TabsTrigger>
           <TabsTrigger value="valuation">
             <DollarSign className="mr-1 h-4 w-4" />
             Valuation
@@ -265,10 +270,18 @@ export function PharmacistDashboard() {
             <TrendingUp className="mr-1 h-4 w-4" />
             ABC
           </TabsTrigger>
+          <TabsTrigger value="adjustments">
+            <SlidersHorizontal className="mr-1 h-4 w-4" />
+            Adjustments
+          </TabsTrigger>
+          <TabsTrigger value="suppliers">
+            <Truck className="mr-1 h-4 w-4" />
+            Suppliers
+          </TabsTrigger>
         </TabsList>
 
-        <TabsContent value="prescriptions" className="space-y-4">
-          <Card className="border border-slate-100 shadow-sm">
+        <TabsContent value="prescriptions" className="space-y-4 animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
+          <Card className="border border-slate-100/80 rounded-xl shadow-sm transition-shadow hover:shadow-md">
             <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
               <CardTitle className="flex items-center gap-2 text-sm font-medium">
                 <ScanLine className="h-4 w-4" />
@@ -299,7 +312,7 @@ export function PharmacistDashboard() {
               </div>
               {scanError && <p className="text-sm text-destructive">{scanError}</p>}
               {scannedInfo && (
-                <div className="rounded-lg border border-border bg-muted/30 p-3 text-sm">
+                <div className="rounded-xl border border-border bg-muted/30 p-3 text-sm transition-all duration-200 animate-in fade-in-0 slide-in-from-top-2">
                   <div className="mb-2 flex items-center justify-between">
                     <div>
                       <p className="font-semibold text-foreground">{scannedInfo.patientName}</p>
@@ -352,32 +365,38 @@ export function PharmacistDashboard() {
           )}
         </TabsContent>
 
-        <TabsContent value="inventory">
+        <TabsContent value="inventory" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <MedicationInventory />
         </TabsContent>
 
-        <TabsContent value="non-medication">
+        <TabsContent value="non-medication" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <NonMedicationInventory />
         </TabsContent>
 
-        <TabsContent value="valuation">
+        <TabsContent value="valuation" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <InventoryValuation />
         </TabsContent>
 
-        <TabsContent value="reorder">
+        <TabsContent value="reorder" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <ReorderSuggestions />
         </TabsContent>
 
-        <TabsContent value="stocktaking">
+        <TabsContent value="stocktaking" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <StockTaking />
         </TabsContent>
 
-        <TabsContent value="analytics">
+        <TabsContent value="analytics" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <UsageAnalytics />
         </TabsContent>
 
-        <TabsContent value="abc">
+        <TabsContent value="abc" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <ABCAnalysis />
+        </TabsContent>
+        <TabsContent value="adjustments" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
+          <StockAdjustments />
+        </TabsContent>
+        <TabsContent value="suppliers" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
+          <SupplierManagement />
         </TabsContent>
       </Tabs>
     </div>

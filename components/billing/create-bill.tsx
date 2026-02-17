@@ -9,12 +9,19 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { ArrowLeft, Plus, Trash2, Save, Loader2 } from "lucide-react"
+import { Badge } from "@/components/ui/badge"
+import { ArrowLeft, Plus, Trash2, Save, Loader2, Pill, Stethoscope } from "lucide-react"
 import { toast } from "sonner"
 import { Checkbox } from "@/components/ui/checkbox"
 import { useBilling } from "@/lib/billing-context"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { formatPatientNumber } from "@/lib/patients"
+import {
+  SERVICE_CATEGORIES,
+  SERVICE_CATEGORY_OPTIONS,
+  DELIVERY_TYPES,
+  DELIVERY_TYPE_OPTIONS,
+} from "@/lib/service-categories"
 
 interface CreateBillProps {
   onBack: () => void
@@ -27,14 +34,19 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
   const formatCurrency = useFormatCurrency()
 
   const [patientId, setPatientId] = useState("")
-  const [items, setItems] = useState<BillItem[]>([{ description: "", quantity: 1, unitPrice: 0, total: 0 }])
+  const [items, setItems] = useState<BillItem[]>([
+    { description: "", quantity: 1, unitPrice: 0, total: 0, itemType: "medication" },
+  ])
   const [applyTax, setApplyTax] = useState(false)
-  const [taxRate, setTaxRate] = useState(10) // Default 10%
+  const [taxRate, setTaxRate] = useState(10)
   const [discountAmount, setDiscountAmount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
 
   const handleAddItem = () => {
-    setItems([...items, { description: "", quantity: 1, unitPrice: 0, total: 0 }])
+    setItems([
+      ...items,
+      { description: "", quantity: 1, unitPrice: 0, total: 0, itemType: "medication" },
+    ])
   }
 
   const handleRemoveItem = (index: number) => {
@@ -43,13 +55,45 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
 
   const handleItemChange = (index: number, field: keyof BillItem, value: string | number) => {
     const newItems = [...items]
-    newItems[index] = { ...newItems[index], [field]: value }
+    const item = { ...newItems[index], [field]: value }
 
-    // Recalculate total for this item
-    if (field === "quantity" || field === "unitPrice") {
-      newItems[index].total = newItems[index].quantity * newItems[index].unitPrice
+    if (field === "itemType") {
+      const type = value as "medication" | "service"
+      item.itemType = type
+      if (type === "service") {
+        item.unitPrice = 0
+        item.total = 0
+        item.serviceCategory = undefined
+      } else {
+        item.serviceCategory = undefined
+        item.total = item.quantity * item.unitPrice
+      }
+    } else if (field === "serviceCategory") {
+      item.serviceCategory = value as string
+      const desc =
+        value === "Delivery"
+          ? "Delivery"
+          : DELIVERY_TYPES[value as string] || SERVICE_CATEGORIES[value as string] || (value as string)
+      item.description = desc
+    } else if (field === "quantity" || field === "unitPrice") {
+      if (item.itemType === "service") {
+        // Services: total is entered directly, quantity doesn't change total
+      } else {
+        item.total = item.quantity * item.unitPrice
+      }
+    } else if (field === "total" && item.itemType === "service") {
+      item.total = Number(value) || 0
     }
 
+    newItems[index] = item
+    setItems(newItems)
+  }
+
+  const handleDeliverySubChange = (index: number, deliveryType: string) => {
+    const newItems = [...items]
+    const item = newItems[index]
+    const description = deliveryType ? `Delivery - ${deliveryType}` : "Delivery"
+    newItems[index] = { ...item, description }
     setItems(newItems)
   }
 
@@ -74,14 +118,19 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
       return
     }
 
-    const validItems = items.filter((item) => item.description && item.quantity > 0 && item.unitPrice > 0)
+    const isItemValid = (item: BillItem) => {
+      if (!item.description?.trim() || item.quantity <= 0) return false
+      const isService = item.itemType === "service"
+      if (isService) return item.total > 0
+      return item.unitPrice >= 0 && item.quantity * item.unitPrice > 0
+    }
+    const validItems = items.filter(isItemValid)
 
     if (validItems.length === 0) {
-      toast.error("Please add at least one valid item")
+      toast.error("Please add at least one valid item (description, quantity, and amount)")
       return
     }
 
-    // Validate item fields
     for (const item of validItems) {
       if (!item.description.trim()) {
         toast.error("All items must have a description")
@@ -91,9 +140,16 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
         toast.error("All items must have a quantity greater than 0")
         return
       }
-      if (item.unitPrice < 0) {
-        toast.error("Unit price cannot be negative")
-        return
+      if (item.itemType === "service") {
+        if (item.total <= 0) {
+          toast.error("Service items must have a total amount greater than 0")
+          return
+        }
+      } else {
+        if (item.unitPrice < 0) {
+          toast.error("Unit price cannot be negative")
+          return
+        }
       }
     }
 
@@ -124,11 +180,16 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
         body: JSON.stringify({
           patientId,
           source: "manual",
-          items: validItems.map((item) => ({
-            description: item.description.trim(),
-            quantity: item.quantity,
-            unitPrice: item.unitPrice,
-          })),
+          items: validItems.map((item) => {
+            const isService = item.itemType === "service"
+            return {
+              description: item.description.trim(),
+              quantity: item.quantity,
+              ...(isService
+                ? { total: item.total, itemType: "service" as const, serviceCategory: item.serviceCategory }
+                : { unitPrice: item.unitPrice, itemType: "medication" as const }),
+            }
+          }),
           taxAmount: calculateTax(),
           discountAmount: discountAmount,
         }),
@@ -192,57 +253,160 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
               </div>
 
               <div className="space-y-3">
-                {items.map((item, index) => (
-                  <Card key={index}>
-                    <CardContent className="p-4">
-                      <div className="space-y-3">
-                        <div className="flex items-center justify-between">
-                          <h4 className="text-sm font-medium text-foreground">Item {index + 1}</h4>
-                          {items.length > 1 && (
-                            <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveItem(index)}>
-                              <Trash2 className="h-4 w-4 text-destructive" />
-                            </Button>
+                {items.map((item, index) => {
+                  const isService = item.itemType === "service"
+                  const isDelivery = item.serviceCategory === "Delivery"
+                  return (
+                    <Card key={index}>
+                      <CardContent className="p-4">
+                        <div className="space-y-3">
+                          <div className="flex items-center justify-between flex-wrap gap-2">
+                            <div className="flex items-center gap-2">
+                              <h4 className="text-sm font-medium text-foreground">Item {index + 1}</h4>
+                              <Badge variant={isService ? "secondary" : "outline"} className="text-xs">
+                                {isService ? (
+                                  <>
+                                    <Stethoscope className="mr-1 h-3 w-3" />
+                                    Service
+                                  </>
+                                ) : (
+                                  <>
+                                    <Pill className="mr-1 h-3 w-3" />
+                                    Medication
+                                  </>
+                                )}
+                              </Badge>
+                            </div>
+                            {items.length > 1 && (
+                              <Button type="button" variant="ghost" size="sm" onClick={() => handleRemoveItem(index)}>
+                                <Trash2 className="h-4 w-4 text-destructive" />
+                              </Button>
+                            )}
+                          </div>
+
+                          <div className="space-y-2">
+                            <Label>Item type</Label>
+                            <Select
+                              value={item.itemType ?? "medication"}
+                              onValueChange={(v) => handleItemChange(index, "itemType", v as "medication" | "service")}
+                            >
+                              <SelectTrigger>
+                                <SelectValue />
+                              </SelectTrigger>
+                              <SelectContent>
+                                <SelectItem value="medication">Medication</SelectItem>
+                                <SelectItem value="service">Service</SelectItem>
+                              </SelectContent>
+                            </Select>
+                          </div>
+
+                          {isService && (
+                            <>
+                              <div className="space-y-2">
+                                <Label>Service</Label>
+                                <Select
+                                  value={item.serviceCategory ?? ""}
+                                  onValueChange={(v) => handleItemChange(index, "serviceCategory", v)}
+                                >
+                                  <SelectTrigger>
+                                    <SelectValue placeholder="Select service" />
+                                  </SelectTrigger>
+                                  <SelectContent>
+                                    {SERVICE_CATEGORY_OPTIONS.map((key) => (
+                                      <SelectItem key={key} value={key}>
+                                        {key}
+                                      </SelectItem>
+                                    ))}
+                                  </SelectContent>
+                                </Select>
+                              </div>
+                              {isDelivery && (
+                                <div className="space-y-2">
+                                  <Label>Delivery type</Label>
+                                  <Select
+                                    value={
+                                      item.description.startsWith("Delivery - ")
+                                        ? item.description.replace("Delivery - ", "")
+                                        : ""
+                                    }
+                                    onValueChange={(v) => handleDeliverySubChange(index, v)}
+                                  >
+                                    <SelectTrigger>
+                                      <SelectValue placeholder="Select type" />
+                                    </SelectTrigger>
+                                    <SelectContent>
+                                      {DELIVERY_TYPE_OPTIONS.map((key) => (
+                                        <SelectItem key={key} value={key}>
+                                          {DELIVERY_TYPES[key]}
+                                        </SelectItem>
+                                      ))}
+                                    </SelectContent>
+                                  </Select>
+                                </div>
+                              )}
+                            </>
                           )}
-                        </div>
 
-                        <div className="grid gap-3 md:grid-cols-4">
-                          <div className="space-y-2 md:col-span-2">
-                            <Label>Description</Label>
-                            <Input
-                              placeholder="e.g., General Consultation"
-                              value={item.description}
-                              onChange={(e) => handleItemChange(index, "description", e.target.value)}
-                            />
+                          <div className="grid gap-3 md:grid-cols-4">
+                            <div className="space-y-2 md:col-span-2">
+                              <Label>Description</Label>
+                              <Input
+                                placeholder={isService ? "e.g., Laboratory Tests" : "e.g., General Consultation"}
+                                value={item.description}
+                                onChange={(e) => handleItemChange(index, "description", e.target.value)}
+                              />
+                            </div>
+                            <div className="space-y-2">
+                              <Label>Quantity</Label>
+                              <Input
+                                type="number"
+                                min="1"
+                                value={item.quantity}
+                                onChange={(e) =>
+                                  handleItemChange(index, "quantity", Math.max(1, Number.parseInt(e.target.value) || 1))
+                                }
+                              />
+                            </div>
+                            {isService ? (
+                              <div className="space-y-2">
+                                <Label>Total</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.total || ""}
+                                  onChange={(e) =>
+                                    handleItemChange(index, "total", Number.parseFloat(e.target.value) || 0)
+                                  }
+                                />
+                              </div>
+                            ) : (
+                              <div className="space-y-2">
+                                <Label>Unit Price</Label>
+                                <Input
+                                  type="number"
+                                  step="0.01"
+                                  min="0"
+                                  value={item.unitPrice}
+                                  onChange={(e) =>
+                                    handleItemChange(index, "unitPrice", Number.parseFloat(e.target.value) || 0)
+                                  }
+                                />
+                              </div>
+                            )}
                           </div>
-                          <div className="space-y-2">
-                            <Label>Quantity</Label>
-                            <Input
-                              type="number"
-                              min="1"
-                              value={item.quantity}
-                              onChange={(e) => handleItemChange(index, "quantity", Number.parseInt(e.target.value))}
-                            />
-                          </div>
-                          <div className="space-y-2">
-                            <Label>Unit Price</Label>
-                            <Input
-                              type="number"
-                              step="0.01"
-                              min="0"
-                              value={item.unitPrice}
-                              onChange={(e) => handleItemChange(index, "unitPrice", Number.parseFloat(e.target.value))}
-                            />
-                          </div>
-                        </div>
 
-                        <div className="text-right">
-                          <span className="text-sm text-muted-foreground">Total: </span>
-                          <span className="text-sm font-medium text-foreground">{formatCurrency(item.total)}</span>
+                          <div className="text-right">
+                            <span className="text-sm text-muted-foreground">Total: </span>
+                            <span className="text-sm font-medium text-foreground">
+                              {formatCurrency(isService ? item.total : item.quantity * item.unitPrice)}
+                            </span>
+                          </div>
                         </div>
-                      </div>
-                    </CardContent>
-                  </Card>
-                ))}
+                      </CardContent>
+                    </Card>
+                  )
+                })}
               </div>
             </div>
 

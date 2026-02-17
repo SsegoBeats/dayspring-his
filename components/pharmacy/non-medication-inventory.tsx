@@ -100,17 +100,20 @@ export function NonMedicationInventory() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Non-Medication Inventory</CardTitle>
-          <CardDescription>Loading...</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Non-Medication Inventory</CardTitle>
+            <CardDescription>Loading...</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
   return (
     <>
+      <div className="mx-auto max-w-6xl">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
@@ -248,6 +251,7 @@ export function NonMedicationInventory() {
           )}
         </CardContent>
       </Card>
+      </div>
 
       <AddNonMedicationItemDialog open={showAddDialog} onOpenChange={setShowAddDialog} onSuccess={loadItems} />
 
@@ -267,10 +271,6 @@ export function NonMedicationInventory() {
                 <div>
                   <p className="text-muted-foreground">Location</p>
                   <p className="font-medium">{selectedItem.location || "—"}</p>
-                </div>
-                <div>
-                  <p className="text-muted-foreground">Manufacturer</p>
-                  <p className="font-medium">{selectedItem.manufacturer || "—"}</p>
                 </div>
                 <div>
                   <p className="text-muted-foreground">Model Number</p>
@@ -370,7 +370,7 @@ function AddNonMedicationItemDialog({
           itemName: formData.itemName,
           itemType: formData.itemType,
           description: formData.description || undefined,
-          manufacturer: formData.manufacturer || undefined,
+          manufacturer: null,
           modelNumber: formData.modelNumber || undefined,
           serialNumber: formData.serialNumber || undefined,
           stockQuantity: Number.parseInt(formData.stockQuantity) || 0,
@@ -470,14 +470,6 @@ function AddNonMedicationItemDialog({
                 value={formData.location}
                 onChange={(e) => setFormData({ ...formData, location: e.target.value })}
                 placeholder="e.g., Storage Room A, Ward 1"
-              />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="manufacturer">Manufacturer</Label>
-              <Input
-                id="manufacturer"
-                value={formData.manufacturer}
-                onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
               />
             </div>
             <div className="space-y-2">

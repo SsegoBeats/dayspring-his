@@ -46,7 +46,6 @@ export async function POST(req: Request) {
       return {
         Medication: r.name,
         Category: r.category,
-        Manufacturer: r.manufacturer,
         Stock: Number(r.stock_quantity) || 0,
         Reorder: Number(r.reorder_level) || 0,
         Expiry: r.expiry_date ?? "",
@@ -98,7 +97,6 @@ export async function POST(req: Request) {
       prepared.map((r) => ({
         medication: r.Medication,
         category: r.Category,
-        manufacturer: r.Manufacturer,
         stock: r.Stock,
         reorder: r.Reorder,
         expiry: r.Expiry,

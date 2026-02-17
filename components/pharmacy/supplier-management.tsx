@@ -71,7 +71,7 @@ export function SupplierManagement() {
 
   return (
     <>
-      <Card>
+      <Card className="rounded-xl border-border/80 shadow-sm transition-all duration-200 hover:shadow-md">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>

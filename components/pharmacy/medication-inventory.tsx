@@ -26,7 +26,7 @@ type ScanSummary = {
 
 type StockFilter = "all" | "healthy" | "low" | "out"
 type ExpiryFilter = "all" | "expiring" | "expired" | "none"
-type SortKey = "name" | "stock" | "expiry" | "price" | "manufacturer"
+type SortKey = "name" | "stock" | "expiry" | "price"
 
 export function MedicationInventory() {
   const { medications, getLowStockMedications, updateMedication, getExpiringMedications, deleteMedication } =
@@ -144,9 +144,6 @@ export function MedicationInventory() {
         if (advancedFilters.category && med.category !== advancedFilters.category) {
           return false
         }
-        if (advancedFilters.manufacturer && med.manufacturer !== advancedFilters.manufacturer) {
-          return false
-        }
         if (advancedFilters.minStock !== undefined && med.stockQuantity < advancedFilters.minStock) {
           return false
         }
@@ -184,8 +181,6 @@ export function MedicationInventory() {
         switch (sortKey) {
           case "name":
             return a.name.localeCompare(b.name)
-          case "manufacturer":
-            return a.manufacturer.localeCompare(b.manufacturer)
           case "stock":
             return b.stockQuantity - a.stockQuantity
           case "price":
@@ -404,7 +399,8 @@ export function MedicationInventory() {
 
   return (
     <>
-      <Card>
+      <div className="mx-auto max-w-6xl">
+      <Card className="rounded-xl border-border/80 shadow-sm transition-shadow hover:shadow-md">
         <CardHeader>
           <div className="flex items-center justify-between gap-4">
             <div>
@@ -491,7 +487,7 @@ export function MedicationInventory() {
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
                 ref={searchInputRef}
-                placeholder="Search by name, category, manufacturer, or barcode (Ctrl+K or /)"
+                placeholder="Search by name, category, or barcode (Ctrl+K or /)"
                 value={searchQuery}
                 onChange={(e) => setSearchQuery(e.target.value)}
                 className="pl-9"
@@ -655,7 +651,6 @@ export function MedicationInventory() {
                   <TableRow>
                     <TableHead className="min-w-[220px]">Medication</TableHead>
                     <TableHead>Category</TableHead>
-                    <TableHead>Manufacturer</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead className="text-right">Reorder</TableHead>
                     <TableHead>Expiry</TableHead>
@@ -809,14 +804,6 @@ export function MedicationInventory() {
         </CardContent>
       </Card>
 
-      <AddMedicationDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
-      <AdvancedSearchDialog
-        open={showAdvancedSearch}
-        onOpenChange={setShowAdvancedSearch}
-        onApply={setAdvancedFilters}
-        currentFilters={advancedFilters}
-      />
-
       <div className="mt-6 flex items-center justify-between">
         <h3 className="text-sm font-medium text-muted-foreground">Stock history</h3>
         <Button variant="outline" size="sm" onClick={() => setShowHistory((v) => !v)}>
@@ -828,6 +815,15 @@ export function MedicationInventory() {
           <StockMovements />
         </div>
       )}
+      </div>
+
+      <AddMedicationDialog open={showAddDialog} onOpenChange={setShowAddDialog} />
+      <AdvancedSearchDialog
+        open={showAdvancedSearch}
+        onOpenChange={setShowAdvancedSearch}
+        onApply={setAdvancedFilters}
+        currentFilters={advancedFilters}
+      />
 
       <Sheet open={!!selectedMedication} onOpenChange={(open) => !open && closeDetails()}>
         <SheetContent side="right">
@@ -853,13 +849,6 @@ export function MedicationInventory() {
                     <Input
                       value={editForm.category}
                       onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
-                    />
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Manufacturer</p>
-                    <Input
-                      value={editForm.manufacturer}
-                      onChange={(e) => setEditForm({ ...editForm, manufacturer: e.target.value })}
                     />
                   </div>
                   <div>
@@ -952,10 +941,6 @@ export function MedicationInventory() {
                   <div>
                     <p className="text-muted-foreground">Category</p>
                     <p className="font-medium">{selectedMedication.category}</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Manufacturer</p>
-                    <p className="font-medium">{selectedMedication.manufacturer || "-"}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Batch number</p>

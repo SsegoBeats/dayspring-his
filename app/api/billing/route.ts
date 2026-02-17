@@ -45,7 +45,14 @@ export async function POST(req: Request) {
       patientId?: string
       source?: string
       medications?: { name: string; dosage?: string; frequency?: string; duration?: string }[]
-      items?: { description: string; quantity?: number; unitPrice?: number }[]
+      items?: {
+        description: string
+        quantity?: number
+        unitPrice?: number
+        total?: number
+        itemType?: "medication" | "service"
+        serviceCategory?: string
+      }[]
       taxAmount?: number
       discountAmount?: number
     }
@@ -95,11 +102,19 @@ export async function POST(req: Request) {
         }
       })
     } else {
-      // Manual bill created by cashier
+      // Manual bill created by cashier (medication items with unitPrice, or service items with total)
       items = manualItems.map((it) => {
         const quantity = Number(it.quantity) && Number(it.quantity) > 0 ? Number(it.quantity) : 1
-        const unitPrice = Number(it.unitPrice) && Number(it.unitPrice) >= 0 ? Number(it.unitPrice) : 0
-        const totalPrice = quantity * unitPrice
+        const isService = it.itemType === "service" || (it.total != null && it.total > 0 && (it.unitPrice == null || it.unitPrice === 0))
+        let totalPrice: number
+        let unitPrice: number
+        if (isService && it.total != null && Number(it.total) >= 0) {
+          totalPrice = Number(it.total)
+          unitPrice = quantity > 0 ? totalPrice / quantity : 0
+        } else {
+          unitPrice = Number(it.unitPrice) && Number(it.unitPrice) >= 0 ? Number(it.unitPrice) : 0
+          totalPrice = quantity * unitPrice
+        }
         return {
           description: String(it.description || "").trim(),
           quantity,

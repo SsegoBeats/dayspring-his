@@ -16,7 +16,8 @@ export function PurchaseOrders() {
   const [receivingOrderId, setReceivingOrderId] = useState<string | null>(null)
 
   const getSupplierName = (supplierId: string) => {
-    return suppliers.find((s) => s.id === supplierId)?.name || "Unknown"
+    if (supplierId === "N/A") return "—"
+    return suppliers.find((s) => s.id === supplierId)?.name || "—"
   }
 
   const getStatusColor = (status: string) => {

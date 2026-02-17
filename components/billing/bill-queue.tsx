@@ -1,24 +1,38 @@
 "use client"
 
+import { useState } from "react"
 import type { Bill } from "@/lib/billing-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { FileText, Plus, Edit } from "lucide-react"
+import { FileText, Plus, Edit, Trash, Loader2 } from "lucide-react"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { formatPatientNumber } from "@/lib/patients"
+import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface BillQueueProps {
   bills: Bill[]
   onSelectBill: (billId: string) => void
   onEditBill?: (billId: string) => void
+  onDeleteBill?: (billId: string) => void
   onCreateBill?: () => void
   emptyMessage: string
   showCreateButton?: boolean
 }
 
-export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, emptyMessage, showCreateButton }: BillQueueProps) {
+export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, onDeleteBill, emptyMessage, showCreateButton }: BillQueueProps) {
   const formatCurrency = useFormatCurrency()
+  const [deletingId, setDeletingId] = useState<string | null>(null)
   
   return (
     <Card className="border-border/60">
@@ -96,11 +110,54 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, empty
                   </div>
                   <p className="mt-1 text-sm text-muted-foreground">{bill.items.length} item(s)</p>
                 </div>
-                <div className="flex shrink-0 gap-2">
+                <div className="flex shrink-0 gap-2 flex-wrap">
                   {bill.status === "pending" && onEditBill && (
                     <Button variant="outline" size="sm" onClick={() => onEditBill(bill.id)} title="Edit bill">
                       <Edit className="h-4 w-4" />
                     </Button>
+                  )}
+                  {bill.status === "pending" && onDeleteBill && (
+                    <AlertDialog>
+                      <AlertDialogTrigger asChild>
+                        <Button variant="outline" size="sm" className="text-destructive hover:bg-destructive/10" title="Delete bill">
+                          <Trash className="h-4 w-4" />
+                        </Button>
+                      </AlertDialogTrigger>
+                      <AlertDialogContent>
+                        <AlertDialogHeader>
+                          <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
+                          <AlertDialogDescription>
+                            This will permanently remove the bill for {bill.patientName}. Use this if the patient will not pay. This cannot be undone.
+                          </AlertDialogDescription>
+                        </AlertDialogHeader>
+                        <AlertDialogFooter>
+                          <AlertDialogCancel>Cancel</AlertDialogCancel>
+                          <Button
+                            variant="destructive"
+                            disabled={deletingId === bill.id}
+                            onClick={async () => {
+                              setDeletingId(bill.id)
+                              try {
+                                const res = await fetch(`/api/billing/${bill.id}`, { method: "DELETE", credentials: "include" })
+                                if (!res.ok) {
+                                  const err = await res.json().catch(() => ({}))
+                                  toast.error(err.error || "Failed to delete bill")
+                                  return
+                                }
+                                toast.success("Bill deleted")
+                                onDeleteBill(bill.id)
+                              } catch {
+                                toast.error("Failed to delete bill")
+                              } finally {
+                                setDeletingId(null)
+                              }
+                            }}
+                          >
+                            {deletingId === bill.id ? <Loader2 className="h-4 w-4 animate-spin" /> : "Delete"}
+                          </Button>
+                        </AlertDialogFooter>
+                      </AlertDialogContent>
+                    </AlertDialog>
                   )}
                   <Button size="sm" onClick={() => onSelectBill(bill.id)}>
                     <FileText className="mr-1.5 h-4 w-4" />

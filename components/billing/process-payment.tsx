@@ -9,13 +9,23 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, CreditCard, Loader2, XCircle, AlertTriangle, Printer } from "lucide-react"
+import { ArrowLeft, CreditCard, Loader2, XCircle, AlertTriangle, Printer, Trash } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { formatPatientNumber } from "@/lib/patients"
 import { ReceiptPrinter } from "@/components/receipt-printer"
 import { toast } from "sonner"
+import {
+  AlertDialog,
+  AlertDialogCancel,
+  AlertDialogContent,
+  AlertDialogDescription,
+  AlertDialogFooter,
+  AlertDialogHeader,
+  AlertDialogTitle,
+  AlertDialogTrigger,
+} from "@/components/ui/alert-dialog"
 
 interface ProcessPaymentProps {
   billId: string
@@ -38,6 +48,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const [partialAmount, setPartialAmount] = useState<number>(0)
   const [mobileMoneyPhone, setMobileMoneyPhone] = useState("")
   const [awaitingMobileMoney, setAwaitingMobileMoney] = useState(false)
+  const [isDeleting, setIsDeleting] = useState(false)
 
   if (!bill) {
     return (
@@ -197,6 +208,25 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
     )
   }
 
+  const handleDeleteBill = async () => {
+    setIsDeleting(true)
+    try {
+      const res = await fetch(`/api/billing/${billId}`, { method: "DELETE", credentials: "include" })
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        toast.error(err.error || "Failed to delete bill")
+        return
+      }
+      toast.success("Bill deleted")
+      await refreshBills()
+      onBack()
+    } catch {
+      toast.error("Failed to delete bill")
+    } finally {
+      setIsDeleting(false)
+    }
+  }
+
   return (
     <div className="mx-auto max-w-2xl space-y-4">
       <div className="flex flex-wrap items-center gap-2 print:hidden">
@@ -208,6 +238,31 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           <Printer className="h-4 w-4" />
           Print invoice
         </Button>
+        {bill.status === "pending" && (
+          <AlertDialog>
+            <AlertDialogTrigger asChild>
+              <Button variant="outline" size="sm" className="gap-2 text-destructive hover:bg-destructive/10">
+                {isDeleting ? <Loader2 className="h-4 w-4 animate-spin" /> : <Trash className="h-4 w-4" />}
+                Delete bill
+              </Button>
+            </AlertDialogTrigger>
+            <AlertDialogContent>
+              <AlertDialogHeader>
+                <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
+                <AlertDialogDescription>
+                  This will permanently remove the bill. Use this if the patient will not pay (e.g. cancelled visit). This cannot be undone.
+                </AlertDialogDescription>
+              </AlertDialogHeader>
+              <AlertDialogFooter>
+                <AlertDialogCancel>Cancel</AlertDialogCancel>
+                <Button variant="destructive" onClick={handleDeleteBill} disabled={isDeleting}>
+                  {isDeleting ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : null}
+                  Delete
+                </Button>
+              </AlertDialogFooter>
+            </AlertDialogContent>
+          </AlertDialog>
+        )}
       </div>
 
       <Card className="overflow-hidden border-border/80 shadow-lg shadow-black/5 print:shadow-none print:border">

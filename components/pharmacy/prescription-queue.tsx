@@ -53,7 +53,7 @@ export function PrescriptionQueue({
   const showEmptyFilter = !showEmptyBase && filtered.length === 0
 
   return (
-    <Card>
+    <Card className="rounded-xl border-border/80 shadow-sm transition-shadow hover:shadow-md">
       <CardHeader>
         <CardTitle>{title}</CardTitle>
         <CardDescription>View and dispense prescriptions</CardDescription>
@@ -67,13 +67,13 @@ export function PrescriptionQueue({
               placeholder="Filter by patient, clinician, or medication (Ctrl+K or /)"
               value={query}
               onChange={(e) => setQuery(e.target.value)}
-              className="pl-9"
+              className="pl-9 rounded-lg transition-colors"
             />
           </div>
         </div>
         {showEmptyBase ? (
-          <div className="flex flex-col items-center justify-center gap-2 py-6 text-center text-muted-foreground">
-            <Package className="h-8 w-8 text-muted-foreground/70" />
+          <div className="flex flex-col items-center justify-center gap-2 py-8 text-center text-muted-foreground animate-in fade-in-0 duration-300">
+            <Package className="h-10 w-10 text-muted-foreground/60" />
             <p className="text-sm font-medium">No active prescriptions at the moment.</p>
             <p className="text-xs">{emptyMessage}</p>
           </div>
@@ -83,10 +83,11 @@ export function PrescriptionQueue({
           </p>
         ) : (
           <div className="space-y-2">
-            {filtered.map((prescription) => (
+            {filtered.map((prescription, index) => (
               <div
                 key={prescription.id}
-                className="flex items-center justify-between rounded-lg border border-border bg-card p-4 transition-colors hover:bg-accent"
+                className="pharmacist-queue-item flex items-center justify-between rounded-xl border border-border/80 bg-card p-4 transition-all duration-200 hover:bg-accent/50 hover:shadow-sm hover:border-primary/20"
+                style={{ animationDelay: `${Math.min(index * 45, 220)}ms` }}
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">

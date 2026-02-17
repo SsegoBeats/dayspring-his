@@ -29,7 +29,8 @@ export function StockAdjustments() {
 
   return (
     <>
-      <Card>
+      <div className="mx-auto max-w-6xl">
+      <Card className="rounded-xl border-border/80 shadow-sm transition-all duration-200 hover:shadow-md">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>
@@ -82,6 +83,7 @@ export function StockAdjustments() {
           </div>
         </CardContent>
       </Card>
+      </div>
 
       <StockAdjustmentDialog open={showDialog} onOpenChange={setShowDialog} />
     </>

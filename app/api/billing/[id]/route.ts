@@ -181,7 +181,14 @@ export async function PUT(
     if (!billId) return NextResponse.json({ error: "Missing id" }, { status: 400 })
 
     const body = (await req.json().catch(() => ({}))) as {
-      items?: { description: string; quantity: number; unitPrice: number }[]
+      items?: {
+        description: string
+        quantity: number
+        unitPrice?: number
+        total?: number
+        itemType?: "medication" | "service"
+        serviceCategory?: string
+      }[]
       taxAmount?: number
       discountAmount?: number
     }
@@ -206,11 +213,21 @@ export async function PUT(
       return NextResponse.json({ error: "At least one item is required" }, { status: 400 })
     }
 
-    // Calculate new amounts
+    // Calculate new amounts (support service items with total, or medication items with unitPrice)
     const items = body.items.map((it) => {
       const quantity = Number(it.quantity) && Number(it.quantity) > 0 ? Number(it.quantity) : 1
-      const unitPrice = Number(it.unitPrice) && Number(it.unitPrice) >= 0 ? Number(it.unitPrice) : 0
-      const totalPrice = quantity * unitPrice
+      const isService =
+        it.itemType === "service" ||
+        (it.total != null && it.total > 0 && (it.unitPrice == null || it.unitPrice === 0))
+      let totalPrice: number
+      let unitPrice: number
+      if (isService && it.total != null && Number(it.total) >= 0) {
+        totalPrice = Number(it.total)
+        unitPrice = quantity > 0 ? totalPrice / quantity : 0
+      } else {
+        unitPrice = Number(it.unitPrice) && Number(it.unitPrice) >= 0 ? Number(it.unitPrice) : 0
+        totalPrice = quantity * unitPrice
+      }
       return {
         description: String(it.description || "").trim(),
         quantity,
@@ -251,6 +268,46 @@ export async function PUT(
     return NextResponse.json({ ok: true })
   } catch (err: any) {
     return NextResponse.json({ error: "Failed to update bill" }, { status: 500 })
+  }
+}
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    const auth = token ? verifyToken(token) : null
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, "billing", "update")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    const { id: billId } = await params
+    if (!billId) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+
+    const billRes = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `SELECT status FROM bills WHERE id = $1`,
+      [billId],
+    )
+    if (!billRes.rows.length) {
+      return NextResponse.json({ error: "Bill not found" }, { status: 404 })
+    }
+    const status = (billRes.rows[0] as { status: string }).status
+    if (status !== "Pending") {
+      return NextResponse.json(
+        { error: "Only pending bills can be deleted. Cancel or leave paid/partially paid bills as is." },
+        { status: 400 },
+      )
+    }
+
+    await query(`DELETE FROM bill_items WHERE bill_id = $1`, [billId])
+    await query(`DELETE FROM bills WHERE id = $1`, [billId])
+
+    return NextResponse.json({ ok: true })
+  } catch (err: any) {
+    return NextResponse.json({ error: "Failed to delete bill" }, { status: 500 })
   }
 }
 

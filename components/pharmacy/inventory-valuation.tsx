@@ -64,30 +64,34 @@ export function InventoryValuation() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Inventory Valuation</CardTitle>
-          <CardDescription>Loading...</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Inventory Valuation</CardTitle>
+            <CardDescription>Loading...</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
   if (error || !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Inventory Valuation</CardTitle>
-          <CardDescription className="text-destructive">{error || "No data available"}</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Inventory Valuation</CardTitle>
+            <CardDescription className="text-destructive">{error || "No data available"}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
   const { valuation, byCategory, topMedications } = data
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4">
       <Card>
         <CardHeader>
           <CardTitle>Inventory Valuation Summary</CardTitle>

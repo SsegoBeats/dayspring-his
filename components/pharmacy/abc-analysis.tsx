@@ -66,34 +66,40 @@ export function ABCAnalysis() {
 
   if (loading && !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>ABC Analysis</CardTitle>
-          <CardDescription>Loading...</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>ABC Analysis</CardTitle>
+            <CardDescription>Loading...</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
   if (error && !data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>ABC Analysis</CardTitle>
-          <CardDescription className="text-destructive">{error}</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>ABC Analysis</CardTitle>
+            <CardDescription className="text-destructive">{error}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
   if (!data) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>ABC Analysis</CardTitle>
-          <CardDescription>No data available</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>ABC Analysis</CardTitle>
+            <CardDescription>No data available</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
@@ -114,7 +120,7 @@ export function ABCAnalysis() {
   }
 
   return (
-    <div className="space-y-4">
+    <div className="mx-auto max-w-6xl space-y-4">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">

@@ -63,7 +63,7 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
       addMedication({
         name: formData.name,
         category: formData.category,
-        manufacturer: formData.manufacturer,
+        manufacturer: "",
         stockQuantity: Number.parseInt(formData.stockQuantity),
         unitPrice: Number.parseFloat(formData.unitPrice),
         costPrice: formData.costPrice ? Number.parseFloat(formData.costPrice) : undefined,
@@ -155,15 +155,6 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
                   required
                 />
               )}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="manufacturer">Manufacturer *</Label>
-              <Input
-                id="manufacturer"
-                value={formData.manufacturer}
-                onChange={(e) => setFormData({ ...formData, manufacturer: e.target.value })}
-                required
-              />
             </div>
             <div className="space-y-2">
               <Label htmlFor="batchNumber">Batch Number *</Label>
@@ -265,7 +256,6 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
                       barcode,
                       name: prev.name || existing.name,
                       category: prev.category || existing.category,
-                      manufacturer: prev.manufacturer || existing.manufacturer,
                       batchNumber: prev.batchNumber,
                     }))
                   } else {
@@ -284,7 +274,6 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
                         ...prev,
                         name: prev.name || existing.name,
                         category: prev.category || existing.category,
-                        manufacturer: prev.manufacturer || existing.manufacturer,
                       }))
                     }
                     // Clear barcode field for next scan

@@ -7,6 +7,10 @@ export interface BillItem {
   quantity: number
   unitPrice: number
   total: number
+  /** Distinguishes medication (unit price) vs service (total-based) */
+  itemType?: "medication" | "service"
+  /** Service category when itemType is "service" */
+  serviceCategory?: string
 }
 
 export interface Bill {

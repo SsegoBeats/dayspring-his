@@ -18,7 +18,6 @@ interface AdvancedSearchDialogProps {
 export interface AdvancedSearchFilters {
   name?: string
   category?: string
-  manufacturer?: string
   minStock?: number
   maxStock?: number
   minPrice?: number
@@ -83,26 +82,6 @@ export function AdvancedSearchDialog({
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
-                  </SelectItem>
-                ))}
-              </SelectContent>
-            </Select>
-          </div>
-
-          <div>
-            <Label htmlFor="manufacturer">Manufacturer</Label>
-            <Select
-              value={filters.manufacturer || ""}
-              onValueChange={(value) => setFilters({ ...filters, manufacturer: value || undefined })}
-            >
-              <SelectTrigger id="manufacturer">
-                <SelectValue placeholder="All manufacturers" />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="">All manufacturers</SelectItem>
-                {manufacturers.map((man) => (
-                  <SelectItem key={man} value={man}>
-                    {man}
                   </SelectItem>
                 ))}
               </SelectContent>

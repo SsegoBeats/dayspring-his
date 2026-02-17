@@ -98,7 +98,7 @@ export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDia
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent>
+      <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Stock Adjustment</DialogTitle>
         </DialogHeader>

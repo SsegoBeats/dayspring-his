@@ -33,14 +33,16 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
 
   if (!prescription) {
     return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <p className="text-muted-foreground">Prescription not found</p>
-          <Button onClick={onBack} className="mt-4">
-            Go Back
-          </Button>
-        </CardContent>
-      </Card>
+      <div className="mx-auto max-w-2xl animate-in fade-in-0 duration-200">
+        <Card className="rounded-xl shadow-sm">
+          <CardContent className="p-8 text-center">
+            <p className="text-muted-foreground">Prescription not found</p>
+            <Button onClick={onBack} className="mt-4">
+              Go Back
+            </Button>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 
@@ -267,13 +269,13 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
   }
 
   return (
-    <div className="space-y-4">
-      <Button variant="outline" onClick={onBack}>
+    <div className="mx-auto max-w-2xl space-y-4 animate-in fade-in-0 slide-in-from-bottom-4 duration-300">
+      <Button variant="outline" onClick={onBack} className="rounded-lg transition-colors">
         <ArrowLeft className="mr-2 h-4 w-4" />
         Back to Queue
       </Button>
 
-      <Card>
+      <Card className="rounded-xl border-border/80 shadow-sm transition-shadow hover:shadow-md">
         <CardHeader>
           <div className="flex items-center justify-between">
             <div>

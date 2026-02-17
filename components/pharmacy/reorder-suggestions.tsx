@@ -54,23 +54,27 @@ export function ReorderSuggestions() {
 
   if (loading) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Reorder Suggestions</CardTitle>
-          <CardDescription>Loading...</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Reorder Suggestions</CardTitle>
+            <CardDescription>Loading...</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
   if (error) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Reorder Suggestions</CardTitle>
-          <CardDescription className="text-destructive">{error}</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle>Reorder Suggestions</CardTitle>
+            <CardDescription className="text-destructive">{error}</CardDescription>
+          </CardHeader>
+        </Card>
+      </div>
     )
   }
 
@@ -83,18 +87,10 @@ export function ReorderSuggestions() {
       })
       return
     }
-    if (suppliers.length === 0) {
-      toast({
-        title: "No suppliers",
-        description: "Please add suppliers before creating purchase orders.",
-        variant: "destructive",
-      })
-      return
-    }
     setShowPurchaseOrderDialog(true)
   }
 
-  const handleCreateOrderFromSuggestions = (supplierId: string, expectedDeliveryDate: string, notes?: string) => {
+  const handleCreateOrderFromSuggestions = (expectedDeliveryDate: string, notes?: string) => {
     const items = suggestions.map((sug) => {
       const medication = medications.find((m) => m.id === sug.medication_id)
       return {
@@ -110,7 +106,7 @@ export function ReorderSuggestions() {
     const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
 
     createPurchaseOrder({
-      supplierId,
+      supplierId: "N/A",
       orderDate: new Date().toISOString().split("T")[0],
       expectedDeliveryDate,
       status: "pending",
@@ -121,7 +117,7 @@ export function ReorderSuggestions() {
 
     toast({
       title: "Purchase order created",
-      description: `Purchase order created with ${items.length} item(s) for ${suppliers.find((s) => s.id === supplierId)?.name || "supplier"}.`,
+      description: `Purchase order created with ${items.length} item(s).`,
       variant: "default",
     })
 
@@ -205,7 +201,7 @@ export function ReorderSuggestions() {
         </div>
       </CardContent>
       </Card>
-
+      </div>
       <CreatePurchaseOrderDialog open={showPurchaseOrderDialog} onOpenChange={setShowPurchaseOrderDialog} />
     </>
   )
