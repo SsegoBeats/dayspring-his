@@ -137,6 +137,7 @@ export function ReorderSuggestions() {
 
   return (
     <>
+      <div className="mx-auto max-w-6xl">
       <Card>
         <CardHeader>
           <div className="flex items-center justify-between">
