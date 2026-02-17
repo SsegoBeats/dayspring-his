@@ -65,14 +65,20 @@ export async function GET(request: Request) {
       paramIndex++
     }
 
-    // Get comprehensive financial summary
+    // Get comprehensive financial summary (outstanding = Pending full amount + Partially Paid remaining balance)
     const summaryQuery = `
       SELECT 
         COALESCE(SUM(CASE WHEN b.status = 'Paid' THEN b.final_amount ELSE 0 END), 0) as total_revenue,
-        COALESCE(SUM(CASE WHEN b.status = 'Pending' THEN b.final_amount ELSE 0 END), 0) as outstanding_balance,
+        COALESCE(SUM(
+          CASE 
+            WHEN b.status = 'Pending' THEN b.final_amount 
+            WHEN b.status = 'Partially Paid' THEN (b.final_amount - COALESCE(b.paid_amount, 0))
+            ELSE 0 
+          END
+        ), 0) as outstanding_balance,
         COALESCE(AVG(CASE WHEN b.status = 'Paid' THEN b.final_amount END), 0) as avg_transaction_value,
         COUNT(CASE WHEN b.status = 'Paid' THEN 1 END) as paid_transactions,
-        COUNT(CASE WHEN b.status = 'Pending' THEN 1 END) as pending_transactions,
+        COUNT(CASE WHEN b.status = 'Pending' OR b.status = 'Partially Paid' THEN 1 END) as pending_transactions,
         COUNT(DISTINCT CASE WHEN b.status = 'Paid' THEN b.payment_method END) as active_payment_methods
       FROM bills b
       ${dateFilter}
@@ -195,10 +201,16 @@ export async function GET(request: Request) {
     const prevSummaryQuery = `
       SELECT 
         COALESCE(SUM(CASE WHEN b.status = 'Paid' THEN b.final_amount ELSE 0 END), 0) as total_revenue,
-        COALESCE(SUM(CASE WHEN b.status = 'Pending' THEN b.final_amount ELSE 0 END), 0) as outstanding_balance,
+        COALESCE(SUM(
+          CASE 
+            WHEN b.status = 'Pending' THEN b.final_amount 
+            WHEN b.status = 'Partially Paid' THEN (b.final_amount - COALESCE(b.paid_amount, 0))
+            ELSE 0 
+          END
+        ), 0) as outstanding_balance,
         COALESCE(AVG(CASE WHEN b.status = 'Paid' THEN b.final_amount END), 0) as avg_transaction_value,
         COUNT(CASE WHEN b.status = 'Paid' THEN 1 END) as paid_transactions,
-        COUNT(CASE WHEN b.status = 'Pending' THEN 1 END) as pending_transactions
+        COUNT(CASE WHEN b.status = 'Pending' OR b.status = 'Partially Paid' THEN 1 END) as pending_transactions
       FROM bills b
       WHERE b.created_at >= $1 AND b.created_at < $2
     `

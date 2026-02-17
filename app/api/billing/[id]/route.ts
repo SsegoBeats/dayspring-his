@@ -155,7 +155,14 @@ export async function PATCH(
       return NextResponse.json({ error: "Bill not found" }, { status: 404 })
     }
 
-    return NextResponse.json({ ok: true })
+    const updatedRes = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `SELECT id, bill_number, patient_id, status, payment_method, paid_amount, paid_at, final_amount, created_at
+       FROM bills WHERE id = $1`,
+      [billId],
+    )
+    const updatedBill = updatedRes.rows[0] ?? null
+    return NextResponse.json({ ok: true, bill: updatedBill })
   } catch (err: any) {
     console.error("[billing] PATCH payment error:", err?.message || err)
     return NextResponse.json(

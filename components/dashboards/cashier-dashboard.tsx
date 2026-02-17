@@ -204,6 +204,9 @@ export function CashierDashboard() {
             <p className="text-xs text-blue-700/80 dark:text-blue-400/80">
               {formatCurrency(partiallyPaidRemaining)} remaining
             </p>
+            <p className="mt-0.5 text-[10px] text-blue-600/70 dark:text-blue-400/70">
+              Total balance due from partially paid bills
+            </p>
           </CardContent>
         </Card>
 

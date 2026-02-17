@@ -153,19 +153,19 @@ export function ReceiptPrinter({
                 <span>{formatCurrency(originalTotal)}</span>
               </div>
               <div className="flex justify-between text-green-600">
-                <span>Amount Paid:</span>
+                <span>Amount paid this time:</span>
                 <span>{formatCurrency(total)}</span>
               </div>
               {remainingBalance !== undefined && remainingBalance > 0 && (
                 <div className="flex justify-between text-amber-600 font-semibold">
-                  <span>Remaining Balance:</span>
+                  <span>Balance still due:</span>
                   <span>{formatCurrency(remainingBalance)}</span>
                 </div>
               )}
             </>
           )}
           <div className="flex justify-between text-lg font-bold border-t-2 pt-2">
-            <span>{originalTotal && originalTotal > total ? "AMOUNT PAID:" : "TOTAL PAID:"}</span>
+            <span>{originalTotal && originalTotal > total ? "AMOUNT PAID THIS TIME:" : "TOTAL PAID:"}</span>
             <span className="text-primary">{formatCurrency(total)}</span>
           </div>
         </div>

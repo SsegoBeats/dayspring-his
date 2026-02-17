@@ -97,13 +97,13 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, onDel
                     <span>Invoice: {bill.billNumber || bill.id.slice(0, 8) + "…"}</span>
                     <span>Date: {bill.date}</span>
                     <span>Total: {formatCurrency(bill.total)}</span>
-                    {bill.status === "partially paid" && bill.paidAmount && (
+                    {(bill.paidAmount ?? 0) > 0 && (bill.paidAmount ?? 0) < bill.total && (
                       <>
                         <span className="text-green-600 font-medium">
-                          Paid: {formatCurrency(bill.paidAmount)}
+                          Paid: {formatCurrency(bill.paidAmount ?? 0)}
                         </span>
                         <span className="text-amber-600 font-medium">
-                          Remaining: {formatCurrency(bill.total - bill.paidAmount)}
+                          Balance due: {formatCurrency(bill.total - (bill.paidAmount ?? 0))}
                         </span>
                       </>
                     )}

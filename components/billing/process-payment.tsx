@@ -144,26 +144,37 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           notes,
         }),
       })
+      const data = await res.json().catch(() => ({})) as { error?: string; bill?: { status: string; paid_amount: string | number; paid_at: string | null; payment_method: string | null } }
       if (!res.ok) {
-        const err = await res.json().catch(() => ({})) as { error?: string }
-        const message = err?.error || `Payment failed (${res.status})`
+        const message = data?.error || `Payment failed (${res.status})`
         toast.error(message)
         return
       }
-      
-      const newStatus = paymentType === "cancel" 
-        ? "cancelled" 
-        : paymentType === "partial" 
-          ? "partially paid" 
+
+      const newStatus = paymentType === "cancel"
+        ? "cancelled"
+        : paymentType === "partial"
+          ? "partially paid"
           : "paid"
-      
-      updateBill(bill.id, {
-        status: newStatus as any,
-        paymentMethod: paymentType === "cancel" ? undefined : paymentMethod,
-        paymentDate: paymentType === "cancel" ? undefined : new Date().toISOString().split("T")[0],
-        paidAmount: newPaidAmount,
-        notes,
-      })
+
+      if (data.bill) {
+        const b = data.bill
+        updateBill(bill.id, {
+          status: (b.status === "Partially Paid" ? "partially paid" : b.status === "Paid" ? "paid" : b.status === "Cancelled" ? "cancelled" : "pending") as "pending" | "paid" | "partially paid" | "cancelled",
+          paymentMethod: paymentType === "cancel" ? undefined : (b.payment_method ?? paymentMethod),
+          paymentDate: b.paid_at ? new Date(b.paid_at).toLocaleDateString("en-CA", { year: "numeric", month: "2-digit", day: "2-digit" }) : undefined,
+          paidAmount: Number(b.paid_amount) || 0,
+          notes,
+        })
+      } else {
+        updateBill(bill.id, {
+          status: newStatus as "pending" | "paid" | "partially paid" | "cancelled",
+          paymentMethod: paymentType === "cancel" ? undefined : paymentMethod,
+          paymentDate: paymentType === "cancel" ? undefined : new Date().toISOString().split("T")[0],
+          paidAmount: newPaidAmount,
+          notes,
+        })
+      }
       await refreshBills()
       toast.success(paymentType === "cancel" ? "Bill cancelled successfully" : "Payment processed successfully")
       
@@ -289,6 +300,16 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
               {bill.status === "partially paid" ? "Partially Paid" : bill.status}
             </Badge>
           </div>
+          {(bill.paidAmount ?? 0) > 0 && (bill.total - (bill.paidAmount ?? 0)) > 0 && (
+            <div className="mt-4 rounded-lg border border-amber-200 bg-amber-50/80 p-3 dark:border-amber-800 dark:bg-amber-950/30">
+              <div className="flex flex-wrap items-center gap-x-6 gap-y-1 text-sm">
+                <span className="text-muted-foreground">Paid so far:</span>
+                <span className="font-semibold text-green-700 dark:text-green-400">{formatCurrency(bill.paidAmount ?? 0)}</span>
+                <span className="text-muted-foreground">Balance due:</span>
+                <span className="font-bold text-amber-700 dark:text-amber-400">{formatCurrency(bill.total - (bill.paidAmount ?? 0))}</span>
+              </div>
+            </div>
+          )}
         </CardHeader>
         <CardContent className="space-y-6 pt-6">
           <div className="grid gap-6 sm:grid-cols-2">
@@ -391,16 +412,18 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                 <span className="text-foreground">Total</span>
                 <span className="text-foreground">{formatCurrency(bill.total)}</span>
               </div>
-              {bill.paidAmount && bill.paidAmount > 0 && (
+              {(bill.paidAmount ?? 0) > 0 && (
                 <>
-                  <div className="flex justify-between text-sm text-amber-600 dark:text-amber-400">
+                  <div className="flex justify-between text-sm text-green-600 dark:text-green-400">
                     <span className="text-muted-foreground">Paid</span>
-                    <span className="text-foreground">{formatCurrency(bill.paidAmount)}</span>
+                    <span className="text-foreground">{formatCurrency(bill.paidAmount ?? 0)}</span>
                   </div>
-                  <div className="flex justify-between text-sm font-semibold">
-                    <span className="text-muted-foreground">Balance due</span>
-                    <span className="text-foreground">{formatCurrency(bill.total - bill.paidAmount)}</span>
-                  </div>
+                  {(bill.total - (bill.paidAmount ?? 0)) > 0 && (
+                    <div className="flex justify-between text-sm font-semibold">
+                      <span className="text-muted-foreground">Balance due</span>
+                      <span className="text-foreground">{formatCurrency(bill.total - (bill.paidAmount ?? 0))}</span>
+                    </div>
+                  )}
                 </>
               )}
             </div>
@@ -476,15 +499,16 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
 
                   {paymentType === "partial" && (
                     <div className="space-y-2">
-                      <Label htmlFor="partialAmount">
-                        Payment Amount * (Remaining: {formatCurrency(bill.total - (bill.paidAmount || 0))})
-                      </Label>
+                      <Label htmlFor="partialAmount">Payment Amount *</Label>
+                      <p className="text-xs text-muted-foreground">
+                        Remaining to pay: {formatCurrency(bill.total - (bill.paidAmount ?? 0))} (max amount you can enter)
+                      </p>
                       <Input
                         id="partialAmount"
                         type="number"
                         step="0.01"
                         min="0.01"
-                        max={bill.total - (bill.paidAmount || 0)}
+                        max={bill.total - (bill.paidAmount ?? 0)}
                         value={partialAmount || ""}
                         onChange={(e) => setPartialAmount(Number.parseFloat(e.target.value) || 0)}
                         placeholder="Enter payment amount"

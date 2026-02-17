@@ -98,7 +98,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
             tax: Number(b.tax_amount),
             discount: Number(b.discount_amount) || 0,
             total: finalAmount,
-            paidAmount: paidAmount > 0 ? paidAmount : undefined,
+            paidAmount: Number(b.paid_amount) || 0,
             status: normalizedStatus,
             paymentMethod: b.payment_method || undefined,
             paymentDate: b.paid_at
