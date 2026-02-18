@@ -55,14 +55,6 @@ function BookAppointmentInner() {
     })()
   }, [])
 
-  if (isLoading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
-  }
-
   const loadSlots = async () => {
     if (!doctorId || !date) return
     setLoading(true)
@@ -80,6 +72,14 @@ function BookAppointmentInner() {
     if (doctorId && date) void loadSlots()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [doctorId, date])
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
 
   const bookSlot = async (time: string) => {
     if (!patientId || !doctorId || !date) return
