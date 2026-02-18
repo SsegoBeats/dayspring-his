@@ -660,7 +660,7 @@ export function UserManagement() {
               <Users className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
               <h3 className="text-lg font-medium mb-2">No users in the system</h3>
               <p className="text-muted-foreground mb-4">
-                Add users to start managing your hospital's staff
+                Add users to start managing your hospital&apos;s staff
               </p>
               <Button onClick={() => setIsAddDialogOpen(true)}>
                 <Plus className="h-4 w-4 mr-2" />

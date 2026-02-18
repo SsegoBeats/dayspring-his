@@ -120,7 +120,7 @@ export default function TestConnectionPage() {
                           <p className="font-semibold">Troubleshooting Steps:</p>
                           <ul className="list-disc list-inside space-y-1 opacity-90">
                             <li>Ensure PostgreSQL is running on localhost:5432</li>
-                            <li>Verify database "dayspring_medical_center" exists</li>
+                            <li>Verify database &quot;dayspring_medical_center&quot; exists</li>
                             <li>Check username (postgres) and password (Admin2025)</li>
                             <li>Confirm DATABASE_URL environment variable is set in your .env file</li>
                           </ul>

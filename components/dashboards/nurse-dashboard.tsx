@@ -245,7 +245,7 @@ export function NurseDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Vitals</CardTitle>
+            <CardTitle className="text-sm font-medium">Today&apos;s Vitals</CardTitle>
             <Activity className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -255,7 +255,7 @@ export function NurseDashboard() {
         </Card>
         <Card>
           <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Today's Notes</CardTitle>
+            <CardTitle className="text-sm font-medium">Today&apos;s Notes</CardTitle>
             <FileText className="h-4 w-4 text-muted-foreground" />
           </CardHeader>
           <CardContent>
@@ -471,7 +471,7 @@ export function NurseDashboard() {
                   <TableRow>
                     <TableCell colSpan={11} className="text-center text-muted-foreground text-sm">
                       {q.trim() ? (
-                        <span>No results for "{q.trim()}". <button className="underline" onClick={()=> setQ("")}>Clear search</button></span>
+                        <span>No results for &quot;{q.trim()}&quot;. <button className="underline" onClick={()=> setQ("")}>Clear search</button></span>
                       ) : (
                         <span>No vitals recorded today</span>
                       )}

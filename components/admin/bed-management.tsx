@@ -848,7 +848,7 @@ export function BedManagement() {
               <DialogHeader>
                 <DialogTitle>Add New Bed</DialogTitle>
                 <DialogDescription>
-                  Add a new bed to your hospital's inventory. Fill in the required information below.
+                  Add a new bed to your hospital&apos;s inventory. Fill in the required information below.
                 </DialogDescription>
               </DialogHeader>
             <div className="space-y-4">
@@ -1217,7 +1217,7 @@ export function BedManagement() {
             <Bed className="h-12 w-12 mx-auto mb-4 text-muted-foreground" />
             <h3 className="text-lg font-medium mb-2">No beds configured</h3>
             <p className="text-muted-foreground mb-4">
-              Add beds to start managing your hospital's bed inventory
+              Add beds to start managing your hospital&apos;s bed inventory
             </p>
             {canAddBeds && (
               <Button onClick={() => setIsAddDialogOpen(true)}>

@@ -101,7 +101,7 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
             </Card>
             <Card className="bg-gradient-to-br from-amber-50 via-white to-orange-50 border-amber-100 shadow-sm">
               <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-sm font-medium">Today's Consultations</CardTitle>
+                <CardTitle className="text-sm font-medium">Today&apos;s Consultations</CardTitle>
                 <FileText className="h-4 w-4 text-amber-500" />
               </CardHeader>
               <CardContent>
