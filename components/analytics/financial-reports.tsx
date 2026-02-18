@@ -198,6 +198,7 @@ export function FinancialReports() {
 
   useEffect(() => {
     fetchFinancialData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- fetch on period change only
   }, [period])
 
   // Use `formatDate` from `useFormatDate` for all chart/date formatting

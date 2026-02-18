@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/error-boundary"
 import { LogOut, Bell } from "lucide-react"
 import Link from 'next/link'
+import Image from 'next/image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { formatPatientNumber } from "@/lib/patients"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
@@ -42,9 +43,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
       <header className="sticky top-0 z-50 border-b border-border bg-card print:hidden">
         <div className="flex h-16 items-center justify-between px-6">
           <div className="flex items-center gap-3">
-            <img 
-              src={ORG_LOGO_PATH} 
+            <Image
+              src={ORG_LOGO_PATH}
               alt={`${ORG_NAME} logo`}
+              width={32}
+              height={32}
               className="h-8 w-8 object-contain"
               onError={(e) => { (e.target as HTMLImageElement).style.display = "none" }}
             />

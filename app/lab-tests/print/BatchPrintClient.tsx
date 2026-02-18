@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useMemo, useState } from "react"
+import Image from "next/image"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { BarcodeGenerator } from "@/components/barcode-generator"
@@ -209,9 +210,11 @@ export default function BatchPrintClient() {
       </div>
       <div className="hdr mb-4 flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <img
+          <Image
             src={org?.logoUrl || "/logo.png"}
             alt="Logo"
+            width={40}
+            height={40}
             className="h-10 w-10 object-contain"
             onError={(e: any) => {
               e.currentTarget.style.display = "none"

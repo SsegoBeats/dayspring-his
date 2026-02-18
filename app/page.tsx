@@ -8,6 +8,7 @@ import { useEffect } from "react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { LoginForm } from "@/components/login-form"
+import Image from "next/image"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
 
 export default function HomePage() {
@@ -34,9 +35,11 @@ export default function HomePage() {
       <div className="w-full max-w-md">
         <div className="mb-8 text-center">
           <div className="mb-6 flex justify-center">
-            <img 
-              src={ORG_LOGO_PATH} 
-              alt={`${ORG_NAME} Logo`} 
+            <Image
+              src={ORG_LOGO_PATH}
+              alt={`${ORG_NAME} Logo`}
+              width={224}
+              height={224}
               className="h-48 w-auto object-contain sm:h-56"
             />
           </div>

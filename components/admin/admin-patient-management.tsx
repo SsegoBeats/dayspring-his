@@ -171,6 +171,7 @@ export function AdminPatientManagement() {
   useEffect(() => {
     setCursor(null)
     fetchPatients()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: refetch when filters change
   }, [searchQuery, filters.gender, filters.status, filters.triage, filters.minAge, filters.maxAge, filters.registeredAfter, filters.registeredBefore])
 
   const loadMore = async () => {

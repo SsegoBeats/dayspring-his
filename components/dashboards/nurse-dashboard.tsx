@@ -113,7 +113,7 @@ export function NurseDashboard() {
     }
     const t = setTimeout(() => { void load() }, 250)
     return () => { stop = true; clearTimeout(t); controller.abort() }
-  }, [q, refreshKey])
+  }, [q])
 
   // Filter vitals
   const filteredVitals = latestVitals.filter((v: any) => {

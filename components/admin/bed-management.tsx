@@ -194,6 +194,7 @@ export function BedManagement() {
 
   useEffect(() => {
     fetchBeds()
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: refetch when filters change
   }, [filters.status, filters.ward, filters.bedType, filters.hasPatient])
 
 

@@ -98,6 +98,7 @@ export function UserManagement() {
       sortBy: API_SORT_MAP[sortBy] || "created_at",
       sortOrder,
     }).catch(() => {})
+    // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: refetch when pagination/filters change
   }, [currentPage, itemsPerPage, searchTerm, filters.role, filters.status, filters.createdAfter, filters.createdBefore, sortBy, sortOrder])
 
   const totalPages = Math.ceil(total / itemsPerPage) || 1
