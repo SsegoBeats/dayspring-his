@@ -622,7 +622,7 @@ export function StockTaking() {
                     Stock taking is used to reconcile physical inventory counts with the system records for medications that are already in your inventory.
                   </p>
                   <p className="mt-2 font-medium">
-                    To add medications, go to the Medication Inventory page and click "Add Medication".
+                    To add medications, go to the Medication Inventory page and click &quot;Add Medication&quot;.
                   </p>
                 </AlertDescription>
               </Alert>
@@ -700,7 +700,7 @@ export function StockTaking() {
                     Stock taking is used to reconcile physical inventory counts with the system records for items that are already in your inventory.
                   </p>
                   <p className="mt-2 font-medium">
-                    To add items, go to the Non-Medication Inventory page and click "Add Item".
+                    To add items, go to the Non-Medication Inventory page and click &quot;Add Item&quot;.
                   </p>
                 </AlertDescription>
               </Alert>
