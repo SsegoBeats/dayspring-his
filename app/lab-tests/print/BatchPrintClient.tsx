@@ -131,6 +131,12 @@ export default function BatchPrintClient() {
   const { user, isLoading } = useAuth()
   const sp = useSearchParams()
   const patientId = sp.get("patientId")
+  const from = sp.get("from") || new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
+  const to = sp.get("to") || new Date().toISOString()
+  const [tests, setTests] = useState<any[]>([])
+  const [loading, setLoading] = useState(true)
+  const [error, setError] = useState<string | null>(null)
+  const [org, setOrg] = useState<any>(null)
 
   useEffect(() => {
     if (isLoading) return
@@ -140,20 +146,8 @@ export default function BatchPrintClient() {
     }
   }, [user, isLoading, router])
 
-  if (isLoading || !user) {
-    return (
-      <div className="flex min-h-screen items-center justify-center p-6">
-        <div className="text-muted-foreground">Loading...</div>
-      </div>
-    )
-  }
-  const from = sp.get("from") || new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
-  const to = sp.get("to") || new Date().toISOString()
-  const [tests, setTests] = useState<any[]>([])
-  const [loading, setLoading] = useState(true)
-  const [error, setError] = useState<string | null>(null)
-
   useEffect(() => {
+    if (isLoading || !user) return
     ;(async () => {
       try {
         const url = new URL("/api/lab-tests", window.location.origin)
@@ -170,9 +164,10 @@ export default function BatchPrintClient() {
         setLoading(false)
       }
     })()
-  }, [patientId, from, to])
+  }, [patientId, from, to, isLoading, user])
 
   useEffect(() => {
+    if (isLoading || !user) return
     if (!loading) {
       setTimeout(() => {
         try {
@@ -180,10 +175,10 @@ export default function BatchPrintClient() {
         } catch {}
       }, 300)
     }
-  }, [loading])
+  }, [loading, isLoading, user])
 
-  const [org, setOrg] = useState<any>(null)
   useEffect(() => {
+    if (isLoading || !user) return
     ;(async () => {
       try {
         const r = await fetch("/api/settings/org")
@@ -191,7 +186,15 @@ export default function BatchPrintClient() {
         setOrg(d.settings || null)
       } catch {}
     })()
-  }, [])
+  }, [isLoading, user])
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center p-6">
+        <div className="text-muted-foreground">Loading...</div>
+      </div>
+    )
+  }
 
   return (
     <div className="p-6 print:p-0">

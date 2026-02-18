@@ -12,6 +12,7 @@ export default function RunMigrationsPage() {
   const router = useRouter()
   const { user, isLoading } = useAuth()
   const [running, setRunning] = useState(false)
+  const [result, setResult] = useState<any>(null)
 
   useEffect(() => {
     if (isLoading) return
@@ -33,7 +34,6 @@ export default function RunMigrationsPage() {
       </div>
     )
   }
-  const [result, setResult] = useState<any>(null)
 
   const runMigrations = async () => {
     setRunning(true)
@@ -137,8 +137,8 @@ export default function RunMigrationsPage() {
             <p>If migrations fail, check:</p>
             <ul className="list-disc list-inside space-y-1 text-muted-foreground">
               <li>PostgreSQL service is running</li>
-              <li>Database "dayspring_medical_center" exists</li>
-              <li>User "postgres" has proper permissions</li>
+              <li>Database &quot;dayspring_medical_center&quot; exists</li>
+              <li>User &quot;postgres&quot; has proper permissions</li>
               <li>DATABASE_URL environment variable is correct</li>
             </ul>
             <Button
