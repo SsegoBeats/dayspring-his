@@ -146,8 +146,8 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
 
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
             <p className="text-xs text-amber-800">
-              <strong>Note:</strong> The verification code expires in 24 hours. If you didn't receive the email, 
-              click "Resend Code" or contact your administrator.
+              <strong>Note:</strong> The verification code expires in 24 hours. If you didn&apos;t receive the email, 
+              click &quot;Resend Code&quot; or contact your administrator.
             </p>
           </div>
         </div>

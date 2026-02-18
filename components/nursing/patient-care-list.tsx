@@ -191,7 +191,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
             <Search className="h-6 w-6 mb-2" />
             {searchQuery ? (
               <>
-                <p>No results for "{searchQuery}"</p>
+                <p>No results for &quot;{searchQuery}&quot;</p>
                 <Button variant="outline" size="sm" className="mt-3" onClick={()=> setSearchQuery("")}>Clear search</Button>
               </>
             ) : (

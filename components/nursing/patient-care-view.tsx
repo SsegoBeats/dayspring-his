@@ -136,20 +136,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId])
 
-  if (!patient) {
-    return (
-      <Card>
-        <CardContent className="p-8 text-center">
-          <p className="text-muted-foreground">Patient not found</p>
-          <Button onClick={onBack} className="mt-4">
-            Go Back
-          </Button>
-        </CardContent>
-      </Card>
-    )
-  }
-
-  // Calculate patient age
+  // Calculate patient age (always compute so hooks below can use it)
   const patientAge = patient ? (() => {
     try {
       if (patient.ageYears) return patient.ageYears
@@ -191,6 +178,53 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
       setVitalAlerts([])
     }
   }, [vitalsForm, patient, patientAge])
+
+  // Keyboard shortcuts: Ctrl+Enter saves current tab
+  useEffect(() => {
+    if (!patient) return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
+        if (activeTab === 'vitals') commitVitals()
+        if (activeTab === 'notes') commitNote()
+      }
+    }
+    window.addEventListener('keydown', onKey)
+    return () => window.removeEventListener('keydown', onKey)
+  }, [activeTab, vitalsForm, noteForm, patient, user])
+
+  // Pre-fill vitals with latest record for this patient (as a starting template)
+  useEffect(() => {
+    if (!patient) return
+    try {
+      const last = (vitalHistory || [])[vitalHistory.length - 1]
+      if (last) {
+        setVitalsForm((f) => ({
+          bloodPressure: f.bloodPressure || last.bloodPressure || "",
+          temperature: f.temperature || last.temperature || "",
+          heartRate: f.heartRate || last.heartRate || "",
+          respiratoryRate: f.respiratoryRate || last.respiratoryRate || "",
+          oxygenSaturation: f.oxygenSaturation || last.oxygenSaturation || "",
+          weight: f.weight || last.weight || "",
+          height: f.height || last.height || "",
+          notes: f.notes || "",
+        }))
+      }
+    } catch {}
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [patientId])
+
+  if (!patient) {
+    return (
+      <Card>
+        <CardContent className="p-8 text-center">
+          <p className="text-muted-foreground">Patient not found</p>
+          <Button onClick={onBack} className="mt-4">
+            Go Back
+          </Button>
+        </CardContent>
+      </Card>
+    )
+  }
 
   const commitVitals = async () => {
     if (!user || !patient) return
@@ -281,38 +315,6 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
     }
   }
   const handleSaveNote = (e: React.FormEvent) => { e.preventDefault(); commitNote() }
-
-  // Keyboard shortcuts: Ctrl+Enter saves current tab
-  useEffect(() => {
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        if (activeTab === 'vitals') commitVitals()
-        if (activeTab === 'notes') commitNote()
-      }
-    }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [activeTab, vitalsForm, noteForm, patient, user])
-
-  // Pre-fill vitals with latest record for this patient (as a starting template)
-  useEffect(() => {
-    try {
-      const last = (vitalHistory || [])[vitalHistory.length - 1]
-      if (last) {
-        setVitalsForm((f) => ({
-          bloodPressure: f.bloodPressure || last.bloodPressure || "",
-          temperature: f.temperature || last.temperature || "",
-          heartRate: f.heartRate || last.heartRate || "",
-          respiratoryRate: f.respiratoryRate || last.respiratoryRate || "",
-          oxygenSaturation: f.oxygenSaturation || last.oxygenSaturation || "",
-          weight: f.weight || last.weight || "",
-          height: f.height || last.height || "",
-          notes: f.notes || "",
-        }))
-      }
-    } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId])
 
   return (
     <div className="space-y-4">
