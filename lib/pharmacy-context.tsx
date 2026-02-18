@@ -68,7 +68,7 @@ interface PharmacyContextType {
   stockAdjustments: StockAdjustment[]
   addMedication: (medication: Omit<Medication, "id">) => void
   updateMedication: (id: string, updates: Partial<Medication>) => void
-  deleteMedication: (id: string) => void
+  deleteMedication: (id: string) => Promise<void>
   getMedication: (name: string) => Medication | undefined
   getLowStockMedications: () => Medication[]
   getExpiringMedications: (days: number) => Medication[]
@@ -217,62 +217,38 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  const deleteMedication = (id: string) => {
-    ;(async () => {
-      try {
-        const res = await fetch(`/api/pharmacy/medications/${encodeURIComponent(id)}`, {
-          method: "DELETE",
-          credentials: "include",
-        })
-        // Always reload from backend so UI reflects actual DB state
-        const res2 = await fetch("/api/pharmacy/medications", { credentials: "include" })
-        if (res2.ok) {
-          const data = await res2.json()
-          const meds: Medication[] = (data.medications || []).map((m: any) => ({
-            id: m.id,
-            name: m.name,
-            category: m.category,
-            manufacturer: m.manufacturer || "",
-            stockQuantity: Number(m.stock_quantity),
-            unitPrice: Number(m.unit_price),
-            costPrice: m.cost_price ? Number(m.cost_price) : undefined,
-            expiryDate: m.expiry_date || "",
-            batchNumber: "",
-            reorderLevel: Number(m.reorder_level || 0),
-            minStockLevel: m.min_stock_level ? Number(m.min_stock_level) : undefined,
-            maxStockLevel: m.max_stock_level ? Number(m.max_stock_level) : undefined,
-            lastRestockedAt: m.last_restocked_at || undefined,
-            barcode: m.barcode || undefined,
-          }))
-          setMedications(meds)
-        } else {
-          setMedications([])
-        }
-      } catch {
-        // On error, force a reload attempt so we never show phantom deletes
-        try {
-          const res2 = await fetch("/api/pharmacy/medications", { credentials: "include" })
-          if (res2.ok) {
-            const data = await res2.json()
-            const meds: Medication[] = (data.medications || []).map((m: any) => ({
-              id: m.id,
-              name: m.name,
-              category: m.category,
-              manufacturer: m.manufacturer || "",
-              stockQuantity: Number(m.stock_quantity),
-              unitPrice: Number(m.unit_price),
-              expiryDate: m.expiry_date || "",
-              batchNumber: "",
-              reorderLevel: Number(m.reorder_level || 0),
-              barcode: m.barcode || undefined,
-            }))
-            setMedications(meds)
-          }
-        } catch {
-          // final fallback: leave current state as-is
-        }
-      }
-    })()
+  const deleteMedication = async (id: string): Promise<void> => {
+    const res = await fetch(`/api/pharmacy/medications/${encodeURIComponent(id)}`, {
+      method: "DELETE",
+      credentials: "include",
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error((err as { error?: string }).error || "Failed to delete medication")
+    }
+    const res2 = await fetch("/api/pharmacy/medications", { credentials: "include" })
+    if (res2.ok) {
+      const data = await res2.json()
+      const meds: Medication[] = (data.medications || []).map((m: any) => ({
+        id: m.id,
+        name: m.name,
+        category: m.category,
+        manufacturer: m.manufacturer || "",
+        stockQuantity: Number(m.stock_quantity),
+        unitPrice: Number(m.unit_price),
+        costPrice: m.cost_price ? Number(m.cost_price) : undefined,
+        expiryDate: m.expiry_date || "",
+        batchNumber: "",
+        reorderLevel: Number(m.reorder_level || 0),
+        minStockLevel: m.min_stock_level ? Number(m.min_stock_level) : undefined,
+        maxStockLevel: m.max_stock_level ? Number(m.max_stock_level) : undefined,
+        lastRestockedAt: m.last_restocked_at || undefined,
+        barcode: m.barcode || undefined,
+      }))
+      setMedications(meds)
+    } else {
+      setMedications([])
+    }
   }
 
   const getMedication = (name: string) => {
@@ -284,9 +260,16 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
   }
 
   const getExpiringMedications = (days: number) => {
-    const futureDate = new Date()
+    const today = new Date()
+    today.setHours(0, 0, 0, 0)
+    const futureDate = new Date(today)
     futureDate.setDate(futureDate.getDate() + days)
-    return medications.filter((m) => new Date(m.expiryDate) <= futureDate && new Date(m.expiryDate) >= new Date())
+    return medications.filter((m) => {
+      if (!m.expiryDate || String(m.expiryDate).trim() === "") return false
+      const exp = new Date(m.expiryDate)
+      if (Number.isNaN(exp.getTime())) return false
+      return exp >= today && exp <= futureDate
+    })
   }
 
   const addSupplier = (supplier: Omit<Supplier, "id">) => {

@@ -7,7 +7,7 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 import { Loader2 } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import AppointmentForm from "@/components/appointments/appointment-form"
 import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
 import { formatPatientNumber } from "@/lib/patients"
@@ -238,6 +238,7 @@ export function CheckInPanel() {
         <DialogContent size="xl" className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Appointments</DialogTitle>
+            <DialogDescription>View and manage appointments for the selected patient.</DialogDescription>
           </DialogHeader>
           <AppointmentForm initialPatientId={selectedPatientId || undefined} onSubmitted={() => setAppointmentsOpen(false)} />
         </DialogContent>

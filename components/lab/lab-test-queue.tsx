@@ -717,6 +717,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                 </div>
               )}
             </div>
+            <DialogDescription>View and print or download lab test results for this patient.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 max-h-[70vh] overflow-y-auto">
             {viewPatient && sortedTests.filter(t => t.patientId === viewPatient.id).map((t) => (

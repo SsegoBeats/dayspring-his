@@ -166,6 +166,7 @@ export function PatientList({ initialSelectedPatientId }: { initialSelectedPatie
         <DialogContent size="lg" className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Register Patient</DialogTitle>
+            <DialogDescription>Enter patient demographics and contact information to register a new patient.</DialogDescription>
           </DialogHeader>
           <PatientRegistration
             onSuccess={async (id) => {

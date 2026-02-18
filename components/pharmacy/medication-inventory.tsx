@@ -26,7 +26,7 @@ type ScanSummary = {
 
 type StockFilter = "all" | "healthy" | "low" | "out"
 type ExpiryFilter = "all" | "expiring" | "expired" | "none"
-type SortKey = "name" | "stock" | "expiry" | "price"
+type SortKey = "name" | "manufacturer" | "stock" | "expiry" | "price"
 
 export function MedicationInventory() {
   const { medications, getLowStockMedications, updateMedication, getExpiringMedications, deleteMedication } =
@@ -55,6 +55,7 @@ export function MedicationInventory() {
   const [showDeleteDialog, setShowDeleteDialog] = useState(false)
   const [medicationToDelete, setMedicationToDelete] = useState<Medication | null>(null)
   const [deleting, setDeleting] = useState(false)
+  const [exporting, setExporting] = useState<"xlsx" | "pdf" | null>(null)
   const searchInputRef = useRef<HTMLInputElement>(null)
   const barcodeInputRef = useRef<HTMLInputElement>(null)
   const [editForm, setEditForm] = useState<{
@@ -81,6 +82,11 @@ export function MedicationInventory() {
       barcodeInputRef.current.focus()
     }
   }, [scanMode])
+
+  // Reset to first page when filters or search change
+  useEffect(() => {
+    setPage(0)
+  }, [searchQuery, stockFilter, expiryFilter, filterLowStock, advancedFilters])
 
   // Keyboard shortcuts
   useEffect(() => {
@@ -181,6 +187,8 @@ export function MedicationInventory() {
         switch (sortKey) {
           case "name":
             return a.name.localeCompare(b.name)
+          case "manufacturer":
+            return (a.manufacturer || "").localeCompare(b.manufacturer || "")
           case "stock":
             return b.stockQuantity - a.stockQuantity
           case "price":
@@ -222,7 +230,7 @@ export function MedicationInventory() {
     if (!medicationToDelete) return
     setDeleting(true)
     try {
-      deleteMedication(medicationToDelete.id)
+      await deleteMedication(medicationToDelete.id)
       toast({
         title: "Medication deleted",
         description: `"${medicationToDelete.name}" has been removed from inventory.`,
@@ -236,7 +244,7 @@ export function MedicationInventory() {
     } catch (error) {
       toast({
         title: "Delete failed",
-        description: "Failed to delete medication. Please try again.",
+        description: error instanceof Error ? error.message : "Failed to delete medication. Please try again.",
         variant: "destructive",
       })
     } finally {
@@ -359,26 +367,45 @@ export function MedicationInventory() {
   }
 
   const handleExport = async (format: "xlsx" | "pdf") => {
+    setExporting(format)
     try {
+      const hasActiveFilters =
+        searchQuery.trim() !== "" ||
+        stockFilter !== "all" ||
+        expiryFilter !== "all" ||
+        filterLowStock ||
+        Object.keys(advancedFilters).length > 0
+      const payload: { format: "xlsx" | "pdf"; medicationIds?: string[] } = { format }
+      if (hasActiveFilters && normalized.length > 0) {
+        payload.medicationIds = normalized.map((m) => m.id)
+      }
       const res = await fetch("/api/pharmacy/inventory-export", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ format }),
+        body: JSON.stringify(payload),
       })
       if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        const msg = (err as { error?: string }).error || "Failed to export inventory. Please try again."
         toast({
           title: "Export failed",
-          description: "Failed to export inventory. Please try again.",
+          description: msg,
           variant: "destructive",
         })
         return
       }
       const blob = await res.blob()
+      const disposition = res.headers.get("Content-Disposition")
+      let filename = format === "xlsx" ? "pharmacy-inventory.xlsx" : "pharmacy-inventory.pdf"
+      if (disposition) {
+        const match = /filename=(.+?)(?:;|$)/i.exec(disposition)
+        if (match) filename = match[1].replace(/^["']|["']$/g, "").trim()
+      }
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      a.download = format === "xlsx" ? "pharmacy-inventory.xlsx" : "pharmacy-inventory.pdf"
+      a.download = filename
       document.body.appendChild(a)
       a.click()
       a.remove()
@@ -394,6 +421,8 @@ export function MedicationInventory() {
         description: "Failed to export inventory. Please try again.",
         variant: "destructive",
       })
+    } finally {
+      setExporting(null)
     }
   }
 
@@ -419,7 +448,7 @@ export function MedicationInventory() {
               <div className="flex items-center justify-between gap-2">
                 <p className="text-sm font-medium text-foreground">Scan to receive stock</p>
                 <Button
-                  size="xs"
+                  size="sm"
                   variant={scanMode ? "default" : "outline"}
                   onClick={() => setScanMode((v) => !v)}
                 >
@@ -535,15 +564,17 @@ export function MedicationInventory() {
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport("xlsx")}
+                disabled={!!exporting}
               >
-                Export Excel
+                {exporting === "xlsx" ? "Exporting…" : "Export Excel"}
               </Button>
               <Button
                 variant="outline"
                 size="sm"
                 onClick={() => handleExport("pdf")}
+                disabled={!!exporting}
               >
-                Export PDF
+                {exporting === "pdf" ? "Exporting…" : "Export PDF"}
               </Button>
             </div>
           </div>
@@ -651,6 +682,7 @@ export function MedicationInventory() {
                   <TableRow>
                     <TableHead className="min-w-[220px]">Medication</TableHead>
                     <TableHead>Category</TableHead>
+                    <TableHead>Manufacturer</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead className="text-right">Reorder</TableHead>
                     <TableHead>Expiry</TableHead>
@@ -852,6 +884,13 @@ export function MedicationInventory() {
                     />
                   </div>
                   <div>
+                    <p className="text-muted-foreground">Manufacturer</p>
+                    <Input
+                      value={editForm.manufacturer}
+                      onChange={(e) => setEditForm({ ...editForm, manufacturer: e.target.value })}
+                    />
+                  </div>
+                  <div>
                     <p className="text-muted-foreground">Batch number</p>
                     <Input
                       value={editForm.batchNumber}
@@ -941,6 +980,10 @@ export function MedicationInventory() {
                   <div>
                     <p className="text-muted-foreground">Category</p>
                     <p className="font-medium">{selectedMedication.category}</p>
+                  </div>
+                  <div>
+                    <p className="text-muted-foreground">Manufacturer</p>
+                    <p className="font-medium">{selectedMedication.manufacturer || "-"}</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Batch number</p>

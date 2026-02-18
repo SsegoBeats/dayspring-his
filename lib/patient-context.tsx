@@ -1,6 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { useAuth } from "@/lib/auth-context"
+import { can } from "@/lib/security"
 
 export interface Patient {
   id: string
@@ -81,6 +83,7 @@ interface PatientContextType {
 const PatientContext = createContext<PatientContextType | undefined>(undefined)
 
 export function PatientProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [patients, setPatients] = useState<Patient[]>([])
   const [appointments, setAppointments] = useState<Appointment[]>([])
   const [doctorSchedules, setDoctorSchedules] = useState<DoctorSchedule[]>([])
@@ -89,9 +92,18 @@ export function PatientProvider({ children }: { children: ReactNode }) {
   const [patientsLoadError, setPatientsLoadError] = useState<boolean>(false)
   const [appointmentsLoadError, setAppointmentsLoadError] = useState<boolean>(false)
 
+  const canReadPatients = user && can(user.role, "patients", "read")
+  const canReadAppointments = user && can(user.role, "appointments", "read")
+
   useEffect(() => {
+    if (!canReadPatients && !canReadAppointments) {
+      setLoadingPatients(false)
+      setLoadingAppointments(false)
+      return
+    }
     const DEFAULT_PATIENT_LIMIT = 500
-    ;(async () => {
+    if (canReadPatients) {
+      ;(async () => {
       try {
         const res = await fetch(`/api/patients?limit=${DEFAULT_PATIENT_LIMIT}`, { credentials: "include" })
         setPatientsLoadError(false)
@@ -131,14 +143,18 @@ export function PatientProvider({ children }: { children: ReactNode }) {
         setLoadingPatients(false)
       }
     })()
-
-    ;(async () => { try { await doRefreshAppointments() } finally { /* flag handled in helper */ } })()
-
+    }
+    if (canReadAppointments) {
+      ;(async () => { try { await doRefreshAppointments() } finally { /* flag handled in helper */ } })()
+    } else {
+      setLoadingAppointments(false)
+    }
     // Keep local schedules temporarily (no backend for schedules yet)
     setDoctorSchedules([])
-  }, [])
+  }, [user?.id, user?.role])
 
   const refreshPatients = async () => {
+    if (!canReadPatients) return
     try {
       setPatientsLoadError(false)
       const res = await fetch("/api/patients?limit=500", { credentials: "include" })
@@ -175,6 +191,10 @@ export function PatientProvider({ children }: { children: ReactNode }) {
   }
 
   const doRefreshAppointments = async () => {
+    if (!canReadAppointments) {
+      setLoadingAppointments(false)
+      return
+    }
     try {
       setLoadingAppointments(true)
       setAppointmentsLoadError(false)

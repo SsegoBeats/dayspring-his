@@ -1,6 +1,8 @@
 "use client"
 
 import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
+import { useAuth } from "@/lib/auth-context"
+import { can } from "@/lib/security"
 
 export interface BillItem {
   description: string
@@ -51,6 +53,7 @@ interface BillingContextType {
 const BillingContext = createContext<BillingContextType | undefined>(undefined)
 
 export function BillingProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [bills, setBills] = useState<Bill[]>([])
 
   const refreshBills = useCallback(async (): Promise<Bill[]> => {
@@ -121,8 +124,9 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (!user || !can(user.role, "billing", "read")) return
     void refreshBills()
-  }, [refreshBills])
+  }, [user?.id, user?.role, refreshBills])
 
   const addBill = (bill: Omit<Bill, "id">) => {
     const newBill: Bill = {

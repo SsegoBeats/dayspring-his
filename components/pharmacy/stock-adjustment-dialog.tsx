@@ -5,7 +5,7 @@ import type React from "react"
 import { useState } from "react"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { useAuth } from "@/lib/auth-context"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -101,6 +101,7 @@ export function StockAdjustmentDialog({ open, onOpenChange }: StockAdjustmentDia
       <DialogContent className="max-w-lg">
         <DialogHeader>
           <DialogTitle>Stock Adjustment</DialogTitle>
+          <DialogDescription>Record an inventory adjustment (add, remove, or correction) with a reason.</DialogDescription>
         </DialogHeader>
         <form onSubmit={handleSubmit} className="space-y-4">
           <div>

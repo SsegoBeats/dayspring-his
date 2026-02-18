@@ -1,7 +1,7 @@
 "use client"
 
 import { useEffect, useState } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -92,6 +92,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
       <DialogContent className="sm:max-w-[1200px] max-w-[1200px] w-full max-h-[85vh] overflow-hidden px-6">
         <DialogHeader>
           <DialogTitle>Order Laboratory Test</DialogTitle>
+          <DialogDescription>Select lab tests from the catalog, add clinical notes, and submit the order for this patient.</DialogDescription>
         </DialogHeader>
         <div className="grid lg:grid-cols-[1.1fr_0.9fr] gap-6">
           <div className="space-y-4">

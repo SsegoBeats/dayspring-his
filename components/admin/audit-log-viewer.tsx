@@ -10,7 +10,7 @@ import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { Download, Search, RefreshCw, AlertCircle, Loader2, Trash2, Settings, BarChart3, Eye, CheckCircle2, LogOut, AlertTriangle, ShieldCheck, X } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
 import { toast } from "sonner"
 
@@ -567,6 +567,7 @@ export function AuditLogViewer() {
           <DialogContent className="max-w-2xl">
             <DialogHeader>
               <DialogTitle>Audit Log Details</DialogTitle>
+              <DialogDescription>Full details for the selected audit log entry including timestamp, user, action, and metadata.</DialogDescription>
             </DialogHeader>
             {selectedLog && (
               <div className="space-y-3 text-sm">

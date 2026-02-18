@@ -13,7 +13,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, AlertCircle, FileText, Pill, History, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
 import { formatPatientNumber } from "@/lib/patients"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { OrderLabTest } from "@/components/doctor/order-lab-test"
 import { useLab } from "@/lib/lab-context"
 import { toast } from "sonner"
@@ -1364,6 +1364,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
             <DialogContent className="max-h-[85vh] overflow-y-auto max-w-lg">
               <DialogHeader>
                 <DialogTitle>Edit obstetric assessment</DialogTitle>
+                <DialogDescription>Update visit details, gravida, parity, gestational age, and clinical findings.</DialogDescription>
               </DialogHeader>
               <div className="grid gap-3 sm:grid-cols-2">
                 <div className="space-y-1.5">
@@ -1445,6 +1446,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
             <DialogContent className="max-h-[85vh] overflow-y-auto max-w-lg">
               <DialogHeader>
                 <DialogTitle>Edit dental record</DialogTitle>
+                <DialogDescription>Update visit date, diagnosis, procedure performed, and tooth or chart notes.</DialogDescription>
               </DialogHeader>
               <div className="space-y-3">
                 <div className="space-y-1.5">
@@ -1493,6 +1495,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
             <DialogContent size="lg" className="max-h-[80vh] overflow-y-auto">
               <DialogHeader>
                 <DialogTitle>Lab Result Details</DialogTitle>
+                <DialogDescription>View full lab test result, status, and notes for the selected test.</DialogDescription>
               </DialogHeader>
               {selectedLabId && (()=>{
                 const lab = labResults.find(l=>l.id===selectedLabId)

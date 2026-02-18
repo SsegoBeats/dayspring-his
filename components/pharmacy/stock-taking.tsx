@@ -4,7 +4,7 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
@@ -609,6 +609,7 @@ export function StockTaking() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Medication Stock Taking</DialogTitle>
+            <DialogDescription>Record a physical count for a medication to reconcile with system inventory.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleMedicationSubmit} className="space-y-4">
             {medications.length === 0 ? (
@@ -686,6 +687,7 @@ export function StockTaking() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>New Non-Medication Stock Taking</DialogTitle>
+            <DialogDescription>Record a physical count for a non-medication item to reconcile with system inventory.</DialogDescription>
           </DialogHeader>
           <form onSubmit={handleNonMedicationSubmit} className="space-y-4">
             {nonMedicationItems.length === 0 ? (

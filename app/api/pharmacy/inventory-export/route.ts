@@ -10,6 +10,7 @@ import { ORG_NAME } from "@/lib/org-constants"
 
 const Schema = z.object({
   format: z.enum(["xlsx", "pdf"]).default("xlsx"),
+  medicationIds: z.array(z.string()).optional(),
 })
 
 export async function POST(req: Request) {
@@ -23,18 +24,17 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as unknown
     const input = Schema.parse(body)
 
+    const hasFilter = Array.isArray(input.medicationIds) && input.medicationIds.length > 0
     const { rows } = await query(
-      `SELECT name,
-              category,
-              manufacturer,
-              stock_quantity,
-              reorder_level,
-              expiry_date,
-              unit_price,
-              barcode
-         FROM medications
-        ORDER BY name ASC`,
-      [],
+      hasFilter
+        ? `SELECT name, category, manufacturer, stock_quantity, reorder_level, expiry_date, unit_price, barcode
+             FROM medications
+            WHERE id = ANY($1::uuid[])
+            ORDER BY name ASC`
+        : `SELECT name, category, manufacturer, stock_quantity, reorder_level, expiry_date, unit_price, barcode
+             FROM medications
+            ORDER BY name ASC`,
+      hasFilter ? [input.medicationIds] : [],
     )
 
     const { getSystemCurrency } = await import("@/lib/org")
@@ -46,6 +46,7 @@ export async function POST(req: Request) {
       return {
         Medication: r.name,
         Category: r.category,
+        Manufacturer: r.manufacturer ?? "",
         Stock: Number(r.stock_quantity) || 0,
         Reorder: Number(r.reorder_level) || 0,
         Expiry: r.expiry_date ?? "",
@@ -97,6 +98,7 @@ export async function POST(req: Request) {
       prepared.map((r) => ({
         medication: r.Medication,
         category: r.Category,
+        manufacturer: r.Manufacturer,
         stock: r.Stock,
         reorder: r.Reorder,
         expiry: r.Expiry,

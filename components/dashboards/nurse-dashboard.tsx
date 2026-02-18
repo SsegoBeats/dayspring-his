@@ -9,7 +9,7 @@ import { PatientCareView } from "@/components/nursing/patient-care-view"
 import { Users, Activity, FileText, Clock, SortAsc, SortDesc, Loader2, Download, Calendar, AlertCircle } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { usePatients } from "@/lib/patient-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -561,6 +561,7 @@ export function NurseDashboard() {
                 return `Patient Care – ${p.firstName} ${p.lastName} (${pid})`
               })() : 'Patient Care'}
             </DialogTitle>
+            <DialogDescription>Record vitals, nursing notes, and view care history for this patient.</DialogDescription>
           </DialogHeader>
           {selected && (
             <PatientCareView

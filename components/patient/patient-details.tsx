@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Phone, MapPin, Droplet, AlertCircle, Activity } from "lucide-react"
 import { InsurancePolicies } from "@/components/patient/insurance-policies"
 import { DocumentsList } from "@/components/patient/documents-list"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { TriageForm } from "@/components/patient/triage-form"
 import { useState } from "react"
 import { Separator } from "@/components/ui/separator"
@@ -222,6 +222,7 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
         <DialogContent className="w-[min(96vw,1000px)] max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Triage Assessment - {patient.firstName} {patient.lastName}</DialogTitle>
+            <DialogDescription>Record triage category, vital signs, and chief complaint for this patient.</DialogDescription>
           </DialogHeader>
           <TriageForm
             patientId={patientId}

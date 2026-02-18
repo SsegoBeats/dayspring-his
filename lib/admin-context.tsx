@@ -2,6 +2,8 @@
 
 import type React from "react"
 import { createContext, useContext, useState, useEffect, useCallback } from "react"
+import { useAuth } from "@/lib/auth-context"
+import { can } from "@/lib/security"
 
 export type UserRole =
   | "Receptionist"
@@ -69,6 +71,7 @@ const mapUser = (u: any): SystemUser => ({
 const AdminContext = createContext<AdminContextType | undefined>(undefined)
 
 export function AdminProvider({ children }: { children: React.ReactNode }) {
+  const { user } = useAuth()
   const [users, setUsers] = useState<SystemUser[]>([])
   const [total, setTotal] = useState(0)
   const [summary, setSummary] = useState<UserSummary | null>(null)
@@ -129,8 +132,9 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   }, [])
 
   useEffect(() => {
+    if (!user || !can(user.role, "users", "read")) return
     fetchSummary().catch(() => {})
-  }, [])
+  }, [user?.id, user?.role])
 
   const addUser = async (user: Omit<SystemUser, "id" | "createdAt">) => {
     const res = await fetch("/api/admin/users", {

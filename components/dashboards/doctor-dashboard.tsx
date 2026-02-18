@@ -10,7 +10,7 @@ import { useAuth } from "@/lib/auth-context"
 import { PatientConsultation } from "@/components/doctor/patient-consultation"
 import { PatientQueue } from "@/components/doctor/patient-queue"
 import { Users, FileText, Pill, Activity, Calendar } from "lucide-react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { formatPatientNumber } from "@/lib/patients"
 
 interface DoctorDashboardProps {
@@ -219,6 +219,7 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
                 return 'Consultation – ' + p.firstName + ' ' + p.lastName + (pid ? ' (P.' + pid + ')' : '')
               })() : 'Consultation'}
             </DialogTitle>
+            <DialogDescription>View and document patient consultation, history, and orders.</DialogDescription>
           </DialogHeader>
           {selectedPatientId && (
             <PatientConsultation key={selectedPatientId} patientId={selectedPatientId} onBack={() => setSelectedPatientId(null)} initialTab={consultTab} />

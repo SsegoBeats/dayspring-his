@@ -1,7 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -148,6 +148,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
       <DialogContent size="lg" className="max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Patient</DialogTitle>
+          <DialogDescription>Update patient demographics, contact information, and next of kin.</DialogDescription>
         </DialogHeader>
         <form onSubmit={submit} className="space-y-4">
           {error && (

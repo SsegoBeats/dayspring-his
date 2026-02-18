@@ -7,7 +7,7 @@ import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { useMedical } from "@/lib/medical-context"
 import { useAuth } from "@/lib/auth-context"
@@ -707,6 +707,7 @@ export function RadiologistDashboard() {
         <DialogContent>
           <DialogHeader>
             <DialogTitle>Add Radiology Scan</DialogTitle>
+            <DialogDescription>Create a new radiology scan request for a patient with modality and priority.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="grid gap-3 md:grid-cols-2">
@@ -790,6 +791,7 @@ export function RadiologistDashboard() {
               <Info className="h-4 w-4 text-sky-500" />
               Upload Study
             </DialogTitle>
+            <DialogDescription>Manual upload of external images or CDs, or information about PACS workflow.</DialogDescription>
           </DialogHeader>
           <div className="space-y-5 text-sm text-muted-foreground">
             <div className="space-y-3">
@@ -885,6 +887,7 @@ export function RadiologistDashboard() {
               <Info className="h-4 w-4 text-sky-500" />
               Assign Case
             </DialogTitle>
+            <DialogDescription>Assign a study or case to a radiologist for reporting.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4 text-sm text-muted-foreground">
             <div className="grid gap-3 md:grid-cols-2">
@@ -964,6 +967,7 @@ export function RadiologistDashboard() {
               <Info className="h-4 w-4 text-sky-500" />
               Update Status for {bulkStatusTestIds.length} Case{bulkStatusTestIds.length > 1 ? "s" : ""}
             </DialogTitle>
+            <DialogDescription>Set the new status for the selected case(s): Completed, Cancelled, or Pending.</DialogDescription>
           </DialogHeader>
           <div className="space-y-4">
             <div className="space-y-2">

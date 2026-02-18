@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ChevronLeft, ChevronRight } from "lucide-react"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import AppointmentForm from "@/components/appointments/appointment-form"
 
 export function AppointmentCalendar() {
@@ -220,6 +220,7 @@ export function AppointmentCalendar() {
         <DialogContent size="xl" className="max-h-[85vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Book Appointment</DialogTitle>
+            <DialogDescription>Schedule a new appointment with doctor, date, time, and reason.</DialogDescription>
           </DialogHeader>
           <AppointmentForm
             initialDoctorId={doctorId || undefined}
