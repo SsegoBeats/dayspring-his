@@ -149,7 +149,7 @@ function BookAppointmentInner() {
             </div>
             <div className="space-y-2">
               <Label>Date</Label>
-              <Input type="date" value={date} onChange={(e) => setDate(e.target.value)} />
+              <Input id="book-date" name="appointmentDate" type="date" value={date} onChange={(e) => setDate(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Department</Label>

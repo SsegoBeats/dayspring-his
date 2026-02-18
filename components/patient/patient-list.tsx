@@ -138,7 +138,7 @@ export function PatientList({ initialSelectedPatientId }: { initialSelectedPatie
             </DialogDescription>
           </DialogHeader>
           <div className="space-y-2">
-            <Textarea value={deleteReason} onChange={(e)=>setDeleteReason(e.target.value)} placeholder="Reason for deletion..." rows={4} />
+            <Textarea id="delete-reason" name="deleteReason" value={deleteReason} onChange={(e)=>setDeleteReason(e.target.value)} placeholder="Reason for deletion..." rows={4} />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={()=>setDeleteOpen(false)}>Cancel</Button>
               <Button

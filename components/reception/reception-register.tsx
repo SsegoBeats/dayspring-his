@@ -98,11 +98,11 @@ export function ReceptionRegister() {
       <CardContent className="grid gap-3 md:grid-cols-12">
         <div className="space-y-1 md:col-span-3">
           <label className="text-sm font-medium">From</label>
-          <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
+          <Input id="reception-register-from" name="dateFrom" type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
         </div>
         <div className="space-y-1 md:col-span-3">
           <label className="text-sm font-medium">To</label>
-          <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
+          <Input id="reception-register-to" name="dateTo" type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
         </div>
         <div className="space-y-1 md:col-span-3">
           <label className="text-sm font-medium">Department</label>

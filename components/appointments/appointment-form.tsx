@@ -143,10 +143,10 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
             <div className="space-y-2">
               <div className="flex gap-2">
                 <div className="relative flex-1">
-                  <Input placeholder="Search patient" value={q} onChange={(e)=>{ setQ(e.target.value); searchPatients(e.target.value) }} />
+                  <Input id="appointment-search-patient" name="patientSearch" placeholder="Search patient" value={q} onChange={(e)=>{ setQ(e.target.value); searchPatients(e.target.value) }} />
                   <Search className="absolute right-2 top-2.5 h-4 w-4 text-muted-foreground" />
                 </div>
-                <Input className="w-64" placeholder="Selected ID" value={formData.patientId} readOnly />
+                <Input id="appointment-selected-id" name="patientId" className="w-64" placeholder="Selected ID" value={formData.patientId} readOnly />
               </div>
               {formData.patientId && (
                 <div className="text-xs text-muted-foreground">

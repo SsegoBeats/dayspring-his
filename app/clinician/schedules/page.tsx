@@ -211,11 +211,11 @@ export default function ClinicianSchedulesPage() {
             </div>
             <div className="space-y-2">
               <Label>Start</Label>
-              <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+              <Input id="schedule-start" name="startTime" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>End</Label>
-              <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+              <Input id="schedule-end" name="endTime" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Slot / Capacity</Label>
@@ -321,7 +321,7 @@ export default function ClinicianSchedulesPage() {
                 </div>
                 <div className="space-y-2">
                   <Label>End</Label>
-                  <Input type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
+                  <Input id="schedule-edit-end" name="editEndTime" type="time" value={editEnd} onChange={(e) => setEditEnd(e.target.value)} />
                 </div>
                 <div className="space-y-2">
                   <Label>Slot (min)</Label>

@@ -286,20 +286,20 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
             <div className="grid gap-4 md:grid-cols-4">
               <div className="space-y-2">
                 <Label>Height (cm)</Label>
-                <Input type="number" inputMode="numeric" min={30} max={230} step={1} value={form.heightCm} onChange={(e)=>setForm({ ...form, heightCm: e.target.value })} placeholder="170" />
+                <Input id="triage-heightCm" name="heightCm" type="number" inputMode="numeric" min={30} max={230} step={1} value={form.heightCm} onChange={(e)=>setForm({ ...form, heightCm: e.target.value })} placeholder="170" />
               </div>
               <div className="space-y-2">
                 <Label>Random Blood Glucose (mmol/L)</Label>
-                <Input type="number" inputMode="decimal" min={1} max={40} step={0.1} value={form.bloodGlucose} onChange={(e)=>setForm({ ...form, bloodGlucose: e.target.value })} placeholder="5.6" />
+                <Input id="triage-bloodGlucose" name="bloodGlucose" type="number" inputMode="decimal" min={1} max={40} step={0.1} value={form.bloodGlucose} onChange={(e)=>setForm({ ...form, bloodGlucose: e.target.value })} placeholder="5.6" />
               </div>
               <div className="space-y-2">
                 <Label>Capillary Refill (sec)</Label>
-                <Input type="number" inputMode="numeric" min={0} max={10} step={0.5} value={form.capillaryRefill} onChange={(e)=>setForm({ ...form, capillaryRefill: e.target.value })} placeholder="2" />
+                <Input id="triage-capillaryRefill" name="capillaryRefill" type="number" inputMode="numeric" min={0} max={10} step={0.5} value={form.capillaryRefill} onChange={(e)=>setForm({ ...form, capillaryRefill: e.target.value })} placeholder="2" />
               </div>
               {form.mode === 'Child' && (
                 <div className="space-y-2">
                   <Label>MUAC (cm)</Label>
-                  <Input type="number" inputMode="numeric" min={5} max={30} step={0.1} value={form.muacCm} onChange={(e)=>setForm({ ...form, muacCm: e.target.value })} placeholder="13.5" />
+                  <Input id="triage-muacCm" name="muacCm" type="number" inputMode="numeric" min={5} max={30} step={0.1} value={form.muacCm} onChange={(e)=>setForm({ ...form, muacCm: e.target.value })} placeholder="13.5" />
                 </div>
               )}
             </div>

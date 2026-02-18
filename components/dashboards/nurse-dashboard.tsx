@@ -111,7 +111,7 @@ export function NurseDashboard() {
       }
       finally { setLatestLoading(false) }
     }
-    const t = setTimeout(load, 250)
+    const t = setTimeout(() => { void load() }, 250)
     return () => { stop = true; clearTimeout(t); controller.abort() }
   }, [q, refreshKey])
 
@@ -402,7 +402,7 @@ export function NurseDashboard() {
           <CardTitle>Latest Vitals {datePreset === 'today' ? '(Today)' : `(${dateFrom} to ${dateTo})`}</CardTitle>
           <div className="flex gap-2 flex-wrap">
             <div className="w-48">
-              <Input value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Search by name or P.ID" />
+              <Input id="nurse-search" name="nurseSearch" value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Search by name or P.ID" />
             </div>
             <Select value={filterTriage} onValueChange={setFilterTriage}>
               <SelectTrigger className="w-40">

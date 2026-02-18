@@ -152,11 +152,11 @@ export function DentistDashboard() {
           <div className="grid gap-3 md:grid-cols-12 items-end">
             <div className="space-y-1 md:col-span-3">
               <label className="text-xs font-medium">From</label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
+              <Input id="dentist-dateFrom" name="dateFrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} />
             </div>
             <div className="space-y-1 md:col-span-3">
               <label className="text-xs font-medium">To</label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} />
+              <Input id="dentist-dateTo" name="dateTo" type="date" value={to} onChange={(e) => setTo(e.target.value)} />
             </div>
             <div className="flex items-center gap-2 md:col-span-6 justify-end">
               <label className="flex items-center gap-2 text-xs cursor-pointer">

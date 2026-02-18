@@ -43,7 +43,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
       else setStatusMsg("")
       setLoading(false)
     }
-    const t = setTimeout(load, 250)
+    const t = setTimeout(() => { void load() }, 250)
     return () => { clearTimeout(t); ctrl.abort() }
   }, [search])
 
@@ -112,7 +112,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
 
             <div className="space-y-1">
               <Label>Clinical Notes</Label>
-              <Input placeholder="Reason for test, symptoms, etc." value={notes} onChange={(e)=> setNotes(e.target.value)} />
+              <Input id="order-lab-notes" name="clinicalNotes" placeholder="Reason for test, symptoms, etc." value={notes} onChange={(e)=> setNotes(e.target.value)} />
             </div>
             <div className="grid md:grid-cols-2 gap-3">
               <div className="space-y-1">
@@ -175,7 +175,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
             <div className="space-y-2">
               <div className="text-xs text-muted-foreground">Can’t find it? Add a custom test name below.</div>
               <div className="flex gap-2">
-                <Input placeholder="Custom test name" value={manualName} onChange={(e)=> setManualName(e.target.value)} />
+                <Input id="order-lab-manual-name" name="manualTestName" placeholder="Custom test name" value={manualName} onChange={(e)=> setManualName(e.target.value)} />
                 <Button variant="outline" onClick={addManual} disabled={!manualName.trim()}>Add</Button>
               </div>
               <div className="text-xs text-muted-foreground">Quick picks:</div>

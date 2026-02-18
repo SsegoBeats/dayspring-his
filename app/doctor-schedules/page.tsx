@@ -134,11 +134,11 @@ export default function DoctorSchedulesPage() {
             </div>
             <div className="space-y-2">
               <Label>Start</Label>
-              <Input type="time" value={start} onChange={(e) => setStart(e.target.value)} />
+              <Input id="doctor-schedule-start" name="startTime" type="time" value={start} onChange={(e) => setStart(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>End</Label>
-              <Input type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
+              <Input id="doctor-schedule-end" name="endTime" type="time" value={end} onChange={(e) => setEnd(e.target.value)} />
             </div>
             <div className="space-y-2">
               <Label>Slot / Capacity</Label>

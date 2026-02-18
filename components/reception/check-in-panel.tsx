@@ -34,28 +34,30 @@ export function CheckInPanel() {
       return
     }
     const ac = new AbortController()
-    const h = setTimeout(async () => {
-      try {
-        setLoading(true)
-        const res = await fetch(`/api/patients?q=${encodeURIComponent(q)}&limit=25&compact=1`, {
-          credentials: "include",
-          signal: ac.signal,
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setPatients((data.patients || []) as CompactPatient[])
-        } else {
-          const body = await res.json().catch(() => ({}))
-          toast.error((body as { error?: string }).error || "Search failed")
+    const h = setTimeout(() => {
+      void (async () => {
+        try {
+          setLoading(true)
+          const res = await fetch(`/api/patients?q=${encodeURIComponent(q)}&limit=25&compact=1`, {
+            credentials: "include",
+            signal: ac.signal,
+          })
+          if (res.ok) {
+            const data = await res.json()
+            setPatients((data.patients || []) as CompactPatient[])
+          } else {
+            const body = await res.json().catch(() => ({}))
+            toast.error((body as { error?: string }).error || "Search failed")
+            setPatients([])
+          }
+        } catch (err) {
+          if ((err as { name?: string })?.name === "AbortError") return
+          toast.error("Search failed. Please try again.")
           setPatients([])
+        } finally {
+          setLoading(false)
         }
-      } catch (err) {
-        if ((err as { name?: string })?.name === "AbortError") return
-        toast.error("Search failed. Please try again.")
-        setPatients([])
-      } finally {
-        setLoading(false)
-      }
+      })()
     }, 250)
     return () => {
       clearTimeout(h)

@@ -393,7 +393,7 @@ export function BedManagement() {
         if (!cancelled) setPatientResults([])
       }
     }
-    const t = setTimeout(run, 250)
+    const t = setTimeout(() => { void run() }, 250)
     return () => { cancelled = true; clearTimeout(t) }
   }, [isAssignDialogOpen, patientSearch])
 

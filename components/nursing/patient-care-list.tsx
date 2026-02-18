@@ -125,7 +125,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 onBlur={()=> setBulkVitals((v)=> ({...v, oxygenSaturation: fmtSpO2(v.oxygenSaturation)}))}
               />
             </div>
-            <Input placeholder="Notes (optional)" value={bulkVitals.notes} onChange={(e)=>setBulkVitals({...bulkVitals, notes:e.target.value})} />
+            <Input id="bulk-vitals-notes" name="bulkVitalsNotes" placeholder="Notes (optional)" value={bulkVitals.notes} onChange={(e)=>setBulkVitals({...bulkVitals, notes:e.target.value})} />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={()=> setSelectedIds([])} disabled={bulkSaving}>Clear Selection</Button>
               <Button onClick={async ()=>{

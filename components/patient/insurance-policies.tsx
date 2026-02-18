@@ -145,8 +145,8 @@ export function InsurancePolicies({ patientId }: { patientId: string }) {
               </SelectContent>
             </Select>
           </div>
-          <Input placeholder="Policy No" value={policyNo} onChange={(e)=>setPolicyNo(e.target.value)} />
-          <Input placeholder="Coverage notes (optional)" value={notes} onChange={(e)=>setNotes(e.target.value)} />
+          <Input id="insurance-policyNo" name="policyNo" placeholder="Policy No" value={policyNo} onChange={(e)=>setPolicyNo(e.target.value)} />
+          <Input id="insurance-notes" name="coverageNotes" placeholder="Coverage notes (optional)" value={notes} onChange={(e)=>setNotes(e.target.value)} />
         </div>
         <Button onClick={addPolicy} disabled={creating || payers.length === 0}>{creating? 'Adding...':'Add Policy'}</Button>
 
@@ -205,8 +205,8 @@ export function InsurancePolicies({ patientId }: { patientId: string }) {
         <div className="rounded border p-3 space-y-2">
           <div className="text-sm font-medium">Add New Payer</div>
           <div className="grid gap-2 grid-cols-1 md:grid-cols-3">
-            <Input placeholder="Payer Name" value={newPayerName} onChange={(e)=>setNewPayerName(e.target.value)} />
-            <Input placeholder="Payer Code (optional)" value={newPayerCode} onChange={(e)=>setNewPayerCode(e.target.value)} />
+            <Input id="insurance-payerName" name="payerName" placeholder="Payer Name" value={newPayerName} onChange={(e)=>setNewPayerName(e.target.value)} />
+            <Input id="insurance-payerCode" name="payerCode" placeholder="Payer Code (optional)" value={newPayerCode} onChange={(e)=>setNewPayerCode(e.target.value)} />
             <Button onClick={addPayer} disabled={addingPayer}>{addingPayer?'Adding...':'Add Payer'}</Button>
           </div>
         </div>

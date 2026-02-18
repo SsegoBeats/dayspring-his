@@ -97,11 +97,11 @@ export default function MidwifeAncPage() {
           <CardContent className="flex flex-wrap items-end gap-4">
             <div className="space-y-1">
               <label className="text-xs font-medium">From</label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+              <Input id="anc-dateFrom" name="dateFrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
             </div>
             <div className="space-y-1">
               <label className="text-xs font-medium">To</label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+              <Input id="anc-dateTo" name="dateTo" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
             </div>
             <Link href="/dashboard">
               <Button variant="outline" size="sm">

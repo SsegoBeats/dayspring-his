@@ -34,14 +34,16 @@ export function PaymentsPanel() {
 
   // Search patients (debounced)
   useEffect(() => {
-    const h = setTimeout(async () => {
+    const h = setTimeout(() => {
       if (!q || q.length < 2) { setPatients([]); return }
-      try {
-        setSearching(true)
-        const res = await fetch(`/api/patients?q=${encodeURIComponent(q)}&limit=25&compact=1`, { credentials: 'include' })
-        if (res.ok) setPatients((await res.json()).patients || [])
-      } catch {}
-      finally { setSearching(false) }
+      void (async () => {
+        try {
+          setSearching(true)
+          const res = await fetch(`/api/patients?q=${encodeURIComponent(q)}&limit=25&compact=1`, { credentials: 'include' })
+          if (res.ok) setPatients((await res.json()).patients || [])
+        } catch {}
+        finally { setSearching(false) }
+      })()
     }, 250)
     return () => clearTimeout(h)
   }, [q])
@@ -150,7 +152,7 @@ export function PaymentsPanel() {
       <CardContent className="space-y-3">
         <div className="grid gap-3 md:grid-cols-3">
           <div className="md:col-span-2 space-y-2">
-            <Input placeholder="Search patient" value={q} onChange={(e) => setQ(e.target.value)} />
+            <Input id="payments-search" name="paymentsSearch" placeholder="Search patient" value={q} onChange={(e) => setQ(e.target.value)} />
             {selectedPatientId && (
               <div className="text-xs text-muted-foreground">
                 Selected: {selectedPatient ? `${formatPatientNumber(selectedPatient.patient_number)} - ${selectedPatient.first_name} ${selectedPatient.last_name}` : selectedPatientId}
@@ -178,7 +180,7 @@ export function PaymentsPanel() {
                   <SelectItem value="bank">Bank</SelectItem>
                 </SelectContent>
               </Select>
-              <Input placeholder="Reference (optional)" value={reference} onChange={(e) => setReference(e.target.value)} />
+              <Input id="payments-reference" name="reference" placeholder="Reference (optional)" value={reference} onChange={(e) => setReference(e.target.value)} />
               {errorMsg && (<div className="text-xs text-red-600">{errorMsg}</div>)}
               <Button onClick={create} disabled={creating}>
                 {creating ? (
@@ -194,11 +196,11 @@ export function PaymentsPanel() {
         <div className="grid gap-2 md:grid-cols-4">
           <div className="space-y-1">
             <label className="text-sm font-medium">From</label>
-            <Input type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
+            <Input id="payments-dateFrom" name="dateFrom" type="date" value={from} onChange={(e)=>setFrom(e.target.value)} />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium">To</label>
-            <Input type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
+            <Input id="payments-dateTo" name="dateTo" type="date" value={to} onChange={(e)=>setTo(e.target.value)} />
           </div>
           <div className="space-y-1">
             <label className="text-sm font-medium">Method</label>
@@ -256,8 +258,8 @@ export function PaymentsPanel() {
           <div className="text-sm font-medium">Line Items (optional)</div>
           {items.map((it, i) => (
             <div key={i} className="grid gap-2 md:grid-cols-6 items-center">
-              <Input className="md:col-span-4" placeholder="Description" value={it.description} onChange={(e)=>{ const next=[...items]; next[i].description=e.target.value; setItems(next) }} />
-              <Input className="md:col-span-1" placeholder="Amount" inputMode="decimal" value={it.amount} onChange={(e)=>{ const next=[...items]; next[i].amount=e.target.value.replace(/[^0-9.]/g,''); setItems(next) }} />
+              <Input id={`payments-item-desc-${i}`} name={`itemDescription-${i}`} className="md:col-span-4" placeholder="Description" value={it.description} onChange={(e)=>{ const next=[...items]; next[i].description=e.target.value; setItems(next) }} />
+              <Input id={`payments-item-amount-${i}`} name={`itemAmount-${i}`} className="md:col-span-1" placeholder="Amount" inputMode="decimal" value={it.amount} onChange={(e)=>{ const next=[...items]; next[i].amount=e.target.value.replace(/[^0-9.]/g,''); setItems(next) }} />
               <Button variant="outline" onClick={()=>{ const next=[...items]; next.splice(i,1); setItems(next) }}>Remove</Button>
             </div>
           ))}

@@ -388,11 +388,11 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
             <div className="flex flex-wrap items-center gap-2">
               <div className="flex items-center gap-2">
                 <Label className="text-xs">From:</Label>
-                <Input type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[140px]" />
+                <Input id="lab-queue-dateFrom" name="dateFrom" type="date" value={dateFrom} onChange={(e) => setDateFrom(e.target.value)} className="w-[140px]" />
               </div>
               <div className="flex items-center gap-2">
                 <Label className="text-xs">To:</Label>
-                <Input type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[140px]" />
+                <Input id="lab-queue-dateTo" name="dateTo" type="date" value={dateTo} onChange={(e) => setDateTo(e.target.value)} className="w-[140px]" />
               </div>
               {anyFilters && (
                 <Button variant="ghost" size="sm" onClick={() => {

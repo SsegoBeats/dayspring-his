@@ -159,17 +159,17 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>First Name</Label>
-              <Input value={form.firstName} onChange={(e)=>setForm({ ...form, firstName: e.target.value })} required />
+              <Input id="edit-patient-firstName" name="firstName" value={form.firstName} onChange={(e)=>setForm({ ...form, firstName: e.target.value })} required />
             </div>
             <div className="space-y-2">
               <Label>Last Name</Label>
-              <Input value={form.lastName} onChange={(e)=>setForm({ ...form, lastName: e.target.value })} required />
+              <Input id="edit-patient-lastName" name="lastName" value={form.lastName} onChange={(e)=>setForm({ ...form, lastName: e.target.value })} required />
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
               <Label>Age (years)</Label>
-              <Input type="number" inputMode="numeric" min={0} max={130} value={form.ageYears} onChange={(e)=>setForm({ ...form, ageYears: e.target.value })} />
+              <Input id="edit-patient-ageYears" name="ageYears" type="number" inputMode="numeric" min={0} max={130} value={form.ageYears} onChange={(e)=>setForm({ ...form, ageYears: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Gender</Label>
@@ -184,16 +184,18 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
             </div>
             <div className="space-y-2">
               <Label>Phone</Label>
-              <Input value={form.phone} onChange={(e)=>setForm({ ...form, phone: e.target.value })} required />
+              <Input id="edit-patient-phone" name="phone" value={form.phone} onChange={(e)=>setForm({ ...form, phone: e.target.value })} required />
             </div>
           </div>
           <div className="space-y-2">
             <Label>Address</Label>
-            <Input value={form.address} onChange={(e)=>setForm({ ...form, address: e.target.value })} />
+            <Input id="edit-patient-address" name="address" value={form.address} onChange={(e)=>setForm({ ...form, address: e.target.value })} />
           </div>
           <div className="space-y-2">
             <Label>Blood Group</Label>
             <Input
+              id="edit-patient-bloodGroup"
+              name="bloodGroup"
               value={form.bloodGroup}
               onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}
               placeholder="e.g., O+"
@@ -202,11 +204,11 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
               <Label>Emergency Contact Name</Label>
-              <Input value={form.emergencyContactName} onChange={(e)=>setForm({ ...form, emergencyContactName: e.target.value })} />
+              <Input id="edit-patient-emergencyContactName" name="emergencyContactName" value={form.emergencyContactName} onChange={(e)=>setForm({ ...form, emergencyContactName: e.target.value })} />
             </div>
             <div className="space-y-2">
               <Label>Emergency Contact Phone</Label>
-              <Input value={form.emergencyContactPhone} onChange={(e)=>setForm({ ...form, emergencyContactPhone: e.target.value })} />
+              <Input id="edit-patient-emergencyContactPhone" name="emergencyContactPhone" value={form.emergencyContactPhone} onChange={(e)=>setForm({ ...form, emergencyContactPhone: e.target.value })} />
             </div>
           </div>
           <div className="space-y-3 rounded-md border p-3">
@@ -214,17 +216,17 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
                 <Label>First Name</Label>
-                <Input value={form.nextOfKinFirstName} onChange={(e)=>setForm({ ...form, nextOfKinFirstName: e.target.value })} />
+                <Input id="edit-patient-nextOfKinFirstName" name="nextOfKinFirstName" value={form.nextOfKinFirstName} onChange={(e)=>setForm({ ...form, nextOfKinFirstName: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Last Name</Label>
-                <Input value={form.nextOfKinLastName} onChange={(e)=>setForm({ ...form, nextOfKinLastName: e.target.value })} />
+                <Input id="edit-patient-nextOfKinLastName" name="nextOfKinLastName" value={form.nextOfKinLastName} onChange={(e)=>setForm({ ...form, nextOfKinLastName: e.target.value })} />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
                 <Label>Phone</Label>
-                <Input value={form.nextOfKinPhone} onChange={(e)=>setForm({ ...form, nextOfKinPhone: e.target.value })} />
+                <Input id="edit-patient-nextOfKinPhone" name="nextOfKinPhone" value={form.nextOfKinPhone} onChange={(e)=>setForm({ ...form, nextOfKinPhone: e.target.value })} />
               </div>
               <div className="space-y-2">
                 <Label>Relationship</Label>
@@ -247,7 +249,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
               </div>
               <div className="space-y-2">
                 <Label>Residence</Label>
-                <Input value={form.nextOfKinResidence} onChange={(e)=>setForm({ ...form, nextOfKinResidence: e.target.value })} />
+                <Input id="edit-patient-nextOfKinResidence" name="nextOfKinResidence" value={form.nextOfKinResidence} onChange={(e)=>setForm({ ...form, nextOfKinResidence: e.target.value })} />
               </div>
             </div>
           </div>
