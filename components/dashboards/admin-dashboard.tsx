@@ -2,7 +2,7 @@
 
 import Link from "next/link"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { LayoutDashboard, Users as UsersIcon, BedDouble, IdCard, BarChart3, ScrollText, Settings } from "lucide-react"
+import { LayoutDashboard, Users as UsersIcon, BedDouble, IdCard, BarChart3, ScrollText, Settings, Boxes } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { SystemOverview } from "@/components/admin/system-overview"
 import { UserManagement } from "@/components/admin/user-management"
@@ -10,6 +10,7 @@ import { FinancialReports } from "@/components/analytics/financial-reports"
 import { AuditLogViewer } from "@/components/admin/audit-log-viewer"
 import { BedManagement } from "@/components/admin/bed-management"
 import { AdminPatientManagement } from "@/components/admin/admin-patient-management"
+import { NonMedicationInventory } from "@/components/pharmacy/non-medication-inventory"
 
 export function AdminDashboard() {
   return (
@@ -53,6 +54,10 @@ export function AdminDashboard() {
             <ScrollText className="h-3.5 w-3.5" />
             <span>Audit Trail</span>
           </TabsTrigger>
+          <TabsTrigger value="non-medication" className="flex items-center gap-1.5 px-3 py-1.5 data-[state=active]:bg-background data-[state=active]:shadow-sm">
+            <Boxes className="h-3.5 w-3.5" />
+            <span>Non-Medication Inventory</span>
+          </TabsTrigger>
         </TabsList>
 
         <TabsContent value="overview" className="space-y-4">
@@ -77,6 +82,10 @@ export function AdminDashboard() {
 
         <TabsContent value="audit" className="space-y-4">
           <AuditLogViewer />
+        </TabsContent>
+
+        <TabsContent value="non-medication" className="space-y-4">
+          <NonMedicationInventory />
         </TabsContent>
       </Tabs>
     </div>

@@ -15,7 +15,6 @@ import { ReorderSuggestions } from "@/components/pharmacy/reorder-suggestions"
 import { StockTaking } from "@/components/pharmacy/stock-taking"
 import { UsageAnalytics } from "@/components/pharmacy/usage-analytics"
 import { ABCAnalysis } from "@/components/pharmacy/abc-analysis"
-import { NonMedicationInventory } from "@/components/pharmacy/non-medication-inventory"
 import { StockAdjustments } from "@/components/pharmacy/stock-adjustments"
 import { SupplierManagement } from "@/components/pharmacy/supplier-management"
 import {
@@ -51,7 +50,7 @@ export function PharmacistDashboard() {
     items: { description: string; quantity: number }[]
     billStatus: string
   } | null>(null)
-  const [tab, setTab] = useState<"prescriptions" | "inventory" | "non-medication" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc" | "adjustments">("prescriptions")
+  const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc" | "adjustments">("prescriptions")
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const scanInputRef = useRef<HTMLInputElement>(null)
 
@@ -249,7 +248,6 @@ export function PharmacistDashboard() {
             Prescriptions ({prescriptions.length})
           </TabsTrigger>
           <TabsTrigger value="inventory">Inventory ({medications.length})</TabsTrigger>
-          <TabsTrigger value="non-medication">Non-Meds</TabsTrigger>
           <TabsTrigger value="valuation">
             <DollarSign className="mr-1 h-4 w-4" />
             Valuation
@@ -367,10 +365,6 @@ export function PharmacistDashboard() {
 
         <TabsContent value="inventory" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <MedicationInventory />
-        </TabsContent>
-
-        <TabsContent value="non-medication" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
-          <NonMedicationInventory />
         </TabsContent>
 
         <TabsContent value="valuation" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">

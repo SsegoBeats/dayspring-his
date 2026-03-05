@@ -9,7 +9,7 @@ export async function POST(req: Request) {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "pharmacy", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!can(auth.role, "non_medication_inventory", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const body = (await req.json().catch(() => ({}))) as {
       itemId?: string
@@ -70,7 +70,7 @@ export async function GET(req: Request) {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "pharmacy", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!can(auth.role, "non_medication_inventory", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const url = new URL(req.url)
     const itemId = (url.searchParams.get("itemId") || "").trim()
@@ -125,7 +125,7 @@ export async function PATCH(req: Request) {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "pharmacy", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!can(auth.role, "non_medication_inventory", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const body = (await req.json().catch(() => ({}))) as {
       id?: string

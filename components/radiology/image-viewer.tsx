@@ -1,6 +1,7 @@
 "use client"
 
 import { useState } from "react"
+import Image from "next/image"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, RotateCw } from "lucide-react"
@@ -63,14 +64,13 @@ export function ImageViewer({ images, open, onOpenChange, initialIndex = 0 }: Im
 
         <div className="flex-1 relative overflow-hidden bg-black/90 flex items-center justify-center">
           {/* Image container */}
-          <div className="relative w-full h-full flex items-center justify-center">
-            <img
+          <div className="relative w-full h-full flex items-center justify-center" style={{ transform: `scale(${zoom}) rotate(${rotation}deg)` }}>
+            <Image
               src={currentImage.url}
               alt={currentImage.name || `Image ${currentIndex + 1}`}
-              className="max-w-full max-h-full object-contain transition-transform duration-200"
-              style={{
-                transform: `scale(${zoom}) rotate(${rotation}deg)`,
-              }}
+              fill
+              className="object-contain transition-transform duration-200"
+              unoptimized
               onError={(e) => {
                 const target = e.target as HTMLImageElement
                 target.style.display = "none"
@@ -136,7 +136,7 @@ export function ImageViewer({ images, open, onOpenChange, initialIndex = 0 }: Im
                     idx === currentIndex ? "border-primary ring-2 ring-primary/20" : "border-border opacity-60 hover:opacity-100"
                   )}
                 >
-                  <img src={img.url} alt={`Thumbnail ${idx + 1}`} className="w-full h-full object-cover" />
+                  <Image src={img.url} alt={`Thumbnail ${idx + 1}`} width={80} height={80} className="w-full h-full object-cover" unoptimized />
                 </button>
               ))}
             </div>

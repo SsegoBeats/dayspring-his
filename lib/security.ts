@@ -96,6 +96,7 @@ type Resource =
   | "payments"
   | "documents"
   | "insurance"
+  | "non_medication_inventory"
 
 const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
   Receptionist: {
@@ -177,6 +178,7 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
     payments: ["read", "create", "update", "delete"],
     documents: ["read", "create", "update", "delete"],
     insurance: ["read", "create", "update", "delete"],
+    non_medication_inventory: ["read", "create", "update", "delete"], // Admin owns non-medication inventory
   },
   Cashier: {
     billing: ["read", "create", "update"],

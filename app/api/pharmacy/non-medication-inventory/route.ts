@@ -9,7 +9,7 @@ export async function GET() {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "pharmacy", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!can(auth.role, "non_medication_inventory", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const { rows } = await queryWithSession(
       { role: auth.role, userId: auth.userId },
@@ -51,7 +51,7 @@ export async function POST(req: Request) {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "pharmacy", "update") && !can(auth.role, "pharmacy", "create")) {
+    if (!can(auth.role, "non_medication_inventory", "update") && !can(auth.role, "non_medication_inventory", "create")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

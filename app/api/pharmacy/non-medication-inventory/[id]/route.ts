@@ -9,7 +9,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "pharmacy", "update")) {
+    if (!can(auth.role, "non_medication_inventory", "update")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
@@ -152,7 +152,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "pharmacy", "update")) {
+    if (!can(auth.role, "non_medication_inventory", "update")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 

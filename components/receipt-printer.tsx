@@ -140,34 +140,28 @@ export function ReceiptPrinter({
           </table>
         </div>
 
-        {/* Totals */}
+        {/* Totals: Total Amount, Amount Paid, Balance (last) — no Subtotal per user feedback */}
         <div className="space-y-2 text-sm mb-6">
           <div className="flex justify-between">
-            <span className="text-muted-foreground">Subtotal:</span>
-            <span>{formatCurrency(subtotal)}</span>
+            <span className="text-muted-foreground">Total Amount:</span>
+            <span>{formatCurrency(originalTotal ?? total)}</span>
           </div>
-          {originalTotal && originalTotal > total && (
-            <>
-              <div className="flex justify-between">
-                <span className="text-muted-foreground">Total Amount:</span>
-                <span>{formatCurrency(originalTotal)}</span>
-              </div>
-              <div className="flex justify-between text-green-600">
-                <span>Amount paid this time:</span>
-                <span>{formatCurrency(total)}</span>
-              </div>
-              {remainingBalance !== undefined && remainingBalance > 0 && (
-                <div className="flex justify-between text-amber-600 font-semibold">
-                  <span>Balance still due:</span>
-                  <span>{formatCurrency(remainingBalance)}</span>
-                </div>
-              )}
-            </>
+          <div className="flex justify-between text-green-600">
+            <span>Amount Paid:</span>
+            <span>{formatCurrency(total)}</span>
+          </div>
+          {remainingBalance !== undefined && remainingBalance > 0 && (
+            <div className="flex justify-between text-amber-600 font-semibold">
+              <span>Balance:</span>
+              <span>{formatCurrency(remainingBalance)}</span>
+            </div>
           )}
-          <div className="flex justify-between text-lg font-bold border-t-2 pt-2">
-            <span>{originalTotal && originalTotal > total ? "AMOUNT PAID THIS TIME:" : "TOTAL PAID:"}</span>
-            <span className="text-primary">{formatCurrency(total)}</span>
-          </div>
+          {(!originalTotal || originalTotal <= total) && (
+            <div className="flex justify-between text-lg font-bold border-t-2 pt-2">
+              <span>TOTAL PAID:</span>
+              <span className="text-primary">{formatCurrency(total)}</span>
+            </div>
+          )}
         </div>
 
         {/* Barcode */}

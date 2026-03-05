@@ -50,6 +50,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
       }
     } catch {}
   }, [patientId])
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- persist tab; storageKey is derived from patientId
   useEffect(() => {
     try { if (typeof window !== 'undefined') localStorage.setItem(storageKey, activeTab) } catch {}
   }, [activeTab])
