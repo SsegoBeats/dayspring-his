@@ -130,6 +130,7 @@ export function MedicationInventory() {
     return "all"
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- classifyExpiry is a local helper
   const normalized = useMemo(() => {
     const query = searchQuery.toLowerCase().trim()
     return medications

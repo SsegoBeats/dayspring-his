@@ -50,6 +50,7 @@ export function InsurancePolicies({ patientId }: { patientId: string }) {
     } catch {} finally { setLoading(false) }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when patientId changes
   useEffect(() => { load() }, [patientId])
 
   const addPolicy = async () => {

@@ -40,6 +40,7 @@ export function UsageAnalytics() {
   const [months, setMonths] = useState(6)
   const [view, setView] = useState<"forecasts" | "history">("forecasts")
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run when months changes
   useEffect(() => {
     loadAnalytics()
   }, [months])

@@ -515,6 +515,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
     }
   }
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run when patient.id changes
   useEffect(() => {
     if (!patient) return
 

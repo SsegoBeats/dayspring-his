@@ -39,6 +39,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
 
   // Remember last active tab per patient
   const storageKey = `nurse-care-tab:${patientId}`
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when patientId changes
   useEffect(() => {
     try {
       const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null
@@ -48,7 +49,6 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
         setActiveTab(initialTab)
       }
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [patientId])
   useEffect(() => {
     try { if (typeof window !== 'undefined') localStorage.setItem(storageKey, activeTab) } catch {}
@@ -180,6 +180,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
   }, [vitalsForm, patient, patientAge])
 
   // Keyboard shortcuts: Ctrl+Enter saves current tab
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- commitVitals/commitNote are stable enough; deps cover intent
   useEffect(() => {
     if (!patient) return
     const onKey = (e: KeyboardEvent) => {

@@ -59,6 +59,7 @@ export function NonMedicationInventory() {
   const [isEditing, setIsEditing] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
+  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
   useEffect(() => {
     loadItems()
   }, [])

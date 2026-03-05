@@ -72,7 +72,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
       nextOfKinRelation: patient.nextOfKinRelation || "",
       nextOfKinResidence: patient.nextOfKinResidence || "",
     })
-  }, [open])
+  }, [open, patient])
 
   const submit = async (e: React.FormEvent) => {
     e.preventDefault()
