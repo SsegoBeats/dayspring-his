@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
+import {
+  isValidNonMedicationCategory,
+  isValidSubtypeForCategory,
+  type NonMedicationCategory,
+} from "@/lib/constants/non-medication-inventory"
 
 export async function GET() {
   try {
@@ -16,6 +21,7 @@ export async function GET() {
       `SELECT id,
               item_name,
               item_type,
+              item_subtype,
               description,
               manufacturer,
               model_number,
@@ -58,6 +64,7 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as {
       itemName?: string
       itemType?: string
+      itemSubtype?: string
       description?: string
       manufacturer?: string
       modelNumber?: string
@@ -76,6 +83,7 @@ export async function POST(req: Request) {
 
     const itemName = (body.itemName || "").trim()
     const itemType = (body.itemType || "").trim()
+    const itemSubtype = (body.itemSubtype || "").trim() || null
     const description = (body.description || "").trim() || null
     const manufacturer = (body.manufacturer || "").trim() || null
     const modelNumber = (body.modelNumber || "").trim() || null
@@ -101,16 +109,11 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "itemName and itemType are required" }, { status: 400 })
     }
 
-    const validTypes = [
-      "Medical Equipment",
-      "Personal Protective Gear",
-      "Patient Care Items",
-      "Diagnostic Equipment",
-      "Surgical & Procedure Equipment",
-      "Consumables and Supplies",
-    ]
-    if (!validTypes.includes(itemType)) {
+    if (!isValidNonMedicationCategory(itemType)) {
       return NextResponse.json({ error: "Invalid itemType" }, { status: 400 })
+    }
+    if (itemSubtype && !isValidSubtypeForCategory(itemType as NonMedicationCategory, itemSubtype)) {
+      return NextResponse.json({ error: "Invalid itemSubtype for this category" }, { status: 400 })
     }
 
     const { rows } = await queryWithSession(
@@ -118,6 +121,7 @@ export async function POST(req: Request) {
       `INSERT INTO non_medication_inventory (
          item_name,
          item_type,
+         item_subtype,
          description,
          manufacturer,
          model_number,
@@ -134,10 +138,11 @@ export async function POST(req: Request) {
          expiry_date,
          last_restocked_at,
          created_by
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18)
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
        RETURNING id,
                  item_name,
                  item_type,
+                 item_subtype,
                  description,
                  manufacturer,
                  model_number,
@@ -158,6 +163,7 @@ export async function POST(req: Request) {
       [
         itemName,
         itemType,
+        itemSubtype,
         description,
         manufacturer,
         modelNumber,

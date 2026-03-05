@@ -3,19 +3,18 @@
 import type React from "react"
 import { useState } from "react"
 import { usePatients } from "@/lib/patient-context"
-import { z } from "zod"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { Separator } from "@/components/ui/separator"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
 import { PhoneInput } from "@/components/ui/phone-input"
 import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
-import { Printer, X } from "lucide-react"
+import { Printer, X, ChevronDown, User, MapPin, Heart, Phone, FileText, Users, Briefcase } from "lucide-react"
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface PatientRegistrationProps {
   onSuccess?: (patientId?: string) => void
@@ -257,303 +256,363 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
           </Alert>
         )}
         {formError && (
-          <div className="mb-3 rounded border border-red-200 bg-red-50 px-3 py-2 text-sm text-red-700">{formError}</div>
+          <div className="mb-3 rounded-lg border border-red-200 bg-red-50 dark:border-red-800 dark:bg-red-950/30 px-3 py-2 text-sm text-red-700 dark:text-red-300">{formError}</div>
         )}
-        <form onSubmit={handleSubmit} className="space-y-6">
-          <h3 className="text-base font-semibold text-foreground">Personal Details</h3>
-          <div className="grid gap-4 md:grid-cols-2 rounded-md border p-4">
-            <div className="space-y-2">
-              <Label htmlFor="firstName">First Name *</Label>
-              <Input
-                id="firstName"
-                value={formData.firstName}
-                onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
-                required
-              />
-              {errors.firstName && <div className="text-xs text-red-600">{errors.firstName}</div>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="lastName">Last Name *</Label>
-              <Input
-                id="lastName"
-                value={formData.lastName}
-                onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
-                required
-              />
-              {errors.lastName && <div className="text-xs text-red-600">{errors.lastName}</div>}
-            </div>
-          </div>
-
-          <Separator className="my-2" />
-          <h3 className="text-base font-semibold text-foreground">Demographics</h3>
-          <div className="grid gap-4 md:grid-cols-2 rounded-md border p-4">
-            <div className="space-y-2">
-              <Label htmlFor="ageYears">Age (years)</Label>
-              <Input
-                id="ageYears"
-                type="number"
-                min={0}
-                max={130}
-                value={formData.ageYears}
-                onChange={(e) => setFormData({ ...formData, ageYears: e.target.value.replace(/[^0-9]/g,'') })}
-                placeholder="e.g., 35"
-              />
-              {errors.ageYears && <div className="text-xs text-red-600">{errors.ageYears}</div>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="gender">Gender *</Label>
-              <Select
-                value={formData.gender}
-                onValueChange={(value: any) => setFormData({ ...formData, gender: value })}
-              >
-                <SelectTrigger id="gender">
-                  <SelectValue />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="male">Male</SelectItem>
-                  <SelectItem value="female">Female</SelectItem>
-                  <SelectItem value="other">Other</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-          </div>
-
-          <Separator className="my-2" />
-          <h3 className="text-base font-semibold text-foreground">Identification & Address</h3>
-          <div className="grid gap-4 md:grid-cols-2 rounded-md border p-4">
-            <div className="space-y-2">
-              <Label htmlFor="nin">National ID (NIN)</Label>
-              <Input id="nin" value={formData.nin} onChange={(e) => setFormData({ ...formData, nin: e.target.value })} />
-              {errors.nin && <div className="text-xs text-red-600">{errors.nin}</div>}
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="district">District</Label>
-              <Input id="district" value={formData.district} onChange={(e) => setFormData({ ...formData, district: e.target.value })} />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-3 rounded-md border p-4">
-            <div className="space-y-2">
-              <Label htmlFor="subcounty">Sub-county</Label>
-              <Input id="subcounty" value={formData.subcounty} onChange={(e) => setFormData({ ...formData, subcounty: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="parish">Parish</Label>
-              <Input id="parish" value={formData.parish} onChange={(e) => setFormData({ ...formData, parish: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="village">Village</Label>
-              <Input id="village" value={formData.village} onChange={(e) => setFormData({ ...formData, village: e.target.value })} />
-            </div>
-          </div>
-
-          <Separator className="my-2" />
-          <h3 className="text-base font-semibold text-foreground">Employment & Insurance</h3>
-          <div className="grid gap-4 md:grid-cols-2 rounded-md border p-4">
-            <div className="space-y-2">
-              <Label htmlFor="occupation">Occupation</Label>
-              <Input id="occupation" value={formData.occupation} onChange={(e) => setFormData({ ...formData, occupation: e.target.value })} />
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="insuranceProvider">Insurance Provider</Label>
-              <Input id="insuranceProvider" value={formData.insuranceProvider} onChange={(e) => setFormData({ ...formData, insuranceProvider: e.target.value })} />
-            </div>
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="insuranceMemberNo">Insurance Member No.</Label>
-              <Input id="insuranceMemberNo" value={formData.insuranceMemberNo} onChange={(e) => setFormData({ ...formData, insuranceMemberNo: e.target.value })} />
-            </div>
-          </div>
-
-          <Separator className="my-2" />
-          <div className="space-y-3 rounded-md border p-4">
-            <h3 className="font-semibold text-foreground">Next of Kin Information</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="nextOfKinFirstName">First Name</Label>
-                <Input id="nextOfKinFirstName" value={formData.nextOfKinFirstName} onChange={(e) => setFormData({ ...formData, nextOfKinFirstName: e.target.value })} />
+        <form onSubmit={handleSubmit} className="space-y-3">
+          {/* Section 1: Personal Details — default open */}
+          <Collapsible defaultOpen className="rounded-lg border border-border bg-muted/20">
+            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/40 transition-colors rounded-t-lg [&[data-state=open]]:rounded-b-none">
+              <ChevronDown className="h-4 w-4 shrink-0 data-[state=closed]:rotate-[-90deg] transition-transform" />
+              <User className="h-4 w-4 text-muted-foreground" />
+              Personal Details
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid gap-4 p-4 pt-0 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="firstName">First Name *</Label>
+                  <Input
+                    id="firstName"
+                    value={formData.firstName}
+                    onChange={(e) => setFormData({ ...formData, firstName: e.target.value })}
+                    required
+                  />
+                  {errors.firstName && <div className="text-xs text-red-600">{errors.firstName}</div>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="lastName">Last Name *</Label>
+                  <Input
+                    id="lastName"
+                    value={formData.lastName}
+                    onChange={(e) => setFormData({ ...formData, lastName: e.target.value })}
+                    required
+                  />
+                  {errors.lastName && <div className="text-xs text-red-600">{errors.lastName}</div>}
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="nextOfKinLastName">Last Name</Label>
-                <Input id="nextOfKinLastName" value={formData.nextOfKinLastName} onChange={(e) => setFormData({ ...formData, nextOfKinLastName: e.target.value })} />
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Section 2: Demographics — default open */}
+          <Collapsible defaultOpen className="rounded-lg border border-border bg-muted/20">
+            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/40 transition-colors rounded-t-lg [&[data-state=open]]:rounded-b-none">
+              <ChevronDown className="h-4 w-4 shrink-0 data-[state=closed]:rotate-[-90deg] transition-transform" />
+              <User className="h-4 w-4 text-muted-foreground" />
+              Demographics
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid gap-4 p-4 pt-0 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="ageYears">Age (years) *</Label>
+                  <Input
+                    id="ageYears"
+                    type="number"
+                    min={0}
+                    max={130}
+                    value={formData.ageYears}
+                    onChange={(e) => setFormData({ ...formData, ageYears: e.target.value.replace(/[^0-9]/g,'') })}
+                    placeholder="e.g., 35"
+                  />
+                  {errors.ageYears && <div className="text-xs text-red-600">{errors.ageYears}</div>}
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="gender">Gender *</Label>
+                  <Select
+                    value={formData.gender}
+                    onValueChange={(value: "male" | "female" | "other") => setFormData({ ...formData, gender: value })}
+                  >
+                    <SelectTrigger id="gender">
+                      <SelectValue />
+                    </SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="male">Male</SelectItem>
+                      <SelectItem value="female">Female</SelectItem>
+                      <SelectItem value="other">Other</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
               </div>
-            </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="nextOfKinCountry">Country</Label>
-                <Select
-                  value={formData.nextOfKinCountry}
-                  onValueChange={(value) => setFormData({ ...formData, nextOfKinCountry: value })}
-                >
-                  <SelectTrigger id="nextOfKinCountry">
-                    <SelectValue placeholder="Select country" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="UG">Uganda (UG) +256</SelectItem>
-                    <SelectItem value="KE">Kenya (KE) +254</SelectItem>
-                    <SelectItem value="TZ">Tanzania (TZ) +255</SelectItem>
-                    <SelectItem value="RW">Rwanda (RW) +250</SelectItem>
-                    <SelectItem value="SS">South Sudan (SS) +211</SelectItem>
-                    <SelectItem value="ET">Ethiopia (ET) +251</SelectItem>
-                    <SelectItem value="US">United States (US) +1</SelectItem>
-                    <SelectItem value="GB">United Kingdom (GB) +44</SelectItem>
-                  </SelectContent>
-                </Select>
+          {/* Section 3: Identification & Address */}
+          <Collapsible className="rounded-lg border border-border bg-muted/20">
+            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/40 transition-colors rounded-t-lg [&[data-state=open]]:rounded-b-none">
+              <ChevronDown className="h-4 w-4 shrink-0 data-[state=closed]:rotate-[-90deg] transition-transform" />
+              <MapPin className="h-4 w-4 text-muted-foreground" />
+              Identification &amp; Address
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-4 p-4 pt-0">
+                <div className="space-y-2">
+                  <Label htmlFor="address">Address *</Label>
+                  <Textarea
+                    id="address"
+                    value={formData.address}
+                    onChange={(e) => setFormData({ ...formData, address: e.target.value })}
+                    required
+                    rows={2}
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="nin">National ID (NIN)</Label>
+                    <Input id="nin" value={formData.nin} onChange={(e) => setFormData({ ...formData, nin: e.target.value })} />
+                    {errors.nin && <div className="text-xs text-red-600">{errors.nin}</div>}
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="district">District</Label>
+                    <Input id="district" value={formData.district} onChange={(e) => setFormData({ ...formData, district: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-3">
+                  <div className="space-y-2">
+                    <Label htmlFor="subcounty">Sub-county</Label>
+                    <Input id="subcounty" value={formData.subcounty} onChange={(e) => setFormData({ ...formData, subcounty: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="parish">Parish</Label>
+                    <Input id="parish" value={formData.parish} onChange={(e) => setFormData({ ...formData, parish: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="village">Village</Label>
+                    <Input id="village" value={formData.village} onChange={(e) => setFormData({ ...formData, village: e.target.value })} />
+                  </div>
+                </div>
               </div>
-              <PhoneInput
-                id="nextOfKinPhone"
-                label="Phone"
-                value={formData.nextOfKinPhone}
-                onChange={(value) => setFormData({ ...formData, nextOfKinPhone: value })}
-                defaultCountry={formData.nextOfKinCountry}
-              />
-            </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="nextOfKinResidence">Residence</Label>
-                <Input
-                  id="nextOfKinResidence"
-                  value={formData.nextOfKinResidence}
-                  onChange={(e) => setFormData({ ...formData, nextOfKinResidence: e.target.value })}
-                  placeholder="Address of next of kin"
-                />
+          {/* Section 4: Employment & Insurance */}
+          <Collapsible className="rounded-lg border border-border bg-muted/20">
+            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/40 transition-colors rounded-t-lg [&[data-state=open]]:rounded-b-none">
+              <ChevronDown className="h-4 w-4 shrink-0 data-[state=closed]:rotate-[-90deg] transition-transform" />
+              <Briefcase className="h-4 w-4 text-muted-foreground" />
+              Employment &amp; Insurance
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid gap-4 p-4 pt-0 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="occupation">Occupation</Label>
+                  <Input id="occupation" value={formData.occupation} onChange={(e) => setFormData({ ...formData, occupation: e.target.value })} />
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="insuranceProvider">Insurance Provider</Label>
+                  <Input id="insuranceProvider" value={formData.insuranceProvider} onChange={(e) => setFormData({ ...formData, insuranceProvider: e.target.value })} />
+                </div>
+                <div className="space-y-2 md:col-span-2">
+                  <Label htmlFor="insuranceMemberNo">Insurance Member No.</Label>
+                  <Input id="insuranceMemberNo" value={formData.insuranceMemberNo} onChange={(e) => setFormData({ ...formData, insuranceMemberNo: e.target.value })} />
+                </div>
               </div>
-              <div className="space-y-2">
-                <Label htmlFor="nextOfKinRelation">Relationship</Label>
-                <Select
-                  value={formData.nextOfKinRelation}
-                  onValueChange={(value) => setFormData({ ...formData, nextOfKinRelation: value })}
-                >
-                  <SelectTrigger id="nextOfKinRelation">
-                    <SelectValue placeholder="Select relationship" />
-                  </SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Spouse">Spouse</SelectItem>
-                    <SelectItem value="Parent">Parent</SelectItem>
-                    <SelectItem value="Child">Child</SelectItem>
-                    <SelectItem value="Sibling">Sibling</SelectItem>
-                    <SelectItem value="Guardian">Guardian</SelectItem>
-                    <SelectItem value="Other">Other</SelectItem>
-                  </SelectContent>
-                </Select>
+            </CollapsibleContent>
+          </Collapsible>
+
+          {/* Section 5: Next of Kin */}
+          <Collapsible className="rounded-lg border border-border bg-muted/20">
+            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/40 transition-colors rounded-t-lg [&[data-state=open]]:rounded-b-none">
+              <ChevronDown className="h-4 w-4 shrink-0 data-[state=closed]:rotate-[-90deg] transition-transform" />
+              <Users className="h-4 w-4 text-muted-foreground" />
+              Next of Kin
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-4 p-4 pt-0">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinFirstName">First Name</Label>
+                    <Input id="nextOfKinFirstName" value={formData.nextOfKinFirstName} onChange={(e) => setFormData({ ...formData, nextOfKinFirstName: e.target.value })} />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinLastName">Last Name</Label>
+                    <Input id="nextOfKinLastName" value={formData.nextOfKinLastName} onChange={(e) => setFormData({ ...formData, nextOfKinLastName: e.target.value })} />
+                  </div>
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinCountry">Country</Label>
+                    <Select
+                      value={formData.nextOfKinCountry}
+                      onValueChange={(value) => setFormData({ ...formData, nextOfKinCountry: value })}
+                    >
+                      <SelectTrigger id="nextOfKinCountry">
+                        <SelectValue placeholder="Select country" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="UG">Uganda (UG) +256</SelectItem>
+                        <SelectItem value="KE">Kenya (KE) +254</SelectItem>
+                        <SelectItem value="TZ">Tanzania (TZ) +255</SelectItem>
+                        <SelectItem value="RW">Rwanda (RW) +250</SelectItem>
+                        <SelectItem value="SS">South Sudan (SS) +211</SelectItem>
+                        <SelectItem value="ET">Ethiopia (ET) +251</SelectItem>
+                        <SelectItem value="US">United States (US) +1</SelectItem>
+                        <SelectItem value="GB">United Kingdom (GB) +44</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <PhoneInput
+                    id="nextOfKinPhone"
+                    label="Phone"
+                    value={formData.nextOfKinPhone}
+                    onChange={(value) => setFormData({ ...formData, nextOfKinPhone: value })}
+                    defaultCountry={formData.nextOfKinCountry}
+                  />
+                </div>
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinResidence">Residence</Label>
+                    <Input
+                      id="nextOfKinResidence"
+                      value={formData.nextOfKinResidence}
+                      onChange={(e) => setFormData({ ...formData, nextOfKinResidence: e.target.value })}
+                      placeholder="Address of next of kin"
+                    />
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="nextOfKinRelation">Relationship</Label>
+                    <Select
+                      value={formData.nextOfKinRelation}
+                      onValueChange={(value) => setFormData({ ...formData, nextOfKinRelation: value })}
+                    >
+                      <SelectTrigger id="nextOfKinRelation">
+                        <SelectValue placeholder="Select relationship" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="Spouse">Spouse</SelectItem>
+                        <SelectItem value="Parent">Parent</SelectItem>
+                        <SelectItem value="Child">Child</SelectItem>
+                        <SelectItem value="Sibling">Sibling</SelectItem>
+                        <SelectItem value="Guardian">Guardian</SelectItem>
+                        <SelectItem value="Other">Other</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                </div>
               </div>
-            </div>
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-          <Separator className="my-2" />
-          <h3 className="text-base font-semibold text-foreground">Contact Information</h3>
-          <div className="grid gap-4 md:grid-cols-2 rounded-md border p-4">
-            <div>
-              <PhoneInput
-                id="phone"
-                label="Phone Number"
-                value={formData.phone}
-                onChange={(value) => setFormData({ ...formData, phone: value })}
-                required
-                defaultCountry="UG"
-              />
-              {errors.phone && <div className="mt-1 text-xs text-red-600">{errors.phone}</div>}
-            </div>
-          </div>
-
-          <Separator className="my-2" />
-          <h3 className="text-base font-semibold text-foreground">Clinical Information</h3>
-          <div className="grid gap-4 md:grid-cols-2 rounded-md border p-4">
-            <div className="space-y-2">
-              <Label htmlFor="department">Send To Department</Label>
-              <Select
-                value={formData.department}
-                onValueChange={(value:any) => setFormData({ ...formData, department: value })}
-              >
-                <SelectTrigger id="department">
-                  <SelectValue placeholder="Select department" />
-                </SelectTrigger>
-                <SelectContent>
-                  {RECEPTION_DEPARTMENTS.map((d) => (
-                    <SelectItem key={d} value={d}>{d}</SelectItem>
-                  ))}
-                </SelectContent>
-              </Select>
-              <div className="flex items-center gap-2 text-xs text-muted-foreground">
-                <input id="sendToDept" type="checkbox" checked={formData.sendToDepartment} onChange={(e) => setFormData({ ...formData, sendToDepartment: e.target.checked })} />
-                <label htmlFor="sendToDept">Create check-in & queue, then print token</label>
+          {/* Section 6: Contact */}
+          <Collapsible className="rounded-lg border border-border bg-muted/20">
+            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/40 transition-colors rounded-t-lg [&[data-state=open]]:rounded-b-none">
+              <ChevronDown className="h-4 w-4 shrink-0 data-[state=closed]:rotate-[-90deg] transition-transform" />
+              <Phone className="h-4 w-4 text-muted-foreground" />
+              Contact Information
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="p-4 pt-0">
+                <div className="max-w-sm">
+                  <PhoneInput
+                    id="phone"
+                    label="Phone Number *"
+                    value={formData.phone}
+                    onChange={(value) => setFormData({ ...formData, phone: value })}
+                    required
+                    defaultCountry="UG"
+                  />
+                  {errors.phone && <div className="mt-1 text-xs text-red-600">{errors.phone}</div>}
+                </div>
               </div>
-            </div>
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-          <div className="space-y-2">
-            <Label htmlFor="address">Address *</Label>
-            <Textarea
-              id="address"
-              value={formData.address}
-              onChange={(e) => setFormData({ ...formData, address: e.target.value })}
-              required
-            />
-          </div>
-
-          <div className="grid gap-4 md:grid-cols-2">
-            <div className="space-y-2">
-              <Label htmlFor="bloodGroup">Blood Group</Label>
-              <Select
-                value={formData.bloodGroup}
-                onValueChange={(value) => setFormData({ ...formData, bloodGroup: value })}
-              >
-                <SelectTrigger id="bloodGroup">
-                  <SelectValue placeholder="Select blood group" />
-                </SelectTrigger>
-                <SelectContent>
-                  <SelectItem value="A+">A+</SelectItem>
-                  <SelectItem value="A-">A-</SelectItem>
-                  <SelectItem value="B+">B+</SelectItem>
-                  <SelectItem value="B-">B-</SelectItem>
-                  <SelectItem value="AB+">AB+</SelectItem>
-                  <SelectItem value="AB-">AB-</SelectItem>
-                  <SelectItem value="O+">O+</SelectItem>
-                  <SelectItem value="O-">O-</SelectItem>
-                </SelectContent>
-              </Select>
-            </div>
-            <div className="space-y-2">
-              <Label htmlFor="allergies">Allergies</Label>
-              <Input
-                id="allergies"
-                value={formData.allergies}
-                onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
-                placeholder="e.g., Penicillin, Peanuts"
-              />
-            </div>
-          </div>
-
-          <Separator className="my-2" />
-          <div className="space-y-3 rounded-md border p-4">
-            <h3 className="font-semibold text-foreground">Emergency Contact</h3>
-            <div className="grid gap-4 md:grid-cols-2">
-              <div className="space-y-2">
-                <Label htmlFor="emergencyContact">Contact Name *</Label>
-                <Input
-                  id="emergencyContact"
-                  value={formData.emergencyContact}
-                  onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
-                  required
-                />
+          {/* Section 7: Clinical & Department */}
+          <Collapsible className="rounded-lg border border-border bg-muted/20">
+            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/40 transition-colors rounded-t-lg [&[data-state=open]]:rounded-b-none">
+              <ChevronDown className="h-4 w-4 shrink-0 data-[state=closed]:rotate-[-90deg] transition-transform" />
+              <FileText className="h-4 w-4 text-muted-foreground" />
+              Clinical &amp; Department
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="space-y-4 p-4 pt-0">
+                <div className="grid gap-4 md:grid-cols-2">
+                  <div className="space-y-2">
+                    <Label htmlFor="bloodGroup">Blood Group</Label>
+                    <Select
+                      value={formData.bloodGroup}
+                      onValueChange={(value) => setFormData({ ...formData, bloodGroup: value })}
+                    >
+                      <SelectTrigger id="bloodGroup">
+                        <SelectValue placeholder="Select blood group" />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="A+">A+</SelectItem>
+                        <SelectItem value="A-">A-</SelectItem>
+                        <SelectItem value="B+">B+</SelectItem>
+                        <SelectItem value="B-">B-</SelectItem>
+                        <SelectItem value="AB+">AB+</SelectItem>
+                        <SelectItem value="AB-">AB-</SelectItem>
+                        <SelectItem value="O+">O+</SelectItem>
+                        <SelectItem value="O-">O-</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  <div className="space-y-2">
+                    <Label htmlFor="allergies">Allergies</Label>
+                    <Input
+                      id="allergies"
+                      value={formData.allergies}
+                      onChange={(e) => setFormData({ ...formData, allergies: e.target.value })}
+                      placeholder="e.g., Penicillin, Peanuts"
+                    />
+                  </div>
+                </div>
+                <div className="space-y-2">
+                  <Label htmlFor="department">Send To Department</Label>
+                  <Select
+                    value={formData.department}
+                    onValueChange={(value: string) => setFormData({ ...formData, department: value })}
+                  >
+                    <SelectTrigger id="department">
+                      <SelectValue placeholder="Select department" />
+                    </SelectTrigger>
+                    <SelectContent>
+                      {RECEPTION_DEPARTMENTS.map((d) => (
+                        <SelectItem key={d} value={d}>{d}</SelectItem>
+                      ))}
+                    </SelectContent>
+                  </Select>
+                  <div className="flex items-center gap-2 text-xs text-muted-foreground">
+                    <input id="sendToDept" type="checkbox" checked={formData.sendToDepartment} onChange={(e) => setFormData({ ...formData, sendToDepartment: e.target.checked })} className="rounded border-input" />
+                    <label htmlFor="sendToDept">Create check-in &amp; queue, then print token</label>
+                  </div>
+                </div>
               </div>
-              <PhoneInput
-                id="emergencyPhone"
-                label="Contact Phone"
-                value={formData.emergencyPhone}
-                onChange={(value) => setFormData({ ...formData, emergencyPhone: value })}
-                required
-                defaultCountry="UG"
-              />
-              {errors.emergencyPhone && <div className="text-xs text-red-600">{errors.emergencyPhone}</div>}
-            </div>
-          </div>
+            </CollapsibleContent>
+          </Collapsible>
 
-          <Button type="submit" className="w-full" disabled={isSubmitting}>
+          {/* Section 8: Emergency Contact */}
+          <Collapsible className="rounded-lg border border-border bg-muted/20">
+            <CollapsibleTrigger className="flex w-full items-center gap-3 px-4 py-3 text-left font-semibold text-foreground hover:bg-muted/40 transition-colors rounded-t-lg [&[data-state=open]]:rounded-b-none">
+              <ChevronDown className="h-4 w-4 shrink-0 data-[state=closed]:rotate-[-90deg] transition-transform" />
+              <Heart className="h-4 w-4 text-muted-foreground" />
+              Emergency Contact
+            </CollapsibleTrigger>
+            <CollapsibleContent>
+              <div className="grid gap-4 p-4 pt-0 md:grid-cols-2">
+                <div className="space-y-2">
+                  <Label htmlFor="emergencyContact">Contact Name *</Label>
+                  <Input
+                    id="emergencyContact"
+                    value={formData.emergencyContact}
+                    onChange={(e) => setFormData({ ...formData, emergencyContact: e.target.value })}
+                    required
+                  />
+                </div>
+                <div className="space-y-2">
+                  <PhoneInput
+                    id="emergencyPhone"
+                    label="Contact Phone *"
+                    value={formData.emergencyPhone}
+                    onChange={(value) => setFormData({ ...formData, emergencyPhone: value })}
+                    required
+                    defaultCountry="UG"
+                  />
+                  {errors.emergencyPhone && <div className="text-xs text-red-600">{errors.emergencyPhone}</div>}
+                </div>
+              </div>
+            </CollapsibleContent>
+          </Collapsible>
+
+          <Button type="submit" className="w-full mt-4" disabled={isSubmitting}>
             {isSubmitting ? "Registering..." : "Register Patient"}
           </Button>
         </form>

@@ -1,7 +1,7 @@
 "use client"
 
 import { ReactNode } from "react"
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Badge } from "@/components/ui/badge"
 import { useAuth } from "@/lib/auth-context"
 
@@ -36,7 +36,10 @@ export function SettingsLayout({ children, title, description, icon }: SettingsL
       {/* Content */}
       <Card className="shadow-sm">
         <CardHeader>
-          <CardTitle className="text-lg">{title}</CardTitle>
+          <CardTitle className="text-lg">Account &amp; preferences</CardTitle>
+          <CardDescription className="text-muted-foreground">
+            Update your profile, security, and notification settings below.
+          </CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
           {children}

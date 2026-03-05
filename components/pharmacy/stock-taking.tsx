@@ -33,6 +33,8 @@ type NonMedicationStockTaking = {
   id: string
   item_id: string
   item_name: string
+  item_type?: string
+  item_subtype?: string | null
   recorded_quantity: number
   system_quantity: number
   variance: number
@@ -47,7 +49,9 @@ export function StockTaking() {
   const { toast } = useToast()
   const [medicationStockTakings, setMedicationStockTakings] = useState<MedicationStockTaking[]>([])
   const [nonMedicationStockTakings, setNonMedicationStockTakings] = useState<NonMedicationStockTaking[]>([])
-  const [nonMedicationItems, setNonMedicationItems] = useState<Array<{ id: string; item_name: string; item_type: string; stock_quantity: number }>>([])
+  const [nonMedicationItems, setNonMedicationItems] = useState<
+    Array<{ id: string; item_name: string; item_type: string; item_subtype?: string | null; stock_quantity: number }>
+  >([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [showMedicationDialog, setShowMedicationDialog] = useState(false)
@@ -102,6 +106,7 @@ export function StockTaking() {
             id: item.id,
             item_name: item.item_name,
             item_type: item.item_type,
+            item_subtype: item.item_subtype ?? null,
             stock_quantity: item.stock_quantity,
           })),
         )
@@ -545,7 +550,12 @@ export function StockTaking() {
                         return (
                           <TableRow key={st.id}>
                             <TableCell>{new Date(st.taken_at).toLocaleString()}</TableCell>
-                            <TableCell className="font-medium">{st.item_name}</TableCell>
+                            <TableCell className="font-medium">
+                              {st.item_name}
+                              {st.item_subtype ? (
+                                <span className="text-muted-foreground font-normal"> ({st.item_subtype})</span>
+                              ) : null}
+                            </TableCell>
                             <TableCell className="text-right">{st.system_quantity}</TableCell>
                             <TableCell className="text-right">{st.recorded_quantity}</TableCell>
                             <TableCell
@@ -719,7 +729,9 @@ export function StockTaking() {
                     <SelectContent>
                       {nonMedicationItems.map((item) => (
                         <SelectItem key={item.id} value={item.id}>
-                          {item.item_name} ({item.item_type}) - System: {item.stock_quantity} units
+                          {item.item_name}
+                          {item.item_subtype ? ` (${item.item_type} – ${item.item_subtype})` : ` (${item.item_type})`} – System:{" "}
+                          {item.stock_quantity} units
                         </SelectItem>
                       ))}
                     </SelectContent>

@@ -14,11 +14,17 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
+import {
+  NON_MEDICATION_CATEGORIES,
+  NON_MEDICATION_SUBTYPES,
+  type NonMedicationCategory,
+} from "@/lib/constants/non-medication-inventory"
 
 type NonMedicationItem = {
   id: string
   item_name: string
   item_type: string
+  item_subtype: string | null
   description: string | null
   manufacturer: string | null
   model_number: string | null
@@ -37,15 +43,6 @@ type NonMedicationItem = {
   created_at: string
   updated_at: string
 }
-
-const ITEM_TYPES = [
-  "Medical Equipment",
-  "Personal Protective Gear",
-  "Patient Care Items",
-  "Diagnostic Equipment",
-  "Surgical & Procedure Equipment",
-  "Consumables and Supplies",
-]
 
 export function NonMedicationInventory() {
   const formatCurrency = useFormatCurrency()
@@ -88,6 +85,7 @@ export function NonMedicationInventory() {
       !searchQuery ||
       item.item_name.toLowerCase().includes(searchQuery.toLowerCase()) ||
       item.item_type.toLowerCase().includes(searchQuery.toLowerCase()) ||
+      (item.item_subtype && item.item_subtype.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (item.description && item.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (item.barcode && item.barcode.toLowerCase().includes(searchQuery.toLowerCase()))
     const matchesType = filterType === "all" || item.item_type === filterType
@@ -146,7 +144,7 @@ export function NonMedicationInventory() {
               </SelectTrigger>
               <SelectContent>
                 <SelectItem value="all">All Types</SelectItem>
-                {ITEM_TYPES.map((type) => (
+                {NON_MEDICATION_CATEGORIES.map((type) => (
                   <SelectItem key={type} value={type}>
                     {type}
                   </SelectItem>
@@ -183,6 +181,7 @@ export function NonMedicationInventory() {
                   <TableRow>
                     <TableHead>Item Name</TableHead>
                     <TableHead>Type</TableHead>
+                    <TableHead>Subtype</TableHead>
                     <TableHead>Location</TableHead>
                     <TableHead className="text-right">Stock</TableHead>
                     <TableHead className="text-right">Reorder Level</TableHead>
@@ -220,6 +219,7 @@ export function NonMedicationInventory() {
                           </div>
                         </TableCell>
                         <TableCell>{item.item_type}</TableCell>
+                        <TableCell>{item.item_subtype || "—"}</TableCell>
                         <TableCell>{item.location || "—"}</TableCell>
                         <TableCell className="text-right">
                           <span className={isOutOfStock ? "font-medium text-red-600" : isLowStock ? "font-medium text-amber-600" : ""}>
@@ -269,6 +269,12 @@ export function NonMedicationInventory() {
                   <p className="text-muted-foreground">Item Type</p>
                   <p className="font-medium">{selectedItem.item_type}</p>
                 </div>
+                {selectedItem.item_subtype && (
+                  <div>
+                    <p className="text-muted-foreground">Specific item</p>
+                    <p className="font-medium">{selectedItem.item_subtype}</p>
+                  </div>
+                )}
                 <div>
                   <p className="text-muted-foreground">Location</p>
                   <p className="font-medium">{selectedItem.location || "—"}</p>
@@ -335,6 +341,7 @@ function AddNonMedicationItemDialog({
   const [formData, setFormData] = useState({
     itemName: "",
     itemType: "",
+    itemSubtype: "",
     description: "",
     manufacturer: "",
     modelNumber: "",
@@ -350,6 +357,11 @@ function AddNonMedicationItemDialog({
     barcode: "",
     expiryDate: "",
   })
+
+  const subtypeOptions =
+    formData.itemType && NON_MEDICATION_CATEGORIES.includes(formData.itemType as NonMedicationCategory)
+      ? NON_MEDICATION_SUBTYPES[formData.itemType as NonMedicationCategory]
+      : []
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -370,6 +382,7 @@ function AddNonMedicationItemDialog({
         body: JSON.stringify({
           itemName: formData.itemName,
           itemType: formData.itemType,
+          itemSubtype: formData.itemSubtype || undefined,
           description: formData.description || undefined,
           manufacturer: null,
           modelNumber: formData.modelNumber || undefined,
@@ -404,6 +417,7 @@ function AddNonMedicationItemDialog({
       setFormData({
         itemName: "",
         itemType: "",
+        itemSubtype: "",
         description: "",
         manufacturer: "",
         modelNumber: "",
@@ -450,13 +464,19 @@ function AddNonMedicationItemDialog({
               />
             </div>
             <div className="space-y-2">
-              <Label htmlFor="itemType">Item Type *</Label>
-              <Select value={formData.itemType} onValueChange={(value) => setFormData({ ...formData, itemType: value })} required>
+              <Label htmlFor="itemType">Category (Item Type) *</Label>
+              <Select
+                value={formData.itemType}
+                onValueChange={(value) =>
+                  setFormData({ ...formData, itemType: value, itemSubtype: "", itemName: formData.itemSubtype ? "" : formData.itemName })
+                }
+                required
+              >
                 <SelectTrigger>
-                  <SelectValue placeholder="Select item type" />
+                  <SelectValue placeholder="Select category" />
                 </SelectTrigger>
                 <SelectContent>
-                  {ITEM_TYPES.map((type) => (
+                  {NON_MEDICATION_CATEGORIES.map((type) => (
                     <SelectItem key={type} value={type}>
                       {type}
                     </SelectItem>
@@ -464,6 +484,28 @@ function AddNonMedicationItemDialog({
                 </SelectContent>
               </Select>
             </div>
+            {subtypeOptions.length > 0 && (
+              <div className="space-y-2">
+                <Label htmlFor="itemSubtype">Specific item (optional)</Label>
+                <Select
+                  value={formData.itemSubtype}
+                  onValueChange={(value) =>
+                    setFormData({ ...formData, itemSubtype: value, itemName: value })
+                  }
+                >
+                  <SelectTrigger>
+                    <SelectValue placeholder="Choose from list or type name below" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    {subtypeOptions.map((sub) => (
+                      <SelectItem key={sub} value={sub}>
+                        {sub}
+                      </SelectItem>
+                    ))}
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
             <div className="space-y-2">
               <Label htmlFor="location">Location</Label>
               <Input

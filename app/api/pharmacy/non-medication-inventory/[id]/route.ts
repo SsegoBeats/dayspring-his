@@ -2,6 +2,11 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
+import {
+  isValidNonMedicationCategory,
+  isValidSubtypeForCategory,
+  type NonMedicationCategory,
+} from "@/lib/constants/non-medication-inventory"
 
 export async function PATCH(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -16,6 +21,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     const body = (await req.json().catch(() => ({}))) as {
       itemName?: string
       itemType?: string
+      itemSubtype?: string
       description?: string
       manufacturer?: string
       modelNumber?: string
@@ -32,6 +38,18 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
       expiryDate?: string
     }
 
+    if (body.itemType !== undefined && !isValidNonMedicationCategory((body.itemType || "").trim())) {
+      return NextResponse.json({ error: "Invalid itemType" }, { status: 400 })
+    }
+    if (
+      body.itemSubtype !== undefined &&
+      body.itemType !== undefined &&
+      (body.itemSubtype || "").trim() &&
+      !isValidSubtypeForCategory((body.itemType || "").trim() as NonMedicationCategory, (body.itemSubtype || "").trim())
+    ) {
+      return NextResponse.json({ error: "Invalid itemSubtype for this category" }, { status: 400 })
+    }
+
     const updates: string[] = []
     const values: any[] = []
     let paramIndex = 1
@@ -43,6 +61,10 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     if (body.itemType !== undefined) {
       updates.push(`item_type = $${paramIndex++}`)
       values.push((body.itemType || "").trim())
+    }
+    if (body.itemSubtype !== undefined) {
+      updates.push(`item_subtype = $${paramIndex++}`)
+      values.push((body.itemSubtype || "").trim() || null)
     }
     if (body.description !== undefined) {
       updates.push(`description = $${paramIndex++}`)
@@ -115,6 +137,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         RETURNING id,
                   item_name,
                   item_type,
+                  item_subtype,
                   description,
                   manufacturer,
                   model_number,

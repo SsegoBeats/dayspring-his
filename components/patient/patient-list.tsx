@@ -163,7 +163,7 @@ export function PatientList({ initialSelectedPatientId }: { initialSelectedPatie
       </Dialog>
 
       <Dialog open={registerOpen} onOpenChange={setRegisterOpen}>
-        <DialogContent size="lg" className="max-h-[85vh] overflow-y-auto">
+        <DialogContent size="xl" className="max-h-[90vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Register Patient</DialogTitle>
             <DialogDescription>Enter patient demographics and contact information to register a new patient.</DialogDescription>

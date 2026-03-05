@@ -47,6 +47,18 @@ export default function DashboardPage() {
       router.replace("/pharmacist")
       return
     }
+    if (user.role === "Hospital Admin") {
+      router.replace("/admin")
+      return
+    }
+    if (user.role === "Midwife") {
+      router.replace("/midwife")
+      return
+    }
+    if (user.role === "Radiologist") {
+      router.replace("/radiologist")
+      return
+    }
     if (user.emailVerified === false) {
       setShowVerificationModal(true)
     }

@@ -95,6 +95,8 @@ export async function GET(req: Request) {
         SELECT st.id,
                st.item_id,
                nmi.item_name,
+               nmi.item_type,
+               nmi.item_subtype,
                st.recorded_quantity,
                st.system_quantity,
                st.variance,
