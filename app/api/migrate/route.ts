@@ -3,6 +3,9 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { Pool } from "pg"
 
+// Keep under Vercel's 300s limit: fail fast so run-migrations page can show a clear message
+export const maxDuration = 60
+
 function parseConnectionString(connectionString: string): { connectionString: string; ssl?: any } {
   try {
     const url = new URL(connectionString)
@@ -1048,7 +1051,7 @@ export async function GET() {
     return NextResponse.json({
       success: true,
       message: "Database migration completed successfully.",
-      note: "For large databases, consider running migrations via CLI to avoid timeout limits.",
+      note: "On Vercel this route is limited to 60s. For large databases run migrations locally or via CLI.",
     })
   } catch (error: any) {
     console.error("[v0] Migration error:", error)

@@ -66,6 +66,7 @@ export default function RunMigrationsPage() {
           <AlertTriangle className="h-4 w-4" />
           <AlertDescription>
             This will create or update all necessary tables. Safe to run multiple times.
+            On Vercel, migrations are limited to 60 seconds—if this times out, run migrations locally or via CLI for large databases.
           </AlertDescription>
         </Alert>
 

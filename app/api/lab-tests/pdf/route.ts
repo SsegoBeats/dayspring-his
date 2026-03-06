@@ -6,6 +6,7 @@ import { toPDF } from "@/lib/exports/writers/pdf"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
 
 export const runtime = 'nodejs'
+export const maxDuration = 90
 
 function getAnalyteRows(test: any) {
   const rows: { Patient: string; Test: string; Parameter: string; Value: string; RefRange?: string; Flag?: string; Accession?: string; Ordered?: string; Completed?: string }[] = []

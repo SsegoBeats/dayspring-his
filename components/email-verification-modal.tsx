@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -17,6 +17,20 @@ interface EmailVerificationModalProps {
 export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVerificationModalProps) {
   const [otp, setOtp] = useState("")
   const [verifying, setVerifying] = useState(false)
+  const sentOnOpen = useRef(false)
+
+  useEffect(() => {
+    if (!isOpen || !userEmail || sentOnOpen.current) return
+    sentOnOpen.current = true
+    fetch("/api/settings/send-otp", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      credentials: "include",
+      body: JSON.stringify({ email: userEmail }),
+    })
+      .then((r) => { if (r.ok) toast.success("Verification code sent to your email") })
+      .catch(() => { sentOnOpen.current = false })
+  }, [isOpen, userEmail])
 
   const handleVerify = async () => {
     if (otp.length !== 6) {
@@ -146,7 +160,7 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
 
           <div className="rounded-lg border border-amber-200 bg-amber-50 p-3">
             <p className="text-xs text-amber-800">
-              <strong>Note:</strong> The verification code expires in 24 hours. If you didn&apos;t receive the email, 
+              <strong>Note:</strong> The verification code expires in 10 minutes. If you didn&apos;t receive the email, 
               click &quot;Resend Code&quot; or contact your administrator.
             </p>
           </div>

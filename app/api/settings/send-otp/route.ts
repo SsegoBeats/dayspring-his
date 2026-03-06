@@ -6,22 +6,10 @@ import { query } from "@/lib/db"
 import crypto from "crypto"
 import { emailTemplates, sendEmailServer } from "@/lib/email-service"
 import { rateLimitPg } from "@/lib/rate-limit-pg"
+import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
+import { ensureEmailVerificationTable } from "@/lib/email-verification"
 
 const Schema = z.object({ email: z.string().email() })
-
-async function ensureEmailVerificationTable() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS email_verification_tokens (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      token VARCHAR(255) UNIQUE NOT NULL,
-      new_email VARCHAR(255) NOT NULL,
-      expires_at TIMESTAMP NOT NULL,
-      used BOOLEAN DEFAULT false,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `)
-}
 
 export async function POST(req: Request) {
   try {
@@ -38,35 +26,27 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { email } = Schema.parse(body)
 
-    // Ensure backing table exists (for environments where migrations didn't create it)
     await ensureEmailVerificationTable()
 
-    // Always generate a NEW code and replace the old one
     const otp = crypto.randomInt(100000, 999999).toString()
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes from now
+    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
-    // Security: Never log OTP codes. Only log generic info in development.
-    if (process.env.NODE_ENV === "development") {
-      console.log("[OTP] Sent verification code to user", auth.userId, "(code never logged)")
-    }
-
-    // Delete ALL existing OTPs for this user (including valid ones) - this invalidates the old code
     await query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [auth.userId])
-
-    // Store the new OTP in database - use toISOString() to ensure UTC storage
     await query(
       `INSERT INTO email_verification_tokens (user_id, token, new_email, expires_at, used) 
        VALUES ($1, $2, $3, $4, false)`,
       [auth.userId, otp, email, expiresAt.toISOString()],
     )
 
-    // Fetch user details for personalization
-    const { rows: userRows } = await query(`SELECT name FROM users WHERE id = $1`, [auth.userId])
+    const { rows: userRows } = await query(`SELECT name, email, email_verified_at FROM users WHERE id = $1`, [auth.userId])
     const userName = userRows[0]?.name || "there"
+    const currentEmail = (userRows[0]?.email || "").trim().toLowerCase()
+    const isInitialVerification = !userRows[0]?.email_verified_at && currentEmail === email.trim().toLowerCase()
 
-    // Send OTP email with personalized and professional template
     const template = {
-    subject: `Email Verification Code - ${ORG_NAME}`,
+    subject: isInitialVerification
+      ? `Verify Your Email - ${ORG_NAME}`
+      : `Email Verification Code - ${ORG_NAME}`,
     html: `
       <!DOCTYPE html>
       <html>
@@ -80,28 +60,27 @@ export async function POST(req: Request) {
             <td align="center">
               <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
-                <!-- Header -->
                 <tr>
                   <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
-                          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Email Verification Code</h1>
+                          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">${isInitialVerification ? "Verify Your Email" : "Email Verification Code"}</h1>
                         </td>
                       </tr>
                     </table>
                   </td>
                 </tr>
                 
-                <!-- Content -->
                 <tr>
                   <td style="padding: 40px;">
                     <p style="margin: 0 0 16px 0; color: #374151; font-size: 16px; line-height: 24px;">
                       Hello <strong>${userName}</strong>,
                     </p>
                     <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      We received a request to change your email address for your ${ORG_NAME} account. 
-                      To complete this change, please use the verification code below:
+                      ${isInitialVerification
+                        ? `To complete your ${ORG_NAME} account setup, please verify your email address using the code below.`
+                        : `We received a request to change your email address for your ${ORG_NAME} account. To complete this change, please use the verification code below:`}
                     </p>
                     
                     <!-- OTP Code Box -->
@@ -134,7 +113,7 @@ export async function POST(req: Request) {
                     </p>
                     <ul style="margin: 0 0 24px 0; padding-left: 24px; color: #374151; font-size: 14px; line-height: 22px;">
                       <li style="margin: 0 0 8px 0;">Enter the 6-digit code above in the verification field</li>
-                      <li style="margin: 0 0 8px 0;">Your email address will be updated immediately upon verification</li>
+                      <li style="margin: 0 0 8px 0;">${isInitialVerification ? "Your account will be verified and you can continue using the system." : "Your email address will be updated immediately upon verification."}</li>
                       <li style="margin: 0;">For your security, this code can only be used once</li>
                     </ul>
                     

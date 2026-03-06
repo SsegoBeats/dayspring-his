@@ -186,17 +186,54 @@ export async function PATCH(req: Request) {
       return NextResponse.json({ success: true })
     }
 
-    // Approve: delete patient and mark request Approved
-    await queryWithSession(
-      { role: auth.role, userId: auth.userId },
-      `DELETE FROM patients WHERE id = $1`,
-      [reqRow.patient_id]
-    )
-    await queryWithSession(
-      { role: auth.role, userId: auth.userId },
+    // Approve: mark request Approved first (audit), then delete patient and dependents.
+    await query(
       `UPDATE patient_deletion_requests SET status = 'Approved', approved_by = $1, approved_at = CURRENT_TIMESTAMP WHERE id = $2`,
       [auth.userId, requestId]
     )
+
+    const patientId = reqRow.patient_id
+    try {
+      await query(`DELETE FROM patients WHERE id = $1`, [patientId])
+    } catch (e: any) {
+      if (String(e?.code || "") !== "23503") throw e
+
+      const deletes: Array<[string, string]> = [
+        ["triage_assessments", "patient_id"],
+        ["appointments", "patient_id"],
+        ["medical_records", "patient_id"],
+        ["vital_signs", "patient_id"],
+        ["nursing_notes", "patient_id"],
+        ["prescriptions", "patient_id"],
+        ["lab_tests", "patient_id"],
+        ["radiology_tests", "patient_id"],
+        ["bills", "patient_id"],
+        ["payments", "patient_id"],
+        ["patient_routing", "patient_id"],
+        ["bed_assignments", "patient_id"],
+        ["checkins", "patient_id"],
+        ["documents", "patient_id"],
+        ["insurance_policies", "patient_id"],
+        ["patient_feedback", "patient_id"],
+        ["patient_deletion_requests", "patient_id"],
+      ]
+      for (const [tbl, col] of deletes) {
+        try {
+          await query(`DELETE FROM ${tbl} WHERE ${col} = $1`, [patientId])
+        } catch {}
+      }
+      try {
+        await query(`DELETE FROM patients WHERE id = $1`, [patientId])
+      } catch (retryErr: any) {
+        if (String((retryErr as any)?.code || "") === "23503") {
+          return NextResponse.json(
+            { error: "Patient cannot be deleted due to remaining references. Request marked Approved; remove dependencies and delete the patient manually if needed." },
+            { status: 409 },
+          )
+        }
+        throw retryErr
+      }
+    }
     await ensureNotifications()
     // Notify requester and admins of approval
     await query(
@@ -210,6 +247,9 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ success: true })
   } catch (err: any) {
     console.error('Error approving patient deletion request:', err)
+    if (String(err?.code || "") === "23503") {
+      return NextResponse.json({ error: "Patient cannot be deleted due to existing references." }, { status: 409 })
+    }
     return NextResponse.json({ error: 'Failed to update request' }, { status: 500 })
   }
 }

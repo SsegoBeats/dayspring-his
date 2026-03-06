@@ -30,6 +30,8 @@ export function NurseDashboard() {
   const [latestLoading, setLatestLoading] = useState(false)
   const lastToastRef = useRef<{ vitals?: number; notes?: number; list?: number }>({})
   const [q, setQ] = useState("")
+  const [filterTriage, setFilterTriage] = useState<string>("")
+  const [filterCritical, setFilterCritical] = useState(false)
   const [sortBy, setSortBy] = useState<
     | 'patient'
     | 'pid'
@@ -41,6 +43,13 @@ export function NurseDashboard() {
     | 'bp'
   >('time')
   const [sortOrder, setSortOrder] = useState<'asc'|'desc'>('desc')
+
+  const todayIso = new Date().toISOString().slice(0, 10)
+  const [datePreset, setDatePreset] = useState<"today" | "last7" | "month" | "custom">("today")
+  const [dateFrom, setDateFrom] = useState<string>(todayIso)
+  const [dateTo, setDateTo] = useState<string>(todayIso)
+  const [exportFormat, setExportFormat] = useState<"csv" | "xlsx" | "pdf">("csv")
+  const [exporting, setExporting] = useState(false)
   const todayVitals = vitalSigns.filter((vs) => vs.date === new Date().toISOString().split("T")[0])
   const todayNotes = nursingNotes.filter((nn) => nn.date === new Date().toISOString().split("T")[0])
 

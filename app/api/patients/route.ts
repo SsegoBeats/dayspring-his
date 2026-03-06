@@ -366,8 +366,54 @@ export async function DELETE(req: Request) {
 
     const patient = patientRows[0]
 
-    // Delete patient
-    await query(`DELETE FROM patients WHERE id = $1`, [patientId])
+    // Delete patient. Some installations may have legacy/restricting FKs; if so, we attempt
+    // best-effort cleanup of dependent rows and retry once.
+    try {
+      await query(`DELETE FROM patients WHERE id = $1`, [patientId])
+    } catch (e: any) {
+      if (String(e?.code || "") !== "23503") throw e
+
+      // Best-effort cleanup of common dependent rows (ignore missing tables/columns).
+      const deletes: Array<[string, string]> = [
+        ["triage_assessments", "patient_id"],
+        ["appointments", "patient_id"],
+        ["medical_records", "patient_id"],
+        ["vital_signs", "patient_id"],
+        ["nursing_notes", "patient_id"],
+        ["prescriptions", "patient_id"],
+        ["lab_tests", "patient_id"],
+        ["radiology_tests", "patient_id"],
+        ["bills", "patient_id"],
+        ["payments", "patient_id"],
+        ["patient_routing", "patient_id"],
+        ["bed_assignments", "patient_id"],
+        ["checkins", "patient_id"],
+        ["documents", "patient_id"],
+        ["insurance_policies", "patient_id"],
+        ["patient_deletion_requests", "patient_id"],
+        ["patient_feedback", "patient_id"],
+      ]
+
+      for (const [tbl, col] of deletes) {
+        try {
+          await query(`DELETE FROM ${tbl} WHERE ${col} = $1`, [patientId])
+        } catch {
+          // ignore missing table or column
+        }
+      }
+
+      try {
+        await query(`DELETE FROM patients WHERE id = $1`, [patientId])
+      } catch (retryErr: any) {
+        if (String((retryErr as any)?.code || "") === "23503") {
+          return NextResponse.json(
+            { error: "Patient cannot be deleted due to remaining references. Please run migrations or remove dependencies and try again." },
+            { status: 409 },
+          )
+        }
+        throw retryErr
+      }
+    }
 
     // Log deletion in audit trail
     await query(
@@ -389,6 +435,12 @@ export async function DELETE(req: Request) {
     return NextResponse.json({ success: true, message: "Patient deleted successfully" })
   } catch (err: any) {
     console.error("Error deleting patient:", err)
+    if (String(err?.code || "") === "23503") {
+      return NextResponse.json(
+        { error: "Patient cannot be deleted due to existing references. Please run migrations and try again." },
+        { status: 409 },
+      )
+    }
     return NextResponse.json({ error: "Failed to delete patient" }, { status: 500 })
   }
 }

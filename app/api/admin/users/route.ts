@@ -148,17 +148,24 @@ export async function POST(req: Request) {
     throw error
   }
 
-  // Generate OTP code for email verification
-  const crypto = await import('crypto')
-  const otp = crypto.randomInt(100000, 999999).toString()
-  const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours from now
+  // Ensure table exists, then store verification token for new user
+  const { ensureEmailVerificationTable } = await import('@/lib/email-verification')
+  await ensureEmailVerificationTable()
 
-  // Store OTP in database
-  await query(
-    `INSERT INTO email_verification_tokens (user_id, token, new_email, expires_at, used)
-     VALUES ($1, $2, $3, $4, false)`,
-    [userId, otp, input.email, expiresAt.toISOString()]
-  )
+  let otp: string | undefined
+  try {
+    const crypto = await import('crypto')
+    otp = crypto.randomInt(100000, 999999).toString()
+    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours for initial verification
+    await query(
+      `INSERT INTO email_verification_tokens (user_id, token, new_email, expires_at, used)
+       VALUES ($1, $2, $3, $4, false)`,
+      [userId, otp, input.email, expiresAt.toISOString()]
+    )
+  } catch (e) {
+    otp = undefined
+    if (process.env.NODE_ENV === 'development') console.warn('[User Creation] email_verification_tokens insert failed:', (e as Error)?.message)
+  }
 
   // Send welcome email (without verification code - user gets that on first login)
   try {
@@ -169,14 +176,15 @@ export async function POST(req: Request) {
     // Don't fail user creation if email fails
   }
 
-  // Send verification code email separately
-  try {
-    const { emailTemplates: vEmailTemplates } = await import("@/lib/email-service")
-    const verificationTpl = vEmailTemplates.verificationCode(input.name, otp)
-    await sendEmailServer(input.email, verificationTpl)
-  } catch (error) {
-    console.error("[User Creation] Failed to send verification email:", error)
-    // Don't fail user creation if verification email fails
+  // Send verification code email separately (only when OTP was stored)
+  if (typeof otp !== 'undefined') {
+    try {
+      const { emailTemplates: vEmailTemplates } = await import("@/lib/email-service")
+      const verificationTpl = vEmailTemplates.verificationCode(input.name, otp)
+      await sendEmailServer(input.email, verificationTpl)
+    } catch (error) {
+      console.error("[User Creation] Failed to send verification email:", error)
+    }
   }
 
   // Log the user creation action

@@ -193,7 +193,7 @@ export async function GET() {
             // Check for recent lab tests
             recentActivityQuery = `
               SELECT COUNT(*) as count FROM (
-                SELECT created_at FROM lab_tests WHERE created_at > NOW() - INTERVAL '${minutes} minutes'
+                SELECT ordered_at AS created_at FROM lab_tests WHERE ordered_at > NOW() - INTERVAL '${minutes} minutes'
                 UNION ALL
                 SELECT last_login as created_at FROM users WHERE role = 'Lab Tech' AND last_login IS NOT NULL AND last_login > NOW() - INTERVAL '${minutes} minutes'
               ) as activity
@@ -203,7 +203,7 @@ export async function GET() {
             // Check for recent radiology tests
             recentActivityQuery = `
               SELECT COUNT(*) as count FROM (
-                SELECT created_at FROM radiology_tests WHERE created_at > NOW() - INTERVAL '${minutes} minutes'
+                SELECT ordered_at AS created_at FROM radiology_tests WHERE ordered_at > NOW() - INTERVAL '${minutes} minutes'
                 UNION ALL
                 SELECT last_login as created_at FROM users WHERE role = 'Radiologist' AND last_login IS NOT NULL AND last_login > NOW() - INTERVAL '${minutes} minutes'
               ) as activity

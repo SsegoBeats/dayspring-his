@@ -7,6 +7,7 @@ import { formatPatientNumber } from "@/lib/patients"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
 
 export const runtime = 'nodejs'
+export const maxDuration = 90
 
 function getAnalyteRows(test: any) {
   const rows: { Patient: string; PID?: string; Test: string; Parameter: string; Value: string; RefRange?: string; Flag?: string; Accession?: string; Ordered?: string; Completed?: string }[] = []

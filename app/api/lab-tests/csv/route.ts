@@ -5,6 +5,7 @@ import { query } from "@/lib/db"
 import { formatPatientNumber } from "@/lib/patients"
 
 export const runtime = 'nodejs'
+export const maxDuration = 90
 
 function getAnalyteRows(test: any) {
   const rows: { Patient: string; PID?: string; Test: string; Parameter: string; Value: string; RefRange?: string; Flag?: string; Accession?: string; Ordered?: string; Completed?: string }[] = []

@@ -8,6 +8,8 @@ import { toPDF } from "@/lib/exports/writers/pdf"
 import { writeAuditLog } from "@/lib/audit"
 import { formatPatientNumber } from "@/lib/patients"
 
+export const maxDuration = 90
+
 export async function GET(req: Request) {
   try {
     const cookieStore = await cookies()

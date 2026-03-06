@@ -5,6 +5,7 @@ import React from "react"
 import type { FinancialReportPayload } from "@/types/financial"
 
 export const runtime = "nodejs"
+export const maxDuration = 90
 
 export async function POST(req: NextRequest) {
   try {

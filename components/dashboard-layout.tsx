@@ -116,51 +116,71 @@ function NotificationsBell() {
     const id = setInterval(() => { load().catch(()=>{}) }, 30000)
     return () => clearInterval(id)
   }, [])
-  ;(require('react') as any).useEffect(() => {
-    try {
-      const hasCookie = typeof document !== 'undefined' && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
-      const tokenMatch = typeof document !== 'undefined' ? (document.cookie.match(/(?:^|;\s)session_dev=([^;]+)/) || document.cookie.match(/(?:^|;\s)session=([^;]+)/)) : null
-      const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : (typeof localStorage !== 'undefined' ? localStorage.getItem('session_dev_bearer') : null)
-      const url = new URL('/api/notifications/stream', window.location.origin)
-      if (!hasCookie && token) url.searchParams.set('t', token)
-      const es = new (window as any).EventSource(url.toString(), { withCredentials: true })
-      es.onmessage = (ev: MessageEvent) => {
-        try {
-          const data = JSON.parse(ev.data)
-          if (Array.isArray(data.notifications)) {
-            const prevIds = new Set(items.map((x:any)=> x.id))
-            // Show toast for newly arrived lab results
-            const toast = (require('sonner') as any).toast
-            for (const n of data.notifications) {
-              if (!prevIds.has(n.id)) {
-                try {
-                  const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
-                  const isLab = /lab results/i.test(n.title || '') || (payload && payload.testId && payload.testType)
-                  if (isLab && typeof toast === 'function') {
-                    const patientId = payload?.patientId
-                    toast(n.title || 'Lab Results Ready', {
-                      description: n.message || '',
-                      action: patientId ? {
-                        label: 'Open',
-                        onClick: () => {
-                          try {
-                            window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab: 'labs', notificationId: n.id } }))
-                          } catch {}
-                        }
-                      } : undefined
-                    })
+  useEffect(() => {
+    let es: EventSource | null = null
+    let timeoutId: ReturnType<typeof setTimeout> | null = null
+    let mounted = true
+    const connect = () => {
+      if (!mounted) return
+      try {
+        const hasCookie = typeof document !== 'undefined' && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
+        const tokenMatch = typeof document !== 'undefined' ? (document.cookie.match(/(?:^|;\s)session_dev=([^;]+)/) || document.cookie.match(/(?:^|;\s)session=([^;]+)/)) : null
+        const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : (typeof localStorage !== 'undefined' ? localStorage.getItem('session_dev_bearer') : null)
+        const url = new URL('/api/notifications/stream', window.location.origin)
+        if (!hasCookie && token) url.searchParams.set('t', token)
+        es = new (window as any).EventSource(url.toString(), { withCredentials: true })
+        es.onmessage = (ev: MessageEvent) => {
+          try {
+            const data = JSON.parse(ev.data)
+            if (Array.isArray(data.notifications)) {
+              setItems((prev) => {
+                const prevIds = new Set(prev.map((x: any) => x.id))
+                const toast = (require('sonner') as any).toast
+                for (const n of data.notifications) {
+                  if (!prevIds.has(n.id)) {
+                    try {
+                      const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
+                      const isLab = /lab results/i.test(n.title || '') || (payload && payload.testId && payload.testType)
+                      if (isLab && typeof toast === 'function') {
+                        const patientId = payload?.patientId
+                        toast(n.title || 'Lab Results Ready', {
+                          description: n.message || '',
+                          action: patientId ? {
+                            label: 'Open',
+                            onClick: () => {
+                              try {
+                                window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab: 'labs', notificationId: n.id } }))
+                              } catch {}
+                            }
+                          } : undefined
+                        })
+                      }
+                    } catch {}
                   }
-                } catch {}
-              }
+                }
+                return data.notifications
+              })
+              setUnread(data.notifications.filter((n: any) => !n.read_at).length)
             }
-            setItems(data.notifications)
-            setUnread(data.notifications.filter((n:any)=>!n.read_at).length)
+          } catch {}
+        }
+        es.onerror = () => {
+          try { es?.close() } catch {}
+          es = null
+          // Reconnect after disconnect (e.g. Vercel 300s timeout); backoff 2–30s
+          if (mounted && timeoutId == null) {
+            const delay = Math.min(2000 + Math.random() * 4000, 30000)
+            timeoutId = setTimeout(() => { timeoutId = null; connect() }, delay)
           }
-        } catch {}
-      }
-      es.onerror = () => { try { es.close() } catch {} }
-      return () => { try { es.close() } catch {} }
-    } catch {}
+        }
+      } catch {}
+    }
+    connect()
+    return () => {
+      mounted = false
+      if (timeoutId) clearTimeout(timeoutId)
+      try { es?.close() } catch {}
+    }
   }, [])
   const markRead = async (ids: string[]) => {
     try { await fetch('/api/notifications', { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); await load() } catch {}

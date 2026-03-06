@@ -57,6 +57,9 @@ export function UserManagement() {
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkRoleDialogOpen, setBulkRoleDialogOpen] = useState(false)
   const [bulkRoleValue, setBulkRoleValue] = useState<string>("")
+  const [addRole, setAddRole] = useState<string>("Receptionist")
+  const [editRole, setEditRole] = useState<string>("")
+  const [editStatus, setEditStatus] = useState<string>("active")
 
   const [filters, setFilters] = useState({
     role: "",
@@ -183,11 +186,24 @@ export function UserManagement() {
     setFormLoading(true)
     try {
       const formData = new FormData(e.currentTarget)
+      const name = (formData.get("name") as string)?.trim()
+      const email = (formData.get("email") as string)?.trim()
+      const password = formData.get("password") as string
+      if (!name || !email || !password) {
+        toast.error("Name, email, and password are required")
+        setFormLoading(false)
+        return
+      }
+      if (!addRole) {
+        toast.error("Please select a role")
+        setFormLoading(false)
+        return
+      }
       await addUser({
-        name: formData.get("name") as string,
-        email: formData.get("email") as string,
-        password: formData.get("password") as string,
-        role: formData.get("role") as UserRole,
+        name,
+        email,
+        password,
+        role: addRole as UserRole,
         status: "active",
       } as any)
       toast.success("User created successfully")
@@ -213,11 +229,14 @@ export function UserManagement() {
     if (!editingUser) return
     setFormLoading(true)
     try {
-      const formData = new FormData(e.currentTarget)
-      // Only update role and status - name, email, and password are not editable here
+      if (!editRole) {
+        toast.error("Please select a role")
+        setFormLoading(false)
+        return
+      }
       await updateUser(editingUser.id, {
-        role: formData.get("role") as UserRole,
-        status: formData.get("status") as "active" | "inactive",
+        role: editRole as UserRole,
+        status: editStatus as "active" | "inactive",
       } as any)
       toast.success("User updated successfully")
       setEditingUser(null)
@@ -288,8 +307,10 @@ export function UserManagement() {
             <BarChart3 className="h-4 w-4 text-purple-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">{Object.keys(userSummary.byRole).length}</div>
-            <p className="text-xs text-muted-foreground">Different roles</p>
+            <div className="text-3xl font-semibold text-foreground">
+              {Object.entries(userSummary.byRole).filter(([, c]) => c > 0).length}
+            </div>
+            <p className="text-xs text-muted-foreground">Roles in use</p>
           </CardContent>
         </Card>
       </div>
@@ -524,6 +545,8 @@ export function UserManagement() {
             setIsAddDialogOpen(open)
             if (!open) {
               setShowAddPassword(false)
+            } else {
+              setAddRole("Receptionist")
             }
           }}
         >
@@ -588,7 +611,7 @@ export function UserManagement() {
               </div>
               <div className="space-y-2">
                 <Label htmlFor="role">Role</Label>
-                <Select name="role" required>
+                <Select name="role" value={addRole} onValueChange={setAddRole} required>
                   <SelectTrigger id="role">
                     <SelectValue placeholder="Select role" />
                   </SelectTrigger>
@@ -753,9 +776,15 @@ export function UserManagement() {
                     </p>
                   </div>
                   <div className="flex gap-2">
-                    <Dialog open={editingUser?.id === user.id} onOpenChange={(open) => !open && setEditingUser(null)}>
+                    <Dialog open={editingUser?.id === user.id} onOpenChange={(open) => {
+                        if (!open) setEditingUser(null)
+                        else {
+                          setEditRole(user.role)
+                          setEditStatus(user.status)
+                        }
+                      }}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => setEditingUser(user)}>
+                        <Button variant="outline" size="sm" onClick={() => { setEditingUser(user); setEditRole(user.role); setEditStatus(user.status) }}>
                           <Edit className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
@@ -789,7 +818,7 @@ export function UserManagement() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit-role">Role</Label>
-                          <Select name="role" defaultValue={user.role} required>
+                          <Select name="role" value={editRole} onValueChange={setEditRole} required>
                           <SelectTrigger id="edit-role">
                             <SelectValue />
                           </SelectTrigger>
@@ -809,7 +838,7 @@ export function UserManagement() {
                         </div>
                         <div className="space-y-2">
                           <Label htmlFor="edit-status">Status</Label>
-                          <Select name="status" defaultValue={user.status} required>
+                          <Select name="status" value={editStatus} onValueChange={setEditStatus} required>
                             <SelectTrigger id="edit-status">
                               <SelectValue />
                             </SelectTrigger>

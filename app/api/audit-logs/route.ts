@@ -72,7 +72,7 @@ export async function GET(req: NextRequest) {
     const startDate = searchParams.get('startDate')
     const endDate = searchParams.get('endDate')
     const page = parseInt(searchParams.get('page') || '1')
-    const limit = parseInt(searchParams.get('limit') || '50')
+    const limit = Math.min(500, Math.max(1, parseInt(searchParams.get('limit') || '50')))
     const offset = (page - 1) * limit
 
     // Build the query with filters

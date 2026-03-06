@@ -33,6 +33,8 @@ async function checkAuth() {
   return { user: { id: payload.userId, role: user.role } }
 }
 
+export const maxDuration = 90
+
 export async function POST(req: NextRequest) {
   try {
     const auth = await checkAuth()

@@ -3,6 +3,8 @@ import { formatPatientNumber } from "@/lib/patients"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { verifyToken, can } from "@/lib/security"
+
+export const maxDuration = 120
 import { Datasets } from "@/lib/exports/registry"
 import { redactRow } from "@/lib/redaction"
 import { toCSV } from "@/lib/exports/writers/csv"

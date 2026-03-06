@@ -8,6 +8,8 @@ import { toPDF } from "@/lib/exports/writers/pdf"
 import { writeAuditLog } from "@/lib/audit"
 import { formatPatientNumber } from "@/lib/patients"
 
+export const maxDuration = 90
+
 function mapTypeForUi(noteType: string): string {
   const t = (noteType || "").toLowerCase()
   if (t === "intervention") return "Procedure"

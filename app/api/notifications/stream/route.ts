@@ -4,6 +4,8 @@ import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 
 export const runtime = 'nodejs'
+// Long-lived SSE: Vercel will close at this limit; clients should reconnect on disconnect
+export const maxDuration = 300
 
 export async function GET(req: Request) {
   const cookieStore = await cookies()
