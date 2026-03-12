@@ -3,8 +3,18 @@
 import { Resend } from "resend"
 import { ORG_NAME, ORG_SUBTITLE, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
 
-// Email configuration from environment variables
-const resend = new Resend(process.env.RESEND_API_KEY)
+let resendClient: Resend | null = null
+
+function getResendClient(): Resend {
+  const apiKey = process.env.RESEND_API_KEY
+  if (!apiKey) {
+    throw new Error("Missing RESEND_API_KEY")
+  }
+  if (!resendClient) {
+    resendClient = new Resend(apiKey)
+  }
+  return resendClient
+}
 
 const SMTP_CONFIG = {
   host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -1418,6 +1428,7 @@ export async function sendEmailServer(
     try {
       // Do not reuse SMTP_FROM by default; Resend will reject unverified sender domains.
       const resendFrom = process.env.RESEND_FROM || "onboarding@resend.dev"
+      const resend = getResendClient()
       const resendResult = await resend.emails.send({
         from: resendFrom,
         to,
