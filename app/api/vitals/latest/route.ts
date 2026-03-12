@@ -71,9 +71,44 @@ export async function GET(req: Request) {
     `
     params.push(limit)
 
-    const { rows } = await query(sql, params)
+    let rows
+    try {
+      const result = await query(sql, params)
+      rows = result.rows
+    } catch (e: any) {
+      // Fallback for deployments that don't yet have triage_assessments table or columns.
+      // If the join fails (eg. relation does not exist), re-run a simpler query without triage.
+      const msg = String(e?.message || "")
+      const code = (e as any)?.code
+      if (msg.includes("triage_assessments") || code === "42P01") {
+        const fallbackSql = `
+          SELECT DISTINCT ON (vs.patient_id)
+            vs.id, vs.patient_id, vs.nurse_id,
+            vs.blood_pressure_systolic, vs.blood_pressure_diastolic,
+            vs.heart_rate, vs.temperature, vs.respiratory_rate,
+            vs.oxygen_saturation, vs.weight, vs.height, vs.notes,
+            COALESCE(vs.recorded_at, vs.created_at) AS recorded_at,
+            p.first_name, p.last_name, p.patient_number,
+            u.name AS nurse_name,
+            NULL::text AS triage_category
+          FROM vital_signs vs
+          LEFT JOIN patients p ON p.id = vs.patient_id
+          LEFT JOIN users u ON u.id = vs.nurse_id
+          ${whereSql}
+          ORDER BY vs.patient_id, COALESCE(vs.recorded_at, vs.created_at) DESC
+          LIMIT $${idx}
+        `
+        const fallback = await query(fallbackSql, params)
+        rows = fallback.rows
+      } else {
+        throw e
+      }
+    }
     const today = new Date(startOfDayISO(new Date())).getTime()
-    const todaysCount = rows.filter((r: any) => new Date(r.recorded_at || r.created_at || new Date()).getTime() >= today).length
+    const todaysCount = (rows || []).filter((r: any) => {
+      const t = new Date(r.recorded_at || r.created_at || new Date()).getTime()
+      return !Number.isNaN(t) && t >= today
+    }).length
 
     return NextResponse.json({
       vitals: rows,
