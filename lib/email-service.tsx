@@ -1366,6 +1366,7 @@ const SMTP_USER = process.env.SMTP_USER || ORG_EMAIL
 const SMTP_PASS = process.env.SMTP_PASS || ""
 const HAS_SMTP = Boolean(SMTP_USER && SMTP_PASS)
 const HAS_RESEND = Boolean(process.env.RESEND_API_KEY)
+const ALLOW_RESEND_FALLBACK_AFTER_SMTP_FAILURE = process.env.EMAIL_RESEND_FALLBACK === "true"
 
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
@@ -1405,7 +1406,7 @@ export async function sendEmailServer(
   }
 
   // Optional fallback: if Resend is configured, try it before failing the request.
-  if (HAS_RESEND) {
+  if (HAS_RESEND && (!HAS_SMTP || ALLOW_RESEND_FALLBACK_AFTER_SMTP_FAILURE)) {
     try {
       // Do not reuse SMTP_FROM by default; Resend will reject unverified sender domains.
       const resendFrom = process.env.RESEND_FROM || "onboarding@resend.dev"
