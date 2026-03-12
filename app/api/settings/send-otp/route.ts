@@ -6,7 +6,7 @@ import { query } from "@/lib/db"
 import crypto from "crypto"
 import { sendEmailServer } from "@/lib/email-service"
 import { rateLimitPg } from "@/lib/rate-limit-pg"
-import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
+import { ORG_NAME, ORG_SUBTITLE, ORG_EMAIL, ORG_ADDRESS } from "@/lib/org-constants"
 import { ensureEmailVerificationTable } from "@/lib/email-verification"
 
 const Schema = z.object({ email: z.string().email() })
@@ -68,14 +68,14 @@ export async function POST(req: Request) {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <tr>
-                  <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #2563eb; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
@@ -101,7 +101,7 @@ export async function POST(req: Request) {
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td align="center" style="padding: 0 0 32px 0;">
-                          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px dashed #0ea5e9; border-radius: 12px; padding: 24px 32px; display: inline-block;">
+                          <div style="background-color: #f0f9ff; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px dashed #0ea5e9; border-radius: 12px; padding: 24px 32px; display: inline-block;">
                             <div style="font-size: 36px; font-weight: 700; color: #0369a1; letter-spacing: 8px; font-family: 'Courier New', monospace; line-height: 1.2;">
                               ${otp}
                             </div>
@@ -141,7 +141,7 @@ export async function POST(req: Request) {
                     <!-- Support -->
                     <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 20px; text-align: center;">
                       Need help? Contact our support team at 
-                      <a href="mailto:support@dayspringhospital.ug" style="color: #2563eb; text-decoration: none;">support@dayspringhospital.ug</a>
+                      <a href="mailto:${ORG_EMAIL}" style="color: #2563eb; text-decoration: none;">${ORG_EMAIL}</a>
                     </p>
                   </td>
                 </tr>
@@ -159,7 +159,7 @@ export async function POST(req: Request) {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Kampala, Uganda | Trusted Healthcare Since 2015
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -214,4 +214,3 @@ export async function POST(req: Request) {
     return NextResponse.json(payload, { status: 500 })
   }
 }
-

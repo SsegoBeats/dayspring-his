@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useRef, useCallback } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -56,12 +56,7 @@ export function NonMedicationInventory() {
   const [isEditing, setIsEditing] = useState(false)
   const searchInputRef = useRef<HTMLInputElement>(null)
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- run once on mount
-  useEffect(() => {
-    loadItems()
-  }, [])
-
-  const loadItems = async () => {
+  const loadItems = useCallback(async () => {
     setLoading(true)
     try {
       const res = await fetch("/api/pharmacy/non-medication-inventory", { credentials: "include" })
@@ -78,7 +73,11 @@ export function NonMedicationInventory() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [toast])
+
+  useEffect(() => {
+    void loadItems()
+  }, [loadItems])
 
   const filteredItems = items.filter((item) => {
     const matchesSearch =

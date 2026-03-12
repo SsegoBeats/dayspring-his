@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
@@ -40,12 +40,7 @@ export function UsageAnalytics() {
   const [months, setMonths] = useState(6)
   const [view, setView] = useState<"forecasts" | "history">("forecasts")
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- run when months changes
-  useEffect(() => {
-    loadAnalytics()
-  }, [months])
-
-  const loadAnalytics = async () => {
+  const loadAnalytics = useCallback(async () => {
     setLoading(true)
     setError(null)
     try {
@@ -61,7 +56,11 @@ export function UsageAnalytics() {
     } finally {
       setLoading(false)
     }
-  }
+  }, [months])
+
+  useEffect(() => {
+    void loadAnalytics()
+  }, [loadAnalytics])
 
   if (loading && !data) {
     return (

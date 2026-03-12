@@ -39,7 +39,6 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
 
   // Remember last active tab per patient
   const storageKey = `nurse-care-tab:${patientId}`
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- only re-run when patientId changes
   useEffect(() => {
     try {
       const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null
@@ -49,11 +48,10 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
         setActiveTab(initialTab)
       }
     } catch {}
-  }, [patientId])
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- persist tab; storageKey is derived from patientId
+  }, [initialTab, storageKey])
   useEffect(() => {
     try { if (typeof window !== 'undefined') localStorage.setItem(storageKey, activeTab) } catch {}
-  }, [activeTab])
+  }, [activeTab, storageKey])
   const vitalHistory = getPatientVitals(patientId)
   const noteHistory = getPatientNotes(patientId)
 
@@ -134,8 +132,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
         toast.error("Failed to load patient history")
       })
       .finally(() => setLoadingHistory(false))
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId])
+  }, [patientId, prefetchPatient])
 
   // Calculate patient age (always compute so hooks below can use it)
   const patientAge = patient ? (() => {
@@ -181,7 +178,6 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
   }, [vitalsForm, patient, patientAge])
 
   // Keyboard shortcuts: Ctrl+Enter saves current tab
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- commitVitals/commitNote are stable enough; deps cover intent
   useEffect(() => {
     if (!patient) return
     const onKey = (e: KeyboardEvent) => {
@@ -192,7 +188,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
     }
     window.addEventListener('keydown', onKey)
     return () => window.removeEventListener('keydown', onKey)
-  }, [activeTab, vitalsForm, noteForm, patient, user])
+  }, [activeTab, patient, user]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Pre-fill vitals with latest record for this patient (as a starting template)
   useEffect(() => {

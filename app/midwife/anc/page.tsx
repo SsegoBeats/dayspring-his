@@ -64,7 +64,7 @@ export default function MidwifeAncPage() {
       .catch(() => { if (!cancelled) setVisits([]) })
       .finally(() => { if (!cancelled) setLoading(false) })
     return () => { cancelled = true }
-  }, [from, to, user?.role])
+  }, [from, to, user])
 
   if (isLoading || !user || user.role !== "Midwife") {
     return (

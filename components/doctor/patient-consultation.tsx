@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { useMedical } from "@/lib/medical-context"
 import { useAuth } from "@/lib/auth-context"
@@ -411,7 +411,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
     }
   }
 
-  const loadDentalHistory = async (patientId: string) => {
+  const loadDentalHistory = useCallback(async (patientId: string) => {
     try {
       const res = await fetch(`/api/dental/records?patientId=${encodeURIComponent(patientId)}`, {
         credentials: "include",
@@ -425,7 +425,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
     } catch {
       setDentalHistory([])
     }
-  }
+  }, [])
 
   const handleSaveDentalRecord = async () => {
     if (!patient || !user) return
@@ -515,7 +515,6 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
     }
   }
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- run when patient.id changes
   useEffect(() => {
     if (!patient) return
 
@@ -535,8 +534,8 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
       }
     })()
 
-    loadDentalHistory(patient.id)
-  }, [patient?.id])
+    void loadDentalHistory(patient.id)
+  }, [patient, loadDentalHistory])
 
   if (!patient) {
     return (

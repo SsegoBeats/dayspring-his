@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState, useEffect, useRef } from "react"
+import { useMemo, useState, useEffect, useRef, useCallback } from "react"
 import type { Medication } from "@/lib/pharmacy-context"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -74,7 +74,7 @@ export function MedicationInventory() {
   } | null>(null)
 
   const lowStockMeds = getLowStockMedications()
-  const expiringSoonSet = new Set(getExpiringMedications(30).map((m) => m.id))
+  const expiringSoonSet = useMemo(() => new Set(getExpiringMedications(30).map((m) => m.id)), [getExpiringMedications])
 
   // Auto-focus barcode input when scan mode is enabled
   useEffect(() => {
@@ -114,13 +114,13 @@ export function MedicationInventory() {
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [selectedMedication, showAddDialog, isEditing])
 
-  const classifyStock = (med: Medication): StockFilter => {
+  const classifyStock = useCallback((med: Medication): StockFilter => {
     if (med.stockQuantity <= 0) return "out"
     if (med.stockQuantity <= med.reorderLevel) return "low"
     return "healthy"
-  }
+  }, [])
 
-  const classifyExpiry = (med: Medication): ExpiryFilter => {
+  const classifyExpiry = useCallback((med: Medication): ExpiryFilter => {
     if (!med.expiryDate) return "none"
     const today = new Date()
     const exp = new Date(med.expiryDate)
@@ -128,9 +128,8 @@ export function MedicationInventory() {
     if (exp < today) return "expired"
     if (expiringSoonSet.has(med.id)) return "expiring"
     return "all"
-  }
+  }, [expiringSoonSet])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- classifyExpiry is a local helper
   const normalized = useMemo(() => {
     const query = searchQuery.toLowerCase().trim()
     return medications
@@ -203,7 +202,7 @@ export function MedicationInventory() {
             return 0
         }
       })
-  }, [medications, searchQuery, filterLowStock, stockFilter, expiryFilter, sortKey, advancedFilters])
+  }, [medications, searchQuery, filterLowStock, stockFilter, expiryFilter, sortKey, advancedFilters, classifyStock, classifyExpiry])
 
   const totalPages = Math.max(1, Math.ceil(normalized.length / pageSize))
   const pageClamped = Math.min(page, totalPages - 1)

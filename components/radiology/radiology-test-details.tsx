@@ -1,4 +1,5 @@
 "use client"
+/* eslint-disable @next/next/no-img-element */
 
 import { useState, useEffect } from "react"
 import { useMedical } from "@/lib/medical-context"
@@ -37,7 +38,7 @@ export function RadiologyTestDetails({ testId, onBack, onSelectTest }: Radiology
     if (!test) return
     setResults(test.results || "")
     setNotes(test.notes || "")
-  }, [test?.id])
+  }, [test])
 
   useEffect(() => {
     if (!test?.patientId) return

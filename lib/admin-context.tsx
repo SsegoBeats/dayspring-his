@@ -77,7 +77,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   const [summary, setSummary] = useState<UserSummary | null>(null)
   const [loading, setLoading] = useState(false)
 
-  const fetchSummary = async (): Promise<UserSummary | null> => {
+  const fetchSummary = useCallback(async (): Promise<UserSummary | null> => {
     try {
       const res = await fetch("/api/admin/users?summary=1", { credentials: "include" })
       if (res.ok) {
@@ -91,7 +91,7 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
       if (process.env.NODE_ENV === "development") console.warn("[AdminContext] fetchSummary:", err)
       return null
     }
-  }
+  }, [])
 
   const fetchUsers = useCallback(async (opts: FetchUsersOptions = {}): Promise<{ users: SystemUser[]; total: number }> => {
     setLoading(true)
@@ -133,8 +133,8 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
 
   useEffect(() => {
     if (!user || !can(user.role, "users", "read")) return
-    fetchSummary().catch(() => {})
-  }, [user?.id, user?.role])
+    void fetchSummary()
+  }, [user, fetchSummary])
 
   const addUser = async (user: Omit<SystemUser, "id" | "createdAt">) => {
     const res = await fetch("/api/admin/users", {

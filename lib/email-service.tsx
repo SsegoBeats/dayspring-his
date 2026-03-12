@@ -27,15 +27,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #2563eb; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
@@ -86,7 +86,7 @@ export const emailTemplates = {
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td align="center" style="padding: 0 0 24px 0;">
-                          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px dashed #0ea5e9; border-radius: 12px; padding: 24px 32px; display: inline-block;">
+                          <div style="background-color: #f0f9ff; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px dashed #0ea5e9; border-radius: 12px; padding: 24px 32px; display: inline-block;">
                             <p style="margin: 0 0 12px 0; color: #0369a1; font-size: 14px; font-weight: 600;">Email Verification Code:</p>
                             <div style="font-size: 36px; font-weight: 700; color: #0369a1; letter-spacing: 8px; font-family: 'Courier New', monospace; line-height: 1.2;">
                               ${verificationCode}
@@ -167,7 +167,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -194,15 +194,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #2563eb; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td>
@@ -227,7 +227,7 @@ export const emailTemplates = {
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td align="center" style="padding: 0 0 32px 0;">
-                          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px dashed #0ea5e9; border-radius: 12px; padding: 24px 32px; display: inline-block;">
+                          <div style="background-color: #f0f9ff; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px dashed #0ea5e9; border-radius: 12px; padding: 24px 32px; display: inline-block;">
                             <p style="margin: 0 0 12px 0; color: #0369a1; font-size: 14px; font-weight: 600;">Your Verification Code:</p>
                             <div style="font-size: 36px; font-weight: 700; color: #0369a1; letter-spacing: 8px; font-family: 'Courier New', monospace; line-height: 1.2;">
                               ${code}
@@ -278,7 +278,7 @@ export const emailTemplates = {
                     <!-- Support -->
                     <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 20px; text-align: center;">
                       Need help? Contact our support team at
-                      <a href="mailto:support@dayspringhospital.ug" style="color: #2563eb; text-decoration: none;">support@dayspringhospital.ug</a>
+                      <a href="mailto:${ORG_EMAIL}" style="color: #2563eb; text-decoration: none;">${ORG_EMAIL}</a>
                     </p>
                   </td>
                 </tr>
@@ -296,7 +296,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -323,15 +323,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #2563eb; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">🔒 Password Reset Request</h1>
                   </td>
                 </tr>
@@ -396,7 +396,7 @@ export const emailTemplates = {
                     <!-- Support -->
                     <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 20px; text-align: center;">
                       Need help? Contact our support team at 
-                      <a href="mailto:support@dayspringhospital.ug" style="color: #2563eb; text-decoration: none;">support@dayspringhospital.ug</a>
+                      <a href="mailto:${ORG_EMAIL}" style="color: #2563eb; text-decoration: none;">${ORG_EMAIL}</a>
                     </p>
                   </td>
                 </tr>
@@ -414,7 +414,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -441,15 +441,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #10b981; background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">✅ Password Changed Successfully</h1>
                   </td>
                 </tr>
@@ -499,7 +499,7 @@ export const emailTemplates = {
                     <!-- Support -->
                     <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 20px; text-align: center;">
                       Questions? Contact us at 
-                      <a href="mailto:support@dayspringhospital.ug" style="color: #10b981; text-decoration: none;">support@dayspringhospital.ug</a>
+                      <a href="mailto:${ORG_EMAIL}" style="color: #10b981; text-decoration: none;">${ORG_EMAIL}</a>
                     </p>
                   </td>
                 </tr>
@@ -517,7 +517,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -550,15 +550,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #2563eb; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: 600;">📅 Appointment Confirmed</h1>
                     <p style="margin: 0; color: #ffffff; font-size: 16px; opacity: 0.95;">${ORG_NAME}</p>
                   </td>
@@ -643,7 +643,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -670,15 +670,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #8b5cf6; background: linear-gradient(135deg, #8b5cf6 0%, #7c3aed 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">🔬 Lab Results Ready</h1>
                   </td>
                 </tr>
@@ -752,7 +752,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -779,15 +779,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #10b981; background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">💊 Prescription Ready</h1>
                   </td>
                 </tr>
@@ -859,7 +859,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -891,15 +891,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #2563eb; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0 0 8px 0; color: #ffffff; font-size: 24px; font-weight: 600;">🧾 Payment Receipt</h1>
                     <p style="margin: 0; color: #ffffff; font-size: 16px; opacity: 0.95;">Receipt #${receiptNumber}</p>
                   </td>
@@ -1002,7 +1002,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -1029,15 +1029,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #f59e0b; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">⚠️ Low Stock Alert</h1>
                   </td>
                 </tr>
@@ -1127,7 +1127,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -1154,15 +1154,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #f59e0b; background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">⚠️ Email Address Changed</h1>
                   </td>
                 </tr>
@@ -1217,7 +1217,7 @@ export const emailTemplates = {
                     <!-- Support -->
                     <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 20px; text-align: center;">
                       Need help? Contact us immediately at 
-                      <a href="mailto:support@dayspringhospital.ug" style="color: #f59e0b; text-decoration: none; font-weight: 600;">support@dayspringhospital.ug</a>
+                      <a href="mailto:${ORG_EMAIL}" style="color: #f59e0b; text-decoration: none; font-weight: 600;">${ORG_EMAIL}</a>
                     </p>
                   </td>
                 </tr>
@@ -1235,7 +1235,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -1262,15 +1262,15 @@ export const emailTemplates = {
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
                 
                 <!-- Header -->
                 <tr>
-                  <td style="background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                  <td style="background-color: #10b981; background: linear-gradient(135deg, #10b981 0%, #059669 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
                     <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">✅ Email Verified Successfully</h1>
                   </td>
                 </tr>
@@ -1320,7 +1320,7 @@ export const emailTemplates = {
                     <!-- Support -->
                     <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 20px; text-align: center;">
                       Questions? Contact us at 
-                      <a href="mailto:support@dayspringhospital.ug" style="color: #10b981; text-decoration: none;">support@dayspringhospital.ug</a>
+                      <a href="mailto:${ORG_EMAIL}" style="color: #10b981; text-decoration: none;">${ORG_EMAIL}</a>
                     </p>
                   </td>
                 </tr>
@@ -1338,7 +1338,7 @@ export const emailTemplates = {
                             © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
                           </p>
                           <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            Wanyange, Uganda | Trusted Healthcare Since 2024
+                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
                           </p>
                         </td>
                       </tr>
@@ -1544,7 +1544,7 @@ export function buildDepartmentNotificationEmail(department: string, title: stri
         <tr><td align="center">
           <table width="100%" cellpadding="0" cellspacing="0" style="max-width:640px; background-color:#ffffff; border-radius:12px; box-shadow:0 4px 6px rgba(0,0,0,0.05);">
             <tr>
-              <td style="background:linear-gradient(135deg,#2563eb 0%,#1d4ed8 100%); padding:24px 32px; border-radius:12px 12px 0 0;">
+              <td style="background-color: #2563eb; background: linear-gradient(135deg, #2563eb 0%,#1d4ed8 100%); padding:24px 32px; border-radius:12px 12px 0 0;">
                 <h1 style="margin:0; color:#ffffff; font-size:20px; font-weight:600;">${ORG_NAME}</h1>
                 <p style="margin:4px 0 0 0; color:#e0e7ff; font-size:13px;">Information System - ${department}</p>
               </td>
@@ -1568,4 +1568,3 @@ export function buildDepartmentNotificationEmail(department: string, title: stri
     </html>`
   return { subject, html }
 }
-

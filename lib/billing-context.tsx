@@ -126,7 +126,7 @@ export function BillingProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!user || !can(user.role, "billing", "read")) return
     void refreshBills()
-  }, [user?.id, user?.role, refreshBills])
+  }, [user, refreshBills])
 
   const addBill = (bill: Omit<Bill, "id">) => {
     const newBill: Bill = {
