@@ -40,11 +40,11 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
           return
         }
         if (d?.reason === "smtp_failed") {
-          toast.error("SMTP email delivery failed")
+          toast.error(d?.providerMessage || "SMTP email delivery failed")
           return
         }
         if (d?.reason === "resend_rejected") {
-          toast.error("Email provider rejected delivery")
+          toast.error(d?.providerMessage || "Email provider rejected delivery")
           return
         }
         toast.error(d.error || "Failed to send verification code")
@@ -104,11 +104,11 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
           return
         }
         if (data?.reason === "smtp_failed") {
-          toast.error("SMTP email delivery failed")
+          toast.error(data?.providerMessage || "SMTP email delivery failed")
           return
         }
         if (data?.reason === "resend_rejected") {
-          toast.error("Email provider rejected delivery")
+          toast.error(data?.providerMessage || "Email provider rejected delivery")
           return
         }
         toast.error(data.error || "Failed to resend code")

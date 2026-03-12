@@ -1386,7 +1386,7 @@ export async function sendEmailServer(
   let smtpError: unknown = null
 
   if (!HAS_SMTP && !HAS_RESEND) {
-    throw new Error("Email provider not configured. Set SMTP credentials or RESEND_API_KEY.")
+    throw new Error("PROVIDER_NOT_CONFIGURED: Set SMTP credentials or RESEND_API_KEY.")
   }
 
   if (HAS_SMTP) {
@@ -1407,7 +1407,8 @@ export async function sendEmailServer(
   // Optional fallback: if Resend is configured, try it before failing the request.
   if (HAS_RESEND) {
     try {
-      const resendFrom = process.env.RESEND_FROM || from || "onboarding@resend.dev"
+      // Do not reuse SMTP_FROM by default; Resend will reject unverified sender domains.
+      const resendFrom = process.env.RESEND_FROM || "onboarding@resend.dev"
       const resendResult = await resend.emails.send({
         from: resendFrom,
         to,
@@ -1426,14 +1427,13 @@ export async function sendEmailServer(
       }
     } catch (resendError) {
       console.error("[email] Resend fallback failed:", resendError)
-      const smtpMessage = smtpError instanceof Error ? smtpError.message : "unknown SMTP error"
       const resendMessage = resendError instanceof Error ? resendError.message : "unknown Resend error"
-      throw new Error(`Email delivery failed (SMTP: ${smtpMessage}; Resend: ${resendMessage})`)
+      throw new Error(`RESEND_REJECTED: ${resendMessage}`)
     }
   }
 
   const smtpMessage = smtpError instanceof Error ? smtpError.message : "unknown SMTP error"
-  throw new Error(`Email delivery failed (SMTP: ${smtpMessage})`)
+  throw new Error(`SMTP_FAILED: ${smtpMessage}`)
 }
 
 // Email sending function (using native fetch since we can't use nodemailer in browser)

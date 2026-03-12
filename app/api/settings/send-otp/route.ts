@@ -197,14 +197,19 @@ export async function POST(req: Request) {
     console.error("Error in /api/settings/send-otp:", err)
     const message = String(err?.message || "")
     let reason = "delivery_failed"
-    if (message.toLowerCase().includes("not configured")) {
+    let providerMessage = ""
+    if (message.startsWith("PROVIDER_NOT_CONFIGURED:")) {
       reason = "provider_not_configured"
-    } else if (message.toLowerCase().includes("resend")) {
+      providerMessage = message.replace("PROVIDER_NOT_CONFIGURED:", "").trim()
+    } else if (message.startsWith("RESEND_REJECTED:")) {
       reason = "resend_rejected"
-    } else if (message.toLowerCase().includes("smtp")) {
+      providerMessage = message.replace("RESEND_REJECTED:", "").trim()
+    } else if (message.startsWith("SMTP_FAILED:")) {
       reason = "smtp_failed"
+      providerMessage = message.replace("SMTP_FAILED:", "").trim()
     }
     const payload: Record<string, any> = { error: "Failed to send verification code", reason }
+    if (providerMessage) payload.providerMessage = providerMessage.slice(0, 280)
     if (process.env.NODE_ENV === "development") payload.details = String(err?.message || "")
     return NextResponse.json(payload, { status: 500 })
   }
