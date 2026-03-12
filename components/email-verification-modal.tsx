@@ -35,6 +35,10 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
         }
         const d = await r.json().catch(() => ({}))
         sentOnOpen.current = false
+        if (d?.reason === "provider_not_configured") {
+          toast.error("Email service is not configured on the server")
+          return
+        }
         toast.error(d.error || "Failed to send verification code")
       })
       .catch(() => {
@@ -87,6 +91,10 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
         toast.success("Verification code sent to " + userEmail)
       } else {
         const data = await res.json().catch(() => ({}))
+        if (data?.reason === "provider_not_configured") {
+          toast.error("Email service is not configured on the server")
+          return
+        }
         toast.error(data.error || "Failed to resend code")
       }
     } catch (error) {

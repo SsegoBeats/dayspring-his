@@ -1359,13 +1359,21 @@ export const emailTemplates = {
 import nodemailer from "nodemailer"
 
 // SMTP configuration from environment variables
+const SMTP_PORT = Number.parseInt(process.env.SMTP_PORT || "465", 10)
+const SMTP_SECURE =
+  process.env.SMTP_SECURE != null ? process.env.SMTP_SECURE === "true" : SMTP_PORT === 465
+const SMTP_USER = process.env.SMTP_USER || ORG_EMAIL
+const SMTP_PASS = process.env.SMTP_PASS || ""
+const HAS_SMTP = Boolean(SMTP_USER && SMTP_PASS)
+const HAS_RESEND = Boolean(process.env.RESEND_API_KEY)
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number.parseInt(process.env.SMTP_PORT || "465"),
-  secure: process.env.SMTP_SECURE === "true",
+  port: SMTP_PORT,
+  secure: SMTP_SECURE,
   auth: {
-    user: process.env.SMTP_USER || ORG_EMAIL,
-    pass: process.env.SMTP_PASS || "",
+    user: SMTP_USER,
+    pass: SMTP_PASS,
   },
 })
 
@@ -1377,23 +1385,29 @@ export async function sendEmailServer(
   const from = process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`
   let smtpError: unknown = null
 
-  try {
-    const info = await transporter.sendMail({
-      from,
-      to,
-      subject: template.subject,
-      html: template.html,
-    })
-    return { success: true, provider: "smtp", messageId: info.messageId }
-  } catch (error) {
-    smtpError = error
-    console.error("[email] SMTP send failed:", error)
+  if (!HAS_SMTP && !HAS_RESEND) {
+    throw new Error("Email provider not configured. Set SMTP credentials or RESEND_API_KEY.")
+  }
+
+  if (HAS_SMTP) {
+    try {
+      const info = await transporter.sendMail({
+        from,
+        to,
+        subject: template.subject,
+        html: template.html,
+      })
+      return { success: true, provider: "smtp", messageId: info.messageId }
+    } catch (error) {
+      smtpError = error
+      console.error("[email] SMTP send failed:", error)
+    }
   }
 
   // Optional fallback: if Resend is configured, try it before failing the request.
-  if (process.env.RESEND_API_KEY) {
+  if (HAS_RESEND) {
     try {
-      const resendFrom = process.env.RESEND_FROM || from
+      const resendFrom = process.env.RESEND_FROM || from || "onboarding@resend.dev"
       const resendResult = await resend.emails.send({
         from: resendFrom,
         to,

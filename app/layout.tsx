@@ -57,9 +57,13 @@ export default function RootLayout({
           </RootProviders>
         </ThemeProvider>
         <script dangerouslySetInnerHTML={{ __html: `
+          // This app does not currently use runtime service worker caching.
+          // Unregister older service workers so they don't add navigation overhead.
           if ('serviceWorker' in navigator) {
             window.addEventListener('load', () => {
-              navigator.serviceWorker.register('/sw.js');
+              navigator.serviceWorker.getRegistrations()
+                .then((regs) => regs.forEach((reg) => reg.unregister()))
+                .catch(() => {});
             });
           }
           // Suppress Vercel Analytics debug logs in console
@@ -79,8 +83,6 @@ export default function RootLayout({
     </html>
   )
 }
-
-
 
 
 

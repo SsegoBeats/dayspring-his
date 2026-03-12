@@ -181,7 +181,16 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid email", details: err.issues }, { status: 400 })
     }
     console.error("Error in /api/settings/send-otp:", err)
-    const payload: Record<string, any> = { error: "Failed to send verification code" }
+    const message = String(err?.message || "")
+    let reason = "delivery_failed"
+    if (message.toLowerCase().includes("not configured")) {
+      reason = "provider_not_configured"
+    } else if (message.toLowerCase().includes("resend")) {
+      reason = "resend_rejected"
+    } else if (message.toLowerCase().includes("smtp")) {
+      reason = "smtp_failed"
+    }
+    const payload: Record<string, any> = { error: "Failed to send verification code", reason }
     if (process.env.NODE_ENV === "development") payload.details = String(err?.message || "")
     return NextResponse.json(payload, { status: 500 })
   }
