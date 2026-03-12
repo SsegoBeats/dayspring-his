@@ -84,6 +84,9 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            id="patient-care-search"
+            name="patientCareSearch"
+            aria-label="Search patients"
             placeholder="Search patients by name, ID, or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
@@ -95,30 +98,45 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
             <div className="font-medium text-foreground">Record Vitals for {selectedIds.length} selected</div>
             <div className="grid gap-2 md:grid-cols-5">
               <Input
+                id="bulk-vitals-bp"
+                name="bulkVitalsBloodPressure"
+                aria-label="Bulk blood pressure"
                 placeholder="BP (e.g., 120/80)"
                 value={bulkVitals.bloodPressure}
                 onChange={(e)=>setBulkVitals({...bulkVitals, bloodPressure:e.target.value})}
                 onBlur={()=> setBulkVitals((v)=> ({...v, bloodPressure: fmtBP(v.bloodPressure)}))}
               />
               <Input
+                id="bulk-vitals-temp"
+                name="bulkVitalsTemperature"
+                aria-label="Bulk temperature"
                 placeholder="Temp (°C)"
                 value={bulkVitals.temperature}
                 onChange={(e)=>setBulkVitals({...bulkVitals, temperature:e.target.value})}
                 onBlur={()=> setBulkVitals((v)=> ({...v, temperature: fmtTemp(v.temperature)}))}
               />
               <Input
+                id="bulk-vitals-hr"
+                name="bulkVitalsHeartRate"
+                aria-label="Bulk heart rate"
                 placeholder="HR (bpm)"
                 value={bulkVitals.heartRate}
                 onChange={(e)=>setBulkVitals({...bulkVitals, heartRate:e.target.value})}
                 onBlur={()=> setBulkVitals((v)=> ({...v, heartRate: fmtBpm(v.heartRate)}))}
               />
               <Input
+                id="bulk-vitals-rr"
+                name="bulkVitalsRespiratoryRate"
+                aria-label="Bulk respiratory rate"
                 placeholder="RR (/min)"
                 value={bulkVitals.respiratoryRate}
                 onChange={(e)=>setBulkVitals({...bulkVitals, respiratoryRate:e.target.value})}
                 onBlur={()=> setBulkVitals((v)=> ({...v, respiratoryRate: fmtRR(v.respiratoryRate)}))}
               />
               <Input
+                id="bulk-vitals-spo2"
+                name="bulkVitalsOxygenSaturation"
+                aria-label="Bulk oxygen saturation"
                 placeholder="SpO2 (%)"
                 value={bulkVitals.oxygenSaturation}
                 onChange={(e)=>setBulkVitals({...bulkVitals, oxygenSaturation:e.target.value})}
@@ -243,6 +261,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                           type="checkbox"
                           id={`sel-${patient.id}`}
                           name={`select-${patient.id}`}
+                          aria-label={`Select patient ${patient.firstName} ${patient.lastName}`}
                           checked={checked}
                           onChange={(e)=> setSelectedIds((prev)=> e.target.checked ? [...prev, patient.id] : prev.filter(x=>x!==patient.id))}
                         />
@@ -291,3 +310,4 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
     </Card>
   )
 }
+

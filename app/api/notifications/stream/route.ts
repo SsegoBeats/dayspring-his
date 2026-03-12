@@ -24,6 +24,7 @@ export async function GET(req: Request) {
     async start(controller) {
       let timer: any
       let closed = false
+      let lastCreatedAt: string | null = null
       // Ensure notifications table exists and has expected columns (legacy DBs where /api/migrate hasn't completed)
       try {
         await query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
@@ -101,9 +102,19 @@ export async function GET(req: Request) {
           whereParts.push(`user_id = $${params.length}`)
           if (colSet.has('department') && dept) { params.push(dept); whereParts.push(`department = $${params.length}`) }
           if (colSet.has('role') && role) { params.push(role); whereParts.push(`role = $${params.length}`) }
-          params.push(200)
-          const sql = `SELECT ${selectCols.join(', ')} FROM notifications ${whereParts.length ? `WHERE ${whereParts.join(' OR ')}` : ''} ORDER BY created_at DESC LIMIT $${params.length}`
+          if (lastCreatedAt) {
+            params.push(lastCreatedAt)
+            whereParts.push(`created_at > $${params.length}`)
+          }
+          params.push(50)
+          const whereSql = whereParts.length
+            ? `WHERE ${lastCreatedAt ? `(${whereParts.slice(0, whereParts.length - 1).join(' OR ')}) AND ${whereParts[whereParts.length - 1]}` : whereParts.join(' OR ')}`
+            : ''
+          const sql = `SELECT ${selectCols.join(', ')} FROM notifications ${whereSql} ORDER BY created_at DESC LIMIT $${params.length}`
           const { rows } = await query(sql, params)
+          if (rows.length > 0) {
+            lastCreatedAt = String(rows[0].created_at)
+          }
           const payload = JSON.stringify({ notifications: rows })
           try { controller.enqueue(enc.encode(`data: ${payload}\n\n`)) } catch { closed = true; if (timer) clearInterval(timer) }
         } catch {

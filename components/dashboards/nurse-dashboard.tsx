@@ -24,6 +24,7 @@ export function NurseDashboard() {
   const { vitalSigns, nursingNotes, refreshPatient } = useNursing()
   const [selected, setSelected] = useState<{ id: string; tab?: 'vitals'|'notes' } | null>(null)
   const seenNotif = useRef<Set<string>>(new Set())
+  const streamPrimed = useRef(false)
 
   const [todayVitalsCount, setTodayVitalsCount] = useState<number | null>(null)
   const [todayNotesCount, setTodayNotesCount] = useState<number | null>(null)
@@ -218,6 +219,12 @@ export function NurseDashboard() {
         try {
           const data = JSON.parse(ev.data as any)
           const list = Array.isArray((data as any).notifications) ? (data as any).notifications : []
+          // First payload is an initial snapshot; don't toast historical items.
+          if (!streamPrimed.current) {
+            list.forEach((n: any) => { if (n?.id) seenNotif.current.add(n.id) })
+            streamPrimed.current = true
+            return
+          }
           list.forEach((n: any) => {
             if (!n?.id || seenNotif.current.has(n.id)) return
             if (String(n.title || '').includes('New Patient Registered')) {
@@ -295,9 +302,11 @@ export function NurseDashboard() {
         <CardContent className="space-y-3">
           <div className="grid gap-3 md:grid-cols-12 items-end">
             <div className="space-y-1 md:col-span-2">
-              <label className="text-xs font-medium">Quick Range</label>
+              <label htmlFor="nurse-export-quick-range" className="text-xs font-medium">Quick Range</label>
               <Select value={datePreset} onValueChange={(v: any) => setDatePreset(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="nurse-export-quick-range" aria-label="Quick range">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="today">Today</SelectItem>
                   <SelectItem value="last7">Last 7 Days</SelectItem>
@@ -307,8 +316,10 @@ export function NurseDashboard() {
               </Select>
             </div>
             <div className="space-y-1 md:col-span-2">
-              <label className="text-xs font-medium">From</label>
+              <label htmlFor="nurse-export-from" className="text-xs font-medium">From</label>
               <Input 
+                id="nurse-export-from"
+                name="nurseExportFrom"
                 type="date" 
                 value={dateFrom} 
                 onChange={(e) => { setDateFrom(e.target.value); setDatePreset('custom') }}
@@ -316,8 +327,10 @@ export function NurseDashboard() {
               />
             </div>
             <div className="space-y-1 md:col-span-2">
-              <label className="text-xs font-medium">To</label>
+              <label htmlFor="nurse-export-to" className="text-xs font-medium">To</label>
               <Input 
+                id="nurse-export-to"
+                name="nurseExportTo"
                 type="date" 
                 value={dateTo} 
                 onChange={(e) => { setDateTo(e.target.value); setDatePreset('custom') }}
@@ -325,9 +338,11 @@ export function NurseDashboard() {
               />
             </div>
             <div className="space-y-1 md:col-span-2">
-              <label className="text-xs font-medium">Format</label>
+              <label htmlFor="nurse-export-format" className="text-xs font-medium">Format</label>
               <Select value={exportFormat} onValueChange={(v: any) => setExportFormat(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="nurse-export-format" aria-label="Export format">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="csv">CSV</SelectItem>
                   <SelectItem value="xlsx">XLSX</SelectItem>

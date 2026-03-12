@@ -3,6 +3,8 @@ on: [push, pull_request]
 jobs:
   build-test:
     runs-on: ubuntu-latest
+    env:
+      FORCE_JAVASCRIPT_ACTIONS_TO_NODE24: true
     services:
       postgres:
         image: postgres:16
@@ -13,9 +15,9 @@ jobs:
           --health-cmd="pg_isready -U postgres"
           --health-interval=10s --health-timeout=5s --health-retries=5
     steps:
-      - uses: actions/checkout@v4
-      - uses: actions/setup-node@v4
-        with: { node-version: 20 }
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with: { node-version: 22 }
       - run: npm install
       - run: npm run lint --if-present
       - run: npm run typecheck --if-present

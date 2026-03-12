@@ -4,7 +4,7 @@ import { verifyToken } from "@/lib/security"
 import { z } from "zod"
 import { query } from "@/lib/db"
 import crypto from "crypto"
-import { emailTemplates, sendEmailServer } from "@/lib/email-service"
+import { sendEmailServer } from "@/lib/email-service"
 import { rateLimitPg } from "@/lib/rate-limit-pg"
 import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
 import { ensureEmailVerificationTable } from "@/lib/email-verification"
@@ -162,22 +162,28 @@ export async function POST(req: Request) {
     `,
     }
 
-    // Send the email with the new code (errors are logged inside sendEmailServer)
-    await sendEmailServer(email, template)
+    // Send the email with the new code and fail fast if delivery failed.
+    const delivery = await sendEmailServer(email, template)
     await query(`INSERT INTO audit_logs (user_id, action, entity_type, details) VALUES ($1,$2,$3,$4)`, [
       auth.userId,
       "otp_sent",
       "user",
-      JSON.stringify({ email }),
+      JSON.stringify({ email, provider: delivery.provider, messageId: delivery.messageId || null }),
     ])
 
-    return NextResponse.json({ success: true, message: "Verification code sent" })
+    return NextResponse.json({
+      success: true,
+      message: "Verification code sent",
+      delivery: { provider: delivery.provider, messageId: delivery.messageId || null },
+    })
   } catch (err: any) {
     if (err?.name === "ZodError") {
       return NextResponse.json({ error: "Invalid email", details: err.issues }, { status: 400 })
     }
     console.error("Error in /api/settings/send-otp:", err)
-    return NextResponse.json({ error: "Failed to send verification code" }, { status: 500 })
+    const payload: Record<string, any> = { error: "Failed to send verification code" }
+    if (process.env.NODE_ENV === "development") payload.details = String(err?.message || "")
+    return NextResponse.json(payload, { status: 500 })
   }
 }
 

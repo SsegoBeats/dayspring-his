@@ -28,8 +28,19 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
       credentials: "include",
       body: JSON.stringify({ email: userEmail }),
     })
-      .then((r) => { if (r.ok) toast.success("Verification code sent to your email") })
-      .catch(() => { sentOnOpen.current = false })
+      .then(async (r) => {
+        if (r.ok) {
+          toast.success("Verification code sent to your email")
+          return
+        }
+        const d = await r.json().catch(() => ({}))
+        sentOnOpen.current = false
+        toast.error(d.error || "Failed to send verification code")
+      })
+      .catch(() => {
+        sentOnOpen.current = false
+        toast.error("Failed to send verification code")
+      })
   }, [isOpen, userEmail])
 
   const handleVerify = async () => {

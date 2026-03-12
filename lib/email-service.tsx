@@ -1370,19 +1370,56 @@ const transporter = nodemailer.createTransport({
 })
 
 // Server-side email sending function (for use in API routes)
-export async function sendEmailServer(to: string, template: { subject: string; html: string }) {
+export async function sendEmailServer(
+  to: string,
+  template: { subject: string; html: string },
+): Promise<{ success: true; provider: "smtp" | "resend"; messageId?: string }> {
+  const from = process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`
+  let smtpError: unknown = null
+
   try {
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`,
+      from,
       to,
       subject: template.subject,
       html: template.html,
     })
-    return { success: true, messageId: info.messageId }
+    return { success: true, provider: "smtp", messageId: info.messageId }
   } catch (error) {
-    console.error("[v0] Email sending error:", error)
-    return { success: false, error }
+    smtpError = error
+    console.error("[email] SMTP send failed:", error)
   }
+
+  // Optional fallback: if Resend is configured, try it before failing the request.
+  if (process.env.RESEND_API_KEY) {
+    try {
+      const resendFrom = process.env.RESEND_FROM || from
+      const resendResult = await resend.emails.send({
+        from: resendFrom,
+        to,
+        subject: template.subject,
+        html: template.html,
+      })
+
+      if ((resendResult as any)?.error) {
+        throw new Error((resendResult as any).error?.message || "Resend failed")
+      }
+
+      return {
+        success: true,
+        provider: "resend",
+        messageId: (resendResult as any)?.data?.id,
+      }
+    } catch (resendError) {
+      console.error("[email] Resend fallback failed:", resendError)
+      const smtpMessage = smtpError instanceof Error ? smtpError.message : "unknown SMTP error"
+      const resendMessage = resendError instanceof Error ? resendError.message : "unknown Resend error"
+      throw new Error(`Email delivery failed (SMTP: ${smtpMessage}; Resend: ${resendMessage})`)
+    }
+  }
+
+  const smtpMessage = smtpError instanceof Error ? smtpError.message : "unknown SMTP error"
+  throw new Error(`Email delivery failed (SMTP: ${smtpMessage})`)
 }
 
 // Email sending function (using native fetch since we can't use nodemailer in browser)
