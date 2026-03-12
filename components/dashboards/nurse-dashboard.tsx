@@ -1,6 +1,7 @@
 "use client"
 
 import { useEffect, useRef, useState } from "react"
+import type React from "react"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
  
 import { useNursing } from "@/lib/nursing-context"
@@ -555,7 +556,6 @@ export function NurseDashboard() {
           // Refresh data when dialog closes
           if (selected?.id) {
             refreshPatient(selected.id).catch(() => {})
-            setRefreshKey(prev => prev + 1)
           }
           setSelected(null)
         }
@@ -579,7 +579,6 @@ export function NurseDashboard() {
               onBack={() => {
                 // Refresh data when going back
                 refreshPatient(selected.id).catch(() => {})
-                setRefreshKey(prev => prev + 1)
                 setSelected(null)
               }}
             />

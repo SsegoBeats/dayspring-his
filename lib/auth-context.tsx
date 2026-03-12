@@ -88,7 +88,12 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         const me = await fetch("/api/auth/me", { credentials: "include" })
         if (me.ok) {
           const m = await me.json()
-          if (m?.user) setUser(m.user)
+          if (m?.user) {
+            setUser({
+              ...m.user,
+              emailVerified: !!m.user.email_verified_at,
+            })
+          }
         } else if (typeof window !== "undefined") {
           // Fallback: force a full navigation so Set-Cookie is applied
           window.location.href = "/dashboard"
