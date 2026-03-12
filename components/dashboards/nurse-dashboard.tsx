@@ -18,8 +18,11 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatPatientNumber } from "@/lib/patients"
 import { hasCriticalVitals, parseBloodPressure, extractNumericValue } from "@/lib/vital-signs-validation"
+import { useAuth } from "@/lib/auth-context"
 
 export function NurseDashboard() {
+  const { user } = useAuth()
+  const isEmailVerified = user?.emailVerified !== false
   const { patients } = usePatients()
   const { vitalSigns, nursingNotes, refreshPatient } = useNursing()
   const [selected, setSelected] = useState<{ id: string; tab?: 'vitals'|'notes' } | null>(null)
@@ -57,6 +60,7 @@ export function NurseDashboard() {
 
   // Fetch latest vitals summary for accurate today's count
   useEffect(() => {
+    if (!isEmailVerified) return
     let stop = false
     const fetchLatest = async () => {
       try {
@@ -75,10 +79,11 @@ export function NurseDashboard() {
     fetchLatest()
     const t = setInterval(fetchLatest, 30000)
     return () => { stop = true; clearInterval(t) }
-  }, [])
+  }, [isEmailVerified])
 
   // Fetch latest notes summary too
   useEffect(() => {
+    if (!isEmailVerified) return
     let stop = false
     const fetchLatest = async () => {
       try {
@@ -97,10 +102,11 @@ export function NurseDashboard() {
     fetchLatest()
     const t = setInterval(fetchLatest, 30000)
     return () => { stop = true; clearInterval(t) }
-  }, [])
+  }, [isEmailVerified])
 
   // Load latest vitals table (and refetch on search or refresh trigger)
   useEffect(() => {
+    if (!isEmailVerified) return
     let stop = false
     const controller = new AbortController()
     const load = async () => {
@@ -124,7 +130,7 @@ export function NurseDashboard() {
     }
     const t = setTimeout(() => { void load() }, 250)
     return () => { stop = true; clearTimeout(t); controller.abort() }
-  }, [q])
+  }, [q, isEmailVerified])
 
   // Filter vitals
   const filteredVitals = latestVitals.filter((v: any) => {
@@ -208,6 +214,7 @@ export function NurseDashboard() {
   }
   // New patient toast via SSE notifications stream
   useEffect(() => {
+    if (!isEmailVerified) return
     try {
       const hasCookie = typeof document !== 'undefined' && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
       const tokenMatch = typeof document !== 'undefined' ? (document.cookie.match(/(?:^|;\s)session_dev=([^;]+)/) || document.cookie.match(/(?:^|;\s)session=([^;]+)/)) : null
@@ -238,7 +245,7 @@ export function NurseDashboard() {
       es.onerror = () => { try { es.close() } catch {} }
       return () => { try { es.close() } catch {} }
     } catch {}
-  }, [])
+  }, [isEmailVerified])
 
   // Dialog approach; keep dashboard visible and open patient care as a dialog
 

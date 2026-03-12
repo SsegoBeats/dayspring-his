@@ -28,15 +28,29 @@ export async function POST(req: Request) {
 
     await ensureEmailVerificationTable()
 
-    const otp = crypto.randomInt(100000, 999999).toString()
     const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
 
-    await query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [auth.userId])
-    await query(
-      `INSERT INTO email_verification_tokens (user_id, token, new_email, expires_at, used) 
-       VALUES ($1, $2, $3, $4, false)`,
-      [auth.userId, otp, email, expiresAt.toISOString()],
-    )
+    // Keep the token table clean and reduce unique-token collision risk on legacy schemas.
+    await query(`DELETE FROM email_verification_tokens WHERE user_id = $1 OR used = true OR expires_at < NOW()`, [auth.userId])
+
+    let otp = ""
+    let inserted = false
+    for (let i = 0; i < 5; i++) {
+      otp = crypto.randomInt(100000, 999999).toString()
+      try {
+        await query(
+          `INSERT INTO email_verification_tokens (user_id, token, new_email, expires_at, used) 
+           VALUES ($1, $2, $3, $4, false)`,
+          [auth.userId, otp, email, expiresAt.toISOString()],
+        )
+        inserted = true
+        break
+      } catch (insertErr: any) {
+        if (insertErr?.code === "23505") continue
+        throw insertErr
+      }
+    }
+    if (!inserted) throw new Error("Could not generate a unique verification code. Please try again.")
 
     const { rows: userRows } = await query(`SELECT name, email, email_verified_at FROM users WHERE id = $1`, [auth.userId])
     const userName = userRows[0]?.name || "there"

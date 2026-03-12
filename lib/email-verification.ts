@@ -5,14 +5,9 @@ import { query } from "@/lib/db"
  * Safe to call on every request; used by user creation, send-otp, and verify-email flows.
  */
 export async function ensureEmailVerificationTable(): Promise<void> {
-  try {
-    await query(`CREATE EXTENSION IF NOT EXISTS "uuid-ossp"`)
-  } catch {
-    // Extension may already exist or DB may not allow creation
-  }
   await query(`
     CREATE TABLE IF NOT EXISTS email_verification_tokens (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      id TEXT PRIMARY KEY DEFAULT md5(random()::text || clock_timestamp()::text),
       user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
       token VARCHAR(255) UNIQUE NOT NULL,
       new_email VARCHAR(255) NOT NULL,
@@ -21,4 +16,6 @@ export async function ensureEmailVerificationTable(): Promise<void> {
       created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
     )
   `)
+  await query(`CREATE INDEX IF NOT EXISTS idx_email_tokens_user_id ON email_verification_tokens(user_id)`)
+  await query(`CREATE INDEX IF NOT EXISTS idx_email_tokens_expires ON email_verification_tokens(expires_at)`)
 }
