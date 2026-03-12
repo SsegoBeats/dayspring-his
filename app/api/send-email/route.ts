@@ -7,14 +7,27 @@ import { verifyToken, can } from "@/lib/security"
 import { writeAuditLog } from "@/lib/audit"
 import { ORG_EMAIL } from "@/lib/org-constants"
 
-// SMTP configuration from environment variables
+const SMTP_PORT = Number.parseInt(process.env.SMTP_PORT || "465", 10)
+const SMTP_SECURE =
+  process.env.SMTP_SECURE != null ? process.env.SMTP_SECURE === "true" : SMTP_PORT === 465
+const SMTP_USER = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.MAIL_USER || ORG_EMAIL
+const SMTP_PASS =
+  process.env.SMTP_PASS ||
+  process.env.SMTP_PASSWORD ||
+  process.env.EMAIL_PASS ||
+  process.env.EMAIL_PASSWORD ||
+  process.env.GMAIL_APP_PASSWORD ||
+  process.env.GOOGLE_APP_PASSWORD ||
+  ""
+const SMTP_FROM = process.env.SMTP_FROM || process.env.EMAIL_FROM || `Dayspring HIS <${ORG_EMAIL}>`
+
 const transporter = nodemailer.createTransport({
   host: process.env.SMTP_HOST || "smtp.gmail.com",
-  port: Number.parseInt(process.env.SMTP_PORT || "465"),
-  secure: process.env.SMTP_SECURE === "true",
+  port: SMTP_PORT,
+  secure: SMTP_SECURE,
   auth: {
-    user: process.env.SMTP_USER || ORG_EMAIL,
-    pass: process.env.SMTP_PASS || "",
+    user: SMTP_USER,
+    pass: SMTP_PASS,
   },
 })
 
@@ -44,7 +57,7 @@ export async function POST(request: NextRequest) {
 
     // Send email
     const info = await transporter.sendMail({
-      from: process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`,
+      from: SMTP_FROM,
       to,
       subject,
       html,

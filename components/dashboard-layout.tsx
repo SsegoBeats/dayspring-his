@@ -1,7 +1,7 @@
 "use client"
 
 import type { ReactNode } from "react"
-import { useEffect, useState, useCallback } from "react"
+import { useEffect, useState, useCallback, useMemo } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { ErrorBoundary } from "@/components/error-boundary"
@@ -11,6 +11,7 @@ import Image from 'next/image'
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from '@/components/ui/dialog'
 import { formatPatientNumber } from "@/lib/patients"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
+import { toast } from "sonner"
 
 interface DashboardLayoutProps {
   children: ReactNode
@@ -97,8 +98,8 @@ function NotificationsBell() {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
-  const [unread, setUnread] = useState(0)
   const [filter, setFilter] = useState<'all'|'unread'|'lab'>('all')
+  const unread = useMemo(() => items.reduce((count, n) => count + (!n.read_at ? 1 : 0), 0), [items])
   const load = async () => {
     try {
       setLoading(true)
@@ -107,7 +108,6 @@ function NotificationsBell() {
         const data = await res.json()
         const list = Array.isArray(data.notifications) ? data.notifications : []
         setItems(list)
-        setUnread(list.filter((n:any)=>!n.read_at).length)
       }
     } finally { setLoading(false) }
   }
@@ -132,36 +132,54 @@ function NotificationsBell() {
         es.onmessage = (ev: MessageEvent) => {
           try {
             const data = JSON.parse(ev.data)
-            if (Array.isArray(data.notifications)) {
-              setItems((prev) => {
-                const prevIds = new Set(prev.map((x: any) => x.id))
-                const toast = (require('sonner') as any).toast
-                for (const n of data.notifications) {
-                  if (!prevIds.has(n.id)) {
-                    try {
-                      const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
-                      const isLab = /lab results/i.test(n.title || '') || (payload && payload.testId && payload.testType)
-                      if (isLab && typeof toast === 'function') {
-                        const patientId = payload?.patientId
-                        toast(n.title || 'Lab Results Ready', {
-                          description: n.message || '',
-                          action: patientId ? {
-                            label: 'Open',
-                            onClick: () => {
-                              try {
-                                window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab: 'labs', notificationId: n.id } }))
-                              } catch {}
-                            }
-                          } : undefined
-                        })
-                      }
-                    } catch {}
-                  }
+            const incoming = Array.isArray(data.notifications) ? data.notifications : []
+            if (incoming.length === 0) return
+            setItems((prev) => {
+              const prevIds = new Set(prev.map((x: any) => x.id))
+              const added: any[] = []
+              for (const n of incoming) {
+                if (!n?.id || prevIds.has(n.id)) continue
+                prevIds.add(n.id)
+                added.push(n)
+              }
+              if (added.length === 0) return prev
+
+              // Show at most one toast per SSE payload to avoid layout thrash under bursty updates.
+              const firstLab = added.find((n) => {
+                try {
+                  const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
+                  return /lab results/i.test(n.title || '') || Boolean(payload && payload.testId && payload.testType)
+                } catch {
+                  return false
                 }
-                return data.notifications
               })
-              setUnread(data.notifications.filter((n: any) => !n.read_at).length)
-            }
+              if (firstLab) {
+                let payload: any = null
+                try {
+                  payload = firstLab.payload
+                    ? (typeof firstLab.payload === 'string' ? JSON.parse(firstLab.payload) : firstLab.payload)
+                    : null
+                } catch {}
+                const patientId = payload?.patientId
+                toast(firstLab.title || 'Lab Results Ready', {
+                  description: firstLab.message || '',
+                  action: patientId ? {
+                    label: 'Open',
+                    onClick: () => {
+                      try {
+                        window.dispatchEvent(
+                          new CustomEvent('openClinicianConsult', {
+                            detail: { patientId, initialTab: 'labs', notificationId: firstLab.id },
+                          }),
+                        )
+                      } catch {}
+                    },
+                  } : undefined,
+                })
+              }
+
+              return [...added, ...prev].slice(0, 100)
+            })
           } catch {}
         }
         es.onerror = () => {
@@ -200,6 +218,20 @@ function NotificationsBell() {
       }
     } catch {}
   }
+  const filteredItems = useMemo(() => {
+    return items.filter((n: any) => {
+      if (filter === 'unread') return !n.read_at
+      if (filter === 'lab') {
+        try {
+          const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
+          return /lab/i.test(n.title || '') || /lab/i.test(n.message || '') || Boolean(payload && (payload.testId || payload.testType))
+        } catch {
+          return false
+        }
+      }
+      return true
+    })
+  }, [filter, items])
   return (
     <div className="relative">
       <button onClick={()=> setOpen((v:boolean)=>!v)} className="relative inline-flex items-center rounded-md border px-3 py-1.5 text-sm">
@@ -224,29 +256,9 @@ function NotificationsBell() {
             <button className={`rounded px-2 py-0.5 border ${filter==='lab'?'bg-secondary text-foreground':'text-muted-foreground'}`} onClick={()=> setFilter('lab')}>Lab</button>
           </div>
           <div className="max-h-80 overflow-auto divide-y">
-            {items.filter((n:any)=>{
-              if (filter==='unread') return !n.read_at
-              if (filter==='lab') {
-                try {
-                  const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
-                  const isLab = /lab/i.test(n.title||'') || /lab/i.test(n.message||'') || (payload && (payload.testId || payload.testType))
-                  return isLab
-                } catch { return false }
-              }
-              return true
-            }).length === 0 ? (
+            {filteredItems.length === 0 ? (
               <div className="p-3 text-sm text-muted-foreground">No notifications</div>
-            ) : items.filter((n:any)=>{
-              if (filter==='unread') return !n.read_at
-              if (filter==='lab') {
-                try {
-                  const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
-                  const isLab = /lab/i.test(n.title||'') || /lab/i.test(n.message||'') || (payload && (payload.testId || payload.testType))
-                  return isLab
-                } catch { return false }
-              }
-              return true
-            }).map((n:any)=> {
+            ) : filteredItems.map((n:any)=> {
               // Check if this is a deletion request notification
               const isDeletionRequest = n.title === 'Patient Deletion Request' || n.title?.includes('Deletion')
               let payload: any = null

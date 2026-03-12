@@ -1362,8 +1362,16 @@ import nodemailer from "nodemailer"
 const SMTP_PORT = Number.parseInt(process.env.SMTP_PORT || "465", 10)
 const SMTP_SECURE =
   process.env.SMTP_SECURE != null ? process.env.SMTP_SECURE === "true" : SMTP_PORT === 465
-const SMTP_USER = process.env.SMTP_USER || ORG_EMAIL
-const SMTP_PASS = process.env.SMTP_PASS || ""
+const SMTP_USER = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.MAIL_USER || ORG_EMAIL
+const SMTP_PASS =
+  process.env.SMTP_PASS ||
+  process.env.SMTP_PASSWORD ||
+  process.env.EMAIL_PASS ||
+  process.env.EMAIL_PASSWORD ||
+  process.env.GMAIL_APP_PASSWORD ||
+  process.env.GOOGLE_APP_PASSWORD ||
+  ""
+const SMTP_FROM = process.env.SMTP_FROM || process.env.EMAIL_FROM || `Dayspring HIS <${ORG_EMAIL}>`
 const HAS_SMTP = Boolean(SMTP_USER && SMTP_PASS)
 const HAS_RESEND = Boolean(process.env.RESEND_API_KEY)
 const ALLOW_RESEND_FALLBACK_AFTER_SMTP_FAILURE = process.env.EMAIL_RESEND_FALLBACK === "true"
@@ -1383,7 +1391,7 @@ export async function sendEmailServer(
   to: string,
   template: { subject: string; html: string },
 ): Promise<{ success: true; provider: "smtp" | "resend"; messageId?: string }> {
-  const from = process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`
+  const from = SMTP_FROM
   let smtpError: unknown = null
 
   if (!HAS_SMTP && !HAS_RESEND) {

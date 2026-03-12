@@ -220,26 +220,36 @@ export function NurseDashboard() {
       const tokenMatch = typeof document !== 'undefined' ? (document.cookie.match(/(?:^|;\s)session_dev=([^;]+)/) || document.cookie.match(/(?:^|;\s)session=([^;]+)/)) : null
       const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : (typeof localStorage !== 'undefined' ? localStorage.getItem('session_dev_bearer') : null)
       const url = new URL('/api/notifications/stream', window.location.origin)
+      url.searchParams.set('light', '1')
+      url.searchParams.set('title', 'New Patient Registered')
+      url.searchParams.set('limit', '15')
       if (!hasCookie && token) url.searchParams.set('t', token as string)
       const es = new (window as any).EventSource(url.toString(), { withCredentials: true })
       es.onmessage = (ev: MessageEvent) => {
         try {
           const data = JSON.parse(ev.data as any)
           const list = Array.isArray((data as any).notifications) ? (data as any).notifications : []
+          if (list.length === 0) return
           // First payload is an initial snapshot; don't toast historical items.
           if (!streamPrimed.current) {
             list.forEach((n: any) => { if (n?.id) seenNotif.current.add(n.id) })
             streamPrimed.current = true
             return
           }
+          const newNames: string[] = []
           list.forEach((n: any) => {
             if (!n?.id || seenNotif.current.has(n.id)) return
             if (String(n.title || '').includes('New Patient Registered')) {
               seenNotif.current.add(n.id)
               const name = (n?.message || '').replace(' has been registered.', '')
-              toast.success(`New patient: ${name}`)
+              if (name) newNames.push(name)
             }
           })
+          if (newNames.length === 1) {
+            toast.success(`New patient: ${newNames[0]}`)
+          } else if (newNames.length > 1) {
+            toast.success(`${newNames.length} new patients registered`)
+          }
         } catch {}
       }
       es.onerror = () => { try { es.close() } catch {} }

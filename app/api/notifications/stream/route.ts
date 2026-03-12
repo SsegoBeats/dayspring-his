@@ -8,16 +8,24 @@ export const runtime = 'nodejs'
 export const maxDuration = 300
 
 export async function GET(req: Request) {
+  let requestUrl: URL | null = null
+  try { requestUrl = new URL(req.url) } catch {}
+
   const cookieStore = await cookies()
   let token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
   if (!token) {
-    try {
-      const url = new URL(req.url)
-      token = url.searchParams.get('token') || url.searchParams.get('t') || undefined as any
-    } catch {}
+    token = requestUrl?.searchParams.get('token') || requestUrl?.searchParams.get('t') || undefined as any
   }
   const auth = token ? verifyToken(token) : null
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const isLightPayload = requestUrl?.searchParams.get('light') === '1'
+  const titleFilterRaw = requestUrl?.searchParams.get('title')?.trim()
+  const titleFilter = titleFilterRaw ? titleFilterRaw.slice(0, 120) : null
+  const requestedLimit = Number.parseInt(requestUrl?.searchParams.get('limit') || "", 10)
+  const limit = Number.isFinite(requestedLimit)
+    ? Math.max(1, Math.min(requestedLimit, 50))
+    : (isLightPayload ? 20 : 50)
 
   const enc = new TextEncoder()
   const stream = new ReadableStream<Uint8Array>({
@@ -25,6 +33,9 @@ export async function GET(req: Request) {
       let timer: any
       let closed = false
       let lastCreatedAt: string | null = null
+      let dept: string | null = null
+      let role: string | null = null
+      let notificationColumns = new Set<string>()
       // Ensure notifications table exists and has expected columns (legacy DBs where /api/migrate hasn't completed)
       try {
         await query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
@@ -47,69 +58,69 @@ export async function GET(req: Request) {
         await query(`CREATE INDEX IF NOT EXISTS idx_notifications_dept ON notifications(department, created_at DESC)`)
         await query(`CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(role, created_at DESC)`)
       } catch {}
+
+      // Resolve user routing scope and available notification columns once per stream connection.
+      try {
+        const userCols = await query<{ column_name: string }>(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='users'`
+        )
+        const userColSet = new Set((userCols.rows || []).map((r) => r.column_name))
+        const hasDeptCol = userColSet.has("department")
+        const hasRoleCol = userColSet.has("role")
+
+        if (hasDeptCol || hasRoleCol) {
+          const selectedUserCols = [hasDeptCol ? "department" : null, hasRoleCol ? "role" : null].filter(Boolean).join(", ")
+          const user = await query<{ department?: string | null; role?: string | null }>(
+            `SELECT ${selectedUserCols} FROM users WHERE id = $1`,
+            [auth.userId],
+          )
+          dept = user.rows?.[0]?.department || null
+          role = user.rows?.[0]?.role || null
+        }
+
+        const notifCols = await query<{ column_name: string }>(
+          `SELECT column_name FROM information_schema.columns WHERE table_name='notifications'`
+        )
+        notificationColumns = new Set((notifCols.rows || []).map((r) => r.column_name))
+      } catch {}
+
       const send = async () => {
         if (closed) return
         try {
-          let dept: string | null = null
-          let role: string | null = null
-          const hasDeptCol = await query<{ exists: boolean }>(
-            `SELECT EXISTS (
-               SELECT 1 FROM information_schema.columns
-               WHERE table_name='users' AND column_name='department'
-             ) as exists`
-          )
-          const hasRoleCol = await query<{ exists: boolean }>(
-            `SELECT EXISTS (
-               SELECT 1 FROM information_schema.columns
-               WHERE table_name='users' AND column_name='role'
-             ) as exists`
-          )
-          if (hasDeptCol.rows?.[0]?.exists && hasRoleCol.rows?.[0]?.exists) {
-            const user = await query<{ department: string | null; role: string }>(`SELECT department, role FROM users WHERE id = $1`, [auth.userId])
-            dept = user.rows?.[0]?.department || null
-            role = user.rows?.[0]?.role || null
-          } else if (hasDeptCol.rows?.[0]?.exists) {
-            const user = await query<{ department: string | null }>(`SELECT department FROM users WHERE id = $1`, [auth.userId])
-            dept = user.rows?.[0]?.department || null
-            role = null
-          } else if (hasRoleCol.rows?.[0]?.exists) {
-            const u2 = await query<{ role: string }>(`SELECT role FROM users WHERE id = $1`, [auth.userId])
-            role = u2.rows?.[0]?.role || null
-            dept = null
-          } else {
-            dept = null
-            role = null
-          }
-          // Detect available columns
-          const notifCols = await query<{ column_name: string }>(
-            `SELECT column_name FROM information_schema.columns WHERE table_name='notifications'`
-          )
-          const colSet = new Set((notifCols.rows || []).map((r) => r.column_name))
-          const selectCols = [
-            'id',
-            'user_id',
-            colSet.has('department') ? 'department' : null,
-            colSet.has('role') ? 'role' : null,
-            'title',
-            'message',
-            colSet.has('payload') ? 'payload' : null,
-            colSet.has('read_at') ? 'read_at' : null,
-            'created_at',
-          ].filter(Boolean) as string[]
-          const whereParts: string[] = []
+          const colSet = notificationColumns
+          const selectCols = isLightPayload
+            ? (['id', 'title', 'message', 'created_at'].filter((c) => colSet.size === 0 || colSet.has(c)) as string[])
+            : ([
+                'id',
+                colSet.has('user_id') ? 'user_id' : null,
+                colSet.has('department') ? 'department' : null,
+                colSet.has('role') ? 'role' : null,
+                'title',
+                'message',
+                colSet.has('payload') ? 'payload' : null,
+                colSet.has('read_at') ? 'read_at' : null,
+                'created_at',
+              ].filter(Boolean) as string[])
+          if (selectCols.length === 0) return
+
+          const audienceParts: string[] = []
           const params: any[] = []
-          params.push(auth.userId)
-          whereParts.push(`user_id = $${params.length}`)
-          if (colSet.has('department') && dept) { params.push(dept); whereParts.push(`department = $${params.length}`) }
-          if (colSet.has('role') && role) { params.push(role); whereParts.push(`role = $${params.length}`) }
+          if (colSet.size === 0 || colSet.has('user_id')) { params.push(auth.userId); audienceParts.push(`user_id = $${params.length}`) }
+          if ((colSet.size === 0 || colSet.has('department')) && dept) { params.push(dept); audienceParts.push(`department = $${params.length}`) }
+          if ((colSet.size === 0 || colSet.has('role')) && role) { params.push(role); audienceParts.push(`role = $${params.length}`) }
+
+          const whereParts: string[] = []
+          whereParts.push(audienceParts.length > 0 ? `(${audienceParts.join(' OR ')})` : `1=0`)
           if (lastCreatedAt) {
             params.push(lastCreatedAt)
             whereParts.push(`created_at > $${params.length}`)
           }
-          params.push(50)
-          const whereSql = whereParts.length
-            ? `WHERE ${lastCreatedAt ? `(${whereParts.slice(0, whereParts.length - 1).join(' OR ')}) AND ${whereParts[whereParts.length - 1]}` : whereParts.join(' OR ')}`
-            : ''
+          if (titleFilter) {
+            params.push(`%${titleFilter}%`)
+            whereParts.push(`title ILIKE $${params.length}`)
+          }
+          params.push(limit)
+          const whereSql = `WHERE ${whereParts.join(' AND ')}`
           const sql = `SELECT ${selectCols.join(', ')} FROM notifications ${whereSql} ORDER BY created_at DESC LIMIT $${params.length}`
           const { rows } = await query(sql, params)
           if (rows.length > 0) {
@@ -126,7 +137,7 @@ export async function GET(req: Request) {
       ;(controller as any)._timer = timer
       ;(controller as any)._closedRef = { value: () => closed, set: (v:boolean)=> (closed=v) }
     },
-    cancel(reason) {
+    cancel() {
       const timer = (this as any)._timer
       if (timer) clearInterval(timer)
       const cr = (this as any)._closedRef

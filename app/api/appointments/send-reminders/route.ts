@@ -4,14 +4,28 @@ import { emailTemplates } from "@/lib/email-service"
 import nodemailer from "nodemailer"
 import { ORG_EMAIL } from "@/lib/org-constants"
 
+const SMTP_PORT = Number.parseInt(process.env.SMTP_PORT || "465", 10)
+const SMTP_SECURE =
+  process.env.SMTP_SECURE != null ? process.env.SMTP_SECURE === "true" : SMTP_PORT === 465
+const SMTP_USER = process.env.SMTP_USER || process.env.EMAIL_USER || process.env.MAIL_USER || ORG_EMAIL
+const SMTP_PASS =
+  process.env.SMTP_PASS ||
+  process.env.SMTP_PASSWORD ||
+  process.env.EMAIL_PASS ||
+  process.env.EMAIL_PASSWORD ||
+  process.env.GMAIL_APP_PASSWORD ||
+  process.env.GOOGLE_APP_PASSWORD ||
+  ""
+const SMTP_FROM = process.env.SMTP_FROM || process.env.EMAIL_FROM || `Dayspring HIS <${ORG_EMAIL}>`
+
 function getTransporter() {
   return nodemailer.createTransport({
     host: process.env.SMTP_HOST || "smtp.gmail.com",
-    port: Number.parseInt(process.env.SMTP_PORT || "465"),
-    secure: process.env.SMTP_SECURE === "true",
+    port: SMTP_PORT,
+    secure: SMTP_SECURE,
     auth: {
-      user: process.env.SMTP_USER || ORG_EMAIL,
-      pass: process.env.SMTP_PASS || "",
+      user: SMTP_USER,
+      pass: SMTP_PASS,
     },
   })
 }
@@ -71,7 +85,7 @@ export async function POST() {
 
     const transporter = getTransporter()
     let sentCount = 0
-    const from = process.env.SMTP_FROM || `Dayspring HIS <${ORG_EMAIL}>`
+    const from = SMTP_FROM
 
     for (const a of appts) {
       if (!a.patient_email) continue

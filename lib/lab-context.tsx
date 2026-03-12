@@ -1,6 +1,7 @@
 "use client"
 
-import { createContext, useContext, useEffect, useMemo, useState, type ReactNode } from "react"
+import { createContext, useContext, useEffect, useMemo, useState, useCallback, type ReactNode } from "react"
+import { useAuth } from "@/lib/auth-context"
 
 export interface LabTest {
   id: string
@@ -49,12 +50,20 @@ interface LabContextType {
 }
 
 const LabContext = createContext<LabContextType | undefined>(undefined)
+const LIVE_LAB_ROLES = new Set(["Hospital Admin", "Clinician", "Midwife", "Dentist", "Lab Tech", "Radiologist"])
 
 export function LabProvider({ children }: { children: ReactNode }) {
+  const { user } = useAuth()
   const [tests, setTests] = useState<LabTest[]>([])
   const [loading, setLoading] = useState(false)
+  const hasLiveLabAccess = Boolean(user && LIVE_LAB_ROLES.has(user.role))
 
-  const refresh = async (params?: { status?: string; q?: string; patientId?: string }) => {
+  const refresh = useCallback(async (params?: { status?: string; q?: string; patientId?: string }) => {
+    if (!hasLiveLabAccess) {
+      setTests([])
+      setLoading(false)
+      return
+    }
     setLoading(true)
     try {
       const url = new URL('/api/lab-tests', window.location.origin)
@@ -66,12 +75,20 @@ export function LabProvider({ children }: { children: ReactNode }) {
       setTests(Array.isArray(data.tests) ? data.tests : [])
     } catch { setTests([]) }
     finally { setLoading(false) }
-  }
+  }, [hasLiveLabAccess])
 
-  useEffect(() => { refresh().catch(()=>{}) }, [])
+  useEffect(() => {
+    if (!hasLiveLabAccess) {
+      setTests([])
+      setLoading(false)
+      return
+    }
+    refresh().catch(()=>{})
+  }, [hasLiveLabAccess, refresh])
 
   // Live updates via SSE
   useEffect(() => {
+    if (!hasLiveLabAccess) return
     try {
       const hasCookie = typeof document !== 'undefined' && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
       const tokenMatch = typeof document !== 'undefined' ? (document.cookie.match(/(?:^|;\s)session_dev=([^;]+)/) || document.cookie.match(/(?:^|;\s)session=([^;]+)/)) : null
@@ -88,9 +105,9 @@ export function LabProvider({ children }: { children: ReactNode }) {
       es.onerror = () => { try { es.close() } catch {} }
       return () => { try { es.close() } catch {} }
     } catch {}
-  }, [])
+  }, [hasLiveLabAccess])
 
-  const orderTest: LabContextType['orderTest'] = async (input) => {
+  const orderTest: LabContextType['orderTest'] = useCallback(async (input) => {
     try {
       const res = await fetch('/api/lab-tests', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(input) })
       if (!res.ok) return null
@@ -100,15 +117,15 @@ export function LabProvider({ children }: { children: ReactNode }) {
       if (data.id) return { ids: [data.id] }
       return { ids: [] }
     } catch { return null }
-  }
+  }, [refresh])
 
-  const updateTest = (id: string, updates: Partial<LabTest>) => {
+  const updateTest = useCallback((id: string, updates: Partial<LabTest>) => {
     setTests(prev => prev.map(t => t.id === id ? { ...t, ...updates } : t))
     // Trigger a refresh to ensure data consistency
     setTimeout(() => refresh().catch(() => {}), 500)
-  }
+  }, [refresh])
 
-  const value = useMemo(() => ({ tests, loading, refresh, orderTest, updateTest }), [tests, loading])
+  const value = useMemo(() => ({ tests, loading, refresh, orderTest, updateTest }), [tests, loading, refresh, orderTest, updateTest])
   return <LabContext.Provider value={value}>{children}</LabContext.Provider>
 }
 
