@@ -414,12 +414,12 @@ export function NurseDashboard() {
             <div className="w-48">
               <Input id="nurse-search" name="nurseSearch" value={q} onChange={(e)=> setQ(e.target.value)} placeholder="Search by name or P.ID" />
             </div>
-            <Select value={filterTriage} onValueChange={setFilterTriage}>
+            <Select value={filterTriage || "__all_triage__"} onValueChange={(v) => setFilterTriage(v === "__all_triage__" ? "" : v)}>
               <SelectTrigger className="w-40">
                 <SelectValue placeholder="Triage" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All Triage</SelectItem>
+                <SelectItem value="__all_triage__">All Triage</SelectItem>
                 <SelectItem value="Emergency">Emergency</SelectItem>
                 <SelectItem value="Very Urgent">Very Urgent</SelectItem>
                 <SelectItem value="Urgent">Urgent</SelectItem>

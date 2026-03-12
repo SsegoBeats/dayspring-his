@@ -36,7 +36,7 @@ export async function GET(req: Request) {
       params.push(sinceIso)
     }
     if (q) {
-      where.push(`(p.first_name ILIKE $${idx} OR p.last_name ILIKE $${idx} OR p.patient_number ILIKE $${idx})`)
+      where.push(`(p.first_name ILIKE $${idx} OR p.last_name ILIKE $${idx} OR CAST(p.patient_number AS TEXT) ILIKE $${idx})`)
       params.push(`%${q}%`)
       idx++
     }
@@ -68,4 +68,3 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Failed to load latest notes", details: e.message }, { status: 500 })
   }
 }
-

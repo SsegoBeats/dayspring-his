@@ -32,6 +32,8 @@ export function AdvancedSearchDialog({
   onApply,
   currentFilters = {},
 }: AdvancedSearchDialogProps) {
+  const ALL_CATEGORIES_VALUE = "__all_categories__"
+  const ANY_BARCODE_VALUE = "__any_barcode__"
   const { medications } = usePharmacy()
   const [filters, setFilters] = useState<AdvancedSearchFilters>(currentFilters)
 
@@ -72,14 +74,19 @@ export function AdvancedSearchDialog({
           <div>
             <Label htmlFor="category">Category</Label>
             <Select
-              value={filters.category || ""}
-              onValueChange={(value) => setFilters({ ...filters, category: value || undefined })}
+              value={filters.category || ALL_CATEGORIES_VALUE}
+              onValueChange={(value) =>
+                setFilters({
+                  ...filters,
+                  category: value === ALL_CATEGORIES_VALUE ? undefined : value,
+                })
+              }
             >
               <SelectTrigger id="category">
                 <SelectValue placeholder="All categories" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">All categories</SelectItem>
+                <SelectItem value={ALL_CATEGORIES_VALUE}>All categories</SelectItem>
                 {categories.map((cat) => (
                   <SelectItem key={cat} value={cat}>
                     {cat}
@@ -172,11 +179,11 @@ export function AdvancedSearchDialog({
           <div>
             <Label htmlFor="hasBarcode">Barcode</Label>
             <Select
-              value={filters.hasBarcode === undefined ? "" : filters.hasBarcode ? "yes" : "no"}
+              value={filters.hasBarcode === undefined ? ANY_BARCODE_VALUE : filters.hasBarcode ? "yes" : "no"}
               onValueChange={(value) =>
                 setFilters({
                   ...filters,
-                  hasBarcode: value === "" ? undefined : value === "yes",
+                  hasBarcode: value === ANY_BARCODE_VALUE ? undefined : value === "yes",
                 })
               }
             >
@@ -184,7 +191,7 @@ export function AdvancedSearchDialog({
                 <SelectValue placeholder="Any" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="">Any</SelectItem>
+                <SelectItem value={ANY_BARCODE_VALUE}>Any</SelectItem>
                 <SelectItem value="yes">Has barcode</SelectItem>
                 <SelectItem value="no">No barcode</SelectItem>
               </SelectContent>

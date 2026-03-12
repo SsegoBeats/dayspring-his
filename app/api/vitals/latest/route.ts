@@ -34,11 +34,11 @@ export async function GET(req: Request) {
     let idx = 1
     const where: string[] = []
     if (sinceIso) {
-      where.push(`COALESCE(vs.recorded_at, vs.created_at) >= $${idx++}`)
+      where.push(`vs.recorded_at >= $${idx++}`)
       params.push(sinceIso)
     }
     if (q) {
-      where.push(`(p.first_name ILIKE $${idx} OR p.last_name ILIKE $${idx} OR p.patient_number ILIKE $${idx})`)
+      where.push(`(p.first_name ILIKE $${idx} OR p.last_name ILIKE $${idx} OR CAST(p.patient_number AS TEXT) ILIKE $${idx})`)
       params.push(`%${q}%`)
       idx++
     }
@@ -51,7 +51,7 @@ export async function GET(req: Request) {
         vs.blood_pressure_systolic, vs.blood_pressure_diastolic,
         vs.heart_rate, vs.temperature, vs.respiratory_rate,
         vs.oxygen_saturation, vs.weight, vs.height, vs.notes,
-        COALESCE(vs.recorded_at, vs.created_at) AS recorded_at,
+        vs.recorded_at AS recorded_at,
         p.first_name, p.last_name, p.patient_number,
         u.name AS nurse_name,
         t.category AS triage_category
@@ -59,14 +59,14 @@ export async function GET(req: Request) {
       LEFT JOIN patients p ON p.id = vs.patient_id
       LEFT JOIN users u ON u.id = vs.nurse_id
       LEFT JOIN LATERAL (
-        SELECT category, COALESCE(recorded_at, created_at) AS t_recorded
+        SELECT category
         FROM triage_assessments ta
         WHERE ta.patient_id = vs.patient_id
-        ORDER BY COALESCE(recorded_at, created_at) DESC
+        ORDER BY ta.created_at DESC
         LIMIT 1
       ) t ON true
       ${whereSql}
-      ORDER BY vs.patient_id, COALESCE(vs.recorded_at, vs.created_at) DESC
+      ORDER BY vs.patient_id, vs.recorded_at DESC
       LIMIT $${idx}
     `
     params.push(limit)
@@ -80,14 +80,14 @@ export async function GET(req: Request) {
       // If the join fails (eg. relation does not exist), re-run a simpler query without triage.
       const msg = String(e?.message || "")
       const code = (e as any)?.code
-      if (msg.includes("triage_assessments") || code === "42P01") {
+      if (msg.includes("triage_assessments") || code === "42P01" || code === "42703") {
         const fallbackSql = `
           SELECT DISTINCT ON (vs.patient_id)
             vs.id, vs.patient_id, vs.nurse_id,
             vs.blood_pressure_systolic, vs.blood_pressure_diastolic,
             vs.heart_rate, vs.temperature, vs.respiratory_rate,
             vs.oxygen_saturation, vs.weight, vs.height, vs.notes,
-            COALESCE(vs.recorded_at, vs.created_at) AS recorded_at,
+            vs.recorded_at AS recorded_at,
             p.first_name, p.last_name, p.patient_number,
             u.name AS nurse_name,
             NULL::text AS triage_category
@@ -95,7 +95,7 @@ export async function GET(req: Request) {
           LEFT JOIN patients p ON p.id = vs.patient_id
           LEFT JOIN users u ON u.id = vs.nurse_id
           ${whereSql}
-          ORDER BY vs.patient_id, COALESCE(vs.recorded_at, vs.created_at) DESC
+          ORDER BY vs.patient_id, vs.recorded_at DESC
           LIMIT $${idx}
         `
         const fallback = await query(fallbackSql, params)
