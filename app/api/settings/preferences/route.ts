@@ -28,6 +28,8 @@ export async function GET() {
 
     // Ensure SLA columns exist for upgraded databases
     try {
+      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS date_format VARCHAR(20) DEFAULT 'DD/MM/YYYY'")
+      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS default_dashboard VARCHAR(50) DEFAULT 'overview'")
       await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS queue_wait_warn INT DEFAULT 30")
       await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS queue_wait_crit INT DEFAULT 60")
       await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS service_warn INT DEFAULT 30")
@@ -35,7 +37,7 @@ export async function GET() {
     } catch {}
 
     const { rows } = await query(
-      "SELECT theme, locale, currency, timezone, queue_wait_warn, queue_wait_crit, service_warn, service_crit FROM user_settings WHERE user_id = $1",
+      "SELECT theme, locale, currency, timezone, date_format, default_dashboard, queue_wait_warn, queue_wait_crit, service_warn, service_crit FROM user_settings WHERE user_id = $1",
       [payload.userId]
     )
 
@@ -46,6 +48,8 @@ export async function GET() {
           locale: "en-GB",
           timezone: "Africa/Kampala",
           currency: "UGX",
+          dateFormat: "DD/MM/YYYY",
+          defaultDashboard: "overview",
           queue_wait_warn: 30,
           queue_wait_crit: 60,
           service_warn: 30,
@@ -60,6 +64,8 @@ export async function GET() {
         locale: rows[0].locale || "en-GB",
         timezone: rows[0].timezone || "Africa/Kampala",
         currency: rows[0].currency || "UGX",
+        dateFormat: rows[0].date_format || "DD/MM/YYYY",
+        defaultDashboard: rows[0].default_dashboard || "overview",
         queue_wait_warn: rows[0].queue_wait_warn ?? 30,
         queue_wait_crit: rows[0].queue_wait_crit ?? 60,
         service_warn: rows[0].service_warn ?? 30,
@@ -85,6 +91,8 @@ export async function POST(req: Request) {
     const preferences = PreferencesSchema.parse(body)
     // Ensure columns exist before upsert
     try {
+      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS date_format VARCHAR(20) DEFAULT 'DD/MM/YYYY'")
+      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS default_dashboard VARCHAR(50) DEFAULT 'overview'")
       await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS queue_wait_warn INT DEFAULT 30")
       await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS queue_wait_crit INT DEFAULT 60")
       await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS service_warn INT DEFAULT 30")
@@ -92,20 +100,34 @@ export async function POST(req: Request) {
     } catch {}
 
     await query(
-      `INSERT INTO user_settings (user_id, theme, locale, currency, timezone, queue_wait_warn, queue_wait_crit, service_warn, service_crit, updated_at)
-       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, CURRENT_TIMESTAMP)
+      `INSERT INTO user_settings (user_id, theme, locale, currency, timezone, date_format, default_dashboard, queue_wait_warn, queue_wait_crit, service_warn, service_crit, updated_at)
+       VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, CURRENT_TIMESTAMP)
        ON CONFLICT (user_id)
        DO UPDATE SET
          theme = EXCLUDED.theme,
          locale = EXCLUDED.locale,
          currency = EXCLUDED.currency,
          timezone = EXCLUDED.timezone,
+         date_format = EXCLUDED.date_format,
+         default_dashboard = EXCLUDED.default_dashboard,
          queue_wait_warn = COALESCE(EXCLUDED.queue_wait_warn, user_settings.queue_wait_warn),
          queue_wait_crit = COALESCE(EXCLUDED.queue_wait_crit, user_settings.queue_wait_crit),
          service_warn = COALESCE(EXCLUDED.service_warn, user_settings.service_warn),
          service_crit = COALESCE(EXCLUDED.service_crit, user_settings.service_crit),
          updated_at = CURRENT_TIMESTAMP`,
-      [payload.userId, preferences.theme, preferences.locale, preferences.currency, preferences.timezone, preferences.queue_wait_warn ?? null, preferences.queue_wait_crit ?? null, preferences.service_warn ?? null, preferences.service_crit ?? null]
+      [
+        payload.userId,
+        preferences.theme,
+        preferences.locale,
+        preferences.currency,
+        preferences.timezone,
+        preferences.dateFormat || "DD/MM/YYYY",
+        preferences.defaultDashboard || "overview",
+        preferences.queue_wait_warn ?? null,
+        preferences.queue_wait_crit ?? null,
+        preferences.service_warn ?? null,
+        preferences.service_crit ?? null,
+      ]
     )
 
     return NextResponse.json({ success: true, message: "Preferences updated successfully" })

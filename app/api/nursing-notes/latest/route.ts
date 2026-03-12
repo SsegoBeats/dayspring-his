@@ -18,6 +18,9 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url)
     const sinceParam = url.searchParams.get("since") || "today"
+    const fromDate = url.searchParams.get("from")
+    const toDate = url.searchParams.get("to")
+    const summaryOnly = url.searchParams.get("summaryOnly") === "1"
     const limit = Math.max(1, Math.min(1000, Number(url.searchParams.get("limit") || 500)))
     const q = (url.searchParams.get("q") || "").trim()
 
@@ -31,7 +34,11 @@ export async function GET(req: Request) {
     const params: any[] = []
     let idx = 1
     const where: string[] = []
-    if (sinceIso) {
+    if (fromDate && toDate) {
+      where.push(`DATE(nn.created_at) BETWEEN $${idx} AND $${idx + 1}`)
+      params.push(fromDate, toDate)
+      idx += 2
+    } else if (sinceIso) {
       where.push(`nn.created_at >= $${idx++}`)
       params.push(sinceIso)
     }
@@ -41,6 +48,22 @@ export async function GET(req: Request) {
       idx++
     }
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : ""
+
+    const countSql = `
+      SELECT COUNT(*)::int AS count
+      FROM nursing_notes nn
+      LEFT JOIN patients p ON p.id = nn.patient_id
+      ${whereSql}
+    `
+    const countResult = await query(countSql, params)
+    const count = Number(countResult.rows?.[0]?.count ?? 0)
+
+    if (summaryOnly) {
+      return NextResponse.json({
+        notes: [],
+        summary: { count, todaysCount: count },
+      })
+    }
 
     const sql = `
       SELECT DISTINCT ON (nn.patient_id)
@@ -57,12 +80,10 @@ export async function GET(req: Request) {
     params.push(limit)
 
     const { rows } = await query(sql, params)
-    const todayIso = startOfDayISO(new Date())
-    const todaysCount = rows.filter((r: any) => new Date(r.created_at).toISOString() >= todayIso).length
 
     return NextResponse.json({
       notes: rows,
-      summary: { count: rows.length, todaysCount },
+      summary: { count, todaysCount: count },
     })
   } catch (e: any) {
     return NextResponse.json({ error: "Failed to load latest notes", details: e.message }, { status: 500 })

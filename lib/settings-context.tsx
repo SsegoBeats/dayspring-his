@@ -12,6 +12,8 @@ interface Settings {
   locale: string
   timezone: string
   currency: string
+  dateFormat: string
+  defaultDashboard: string
   notifyEmailReminders: boolean
 }
 
@@ -28,6 +30,8 @@ const DEFAULT_SETTINGS: Settings = {
   locale: "en-GB",
   timezone: "Africa/Kampala",
   currency: "UGX",
+  dateFormat: "DD/MM/YYYY",
+  defaultDashboard: "overview",
   notifyEmailReminders: true,
 }
 
@@ -65,6 +69,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             locale: data.preferences.locale || DEFAULT_SETTINGS.locale,
             timezone: data.preferences.timezone || DEFAULT_SETTINGS.timezone,
             currency,
+            dateFormat: data.preferences.dateFormat || DEFAULT_SETTINGS.dateFormat,
+            defaultDashboard: data.preferences.defaultDashboard || DEFAULT_SETTINGS.defaultDashboard,
             notifyEmailReminders: true,
           })
         } else {
@@ -144,5 +150,4 @@ export function useFormatCurrency() {
     }
   }
 }
-
 

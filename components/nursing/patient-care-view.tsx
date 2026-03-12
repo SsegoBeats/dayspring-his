@@ -20,38 +20,36 @@ import { toast } from "sonner"
 import { validateVitalSigns, parseBloodPressure, extractNumericValue } from "@/lib/vital-signs-validation"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 
+type CareTab = "vitals" | "notes" | "history" | "triage"
+
 interface PatientCareViewProps {
   patientId: string
   onBack: () => void
-  initialTab?: 'vitals' | 'notes' | 'history' | 'triage'
+  initialTab?: CareTab
+  onUpdated?: (details: { patientId: string; activeTab: CareTab; category?: string }) => void
 }
 
-export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: PatientCareViewProps) {
+export function PatientCareView({
+  patientId,
+  onBack,
+  initialTab = "vitals",
+  onUpdated,
+}: PatientCareViewProps) {
   const { getPatient } = usePatients()
-  const { addVitalSigns, addNursingNote, getPatientVitals, getPatientNotes, prefetchPatient, refreshPatient } = useNursing()
+  const { addVitalSigns, addNursingNote, getPatientVitals, getPatientNotes, prefetchPatient, refreshPatient } =
+    useNursing()
   const { user } = useAuth()
   const patient = getPatient(patientId)
-  const [activeTab, setActiveTab] = useState<'vitals'|'notes'|'history'|'triage'>(initialTab)
+
+  const [activeTab, setActiveTab] = useState<CareTab>(initialTab)
   const [savingVitals, setSavingVitals] = useState(false)
   const [savingNote, setSavingNote] = useState(false)
   const [loadingHistory, setLoadingHistory] = useState(false)
-  const [vitalAlerts, setVitalAlerts] = useState<Array<{ type: 'critical' | 'warning' | 'normal'; message: string; field: string }>>([])
+  const [vitalAlerts, setVitalAlerts] = useState<
+    Array<{ type: "critical" | "warning" | "normal"; message: string; field: string }>
+  >([])
 
-  // Remember last active tab per patient
   const storageKey = `nurse-care-tab:${patientId}`
-  useEffect(() => {
-    try {
-      const saved = typeof window !== 'undefined' ? localStorage.getItem(storageKey) : null
-      if (saved && (['vitals','notes','history','triage'] as string[]).includes(saved)) {
-        setActiveTab(saved as any)
-      } else if (initialTab) {
-        setActiveTab(initialTab)
-      }
-    } catch {}
-  }, [initialTab, storageKey])
-  useEffect(() => {
-    try { if (typeof window !== 'undefined') localStorage.setItem(storageKey, activeTab) } catch {}
-  }, [activeTab, storageKey])
   const vitalHistory = getPatientVitals(patientId)
   const noteHistory = getPatientNotes(patientId)
 
@@ -71,59 +69,83 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
     note: "",
   })
 
-  // Helpers to normalize and format values with metric units
+  useEffect(() => {
+    if (initialTab) {
+      setActiveTab(initialTab)
+      return
+    }
+
+    try {
+      const saved = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null
+      if (saved && ["vitals", "notes", "history", "triage"].includes(saved)) {
+        setActiveTab(saved as CareTab)
+      }
+    } catch {}
+  }, [initialTab, storageKey])
+
+  useEffect(() => {
+    try {
+      if (typeof window !== "undefined") localStorage.setItem(storageKey, activeTab)
+    } catch {}
+  }, [activeTab, storageKey])
+
   const numInt = (s: string) => {
-    const m = String(s || '').match(/-?\d+/)
+    const m = String(s || "").match(/-?\d+/)
     return m ? parseInt(m[0], 10) : null
   }
+
   const numFloat = (s: string) => {
-    const m = String(s || '').replace(',', '.').match(/-?\d+(?:\.\d+)?/)
+    const m = String(s || "").replace(",", ".").match(/-?\d+(?:\.\d+)?/)
     return m ? parseFloat(m[0]) : null
   }
+
   const fmtBP = (s: string) => {
-    const raw = String(s || '')
+    const raw = String(s || "")
     const m = raw.match(/(\d+)\D+(\d+)/)
     if (m) return `${m[1]}/${m[2]}`
     const nums = raw.match(/\d+/g)
     if (nums && nums.length >= 2) return `${nums[0]}/${nums[1]}`
     const n = numInt(raw)
-    return n == null ? '' : String(n)
+    return n == null ? "" : String(n)
   }
+
   const fmtTemp = (s: string) => {
     const n = numFloat(s)
-    if (n == null) return ''
-    const c = n > 45 ? (n - 32) * 5/9 : n
-    return `${c.toFixed(1)} °C`
+    if (n == null) return ""
+    const c = n > 45 ? (n - 32) * 5 / 9 : n
+    return `${c.toFixed(1)} C`
   }
-  const fmtBpm = (s: string) => (numInt(s) == null ? '' : `${numInt(s)} bpm`)
-  const fmtRR = (s: string) => (numInt(s) == null ? '' : `${numInt(s)}/min`)
-  const fmtSpO2 = (s: string) => (numInt(s) == null ? '' : `${numInt(s)}%`)
+
+  const fmtBpm = (s: string) => (numInt(s) == null ? "" : `${numInt(s)} bpm`)
+  const fmtRR = (s: string) => (numInt(s) == null ? "" : `${numInt(s)}/min`)
+  const fmtSpO2 = (s: string) => (numInt(s) == null ? "" : `${numInt(s)}%`)
+
   const fmtKg = (s: string) => {
-    const raw = String(s || '').toLowerCase()
+    const raw = String(s || "").toLowerCase()
     const n = numFloat(raw)
-    if (n == null) return ''
+    if (n == null) return ""
     const kg = /lb/.test(raw) ? n * 0.453592 : n
     return `${kg.toFixed(1)} kg`
   }
+
   const fmtCm = (s: string) => {
-    const raw = String(s || '')
-    if (!raw) return ''
+    const raw = String(s || "")
+    if (!raw) return ""
     if (/cm/i.test(raw)) {
       const n = numFloat(raw)
-      return n == null ? '' : `${n.toFixed(0)} cm`
+      return n == null ? "" : `${n.toFixed(0)} cm`
     }
     const m = raw.match(/(\d+)\s*'\s*(\d+)?/)
     if (m) {
       const ft = parseInt(m[1], 10) || 0
-      const inches = parseInt(m[2] || '0', 10) || 0
+      const inches = parseInt(m[2] || "0", 10) || 0
       const cm = ft * 30.48 + inches * 2.54
       return `${Math.round(cm)} cm`
     }
     const n = numFloat(raw)
-    return n == null ? '' : `${n.toFixed(0)} cm`
+    return n == null ? "" : `${n.toFixed(0)} cm`
   }
 
-  // Prefetch patient history when opening the dialog
   useEffect(() => {
     setLoadingHistory(true)
     prefetchPatient(patientId)
@@ -134,82 +156,89 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
       .finally(() => setLoadingHistory(false))
   }, [patientId, prefetchPatient])
 
-  // Calculate patient age (always compute so hooks below can use it)
-  const patientAge = patient ? (() => {
-    try {
-      if (patient.ageYears) return patient.ageYears
-      if (patient.dateOfBirth) {
-        const dob = new Date(patient.dateOfBirth)
-        const now = new Date()
-        return now.getFullYear() - dob.getFullYear() - ((now.getMonth() < dob.getMonth() || (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())) ? 1 : 0)
-      }
-      return null
-    } catch {
-      return null
-    }
-  })() : null
+  const patientAge = patient
+    ? (() => {
+        try {
+          if (patient.ageYears) return patient.ageYears
+          if (patient.dateOfBirth) {
+            const dob = new Date(patient.dateOfBirth)
+            const now = new Date()
+            return (
+              now.getFullYear() -
+              dob.getFullYear() -
+              (now.getMonth() < dob.getMonth() ||
+              (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())
+                ? 1
+                : 0)
+            )
+          }
+          return null
+        } catch {
+          return null
+        }
+      })()
+    : null
 
-  // Validate vitals on form change
   useEffect(() => {
     if (!patient) return
+
     const bp = parseBloodPressure(vitalsForm.bloodPressure)
     const temp = extractNumericValue(vitalsForm.temperature)
     const hr = extractNumericValue(vitalsForm.heartRate)
     const rr = extractNumericValue(vitalsForm.respiratoryRate)
     const spo2 = extractNumericValue(vitalsForm.oxygenSaturation)
 
-    // Only validate if we have at least one value
     if (temp !== null || bp.systolic !== null || hr !== null || rr !== null || spo2 !== null) {
-      const alerts = validateVitalSigns(
-        {
-          temperature: temp,
-          systolicBP: bp.systolic,
-          diastolicBP: bp.diastolic,
-          heartRate: hr,
-          respiratoryRate: rr,
-          oxygenSaturation: spo2,
-        },
-        patientAge
+      setVitalAlerts(
+        validateVitalSigns(
+          {
+            temperature: temp,
+            systolicBP: bp.systolic,
+            diastolicBP: bp.diastolic,
+            heartRate: hr,
+            respiratoryRate: rr,
+            oxygenSaturation: spo2,
+          },
+          patientAge
+        )
       )
-      setVitalAlerts(alerts)
-    } else {
-      setVitalAlerts([])
+      return
     }
-  }, [vitalsForm, patient, patientAge])
 
-  // Keyboard shortcuts: Ctrl+Enter saves current tab
+    setVitalAlerts([])
+  }, [patient, patientAge, vitalsForm])
+
   useEffect(() => {
     if (!patient) return
+
     const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === 'Enter') {
-        if (activeTab === 'vitals') commitVitals()
-        if (activeTab === 'notes') commitNote()
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        if (activeTab === "vitals") void commitVitals()
+        if (activeTab === "notes") void commitNote()
       }
     }
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
+
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
   }, [activeTab, patient, user]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Pre-fill vitals with latest record for this patient (as a starting template)
   useEffect(() => {
     if (!patient) return
     try {
-      const last = (vitalHistory || [])[vitalHistory.length - 1]
-      if (last) {
-        setVitalsForm((f) => ({
-          bloodPressure: f.bloodPressure || last.bloodPressure || "",
-          temperature: f.temperature || last.temperature || "",
-          heartRate: f.heartRate || last.heartRate || "",
-          respiratoryRate: f.respiratoryRate || last.respiratoryRate || "",
-          oxygenSaturation: f.oxygenSaturation || last.oxygenSaturation || "",
-          weight: f.weight || last.weight || "",
-          height: f.height || last.height || "",
-          notes: f.notes || "",
-        }))
-      }
+      const last = vitalHistory[vitalHistory.length - 1]
+      if (!last) return
+      setVitalsForm((current) => ({
+        bloodPressure: current.bloodPressure || last.bloodPressure || "",
+        temperature: current.temperature || last.temperature || "",
+        heartRate: current.heartRate || last.heartRate || "",
+        respiratoryRate: current.respiratoryRate || last.respiratoryRate || "",
+        oxygenSaturation: current.oxygenSaturation || last.oxygenSaturation || "",
+        weight: current.weight || last.weight || "",
+        height: current.height || last.height || "",
+        notes: current.notes || "",
+      }))
     } catch {}
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [patientId])
+  }, [patient, patientId, vitalHistory])
 
   if (!patient) {
     return (
@@ -224,24 +253,35 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
     )
   }
 
+  const notifyUpdate = (tab: CareTab, category?: string) => {
+    onUpdated?.({ patientId: patient.id, activeTab: tab, category })
+  }
+
   const commitVitals = async () => {
     if (!user || !patient) return
-    if (!vitalsForm.bloodPressure || !vitalsForm.temperature || !vitalsForm.heartRate || !vitalsForm.respiratoryRate || !vitalsForm.oxygenSaturation) {
+    if (
+      !vitalsForm.bloodPressure ||
+      !vitalsForm.temperature ||
+      !vitalsForm.heartRate ||
+      !vitalsForm.respiratoryRate ||
+      !vitalsForm.oxygenSaturation
+    ) {
       toast.error("Please fill in all required vital sign fields")
       return
     }
 
-    // Check for critical values and warn
-    const criticalAlerts = vitalAlerts.filter(a => a.type === 'critical')
+    const criticalAlerts = vitalAlerts.filter((alert) => alert.type === "critical")
     if (criticalAlerts.length > 0) {
+      const summary = criticalAlerts.map((alert) => `- ${alert.message}`).join("\n")
       const confirmed = window.confirm(
-        `WARNING: Critical vital signs detected:\n\n${criticalAlerts.map(a => `• ${a.message}`).join('\n')}\n\nDo you want to proceed with recording these values?`
+        `Warning: critical vital signs detected.\n\n${summary}\n\nDo you want to proceed with recording these values?`
       )
       if (!confirmed) return
     }
 
     setSavingVitals(true)
     const now = new Date()
+
     try {
       await addVitalSigns(
         {
@@ -260,11 +300,20 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
           notes: vitalsForm.notes,
         },
         () => {
-          setVitalsForm({ bloodPressure: "", temperature: "", heartRate: "", respiratoryRate: "", oxygenSaturation: "", weight: "", height: "", notes: "" })
+          setVitalsForm({
+            bloodPressure: "",
+            temperature: "",
+            heartRate: "",
+            respiratoryRate: "",
+            oxygenSaturation: "",
+            weight: "",
+            height: "",
+            notes: "",
+          })
           setVitalAlerts([])
-          toast.success("Vital signs recorded successfully!")
-          // Refresh patient data to show updated history
+          toast.success("Vital signs recorded successfully")
           refreshPatient(patient.id).catch(() => {})
+          notifyUpdate("vitals")
         },
         (error) => {
           toast.error(error.message || "Failed to record vital signs. Please try again.")
@@ -276,15 +325,16 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
       setSavingVitals(false)
     }
   }
-  const handleSaveVitals = (e: React.FormEvent) => { e.preventDefault(); commitVitals() }
 
   const commitNote = async () => {
     if (!user || !patient || !noteForm.note.trim()) {
       toast.error("Please enter a nursing note")
       return
     }
+
     setSavingNote(true)
     const now = new Date()
+
     try {
       await addNursingNote(
         {
@@ -298,9 +348,9 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
         },
         () => {
           setNoteForm({ category: "observation", note: "" })
-          toast.success("Nursing note added successfully!")
-          // Refresh patient data to show updated history
+          toast.success("Nursing note added successfully")
           refreshPatient(patient.id).catch(() => {})
+          notifyUpdate("notes")
         },
         (error) => {
           toast.error(error.message || "Failed to add nursing note. Please try again.")
@@ -312,7 +362,16 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
       setSavingNote(false)
     }
   }
-  const handleSaveNote = (e: React.FormEvent) => { e.preventDefault(); commitNote() }
+
+  const handleSaveVitals = (e: React.FormEvent) => {
+    e.preventDefault()
+    void commitVitals()
+  }
+
+  const handleSaveNote = (e: React.FormEvent) => {
+    e.preventDefault()
+    void commitNote()
+  }
 
   return (
     <div className="space-y-4">
@@ -321,30 +380,28 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
         Back to List
       </Button>
 
-      <Card>
-        <CardHeader>
-          <div className="flex items-center justify-between">
+      <Card className="overflow-hidden border-border/60">
+        <CardHeader className="bg-gradient-to-r from-sky-50 via-white to-emerald-50 dark:from-sky-950/30 dark:via-background dark:to-emerald-950/20">
+          <div className="flex flex-col gap-3 md:flex-row md:items-start md:justify-between">
             <div>
               <CardTitle>
                 {patient.firstName} {patient.lastName}
               </CardTitle>
-              <CardDescription>
-                Patient ID: {formatPatientNumber(patient.patientNumber)}
-              </CardDescription>
+              <CardDescription>Patient ID: {formatPatientNumber(patient.patientNumber)}</CardDescription>
             </div>
-            <div className="flex gap-2">
-              <Badge variant="outline">
-                Age: {new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()}
-              </Badge>
+            <div className="flex flex-wrap gap-2">
+              <Badge variant="outline">Age: {patientAge ?? "--"}</Badge>
               {patient.bloodGroup && <Badge variant="outline">Blood: {patient.bloodGroup}</Badge>}
+              {patient.triageCategory && <Badge variant="secondary">Triage: {patient.triageCategory}</Badge>}
             </div>
           </div>
         </CardHeader>
-        <CardContent>
+        <CardContent className="pt-6">
           {(() => {
-            const val = patient.allergies?.trim()
-            if (!val) return null
-            const hasAllergy = val.toLowerCase() !== "none"
+            const allergyValue = patient.allergies?.trim()
+            if (!allergyValue) return null
+
+            const hasAllergy = allergyValue.toLowerCase() !== "none"
             if (hasAllergy) {
               return (
                 <div className="mb-4 rounded-lg border border-destructive/50 bg-destructive/10 p-3">
@@ -352,12 +409,13 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                     <AlertCircle className="mt-0.5 h-4 w-4 text-destructive" />
                     <div>
                       <p className="font-semibold text-destructive">Allergies</p>
-                      <p className="text-sm text-foreground">{val}</p>
+                      <p className="text-sm text-foreground">{allergyValue}</p>
                     </div>
                   </div>
                 </div>
               )
             }
+
             return (
               <div className="mb-4 rounded-lg border border-muted bg-muted/30 p-3">
                 <div className="flex items-start gap-2">
@@ -371,7 +429,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
             )
           })()}
 
-          <Tabs value={activeTab} onValueChange={(v:any)=> setActiveTab(v)}>
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as CareTab)}>
             <TabsList className="grid w-full grid-cols-4">
               <TabsTrigger value="vitals">Record Vitals</TabsTrigger>
               <TabsTrigger value="notes">Add Note</TabsTrigger>
@@ -381,21 +439,30 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
 
             <TabsContent value="vitals" className="space-y-4">
               <form onSubmit={handleSaveVitals} className="space-y-4">
-                {/* Vital Signs Alerts */}
                 {vitalAlerts.length > 0 && (
                   <div className="space-y-2">
-                    {vitalAlerts.filter(a => a.type === 'critical').map((alert, idx) => (
-                      <Alert key={`critical-${idx}`} variant="destructive">
-                        <AlertCircle className="h-4 w-4" />
-                        <AlertDescription>{alert.message}</AlertDescription>
-                      </Alert>
-                    ))}
-                    {vitalAlerts.filter(a => a.type === 'warning').map((alert, idx) => (
-                      <Alert key={`warning-${idx}`} variant="default" className="border-amber-500 bg-amber-50 dark:bg-amber-950/20">
-                        <AlertTriangle className="h-4 w-4 text-amber-600" />
-                        <AlertDescription className="text-amber-800 dark:text-amber-200">{alert.message}</AlertDescription>
-                      </Alert>
-                    ))}
+                    {vitalAlerts
+                      .filter((alert) => alert.type === "critical")
+                      .map((alert, idx) => (
+                        <Alert key={`critical-${idx}`} variant="destructive">
+                          <AlertCircle className="h-4 w-4" />
+                          <AlertDescription>{alert.message}</AlertDescription>
+                        </Alert>
+                      ))}
+                    {vitalAlerts
+                      .filter((alert) => alert.type === "warning")
+                      .map((alert, idx) => (
+                        <Alert
+                          key={`warning-${idx}`}
+                          variant="default"
+                          className="border-amber-500 bg-amber-50 dark:bg-amber-950/20"
+                        >
+                          <AlertTriangle className="h-4 w-4 text-amber-600" />
+                          <AlertDescription className="text-amber-800 dark:text-amber-200">
+                            {alert.message}
+                          </AlertDescription>
+                        </Alert>
+                      ))}
                   </div>
                 )}
 
@@ -407,7 +474,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                       placeholder="120/80"
                       value={vitalsForm.bloodPressure}
                       onChange={(e) => setVitalsForm({ ...vitalsForm, bloodPressure: e.target.value })}
-                      onBlur={() => setVitalsForm((v) => ({ ...v, bloodPressure: fmtBP(v.bloodPressure) }))}
+                      onBlur={() => setVitalsForm((current) => ({ ...current, bloodPressure: fmtBP(current.bloodPressure) }))}
                       required
                     />
                   </div>
@@ -415,10 +482,10 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                     <Label htmlFor="temperature">Temperature *</Label>
                     <Input
                       id="temperature"
-                      placeholder="98.6°F"
+                      placeholder="37.0 C or 98.6 F"
                       value={vitalsForm.temperature}
                       onChange={(e) => setVitalsForm({ ...vitalsForm, temperature: e.target.value })}
-                      onBlur={() => setVitalsForm((v) => ({ ...v, temperature: fmtTemp(v.temperature) }))}
+                      onBlur={() => setVitalsForm((current) => ({ ...current, temperature: fmtTemp(current.temperature) }))}
                       required
                     />
                   </div>
@@ -429,7 +496,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                       placeholder="72 bpm"
                       value={vitalsForm.heartRate}
                       onChange={(e) => setVitalsForm({ ...vitalsForm, heartRate: e.target.value })}
-                      onBlur={() => setVitalsForm((v) => ({ ...v, heartRate: fmtBpm(v.heartRate) }))}
+                      onBlur={() => setVitalsForm((current) => ({ ...current, heartRate: fmtBpm(current.heartRate) }))}
                       required
                     />
                   </div>
@@ -440,7 +507,9 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                       placeholder="16/min"
                       value={vitalsForm.respiratoryRate}
                       onChange={(e) => setVitalsForm({ ...vitalsForm, respiratoryRate: e.target.value })}
-                      onBlur={() => setVitalsForm((v) => ({ ...v, respiratoryRate: fmtRR(v.respiratoryRate) }))}
+                      onBlur={() =>
+                        setVitalsForm((current) => ({ ...current, respiratoryRate: fmtRR(current.respiratoryRate) }))
+                      }
                       required
                     />
                   </div>
@@ -451,7 +520,12 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                       placeholder="98%"
                       value={vitalsForm.oxygenSaturation}
                       onChange={(e) => setVitalsForm({ ...vitalsForm, oxygenSaturation: e.target.value })}
-                      onBlur={() => setVitalsForm((v) => ({ ...v, oxygenSaturation: fmtSpO2(v.oxygenSaturation) }))}
+                      onBlur={() =>
+                        setVitalsForm((current) => ({
+                          ...current,
+                          oxygenSaturation: fmtSpO2(current.oxygenSaturation),
+                        }))
+                      }
                       required
                     />
                   </div>
@@ -462,17 +536,17 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                       placeholder="70 kg"
                       value={vitalsForm.weight}
                       onChange={(e) => setVitalsForm({ ...vitalsForm, weight: e.target.value })}
-                      onBlur={() => setVitalsForm((v) => ({ ...v, weight: v.weight ? fmtKg(v.weight) : '' }))}
+                      onBlur={() => setVitalsForm((current) => ({ ...current, weight: current.weight ? fmtKg(current.weight) : "" }))}
                     />
                   </div>
                   <div className="space-y-2">
                     <Label htmlFor="height">Height</Label>
                     <Input
                       id="height"
-                      placeholder={"170 cm"}
+                      placeholder="170 cm"
                       value={vitalsForm.height}
                       onChange={(e) => setVitalsForm({ ...vitalsForm, height: e.target.value })}
-                      onBlur={() => setVitalsForm((v) => ({ ...v, height: v.height ? fmtCm(v.height) : '' }))}
+                      onBlur={() => setVitalsForm((current) => ({ ...current, height: current.height ? fmtCm(current.height) : "" }))}
                     />
                   </div>
                 </div>
@@ -508,10 +582,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
               <form onSubmit={handleSaveNote} className="space-y-4">
                 <div className="space-y-2">
                   <Label htmlFor="category">Category *</Label>
-                  <Select
-                    value={noteForm.category}
-                    onValueChange={(value: any) => setNoteForm({ ...noteForm, category: value })}
-                  >
+                  <Select value={noteForm.category} onValueChange={(value: typeof noteForm.category) => setNoteForm({ ...noteForm, category: value })}>
                     <SelectTrigger id="category">
                       <SelectValue />
                     </SelectTrigger>
@@ -566,64 +637,64 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                     {vitalHistory.length === 0 ? (
                       <p className="text-center text-muted-foreground">No vital signs recorded</p>
                     ) : (
-                  vitalHistory
-                    .slice()
-                    .reverse()
-                    .map((vitals) => (
-                      <Card key={vitals.id}>
-                        <CardHeader>
-                          <div className="flex items-center justify-between">
-                            <CardTitle className="text-base">Vital Signs</CardTitle>
-                            <Badge variant="outline">
-                              {vitals.date} {vitals.time}
-                            </Badge>
-                          </div>
-                          <CardDescription>Recorded by {vitals.nurseName}</CardDescription>
-                        </CardHeader>
-                        <CardContent className="space-y-2 text-sm">
-                          <div className="grid grid-cols-2 gap-2">
-                            <div>
-                              <span className="text-muted-foreground">BP:</span>{" "}
-                              <span className="text-foreground">{fmtBP(vitals.bloodPressure)}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">Temp:</span>{" "}
-                              <span className="text-foreground">{fmtTemp(vitals.temperature)}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">HR:</span>{" "}
-                              <span className="text-foreground">{fmtBpm(vitals.heartRate)}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">RR:</span>{" "}
-                              <span className="text-foreground">{fmtRR(vitals.respiratoryRate)}</span>
-                            </div>
-                            <div>
-                              <span className="text-muted-foreground">SpO2:</span>{" "}
-                              <span className="text-foreground">{fmtSpO2(vitals.oxygenSaturation)}</span>
-                            </div>
-                            {vitals.weight && (
-                              <div>
-                                <span className="text-muted-foreground">Weight:</span>{" "}
-                                <span className="text-foreground">{fmtKg(vitals.weight)}</span>
+                      vitalHistory
+                        .slice()
+                        .reverse()
+                        .map((vitals) => (
+                          <Card key={vitals.id}>
+                            <CardHeader>
+                              <div className="flex items-center justify-between">
+                                <CardTitle className="text-base">Vital Signs</CardTitle>
+                                <Badge variant="outline">
+                                  {vitals.date} {vitals.time}
+                                </Badge>
                               </div>
-                            )}
-                            {vitals.height && (
-                              <div>
-                                <span className="text-muted-foreground">Height:</span>{" "}
-                                <span className="text-foreground">{fmtCm(vitals.height)}</span>
+                              <CardDescription>Recorded by {vitals.nurseName}</CardDescription>
+                            </CardHeader>
+                            <CardContent className="space-y-2 text-sm">
+                              <div className="grid grid-cols-2 gap-2">
+                                <div>
+                                  <span className="text-muted-foreground">BP:</span>{" "}
+                                  <span className="text-foreground">{fmtBP(vitals.bloodPressure)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">Temp:</span>{" "}
+                                  <span className="text-foreground">{fmtTemp(vitals.temperature)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">HR:</span>{" "}
+                                  <span className="text-foreground">{fmtBpm(vitals.heartRate)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">RR:</span>{" "}
+                                  <span className="text-foreground">{fmtRR(vitals.respiratoryRate)}</span>
+                                </div>
+                                <div>
+                                  <span className="text-muted-foreground">SpO2:</span>{" "}
+                                  <span className="text-foreground">{fmtSpO2(vitals.oxygenSaturation)}</span>
+                                </div>
+                                {vitals.weight && (
+                                  <div>
+                                    <span className="text-muted-foreground">Weight:</span>{" "}
+                                    <span className="text-foreground">{fmtKg(vitals.weight)}</span>
+                                  </div>
+                                )}
+                                {vitals.height && (
+                                  <div>
+                                    <span className="text-muted-foreground">Height:</span>{" "}
+                                    <span className="text-foreground">{fmtCm(vitals.height)}</span>
+                                  </div>
+                                )}
                               </div>
-                            )}
-                          </div>
-                          {vitals.notes && (
-                            <div className="mt-2">
-                              <span className="text-muted-foreground">Notes:</span>
-                              <p className="text-foreground">{vitals.notes}</p>
-                            </div>
-                          )}
-                        </CardContent>
-                      </Card>
-                    ))
+                              {vitals.notes && (
+                                <div className="mt-2">
+                                  <span className="text-muted-foreground">Notes:</span>
+                                  <p className="text-foreground">{vitals.notes}</p>
+                                </div>
+                              )}
+                            </CardContent>
+                          </Card>
+                        ))
                     )}
                   </div>
 
@@ -639,9 +710,7 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                           <Card key={note.id}>
                             <CardHeader>
                               <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-2">
-                                  <CardTitle className="text-base capitalize">{note.category}</CardTitle>
-                                </div>
+                                <CardTitle className="text-base capitalize">{note.category}</CardTitle>
                                 <Badge variant="outline">
                                   {note.date} {note.time}
                                 </Badge>
@@ -658,13 +727,13 @@ export function PatientCareView({ patientId, onBack, initialTab = 'vitals' }: Pa
                 </>
               )}
             </TabsContent>
+
             <TabsContent value="triage" className="space-y-4">
-              <TriageForm 
-                patientId={patientId} 
+              <TriageForm
+                patientId={patientId}
                 onSaved={(category) => {
-                  toast.success(`Triage assessment saved${category ? ` - Category: ${category}` : ''}`)
-                  // Refresh patient data after triage is saved
                   refreshPatient(patientId).catch(() => {})
+                  notifyUpdate("triage", category)
                 }}
               />
             </TabsContent>

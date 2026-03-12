@@ -18,6 +18,9 @@ export async function GET(req: Request) {
 
     const url = new URL(req.url)
     const sinceParam = url.searchParams.get("since") || "today"
+    const fromDate = url.searchParams.get("from")
+    const toDate = url.searchParams.get("to")
+    const summaryOnly = url.searchParams.get("summaryOnly") === "1"
     const limit = Math.max(1, Math.min(1000, Number(url.searchParams.get("limit") || 500)))
     const q = (url.searchParams.get("q") || "").trim()
 
@@ -33,7 +36,11 @@ export async function GET(req: Request) {
     const params: any[] = []
     let idx = 1
     const where: string[] = []
-    if (sinceIso) {
+    if (fromDate && toDate) {
+      where.push(`DATE(COALESCE(vs.recorded_at, NOW())) BETWEEN $${idx} AND $${idx + 1}`)
+      params.push(fromDate, toDate)
+      idx += 2
+    } else if (sinceIso) {
       where.push(`vs.recorded_at >= $${idx++}`)
       params.push(sinceIso)
     }
@@ -43,6 +50,25 @@ export async function GET(req: Request) {
       idx++
     }
     const whereSql = where.length ? `WHERE ${where.join(" AND ")}` : ""
+
+    const countSql = `
+      SELECT COUNT(*)::int AS count
+      FROM vital_signs vs
+      LEFT JOIN patients p ON p.id = vs.patient_id
+      ${whereSql}
+    `
+    const countResult = await query(countSql, params)
+    const count = Number(countResult.rows?.[0]?.count ?? 0)
+
+    if (summaryOnly) {
+      return NextResponse.json({
+        vitals: [],
+        summary: {
+          count,
+          todaysCount: count,
+        },
+      })
+    }
 
     // Latest vitals per patient using DISTINCT ON
     const sql = `
@@ -104,17 +130,11 @@ export async function GET(req: Request) {
         throw e
       }
     }
-    const today = new Date(startOfDayISO(new Date())).getTime()
-    const todaysCount = (rows || []).filter((r: any) => {
-      const t = new Date(r.recorded_at || r.created_at || new Date()).getTime()
-      return !Number.isNaN(t) && t >= today
-    }).length
-
     return NextResponse.json({
       vitals: rows,
       summary: {
-        count: rows.length,
-        todaysCount,
+        count,
+        todaysCount: count,
       },
     })
   } catch (e: any) {

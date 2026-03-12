@@ -68,7 +68,7 @@ export async function GET(req: Request) {
       "Blood Pressure": r.blood_pressure_systolic && r.blood_pressure_diastolic
         ? `${r.blood_pressure_systolic}/${r.blood_pressure_diastolic}`
         : r.blood_pressure_systolic ? String(r.blood_pressure_systolic) : "",
-      "Temperature (°C)": r.temperature != null ? Number(r.temperature).toFixed(1) : "",
+      "Temperature (C)": r.temperature != null ? Number(r.temperature).toFixed(1) : "",
       "Heart Rate (bpm)": r.heart_rate != null ? String(r.heart_rate) : "",
       "Respiratory Rate (/min)": r.respiratory_rate != null ? String(r.respiratory_rate) : "",
       "Oxygen Saturation (%)": r.oxygen_saturation != null ? String(r.oxygen_saturation) : "",
@@ -79,6 +79,13 @@ export async function GET(req: Request) {
     }))
 
     const filename = `vitals-${fromDate}-to-${toDate}`
+    const exportTimestamp = new Date().toISOString()
+    const exportMeta = {
+      From: fromDate,
+      To: toDate,
+      "Row Count": String(data.length),
+      ...(patientId ? { "Patient Filter": patientId } : {}),
+    }
 
     try {
       await writeAuditLog({
@@ -104,8 +111,14 @@ export async function GET(req: Request) {
       })
     } else if (format === "xlsx") {
       const buf = await toXLSX(data, {
-        sheetName: "Vital Signs",
-        title: `Vital Signs Export (${fromDate} to ${toDate})`,
+        meta: {
+          title: "Vital Signs Export",
+          exportedBy: auth.userId,
+          timestamp: exportTimestamp,
+        },
+        extraInfo: exportMeta,
+        headerTitle: "Vital Signs Export",
+        headerSubtitle: `${fromDate} to ${toDate}`,
       })
       return new NextResponse(buf, {
         headers: {
@@ -114,15 +127,15 @@ export async function GET(req: Request) {
         },
       })
     } else if (format === "pdf") {
-      const origin = new URL(req.url).origin
       const buf = await toPDF(
+        "Vital Signs Export",
+        data,
+        { userId: auth.userId, timestamp: exportTimestamp },
+        true,
         {
-          title: "Vital Signs Export",
           subtitle: `${fromDate} to ${toDate}`,
-          data,
-          columns: Object.keys(data[0] || {}),
+          meta: exportMeta,
         },
-        { origin }
       )
       return new NextResponse(buf, {
         headers: {
@@ -138,3 +151,4 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: "Export failed", details: e.message }, { status: 500 })
   }
 }
+

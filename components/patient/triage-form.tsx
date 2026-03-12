@@ -257,7 +257,7 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
               <div className="space-y-2">
                 <Label className="flex items-center gap-1">
                   <Thermometer className="h-3 w-3" />
-                  Temperature (°C)
+                  Temperature (C)
                 </Label>
                 <Input 
                   type="number" inputMode="decimal" step="0.1" min={30} max={43}
@@ -498,6 +498,7 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
     </Card>
   )
 }
+
 
 
 

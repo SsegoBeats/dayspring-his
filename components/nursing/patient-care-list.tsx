@@ -1,6 +1,6 @@
 "use client"
 
-import { useMemo, useState } from "react"
+import { useState } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { useNursing } from "@/lib/nursing-context"
 import { formatPatientNumber } from "@/lib/patients"
@@ -13,7 +13,7 @@ import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 
 interface PatientCareListProps {
-  onSelectPatient: (patientId: string, tab?: 'vitals'|'notes') => void
+  onSelectPatient: (patientId: string, tab?: "vitals" | "notes" | "history" | "triage") => void
 }
 
 export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
@@ -22,52 +22,68 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
   const { user } = useAuth()
   const [searchQuery, setSearchQuery] = useState("")
   const [selectedIds, setSelectedIds] = useState<string[]>([])
-  const [bulkVitals, setBulkVitals] = useState({ bloodPressure:'', temperature:'', heartRate:'', respiratoryRate:'', oxygenSaturation:'', notes:'' })
+  const [bulkVitals, setBulkVitals] = useState({
+    bloodPressure: "",
+    temperature: "",
+    heartRate: "",
+    respiratoryRate: "",
+    oxygenSaturation: "",
+    notes: "",
+  })
   const [bulkSaving, setBulkSaving] = useState(false)
-  const hasAnyBulkField = !!(bulkVitals.bloodPressure || bulkVitals.temperature || bulkVitals.heartRate || bulkVitals.respiratoryRate || bulkVitals.oxygenSaturation || bulkVitals.notes)
-  
-  // Helpers to auto-append metric units on blur
+  const hasAnyBulkField = !!(
+    bulkVitals.bloodPressure ||
+    bulkVitals.temperature ||
+    bulkVitals.heartRate ||
+    bulkVitals.respiratoryRate ||
+    bulkVitals.oxygenSaturation ||
+    bulkVitals.notes
+  )
+
   const numInt = (s: string) => {
-    const m = String(s || '').match(/-?\d+/)
+    const m = String(s || "").match(/-?\d+/)
     return m ? parseInt(m[0], 10) : null
   }
+
   const numFloat = (s: string) => {
-    const m = String(s || '').replace(',', '.').match(/-?\d+(?:\.\d+)?/)
+    const m = String(s || "").replace(",", ".").match(/-?\d+(?:\.\d+)?/)
     return m ? parseFloat(m[0]) : null
   }
+
   const fmtBP = (s: string) => {
-    const raw = String(s || '')
+    const raw = String(s || "")
     const m = raw.match(/(\d+)\D+(\d+)/)
     if (m) return `${m[1]}/${m[2]}`
     const nums = raw.match(/\d+/g)
     if (nums && nums.length >= 2) return `${nums[0]}/${nums[1]}`
     const n = numInt(raw)
-    return n == null ? '' : String(n)
+    return n == null ? "" : String(n)
   }
+
   const fmtTemp = (s: string) => {
     const n = numFloat(s)
-    if (n == null) return ''
-    const c = n > 45 ? (n - 32) * 5/9 : n
-    return `${c.toFixed(1)} °C`
+    if (n == null) return ""
+    const c = n > 45 ? (n - 32) * 5 / 9 : n
+    return `${c.toFixed(1)} C`
   }
-  const fmtBpm = (s: string) => (numInt(s) == null ? '' : `${numInt(s)} bpm`)
-  const fmtRR = (s: string) => (numInt(s) == null ? '' : `${numInt(s)}/min`)
-  const fmtSpO2 = (s: string) => (numInt(s) == null ? '' : `${numInt(s)}%`)
+
+  const fmtBpm = (s: string) => (numInt(s) == null ? "" : `${numInt(s)} bpm`)
+  const fmtRR = (s: string) => (numInt(s) == null ? "" : `${numInt(s)}/min`)
+  const fmtSpO2 = (s: string) => (numInt(s) == null ? "" : `${numInt(s)}%`)
 
   const displayedPatients = searchQuery ? searchPatients(searchQuery) : patients
 
-  // Loading state while patients load from the server
   if (loadingPatients) {
     return (
       <Card>
         <CardHeader>
           <CardTitle>Patient Care List</CardTitle>
-          <CardDescription>Loading patients…</CardDescription>
+          <CardDescription>Loading patients...</CardDescription>
         </CardHeader>
         <CardContent className="py-10">
           <div className="flex items-center justify-center text-muted-foreground">
-            <Loader2 className="h-5 w-5 animate-spin mr-2" />
-            Loading patients…
+            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+            Loading patients...
           </div>
         </CardContent>
       </Card>
@@ -93,9 +109,10 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
             className="pl-9"
           />
         </div>
+
         {selectedIds.length > 0 && (
-          <div className="rounded-md border p-3 space-y-2 bg-muted/40">
-            <div className="font-medium text-foreground">Record Vitals for {selectedIds.length} selected</div>
+          <div className="space-y-2 rounded-md border bg-muted/40 p-3">
+            <div className="font-medium text-foreground">Record vitals for {selectedIds.length} selected</div>
             <div className="grid gap-2 md:grid-cols-5">
               <Input
                 id="bulk-vitals-bp"
@@ -103,17 +120,17 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 aria-label="Bulk blood pressure"
                 placeholder="BP (e.g., 120/80)"
                 value={bulkVitals.bloodPressure}
-                onChange={(e)=>setBulkVitals({...bulkVitals, bloodPressure:e.target.value})}
-                onBlur={()=> setBulkVitals((v)=> ({...v, bloodPressure: fmtBP(v.bloodPressure)}))}
+                onChange={(e) => setBulkVitals({ ...bulkVitals, bloodPressure: e.target.value })}
+                onBlur={() => setBulkVitals((v) => ({ ...v, bloodPressure: fmtBP(v.bloodPressure) }))}
               />
               <Input
                 id="bulk-vitals-temp"
                 name="bulkVitalsTemperature"
                 aria-label="Bulk temperature"
-                placeholder="Temp (°C)"
+                placeholder="Temp (C)"
                 value={bulkVitals.temperature}
-                onChange={(e)=>setBulkVitals({...bulkVitals, temperature:e.target.value})}
-                onBlur={()=> setBulkVitals((v)=> ({...v, temperature: fmtTemp(v.temperature)}))}
+                onChange={(e) => setBulkVitals({ ...bulkVitals, temperature: e.target.value })}
+                onBlur={() => setBulkVitals((v) => ({ ...v, temperature: fmtTemp(v.temperature) }))}
               />
               <Input
                 id="bulk-vitals-hr"
@@ -121,8 +138,8 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 aria-label="Bulk heart rate"
                 placeholder="HR (bpm)"
                 value={bulkVitals.heartRate}
-                onChange={(e)=>setBulkVitals({...bulkVitals, heartRate:e.target.value})}
-                onBlur={()=> setBulkVitals((v)=> ({...v, heartRate: fmtBpm(v.heartRate)}))}
+                onChange={(e) => setBulkVitals({ ...bulkVitals, heartRate: e.target.value })}
+                onBlur={() => setBulkVitals((v) => ({ ...v, heartRate: fmtBpm(v.heartRate) }))}
               />
               <Input
                 id="bulk-vitals-rr"
@@ -130,8 +147,8 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 aria-label="Bulk respiratory rate"
                 placeholder="RR (/min)"
                 value={bulkVitals.respiratoryRate}
-                onChange={(e)=>setBulkVitals({...bulkVitals, respiratoryRate:e.target.value})}
-                onBlur={()=> setBulkVitals((v)=> ({...v, respiratoryRate: fmtRR(v.respiratoryRate)}))}
+                onChange={(e) => setBulkVitals({ ...bulkVitals, respiratoryRate: e.target.value })}
+                onBlur={() => setBulkVitals((v) => ({ ...v, respiratoryRate: fmtRR(v.respiratoryRate) }))}
               />
               <Input
                 id="bulk-vitals-spo2"
@@ -139,57 +156,95 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 aria-label="Bulk oxygen saturation"
                 placeholder="SpO2 (%)"
                 value={bulkVitals.oxygenSaturation}
-                onChange={(e)=>setBulkVitals({...bulkVitals, oxygenSaturation:e.target.value})}
-                onBlur={()=> setBulkVitals((v)=> ({...v, oxygenSaturation: fmtSpO2(v.oxygenSaturation)}))}
+                onChange={(e) => setBulkVitals({ ...bulkVitals, oxygenSaturation: e.target.value })}
+                onBlur={() => setBulkVitals((v) => ({ ...v, oxygenSaturation: fmtSpO2(v.oxygenSaturation) }))}
               />
             </div>
-            <Input id="bulk-vitals-notes" name="bulkVitalsNotes" placeholder="Notes (optional)" value={bulkVitals.notes} onChange={(e)=>setBulkVitals({...bulkVitals, notes:e.target.value})} />
+            <Input
+              id="bulk-vitals-notes"
+              name="bulkVitalsNotes"
+              placeholder="Notes (optional)"
+              value={bulkVitals.notes}
+              onChange={(e) => setBulkVitals({ ...bulkVitals, notes: e.target.value })}
+            />
             <div className="flex justify-end gap-2">
-              <Button variant="outline" onClick={()=> setSelectedIds([])} disabled={bulkSaving}>Clear Selection</Button>
-              <Button onClick={async ()=>{
-                if (!user) { toast.error('Not authenticated'); return }
-                if (!hasAnyBulkField) { toast.error('Enter at least one vital sign'); return }
-                setBulkSaving(true)
-                const now = new Date();
-                let ok = 0, fail = 0
-                const refreshPromises: Promise<void>[] = []
-                for (const id of selectedIds) {
-                  const p = patients.find(x=>x.id===id); if (!p) { fail++; continue }
-                  try {
-                    const res = await fetch('/api/vitals', {
-                      method: 'POST',
-                      credentials: 'include',
-                      headers: { 'Content-Type': 'application/json' },
-                      body: JSON.stringify({
-                        patientId: id,
-                        bloodPressure: bulkVitals.bloodPressure,
-                        temperature: bulkVitals.temperature,
-                        heartRate: bulkVitals.heartRate,
-                        respiratoryRate: bulkVitals.respiratoryRate,
-                        oxygenSaturation: bulkVitals.oxygenSaturation,
-                        notes: bulkVitals.notes || undefined,
-                      })
-                    })
-                    if (!res.ok) {
-                      const errorData = await res.json().catch(() => ({}))
-                      throw new Error(errorData.error || 'Failed to record vitals')
-                    }
-                    ok++
-                    // Queue refresh for this patient
-                    refreshPromises.push(refreshPatient(id).catch(() => {}))
-                  } catch (e:any) {
-                    fail++
-                    toast.error(`Failed for ${p.firstName} ${p.lastName}`, { description: e?.message || 'Error' })
+              <Button variant="outline" onClick={() => setSelectedIds([])} disabled={bulkSaving}>
+                Clear Selection
+              </Button>
+              <Button
+                onClick={async () => {
+                  if (!user) {
+                    toast.error("Not authenticated")
+                    return
                   }
-                }
-                // Refresh all patients in parallel
-                await Promise.all(refreshPromises)
-                if (ok) toast.success(`Recorded vitals for ${ok} patient(s)`) 
-                if (fail && !ok) toast.error('Failed to record vitals for selected patients')
-                setSelectedIds([])
-                setBulkVitals({ bloodPressure:'', temperature:'', heartRate:'', respiratoryRate:'', oxygenSaturation:'', notes:'' })
-              }}
-              disabled={selectedIds.length===0 || bulkSaving || !hasAnyBulkField}
+                  if (!hasAnyBulkField) {
+                    toast.error("Enter at least one vital sign")
+                    return
+                  }
+
+                  setBulkSaving(true)
+                  let ok = 0
+                  let fail = 0
+                  const refreshPromises: Promise<void>[] = []
+
+                  try {
+                    for (const id of selectedIds) {
+                      const patient = patients.find((x) => x.id === id)
+                      if (!patient) {
+                        fail++
+                        continue
+                      }
+
+                      try {
+                        const res = await fetch("/api/vitals", {
+                          method: "POST",
+                          credentials: "include",
+                          headers: { "Content-Type": "application/json" },
+                          body: JSON.stringify({
+                            patientId: id,
+                            bloodPressure: bulkVitals.bloodPressure,
+                            temperature: bulkVitals.temperature,
+                            heartRate: bulkVitals.heartRate,
+                            respiratoryRate: bulkVitals.respiratoryRate,
+                            oxygenSaturation: bulkVitals.oxygenSaturation,
+                            notes: bulkVitals.notes || undefined,
+                          }),
+                        })
+
+                        if (!res.ok) {
+                          const errorData = await res.json().catch(() => ({}))
+                          throw new Error(errorData.error || "Failed to record vitals")
+                        }
+
+                        ok++
+                        refreshPromises.push(refreshPatient(id).catch(() => {}))
+                      } catch (error: any) {
+                        fail++
+                        toast.error(`Failed for ${patient.firstName} ${patient.lastName}`, {
+                          description: error?.message || "Error",
+                        })
+                      }
+                    }
+
+                    await Promise.all(refreshPromises)
+
+                    if (ok) toast.success(`Recorded vitals for ${ok} patient(s)`)
+                    if (fail && !ok) toast.error("Failed to record vitals for selected patients")
+
+                    setSelectedIds([])
+                    setBulkVitals({
+                      bloodPressure: "",
+                      temperature: "",
+                      heartRate: "",
+                      respiratoryRate: "",
+                      oxygenSaturation: "",
+                      notes: "",
+                    })
+                  } finally {
+                    setBulkSaving(false)
+                  }
+                }}
+                disabled={selectedIds.length === 0 || bulkSaving || !hasAnyBulkField}
               >
                 {bulkSaving ? (
                   <>
@@ -197,7 +252,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                     Recording...
                   </>
                 ) : (
-                  'Record Vitals'
+                  "Record Vitals"
                 )}
               </Button>
             </div>
@@ -206,11 +261,13 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
 
         {displayedPatients.length === 0 ? (
           <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
-            <Search className="h-6 w-6 mb-2" />
+            <Search className="mb-2 h-6 w-6" />
             {searchQuery ? (
               <>
                 <p>No results for &quot;{searchQuery}&quot;</p>
-                <Button variant="outline" size="sm" className="mt-3" onClick={()=> setSearchQuery("")}>Clear search</Button>
+                <Button variant="outline" size="sm" className="mt-3" onClick={() => setSearchQuery("")}>
+                  Clear search
+                </Button>
               </>
             ) : (
               <p>No patients found</p>
@@ -221,62 +278,77 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b bg-muted/40 text-left">
-                  <th className="py-2 px-2">
+                  <th className="px-2 py-2">
                     <input
                       id="select-all-care"
                       name="selectAllCare"
                       type="checkbox"
-                      checked={selectedIds.length>0 && selectedIds.length===displayedPatients.length}
+                      checked={selectedIds.length > 0 && selectedIds.length === displayedPatients.length}
                       aria-label="Select all"
-                      onChange={(e)=> setSelectedIds(e.target.checked ? displayedPatients.map(p=>p.id) : [])}
+                      onChange={(e) => setSelectedIds(e.target.checked ? displayedPatients.map((p) => p.id) : [])}
                     />
                   </th>
-                  <th className="py-2 px-2">P.ID</th>
-                  <th className="py-2 px-2">Name</th>
-                  <th className="py-2 px-2">Age</th>
-                  <th className="py-2 px-2">Sex</th>
-                  <th className="py-2 px-2">Blood</th>
-                  <th className="py-2 px-2">Latest Vitals</th>
-                  <th className="py-2 px-2 text-right">Actions</th>
+                  <th className="px-2 py-2">P.ID</th>
+                  <th className="px-2 py-2">Name</th>
+                  <th className="px-2 py-2">Age</th>
+                  <th className="px-2 py-2">Sex</th>
+                  <th className="px-2 py-2">Blood</th>
+                  <th className="px-2 py-2">Latest Vitals</th>
+                  <th className="px-2 py-2 text-right">Actions</th>
                 </tr>
               </thead>
               <tbody>
                 {displayedPatients.map((patient) => {
                   const latestVitals = getLatestVitals(patient.id)
                   const pid = formatPatientNumber(patient.patientNumber)
-                  let age = '' as any
+                  let age: number | "" = ""
+
                   try {
                     if (patient.ageYears) age = patient.ageYears
                     else if (patient.dateOfBirth) {
                       const dob = new Date(patient.dateOfBirth)
                       const now = new Date()
-                      age = now.getFullYear() - dob.getFullYear() - ((now.getMonth()<dob.getMonth()||(now.getMonth()===dob.getMonth()&&now.getDate()<dob.getDate()))?1:0)
+                      age =
+                        now.getFullYear() -
+                        dob.getFullYear() -
+                        (now.getMonth() < dob.getMonth() ||
+                        (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())
+                          ? 1
+                          : 0)
                     }
                   } catch {}
+
                   const checked = selectedIds.includes(patient.id)
+
                   return (
                     <tr key={patient.id} className="border-b hover:bg-muted/30">
-                      <td className="py-2 px-2">
+                      <td className="px-2 py-2">
                         <input
                           type="checkbox"
                           id={`sel-${patient.id}`}
                           name={`select-${patient.id}`}
                           aria-label={`Select patient ${patient.firstName} ${patient.lastName}`}
                           checked={checked}
-                          onChange={(e)=> setSelectedIds((prev)=> e.target.checked ? [...prev, patient.id] : prev.filter(x=>x!==patient.id))}
+                          onChange={(e) =>
+                            setSelectedIds((prev) =>
+                              e.target.checked ? [...prev, patient.id] : prev.filter((x) => x !== patient.id)
+                            )
+                          }
                         />
                       </td>
-                      <td className="py-2 px-2 font-mono">{pid}</td>
-                      <td className="py-2 px-2">
+                      <td className="px-2 py-2 font-mono">{pid}</td>
+                      <td className="px-2 py-2">
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground">{patient.firstName} {patient.lastName}</span>
+                          <span className="font-medium text-foreground">
+                            {patient.firstName} {patient.lastName}
+                          </span>
                           {patient.allergies && <Badge variant="destructive">Allergies</Badge>}
                         </div>
                       </td>
-                      <td className="py-2 px-2">{age || '-'}</td>
-                      <td className="py-2 px-2">{patient.gender}</td>
-                      <td className="py-2 px-2">{patient.bloodGroup || '-'}</td>
-                      <td className="py-2 px-2 text-xs text-muted-foreground">
+                      <td className="px-2 py-2">{age || "-"}</td>
+                      <td className="px-2 py-2">{patient.gender}</td>
+                      <td className="px-2 py-2">{patient.bloodGroup || "-"}</td>
+                      <td className="px-2 py-2 text-xs text-muted-foreground">
                         {latestVitals ? (
                           <div className="space-x-2">
                             <span>BP {latestVitals.bloodPressure}</span>
@@ -288,14 +360,15 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                           <span>-</span>
                         )}
                       </td>
-                      <td className="py-2 px-2 text-right space-x-2">
-                        <Button size="sm" onClick={() => onSelectPatient(patient.id, 'vitals')}>
-                          <Stethoscope className="mr-2 h-4 w-4" /> Vitals
+                      <td className="space-x-2 px-2 py-2 text-right">
+                        <Button size="sm" onClick={() => onSelectPatient(patient.id, "vitals")}>
+                          <Stethoscope className="mr-2 h-4 w-4" />
+                          Vitals
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => onSelectPatient(patient.id, 'notes')}>
+                        <Button size="sm" variant="outline" onClick={() => onSelectPatient(patient.id, "notes")}>
                           Note
                         </Button>
-                        <Button size="sm" variant="outline" onClick={() => onSelectPatient(patient.id, 'triage')}>
+                        <Button size="sm" variant="outline" onClick={() => onSelectPatient(patient.id, "triage")}>
                           Triage
                         </Button>
                       </td>
@@ -310,4 +383,3 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
     </Card>
   )
 }
-

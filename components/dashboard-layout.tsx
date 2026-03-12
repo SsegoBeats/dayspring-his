@@ -62,7 +62,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <p className="text-sm font-medium text-foreground">{user?.name}</p>
               <p className="text-xs text-muted-foreground">{user && getRoleLabel(user.role)}</p>
             </div>
-            <NotificationsBell />
+            <NotificationsBell userRole={user?.role} />
             {showAncLink && (
               <Link href="/midwife/anc">
                 <Button variant="ghost" size="sm">ANC</Button>
@@ -94,13 +94,14 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   )
 }
 
-function NotificationsBell() {
+function NotificationsBell({ userRole }: { userRole?: string }) {
   const [open, setOpen] = useState(false)
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all'|'unread'|'lab'>('all')
+  const normalizedRole = (userRole || "").toLowerCase()
   const unread = useMemo(() => items.reduce((count, n) => count + (!n.read_at ? 1 : 0), 0), [items])
-  const load = async () => {
+  const load = useCallback(async () => {
     try {
       setLoading(true)
       const res = await fetch('/api/notifications', { credentials: 'include' })
@@ -110,12 +111,12 @@ function NotificationsBell() {
         setItems(list)
       }
     } finally { setLoading(false) }
-  }
-  useEffect(() => { load() }, [])
+  }, [])
+  useEffect(() => { load() }, [load])
   useEffect(() => {
     const id = setInterval(() => { load().catch(()=>{}) }, 30000)
     return () => clearInterval(id)
-  }, [])
+  }, [load])
   useEffect(() => {
     let es: EventSource | null = null
     let timeoutId: ReturnType<typeof setTimeout> | null = null
@@ -128,8 +129,9 @@ function NotificationsBell() {
         const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : (typeof localStorage !== 'undefined' ? localStorage.getItem('session_dev_bearer') : null)
         const url = new URL('/api/notifications/stream', window.location.origin)
         if (!hasCookie && token) url.searchParams.set('t', token)
-        es = new (window as any).EventSource(url.toString(), { withCredentials: true })
-        es.onmessage = (ev: MessageEvent) => {
+        const source = new (window as any).EventSource(url.toString(), { withCredentials: true }) as EventSource
+        es = source
+        source.onmessage = (ev: MessageEvent) => {
           try {
             const data = JSON.parse(ev.data)
             const incoming = Array.isArray(data.notifications) ? data.notifications : []
@@ -182,8 +184,8 @@ function NotificationsBell() {
             })
           } catch {}
         }
-        es.onerror = () => {
-          try { es?.close() } catch {}
+        source.onerror = () => {
+          try { source.close() } catch {}
           es = null
           // Reconnect after disconnect (e.g. Vercel 300s timeout); backoff 2–30s
           if (mounted && timeoutId == null) {
@@ -200,16 +202,16 @@ function NotificationsBell() {
       try { es?.close() } catch {}
     }
   }, [])
-  const markRead = async (ids: string[]) => {
+  const markRead = useCallback(async (ids: string[]) => {
     try { await fetch('/api/notifications', { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); await load() } catch {}
-  }
-  const deleteNotification = async (id: string) => {
+  }, [load])
+  const deleteNotification = useCallback(async (id: string) => {
     try { 
       await fetch('/api/notifications', { method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: [id] }) })
       await load() 
     } catch {}
-  }
-  const clearAll = async () => {
+  }, [load])
+  const clearAll = useCallback(async () => {
     try {
       const allIds = items.map((n:any) => n.id)
       if (allIds.length > 0) {
@@ -217,7 +219,7 @@ function NotificationsBell() {
         await load()
       }
     } catch {}
-  }
+  }, [items, load])
   const filteredItems = useMemo(() => {
     return items.filter((n: any) => {
       if (filter === 'unread') return !n.read_at
@@ -232,9 +234,36 @@ function NotificationsBell() {
       return true
     })
   }, [filter, items])
+  const openNotificationTarget = useCallback((notification: any, requestId?: string, patientId?: string) => {
+    if (requestId) {
+      window.dispatchEvent(new CustomEvent('openDeletionDialog', { detail: { requestId } }))
+      markRead([notification.id])
+      return
+    }
+    if (!patientId) return
+    if (normalizedRole === 'nurse') {
+      const initialTab = /new patient registered/i.test(notification.title || '') ? 'triage' : 'vitals'
+      window.dispatchEvent(new CustomEvent('openNursePatientCare', { detail: { patientId, initialTab, notificationId: notification.id } }))
+      return
+    }
+    window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab: 'labs', notificationId: notification.id } }))
+  }, [markRead, normalizedRole])
+  const getNotificationHint = useCallback((notification: any, requestId?: string, patientId?: string) => {
+    if (requestId) return 'Click to review request'
+    if (!patientId) return null
+    if (normalizedRole === 'nurse') {
+      return /new patient registered/i.test(notification.title || '') ? 'Click to start triage' : 'Click to open patient care'
+    }
+    return 'Click to open Lab Results'
+  }, [normalizedRole])
   return (
     <div className="relative">
-      <button onClick={()=> setOpen((v:boolean)=>!v)} className="relative inline-flex items-center rounded-md border px-3 py-1.5 text-sm">
+      <button
+        onClick={()=> setOpen((v:boolean)=>!v)}
+        className="relative inline-flex items-center rounded-md border px-3 py-1.5 text-sm"
+        aria-label="Open notifications"
+        title="Notifications"
+      >
         <Bell className="h-4 w-4" />
         {unread > 0 && !open && <span className="absolute -right-1 -top-1 inline-flex h-4 min-w-4 items-center justify-center rounded-full bg-red-600 px-1 text-[10px] text-white">{unread}</span>}
       </button>
@@ -268,18 +297,14 @@ function NotificationsBell() {
               const requestId = payload?.requestId
               const patientId = payload?.patientId
               const isLabReviewed = /lab result reviewed/i.test(n.title || '')
+              const actionHint = getNotificationHint(n, requestId, patientId)
+              const isClickable = Boolean(actionHint)
               
               return (
                 <div 
                   key={n.id} 
-                  className={`p-2 text-sm relative group ${(isDeletionRequest && requestId) || patientId ? 'cursor-pointer hover:bg-secondary/50' : ''}`}
-                  onClick={(isDeletionRequest && requestId) ? () => {
-                    window.dispatchEvent(new CustomEvent('openDeletionDialog', { detail: { requestId } }))
-                    markRead([n.id])
-                  } : (patientId ? () => {
-                    window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab: 'labs', notificationId: n.id } }))
-                    // Let ClinicianDashboard mark this as read after the dialog opens
-                  } : undefined)}
+                  className={`p-2 text-sm relative group ${isClickable ? 'cursor-pointer hover:bg-secondary/50' : ''}`}
+                  onClick={isClickable ? () => openNotificationTarget(n, requestId, patientId) : undefined}
                 >
                   <button
                     onClick={(e) => {
@@ -300,12 +325,10 @@ function NotificationsBell() {
                         {isLabReviewed && <span className="rounded px-1.5 py-0.5 text-[10px] bg-green-100 text-green-800 border border-green-200">Reviewed</span>}
                       </div>
                       <div className="text-muted-foreground">{n.message}</div>
-                      <div className="text-xs text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString()} {n.department ? `• ${n.department}` : n.role ? `• ${n.role}` : ''}</div>
-                      {isDeletionRequest && requestId ? (
-                        <div className="text-xs text-blue-600 mt-1">Click to review request</div>
-                      ) : (patientId ? (
-                        <div className="text-xs text-blue-600 mt-1">Click to open Lab Results</div>
-                      ) : null)}
+                      <div className="text-xs text-muted-foreground mt-1">{new Date(n.created_at).toLocaleString()} {n.department ? `- ${n.department}` : n.role ? `- ${n.role}` : ''}</div>
+                      {actionHint ? (
+                        <div className="text-xs text-blue-600 mt-1">{actionHint}</div>
+                      ) : null}
                     </div>
                     {!n.read_at && !isDeletionRequest && (
                       <button onClick={(e) => { e.stopPropagation(); markRead([n.id]) }} className="text-xs text-blue-600">Mark read</button>
@@ -425,6 +448,7 @@ function AdminDeletionWatcher({ userRole }: { userRole?: string }) {
     </Dialog>
   )
 }
+
 
 
 

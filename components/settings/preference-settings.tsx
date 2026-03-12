@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useState, useEffect, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -291,8 +291,7 @@ export function NotificationSettings() {
 
 export function PreferenceSettings() {
   const { setTheme } = useTheme()
-  const previewedRef = (typeof window !== 'undefined' ? (window as any) : {}).__prefPreviewRef || { current: false }
-  if (typeof window !== 'undefined') { (window as any).__prefPreviewRef = previewedRef }
+  const previewedRef = useRef(false)
   const { refreshSettings, settings } = useSettings()
   const [preferences, setPreferences] = useState({
     theme: "system",
@@ -309,6 +308,8 @@ export function PreferenceSettings() {
     theme: "system",
     locale: "en-GB",
     timezone: "Africa/Kampala",
+    dateFormat: "DD/MM/YYYY",
+    defaultDashboard: "overview",
     queue_wait_warn: 30,
     queue_wait_crit: 60,
     service_warn: 30,
@@ -338,22 +339,24 @@ export function PreferenceSettings() {
               service_warn: Number(data.preferences.service_warn ?? 30),
               service_crit: Number(data.preferences.service_crit ?? 60),
             }
-            const hasPreview = (typeof window !== 'undefined') && (window as any).__prefPreviewRef && (window as any).__prefPreviewRef.current
-            if (!hasPreview) {
+            if (!previewedRef.current) {
               setPreferences(fetchedPreferences)
             }
             setOriginalPreferences({
               theme: fetchedPreferences.theme,
               locale: fetchedPreferences.locale,
               timezone: fetchedPreferences.timezone,
-              currency: fetchedPreferences.currency,
+              dateFormat: fetchedPreferences.dateFormat,
+              defaultDashboard: fetchedPreferences.defaultDashboard,
               queue_wait_warn: fetchedPreferences.queue_wait_warn,
               queue_wait_crit: fetchedPreferences.queue_wait_crit,
               service_warn: fetchedPreferences.service_warn,
               service_crit: fetchedPreferences.service_crit,
             })
             // Apply theme on load
-            if (!previewedRef.current) { if (!(typeof window !== "undefined" && (window as any).__prefPreviewRef && (window as any).__prefPreviewRef.current)) { setTheme(fetchedPreferences.theme) } }
+            if (!previewedRef.current) {
+              setTheme(fetchedPreferences.theme)
+            }
           }
         }
       } catch (error) {
@@ -363,7 +366,7 @@ export function PreferenceSettings() {
       }
     }
     fetchPreferences()
-  }, [setTheme])
+  }, [setTheme, previewedRef])
 
   // Track unsaved changes (including queue SLA thresholds used by reception queue board).
   // Currency is admin-only (org-level), not editable here.
@@ -373,6 +376,8 @@ export function PreferenceSettings() {
       preferences.theme !== originalPreferences.theme ||
       preferences.locale !== originalPreferences.locale ||
       preferences.timezone !== originalPreferences.timezone ||
+      preferences.dateFormat !== originalPreferences.dateFormat ||
+      preferences.defaultDashboard !== originalPreferences.defaultDashboard ||
       preferences.queue_wait_warn !== originalPreferences.queue_wait_warn ||
       preferences.queue_wait_crit !== originalPreferences.queue_wait_crit ||
       preferences.service_warn !== originalPreferences.service_warn ||
@@ -396,6 +401,8 @@ export function PreferenceSettings() {
           theme: preferences.theme,
           locale: preferences.locale,
           timezone: preferences.timezone,
+          dateFormat: preferences.dateFormat,
+          defaultDashboard: preferences.defaultDashboard,
           queue_wait_warn: preferences.queue_wait_warn,
           queue_wait_crit: preferences.queue_wait_crit,
           service_warn: preferences.service_warn,
@@ -417,6 +424,8 @@ export function PreferenceSettings() {
           theme: originalPreferences.theme,
           locale: originalPreferences.locale,
           timezone: originalPreferences.timezone,
+          dateFormat: originalPreferences.dateFormat,
+          defaultDashboard: originalPreferences.defaultDashboard,
           queue_wait_warn: originalPreferences.queue_wait_warn,
           queue_wait_crit: originalPreferences.queue_wait_crit,
           service_warn: originalPreferences.service_warn,
@@ -431,6 +440,8 @@ export function PreferenceSettings() {
         theme: originalPreferences.theme,
         locale: originalPreferences.locale,
         timezone: originalPreferences.timezone,
+        dateFormat: originalPreferences.dateFormat,
+        defaultDashboard: originalPreferences.defaultDashboard,
         queue_wait_warn: originalPreferences.queue_wait_warn,
         queue_wait_crit: originalPreferences.queue_wait_crit,
         service_warn: originalPreferences.service_warn,
@@ -462,7 +473,7 @@ export function PreferenceSettings() {
               onValueChange={(value) => {
                 setPreferences(prev => ({ ...prev, theme: value }))
                 // Apply theme immediately for preview and mark as user-initiated
-                ;(typeof window !== 'undefined' && (window as any).__prefPreviewRef) && ((window as any).__prefPreviewRef.current = true)
+                previewedRef.current = true
                 setTheme(value)
               }}
             >
@@ -508,6 +519,40 @@ export function PreferenceSettings() {
                 <SelectItem value="Africa/Kampala">Africa/Kampala (EAT)</SelectItem>
                 <SelectItem value="Africa/Nairobi">Africa/Nairobi (EAT)</SelectItem>
                 <SelectItem value="UTC">UTC</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dateFormat">Date Format</Label>
+            <Select
+              name="dateFormat"
+              value={preferences.dateFormat}
+              onValueChange={(value) => setPreferences(prev => ({ ...prev, dateFormat: value }))}
+            >
+              <SelectTrigger id="dateFormat">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="defaultDashboard">Portal Home</Label>
+            <Select
+              name="defaultDashboard"
+              value={preferences.defaultDashboard}
+              onValueChange={(value) => setPreferences(prev => ({ ...prev, defaultDashboard: value }))}
+            >
+              <SelectTrigger id="defaultDashboard">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="overview">Overview</SelectItem>
+                <SelectItem value="patient-care">Patient Care</SelectItem>
+                <SelectItem value="latest-vitals">Latest Vitals</SelectItem>
               </SelectContent>
             </Select>
           </div>

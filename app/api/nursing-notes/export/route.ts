@@ -72,6 +72,13 @@ export async function GET(req: Request) {
     }))
 
     const filename = `nursing-notes-${fromDate}-to-${toDate}`
+    const exportTimestamp = new Date().toISOString()
+    const exportMeta = {
+      From: fromDate,
+      To: toDate,
+      "Row Count": String(data.length),
+      ...(patientId ? { "Patient Filter": patientId } : {}),
+    }
 
     try {
       await writeAuditLog({
@@ -97,8 +104,14 @@ export async function GET(req: Request) {
       })
     } else if (format === "xlsx") {
       const buf = await toXLSX(data, {
-        sheetName: "Nursing Notes",
-        title: `Nursing Notes Export (${fromDate} to ${toDate})`,
+        meta: {
+          title: "Nursing Notes Export",
+          exportedBy: auth.userId,
+          timestamp: exportTimestamp,
+        },
+        extraInfo: exportMeta,
+        headerTitle: "Nursing Notes Export",
+        headerSubtitle: `${fromDate} to ${toDate}`,
       })
       return new NextResponse(buf, {
         headers: {
@@ -107,15 +120,15 @@ export async function GET(req: Request) {
         },
       })
     } else if (format === "pdf") {
-      const origin = new URL(req.url).origin
       const buf = await toPDF(
+        "Nursing Notes Export",
+        data,
+        { userId: auth.userId, timestamp: exportTimestamp },
+        true,
         {
-          title: "Nursing Notes Export",
           subtitle: `${fromDate} to ${toDate}`,
-          data,
-          columns: Object.keys(data[0] || {}),
+          meta: exportMeta,
         },
-        { origin }
       )
       return new NextResponse(buf, {
         headers: {
