@@ -200,6 +200,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                 const payload = parsePayload(firstLab)
                 const patientId = payload?.patientId
                 const testId = payload?.testId || payload?.testIds?.[0]
+                const isAppointmentNotification = /appointment/i.test(firstLab.title || '') || /appointment/i.test(firstLab.message || '')
                 const openAction = normalizedRole === 'radiologist' && testId
                   ? {
                       label: 'Open',
@@ -226,6 +227,30 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                           } catch {}
                         },
                       }
+                  : normalizedRole === 'receptionist' && (patientId || payload?.checkinId || payload?.appointmentId || payload?.paymentId)
+                    ? {
+                        label: 'Open',
+                        onClick: () => {
+                          try {
+                            window.dispatchEvent(
+                              new CustomEvent('openReceptionDesk', {
+                                detail: {
+                                  patientId,
+                                  checkinId: payload?.checkinId,
+                                  appointmentId: payload?.appointmentId,
+                                  paymentId: payload?.paymentId,
+                                  initialSection: payload?.paymentId
+                                    ? 'payments'
+                                    : payload?.checkinId || payload?.appointmentId
+                                      ? 'checkin'
+                                      : 'patients',
+                                  notificationId: firstLab.id,
+                                },
+                              }),
+                            )
+                          } catch {}
+                        },
+                      }
                   : patientId
                     ? {
                         label: 'Open',
@@ -233,7 +258,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                           try {
                             window.dispatchEvent(
                               new CustomEvent('openClinicianConsult', {
-                                detail: { patientId, initialTab: 'labs', notificationId: firstLab.id },
+                                detail: { patientId, initialTab: isAppointmentNotification ? 'consultation' : 'labs', notificationId: firstLab.id },
                               }),
                             )
                           } catch {}
@@ -313,13 +338,34 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       window.dispatchEvent(new CustomEvent('openLabTest', { detail: { testId, patientId, notificationId: notification.id } }))
       return
     }
+    if (normalizedRole === 'receptionist') {
+      if (!patientId && !payload?.checkinId && !payload?.appointmentId && !payload?.paymentId) return
+      const title = String(notification?.title || '')
+      const initialSection = payload?.paymentId
+        ? 'payments'
+        : payload?.checkinId || payload?.appointmentId || /appointment/i.test(title)
+          ? 'checkin'
+          : 'patients'
+      window.dispatchEvent(new CustomEvent('openReceptionDesk', {
+        detail: {
+          patientId,
+          checkinId: payload?.checkinId,
+          appointmentId: payload?.appointmentId,
+          paymentId: payload?.paymentId,
+          initialSection,
+          notificationId: notification.id,
+        },
+      }))
+      return
+    }
     if (!patientId) return
     if (normalizedRole === 'nurse') {
       const initialTab = /new patient registered/i.test(notification.title || '') ? 'triage' : 'vitals'
       window.dispatchEvent(new CustomEvent('openNursePatientCare', { detail: { patientId, initialTab, notificationId: notification.id } }))
       return
     }
-    window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab: 'labs', notificationId: notification.id } }))
+    const initialTab = /appointment/i.test(notification?.title || '') || /appointment/i.test(notification?.message || '') ? 'consultation' : 'labs'
+    window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab, notificationId: notification.id } }))
   }, [markRead, normalizedRole, parsePayload])
   const getNotificationHint = useCallback((notification: any, requestId?: string, patientId?: string) => {
     if (requestId) return 'Click to review request'
@@ -327,11 +373,21 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
     const testId = payload?.testId || payload?.testIds?.[0]
     if (normalizedRole === 'radiologist' && testId) return 'Click to open radiology study'
     if (normalizedRole === 'lab tech' && (testId || patientId)) return 'Click to open lab work item'
+    if (normalizedRole === 'receptionist') {
+      if (payload?.paymentId) return 'Click to open payments'
+      if (payload?.checkinId || payload?.appointmentId || /appointment/i.test(notification?.title || '') || /appointment/i.test(notification?.message || '')) {
+        return 'Click to open check-in desk'
+      }
+      if (patientId) return 'Click to open patient record'
+      return null
+    }
     if (!patientId) return null
     if (normalizedRole === 'nurse') {
       return /new patient registered/i.test(notification.title || '') ? 'Click to start triage' : 'Click to open patient care'
     }
-    return 'Click to open Lab Results'
+    return /appointment/i.test(notification?.title || '') || /appointment/i.test(notification?.message || '')
+      ? 'Click to open patient consultation'
+      : 'Click to open Lab Results'
   }, [normalizedRole, parsePayload])
   return (
     <div className="relative">

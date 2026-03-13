@@ -20,6 +20,10 @@ export async function GET(req: Request) {
   if (!auth || !can(auth.role, "payments", "read")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const url = new URL(req.url)
   const patientId = url.searchParams.get('patientId')
+  const method = url.searchParams.get("method")
+  const from = url.searchParams.get("from")
+  const to = url.searchParams.get("to")
+  const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit") || 100)))
   const { rows } = await queryWithSession(
     { role: auth.role, userId: auth.userId },
     `SELECT p.id, p.receipt_no, p.patient_id, p.amount, p.method, p.reference, p.created_at,
@@ -27,9 +31,12 @@ export async function GET(req: Request) {
        FROM payments p
        JOIN patients pat ON pat.id = p.patient_id
       WHERE ($1::uuid IS NULL OR p.patient_id = $1)
+        AND ($2::text IS NULL OR p.method = $2)
+        AND ($3::timestamp IS NULL OR p.created_at >= $3::timestamp)
+        AND ($4::timestamp IS NULL OR p.created_at <= $4::timestamp)
       ORDER BY p.created_at DESC
-      LIMIT 500`,
-    [patientId]
+      LIMIT $5`,
+    [patientId, method || null, from || null, to || null, limit]
   )
   return NextResponse.json({ payments: rows })
 }

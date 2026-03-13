@@ -16,7 +16,7 @@ export default function ReceptionistPage() {
       router.push("/")
       return
     }
-    if (user.role !== "Receptionist") {
+    if ((user.role || "").toLowerCase() !== "receptionist") {
       router.push("/dashboard")
       return
     }
@@ -30,7 +30,7 @@ export default function ReceptionistPage() {
     )
   }
 
-  if (user.role !== "Receptionist") {
+  if ((user.role || "").toLowerCase() !== "receptionist") {
     return null
   }
 

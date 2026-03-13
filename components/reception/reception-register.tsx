@@ -90,7 +90,7 @@ export function ReceptionRegister() {
   }
 
   return (
-    <Card>
+    <Card className="border-sky-100 bg-white/95 shadow-sm">
       <CardHeader>
         <CardTitle>Reception Register</CardTitle>
         <CardDescription>Summary of check-ins, queue and payments for a period</CardDescription>
@@ -134,7 +134,7 @@ export function ReceptionRegister() {
               ])
             }
           >
-            {exporting === "batch" ? "Exporting…" : "Export All PDFs"}
+            {exporting === "batch" ? "Exporting..." : "Export All PDFs"}
           </Button>
           <Button
             variant="outline"
@@ -147,7 +147,7 @@ export function ReceptionRegister() {
               ])
             }
           >
-            {exporting === "batch" ? "Exporting…" : "Export All XLSX"}
+            {exporting === "batch" ? "Exporting..." : "Export All XLSX"}
           </Button>
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -248,4 +248,3 @@ export function ReceptionRegister() {
     </Card>
   )
 }
-

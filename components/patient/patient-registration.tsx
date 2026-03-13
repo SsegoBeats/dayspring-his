@@ -164,13 +164,6 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
               const c = await ck.json()
               // Persist a print banner instead of auto-redirecting
               if (c?.id) setTokenId(c.id)
-              // Notify department panel
-              try {
-                await fetch('/api/notify/department', {
-                  method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' },
-                  body: JSON.stringify({ department: formData.department, title: 'New Patient Check-In', message: `${formData.firstName} ${formData.lastName} has been checked-in. Token: ${c.id}`, payload: { patientId, checkinId: c.id } })
-                })
-              } catch {}
               toast.success('Patient registered and checked in')
             } else {
               toast.success('Patient registered')
@@ -620,6 +613,5 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
     </Card>
   )
 }
-
 
 

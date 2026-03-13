@@ -355,6 +355,16 @@ export function PreferenceSettings() {
         { value: "lab-exports", label: "Exports" },
       ]
     }
+    if (normalizedRole === "receptionist") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "reception-patients", label: "Patient Register" },
+        { value: "reception-checkin", label: "Check-In Desk" },
+        { value: "reception-queue", label: "Queue Board" },
+        { value: "reception-payments", label: "Payments" },
+        { value: "reception-reports", label: "Reports" },
+      ]
+    }
     return [{ value: "overview", label: "Overview" }]
   }, [normalizedRole])
 

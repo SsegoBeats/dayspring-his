@@ -1,7 +1,7 @@
 "use client"
 
-import { useEffect, useMemo, useState, useCallback } from "react"
-import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { useCallback, useEffect, useState } from "react"
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -18,15 +18,14 @@ export function CheckInPanel() {
   const [q, setQ] = useState("")
   const [loading, setLoading] = useState(false)
   const [patients, setPatients] = useState<CompactPatient[]>([])
-  const [selectedPatientId, setSelectedPatientId] = useState<string>("")
-  const [department, setDepartment] = useState<string>("")
+  const [selectedPatientId, setSelectedPatientId] = useState("")
+  const [selectedPatient, setSelectedPatient] = useState<CompactPatient | null>(null)
+  const [department, setDepartment] = useState("")
   const [creating, setCreating] = useState(false)
-  const [errorMsg, setErrorMsg] = useState<string>("")
+  const [errorMsg, setErrorMsg] = useState("")
   const [appointmentsOpen, setAppointmentsOpen] = useState(false)
   const [lastCheckInTokenId, setLastCheckInTokenId] = useState<string | null>(null)
-  const selectedPatient = useMemo(() => patients.find((p) => p.id === selectedPatientId), [patients, selectedPatientId])
 
-  // Debounced search with AbortController to cancel in-flight requests
   useEffect(() => {
     if (!q || q.length < 2) {
       setPatients([])
@@ -65,7 +64,11 @@ export function CheckInPanel() {
     }
   }, [q])
 
-  const canCreate = useMemo(() => !!selectedPatientId, [selectedPatientId])
+  const clearSelectedPatient = useCallback(() => {
+    setSelectedPatientId("")
+    setSelectedPatient(null)
+    setErrorMsg("")
+  }, [])
 
   const createCheckIn = async () => {
     if (!selectedPatientId) return
@@ -87,15 +90,16 @@ export function CheckInPanel() {
       }
       const tokenId = data?.id as string | undefined
       setLastCheckInTokenId(tokenId ?? null)
-      toast.success(tokenId ? "Patient checked in. Print token below if the popup was blocked." : "Patient checked in successfully", { duration: 5000 })
+      toast.success(
+        tokenId ? "Patient checked in. Print token below if the popup was blocked." : "Patient checked in successfully",
+        { duration: 5000 },
+      )
       try {
         if (tokenId) window.open(`/api/queue/token/${tokenId}`, "_blank", "noopener,noreferrer")
-      } catch {
-        // Popup blocked; user can use the link below
-      }
+      } catch {}
       setQ("")
       setPatients([])
-      setSelectedPatientId("")
+      clearSelectedPatient()
       setDepartment("")
     } catch {
       toast.error("Failed to create check-in")
@@ -105,40 +109,38 @@ export function CheckInPanel() {
     }
   }
 
-  const clearTokenLink = useCallback(() => setLastCheckInTokenId(null), [])
-
   return (
-    <Card>
+    <Card className="border-sky-100 bg-[linear-gradient(180deg,_rgba(248,250,252,0.98),_rgba(255,255,255,1))] shadow-sm">
       <CardHeader>
         <div className="flex items-center justify-between gap-2">
           <div>
             <CardTitle>Quick Check-In</CardTitle>
-            <CardDescription>Find a patient and check them in (optionally send to a department queue).</CardDescription>
+            <CardDescription>Find a patient, create the arrival record, and place them on the right department queue.</CardDescription>
           </div>
           <Button variant="secondary" onClick={() => setAppointmentsOpen(true)}>Appointments</Button>
         </div>
       </CardHeader>
       <CardContent className="space-y-3">
         {lastCheckInTokenId && (
-          <div className="rounded-md border border-green-200 bg-green-50 dark:border-green-800 dark:bg-green-950/30 px-3 py-2 text-sm flex items-center justify-between gap-2">
-            <span className="text-green-800 dark:text-green-200">Token ready to print</span>
+          <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-800 dark:bg-emerald-950/30">
+            <span className="text-emerald-800 dark:text-emerald-200">Token ready to print</span>
             <span className="flex items-center gap-2">
               <a
                 href={`/api/queue/token/${lastCheckInTokenId}`}
                 target="_blank"
                 rel="noopener noreferrer"
-                className="text-blue-600 hover:underline font-medium"
+                className="font-medium text-blue-600 hover:underline"
               >
                 Open / print token
               </a>
-              <Button type="button" variant="ghost" size="sm" onClick={clearTokenLink} aria-label="Dismiss token link">
+              <Button type="button" variant="ghost" size="sm" onClick={() => setLastCheckInTokenId(null)} aria-label="Dismiss token link">
                 Dismiss
               </Button>
             </span>
           </div>
         )}
         <div className="grid gap-3 md:grid-cols-3">
-          <div className="md:col-span-2 space-y-2">
+          <div className="space-y-2 md:col-span-2">
             <Input
               aria-label="Search patients by name, number, or phone"
               placeholder="Search by name, number, or phone (min 2 characters)"
@@ -150,17 +152,14 @@ export function CheckInPanel() {
               autoComplete="off"
             />
             {selectedPatientId && (
-              <div className="text-xs text-muted-foreground flex items-center gap-2">
+              <div className="flex items-center gap-2 text-xs text-muted-foreground">
                 <span>
                   Selected: {selectedPatient ? `${formatPatientNumber(selectedPatient.patient_number)} - ${selectedPatient.first_name} ${selectedPatient.last_name}` : selectedPatientId}
                 </span>
                 <button
                   type="button"
                   className="text-blue-600 hover:underline"
-                  onClick={() => {
-                    setSelectedPatientId("")
-                    setErrorMsg("")
-                  }}
+                  onClick={clearSelectedPatient}
                   aria-label="Clear selected patient"
                 >
                   Clear
@@ -168,31 +167,32 @@ export function CheckInPanel() {
               </div>
             )}
             <div
-              className="max-h-48 overflow-auto border rounded"
+              className="max-h-48 overflow-auto rounded border"
               role="listbox"
               aria-label="Patient search results"
               aria-busy={loading}
             >
               {loading ? (
-                <div className="p-2 text-sm text-muted-foreground" role="status">Searching…</div>
+                <div className="p-2 text-sm text-muted-foreground" role="status">Searching...</div>
               ) : patients.length === 0 ? (
                 <div className="p-2 text-sm text-muted-foreground">
                   {q.length >= 2 ? "No results" : "Type at least 2 characters to search"}
                 </div>
               ) : (
-                patients.map((p) => (
+                patients.map((patient) => (
                   <button
-                    key={p.id}
+                    key={patient.id}
                     type="button"
                     role="option"
-                    aria-selected={selectedPatientId === p.id}
+                    aria-selected={selectedPatientId === patient.id}
                     onClick={() => {
-                      setSelectedPatientId(p.id)
+                      setSelectedPatientId(patient.id)
+                      setSelectedPatient(patient)
                       setErrorMsg("")
                     }}
-                    className={`w-full text-left px-3 py-2 text-sm hover:bg-muted ${selectedPatientId === p.id ? "bg-muted" : ""}`}
+                    className={`w-full px-3 py-2 text-left text-sm hover:bg-muted ${selectedPatientId === patient.id ? "bg-muted" : ""}`}
                   >
-                    {formatPatientNumber(p.patient_number)} - {p.first_name} {p.last_name}
+                    {formatPatientNumber(patient.patient_number)} - {patient.first_name} {patient.last_name}
                   </button>
                 ))
               )}
@@ -207,8 +207,8 @@ export function CheckInPanel() {
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
-                {RECEPTION_DEPARTMENTS.map((d) => (
-                  <SelectItem key={d} value={d}>{d}</SelectItem>
+                {RECEPTION_DEPARTMENTS.map((dept) => (
+                  <SelectItem key={dept} value={dept}>{dept}</SelectItem>
                 ))}
               </SelectContent>
             </Select>
@@ -219,15 +219,15 @@ export function CheckInPanel() {
             )}
             <Button
               className="w-full"
-              disabled={!canCreate || creating}
+              disabled={!selectedPatientId || creating}
               onClick={createCheckIn}
               aria-busy={creating}
-              aria-disabled={!canCreate || creating}
+              aria-disabled={!selectedPatientId || creating}
             >
               {creating ? (
                 <span className="inline-flex items-center">
                   <Loader2 className="mr-2 h-4 w-4 animate-spin" aria-hidden />
-                  Checking in…
+                  Checking in...
                 </span>
               ) : (
                 "Check In"

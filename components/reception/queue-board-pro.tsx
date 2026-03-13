@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useState, useRef } from "react"
+import { useCallback, useEffect, useRef, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
@@ -39,7 +39,7 @@ export function QueueBoardPro() {
   const autoRefreshIntervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
   const loadRef = useRef<() => Promise<void>>(() => Promise.resolve())
 
-  async function loadLane(st: 'waiting'|'in_service'|'done') {
+  const loadLane = useCallback(async (st: 'waiting'|'in_service'|'done') => {
     const url = new URL('/api/queues', window.location.origin)
     if (department) url.searchParams.set('department', department)
     url.searchParams.set('status', st)
@@ -50,15 +50,15 @@ export function QueueBoardPro() {
       if (st === 'in_service') setInService(data.queue || [])
       if (st === 'done') setDone(data.queue || [])
     }
-  }
+  }, [department])
 
-  async function load() {
+  const load = useCallback(async () => {
     try { setLoading(true); await Promise.all([loadLane("waiting"), loadLane("in_service"), loadLane("done")]) }
     finally { setLoading(false) }
-  }
+  }, [loadLane])
   loadRef.current = load
 
-  useEffect(() => { load() }, [department])
+  useEffect(() => { load() }, [load])
 
   useEffect(() => {
     if (!autoRefresh) {
@@ -76,7 +76,7 @@ export function QueueBoardPro() {
         autoRefreshIntervalRef.current = null
       }
     }
-  }, [autoRefresh, department])
+  }, [autoRefresh, load])
 
   useEffect(() => {
     (async () => {
@@ -204,7 +204,7 @@ export function QueueBoardPro() {
   }
 
   return (
-    <Card>
+    <Card className="border-sky-100 bg-white/95 shadow-sm">
       <CardHeader>
         <CardTitle>Department Queue</CardTitle>
         <CardDescription>Track and advance patients through the queue.</CardDescription>
@@ -229,7 +229,7 @@ export function QueueBoardPro() {
           </div>
           <div className="flex items-center gap-2">
             <Button variant="outline" onClick={() => load()} disabled={loading} aria-label="Refresh queue">
-              {loading ? "Refreshing…" : "Refresh"}
+              {loading ? "Refreshing..." : "Refresh"}
             </Button>
             <div className="flex items-center gap-2">
               <Switch id="queue-auto-refresh" checked={autoRefresh} onCheckedChange={setAutoRefresh} />
@@ -250,7 +250,12 @@ export function QueueBoardPro() {
             </div>
             <div className="w-44">
               <Label className="text-xs text-muted-foreground sr-only">Export status filter</Label>
-              <Select value={statusFilter} onValueChange={(v: string) => setStatusFilter(v === "__CLEAR__" ? "" : v)}>
+              <Select
+                value={statusFilter}
+                onValueChange={(v: string) =>
+                  setStatusFilter(v === "__CLEAR__" ? "" : (v as "waiting" | "in_service" | "done" | "cancelled"))
+                }
+              >
                 <SelectTrigger aria-label="Export status filter"><SelectValue placeholder="Any Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__CLEAR__">Any Status</SelectItem>

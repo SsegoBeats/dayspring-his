@@ -93,15 +93,13 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
     setIsSubmitting(true)
 
     try {
-      const patient = patients.find((p) => p.id === formData.patientId)
-      if (!patient) return
       try {
         const res = await fetch("/api/appointments", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
           credentials: "include",
           body: JSON.stringify({
-            patientId: patient.id,
+            patientId: formData.patientId,
             doctorId: formData.doctorId || null,
             date: formData.date,
             time: formData.time,
@@ -116,15 +114,16 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
         }
       } catch (e) {
         console.error(e)
+        toast.error(e instanceof Error ? e.message : "Failed to schedule appointment")
         return
       }
 
       setFormData({ patientId: "", doctorId: "", department: "", date: "", time: "", reason: "", notes: "" })
+      setQ("")
+      setOptions([])
       try { await refreshAppointments?.() } catch {}
       toast.success("Appointment scheduled")
       if (onSubmitted) onSubmitted()
-    } catch (error) {
-      toast.error("Failed to schedule appointment")
     } finally {
       setIsSubmitting(false)
     }
@@ -263,4 +262,3 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
 }
 
 export default AppointmentForm
-

@@ -50,6 +50,7 @@ export async function POST(req: Request) {
 
     // Fetch patient email for confirmation
     const { rows: patientRows } = await queryWithSession<{ email: string; first_name: string; last_name: string }>(
+      { role: auth.role, userId: auth.userId },
       `SELECT email, first_name, last_name FROM patients WHERE id = $1`,
       [data.patientId],
     )
@@ -63,6 +64,24 @@ export async function POST(req: Request) {
         data.department,
       )
       await sendEmail(patient.email, html)
+    }
+
+    if (data.doctorId && patient) {
+      try {
+        await queryWithSession(
+          { role: auth.role, userId: auth.userId },
+          `INSERT INTO notifications (user_id, title, message, type, priority, payload)
+           VALUES ($1, $2, $3, $4, $5, $6)`,
+          [
+            data.doctorId,
+            "New Appointment Scheduled",
+            `${patient.first_name} ${patient.last_name} is booked for ${data.date} at ${data.time}.`,
+            "Appointment",
+            "Normal",
+            JSON.stringify({ patientId: data.patientId, appointmentId: id }),
+          ],
+        )
+      } catch {}
     }
 
     await writeAuditLog({ action: "appointment_created", entityType: "appointment", entityId: id, details: data, userId: auth.userId })
