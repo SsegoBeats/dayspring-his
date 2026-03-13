@@ -13,8 +13,9 @@ import {
   makeNonMedicationValidationDraft,
 } from "@/lib/non-medication-inventory-validation"
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
@@ -48,7 +49,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
                 updated_at
            FROM non_medication_inventory
           WHERE id = $1`,
-        [params.id],
+        [id],
       )
 
       if (!rows.length) {
@@ -72,7 +73,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             WHERE id <> $1
               AND regexp_replace(lower(item_name), '[^a-z0-9]+', '', 'g') = $2
             ORDER BY updated_at DESC, item_name ASC`,
-          [params.id, normalizedName],
+          [id, normalizedName],
         ),
         client.query(
           `SELECT movement.id,
@@ -87,7 +88,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             WHERE movement.item_id = $1
             ORDER BY movement.created_at DESC
             LIMIT 8`,
-          [params.id],
+          [id],
         ),
         client.query(
           `SELECT stock_take.id,
@@ -103,7 +104,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
             WHERE stock_take.item_id = $1
             ORDER BY stock_take.taken_at DESC
             LIMIT 6`,
-          [params.id],
+          [id],
         ),
       ])
 
@@ -126,8 +127,9 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function PATCH(req: Request, { params }: { params: { id: string } }) {
+export async function PATCH(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
@@ -178,7 +180,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
                 last_restocked_at
            FROM non_medication_inventory
           WHERE id = $1`,
-        [params.id],
+        [id],
       )
 
       if (!currentRows.length) {
@@ -316,7 +318,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         return { error: "No updates provided", status: 400 as const }
       }
 
-      values.push(params.id)
+      values.push(id)
 
       const { rows } = await client.query(
         `UPDATE non_medication_inventory
@@ -359,9 +361,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
              reference,
              notes,
              created_by
-           ) VALUES ($1, 'Adjust', $2, $3, $4, $5)`,
+          ) VALUES ($1, 'Adjust', $2, $3, $4, $5)`,
           [
-            params.id,
+            id,
             stockDelta,
             "Inventory workspace adjustment",
             stockDelta > 0 ? "Stock increased from admin inventory workspace" : "Stock reduced from admin inventory workspace",
@@ -384,8 +386,9 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
+    const { id } = await params
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
@@ -397,7 +400,7 @@ export async function DELETE(req: Request, { params }: { params: { id: string } 
     const { rows } = await queryWithSession(
       { role: auth.role, userId: auth.userId },
       `DELETE FROM non_medication_inventory WHERE id = $1 RETURNING id`,
-      [params.id],
+      [id],
     )
 
     if (rows.length === 0) {
