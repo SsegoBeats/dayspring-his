@@ -336,6 +336,14 @@ export function PreferenceSettings() {
         { value: "latest-vitals", label: "Latest Vitals" },
       ]
     }
+    if (normalizedRole === "lab tech") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "lab-queue", label: "Pending Queue" },
+        { value: "lab-analytics", label: "Analytics" },
+        { value: "lab-exports", label: "Exports" },
+      ]
+    }
     return [{ value: "overview", label: "Overview" }]
   }, [normalizedRole])
 

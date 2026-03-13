@@ -5,7 +5,7 @@ import Image from "next/image"
 import { useSearchParams, useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { BarcodeGenerator } from "@/components/barcode-generator"
-import { ORG_NAME, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
+import { ORG_NAME, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS, ORG_LOGO_PATH } from "@/lib/org-constants"
 
 function ResultCard({ test }: { test: any }) {
   const parts = useMemo(() => {
@@ -134,6 +134,7 @@ export default function BatchPrintClient() {
   const patientId = sp.get("patientId")
   const from = sp.get("from") || new Date(new Date().setHours(0, 0, 0, 0)).toISOString()
   const to = sp.get("to") || new Date().toISOString()
+  const status = sp.get("status") || "Completed"
   const [tests, setTests] = useState<any[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
@@ -155,6 +156,7 @@ export default function BatchPrintClient() {
         if (patientId) url.searchParams.set("patientId", patientId)
         url.searchParams.set("from", from)
         url.searchParams.set("to", to)
+        if (status) url.searchParams.set("status", status)
         const res = await fetch(url.toString(), { credentials: "include" })
         if (!res.ok) throw new Error("Failed to load")
         const data = await res.json()
@@ -165,7 +167,7 @@ export default function BatchPrintClient() {
         setLoading(false)
       }
     })()
-  }, [patientId, from, to, isLoading, user])
+  }, [patientId, from, to, status, isLoading, user])
 
   useEffect(() => {
     if (isLoading || !user) return
@@ -211,7 +213,7 @@ export default function BatchPrintClient() {
       <div className="hdr mb-4 flex items-start justify-between">
         <div className="flex items-center gap-3">
           <Image
-            src={org?.logoUrl || "/logo.png"}
+            src={org?.logoUrl || ORG_LOGO_PATH}
             alt="Logo"
             width={40}
             height={40}

@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 export interface LabTest {
   id: string
   patientId: string
+  patientNumber?: string | null
   patientName: string
   doctorId: string
   doctorName: string
@@ -18,6 +19,7 @@ export interface LabTest {
   orderedAt: string
   completedAt?: string | null
   collectedAt?: string | null
+  collectedBy?: string | null
   results?: string
   notes?: string
   labTechId?: string | null

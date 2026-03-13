@@ -99,17 +99,64 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
   const [items, setItems] = useState<any[]>([])
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all'|'unread'|'lab'>('all')
+  const [preferences, setPreferences] = useState({
+    appointmentAlerts: true,
+    labResults: true,
+    systemUpdates: false,
+    emergencyAlerts: true,
+  })
   const normalizedRole = (userRole || "").toLowerCase()
   const resultFilterLabel = normalizedRole === 'radiologist' ? 'Imaging' : 'Lab'
-  const unread = useMemo(() => items.reduce((count, n) => count + (!n.read_at ? 1 : 0), 0), [items])
+  const parsePayload = useCallback((notification: any) => {
+    try {
+      return notification?.payload
+        ? (typeof notification.payload === 'string' ? JSON.parse(notification.payload) : notification.payload)
+        : null
+    } catch {
+      return null
+    }
+  }, [])
+  const isLabNotification = useCallback((notification: any) => {
+    const payload = parsePayload(notification)
+    return /lab/i.test(notification?.title || '')
+      || /lab/i.test(notification?.message || '')
+      || /radiology|imaging/i.test(notification?.title || '')
+      || /radiology|imaging/i.test(notification?.message || '')
+      || Boolean(payload && (payload.testId || payload.testIds?.[0] || payload.testType))
+  }, [parsePayload])
+  const isNotificationVisible = useCallback((notification: any) => {
+    const title = String(notification?.title || '')
+    const message = String(notification?.message || '')
+    const type = String(notification?.type || '')
+    if (notification?.priority === 'High' && !preferences.emergencyAlerts) return false
+    if (isLabNotification(notification) && !preferences.labResults) return false
+    if ((/appointment/i.test(title) || /appointment/i.test(message) || /appointment/i.test(type)) && !preferences.appointmentAlerts) return false
+    if ((type === 'System' || /system|maintenance|update/i.test(title) || /system|maintenance|update/i.test(message)) && !preferences.systemUpdates) return false
+    return true
+  }, [isLabNotification, preferences])
+  const visibleItems = useMemo(() => items.filter((item) => isNotificationVisible(item)), [isNotificationVisible, items])
+  const unread = useMemo(() => visibleItems.reduce((count, n) => count + (!n.read_at ? 1 : 0), 0), [visibleItems])
   const load = useCallback(async () => {
     try {
       setLoading(true)
-      const res = await fetch('/api/notifications', { credentials: 'include' })
-      if (res.ok) {
-        const data = await res.json()
-        const list = Array.isArray(data.notifications) ? data.notifications : []
-        setItems(list)
+      const [notificationRes, settingsRes] = await Promise.all([
+        fetch('/api/notifications', { credentials: 'include' }),
+        fetch('/api/settings/notifications', { credentials: 'include' }),
+      ])
+      if (notificationRes.ok) {
+        const data = await notificationRes.json()
+        setItems(Array.isArray(data.notifications) ? data.notifications : [])
+      }
+      if (settingsRes.ok) {
+        const data = await settingsRes.json()
+        if (data.notifications) {
+          setPreferences({
+            appointmentAlerts: data.notifications.appointmentAlerts ?? true,
+            labResults: data.notifications.labResults ?? true,
+            systemUpdates: data.notifications.systemUpdates ?? true,
+            emergencyAlerts: data.notifications.emergencyAlerts ?? true,
+          })
+        }
       }
     } finally { setLoading(false) }
   }, [])
@@ -148,24 +195,9 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
               if (added.length === 0) return prev
 
               // Show at most one toast per SSE payload to avoid layout thrash under bursty updates.
-              const firstLab = added.find((n) => {
-                try {
-                  const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
-                  return /lab results/i.test(n.title || '')
-                    || /radiology|imaging/i.test(n.title || '')
-                    || /radiology|imaging/i.test(n.message || '')
-                    || Boolean(payload && (payload.testId || payload.testIds?.[0]))
-                } catch {
-                  return false
-                }
-              })
+              const firstLab = added.find((n) => isNotificationVisible(n) && isLabNotification(n))
               if (firstLab) {
-                let payload: any = null
-                try {
-                  payload = firstLab.payload
-                    ? (typeof firstLab.payload === 'string' ? JSON.parse(firstLab.payload) : firstLab.payload)
-                    : null
-                } catch {}
+                const payload = parsePayload(firstLab)
                 const patientId = payload?.patientId
                 const testId = payload?.testId || payload?.testIds?.[0]
                 const openAction = normalizedRole === 'radiologist' && testId
@@ -181,6 +213,19 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                         } catch {}
                       },
                     }
+                  : normalizedRole === 'lab tech' && (testId || patientId)
+                    ? {
+                        label: 'Open',
+                        onClick: () => {
+                          try {
+                            window.dispatchEvent(
+                              new CustomEvent('openLabTest', {
+                                detail: { testId, patientId, notificationId: firstLab.id },
+                              }),
+                            )
+                          } catch {}
+                        },
+                      }
                   : patientId
                     ? {
                         label: 'Open',
@@ -222,7 +267,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       if (timeoutId) clearTimeout(timeoutId)
       try { es?.close() } catch {}
     }
-  }, [normalizedRole])
+  }, [isLabNotification, isNotificationVisible, normalizedRole, parsePayload])
   const markRead = useCallback(async (ids: string[]) => {
     try { await fetch('/api/notifications', { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); await load() } catch {}
   }, [load])
@@ -234,45 +279,38 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
   }, [load])
   const clearAll = useCallback(async () => {
     try {
-      const allIds = items.map((n:any) => n.id)
+      const allIds = visibleItems.map((n:any) => n.id)
       if (allIds.length > 0) {
         await fetch('/api/notifications', { method: 'DELETE', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids: allIds }) })
         await load()
       }
     } catch {}
-  }, [items, load])
+  }, [load, visibleItems])
   const filteredItems = useMemo(() => {
-    return items.filter((n: any) => {
+    return visibleItems.filter((n: any) => {
       if (filter === 'unread') return !n.read_at
       if (filter === 'lab') {
-        try {
-          const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
-          return /lab/i.test(n.title || '')
-            || /lab/i.test(n.message || '')
-            || /radiology|imaging/i.test(n.title || '')
-            || /radiology|imaging/i.test(n.message || '')
-            || Boolean(payload && (payload.testId || payload.testIds?.[0] || payload.testType))
-        } catch {
-          return false
-        }
+        return isLabNotification(n)
       }
       return true
     })
-  }, [filter, items])
+  }, [filter, isLabNotification, visibleItems])
   const openNotificationTarget = useCallback((notification: any, requestId?: string, patientId?: string) => {
     if (requestId) {
       window.dispatchEvent(new CustomEvent('openDeletionDialog', { detail: { requestId } }))
       markRead([notification.id])
       return
     }
-    let payload: any = null
-    try {
-      payload = notification.payload ? (typeof notification.payload === 'string' ? JSON.parse(notification.payload) : notification.payload) : null
-    } catch {}
+    const payload = parsePayload(notification)
     const testId = payload?.testId || payload?.testIds?.[0]
     if (normalizedRole === 'radiologist') {
       if (!testId) return
       window.dispatchEvent(new CustomEvent('openRadiologyStudy', { detail: { testId, patientId, notificationId: notification.id } }))
+      return
+    }
+    if (normalizedRole === 'lab tech') {
+      if (!testId && !patientId) return
+      window.dispatchEvent(new CustomEvent('openLabTest', { detail: { testId, patientId, notificationId: notification.id } }))
       return
     }
     if (!patientId) return
@@ -282,21 +320,19 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       return
     }
     window.dispatchEvent(new CustomEvent('openClinicianConsult', { detail: { patientId, initialTab: 'labs', notificationId: notification.id } }))
-  }, [markRead, normalizedRole])
+  }, [markRead, normalizedRole, parsePayload])
   const getNotificationHint = useCallback((notification: any, requestId?: string, patientId?: string) => {
     if (requestId) return 'Click to review request'
-    let payload: any = null
-    try {
-      payload = notification.payload ? (typeof notification.payload === 'string' ? JSON.parse(notification.payload) : notification.payload) : null
-    } catch {}
+    const payload = parsePayload(notification)
     const testId = payload?.testId || payload?.testIds?.[0]
     if (normalizedRole === 'radiologist' && testId) return 'Click to open radiology study'
+    if (normalizedRole === 'lab tech' && (testId || patientId)) return 'Click to open lab work item'
     if (!patientId) return null
     if (normalizedRole === 'nurse') {
       return /new patient registered/i.test(notification.title || '') ? 'Click to start triage' : 'Click to open patient care'
     }
     return 'Click to open Lab Results'
-  }, [normalizedRole])
+  }, [normalizedRole, parsePayload])
   return (
     <div className="relative">
       <button
@@ -314,7 +350,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
             <div className="text-sm font-semibold">Notifications</div>
             <div className="flex items-center gap-2">
               <button onClick={load} className="text-xs text-muted-foreground">{loading? 'Refreshing...':'Refresh'}</button>
-              {items.length > 0 && (
+              {visibleItems.length > 0 && (
                 <button onClick={clearAll} className="text-xs text-red-600 hover:text-red-700">Clear all</button>
               )}
             </div>
@@ -379,9 +415,9 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
               )
             })}
           </div>
-          {items.some((n:any)=>!n.read_at) && (
+          {visibleItems.some((n:any)=>!n.read_at) && (
             <div className="mt-2 text-right">
-              <button onClick={()=> markRead(items.filter((n:any)=>!n.read_at).map((n:any)=>n.id))} className="text-xs text-blue-600">Mark all read</button>
+              <button onClick={()=> markRead(visibleItems.filter((n:any)=>!n.read_at).map((n:any)=>n.id))} className="text-xs text-blue-600">Mark all read</button>
             </div>
           )}
         </div>

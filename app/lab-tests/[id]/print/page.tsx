@@ -131,12 +131,12 @@ export default function PrintLabTestPage() {
       <style>{`@media print {.no-print{display:none}} .hdr{border-bottom:1px solid #ddd; padding-bottom:8px; margin-bottom:12px}`}</style>
       <div className="hdr flex items-start justify-between">
         <div className="flex items-center gap-3">
-          <Image src={ORG_LOGO_PATH} alt="Logo" width={40} height={40} className="h-10 w-10 object-contain" onError={(e:any)=>{ (e.currentTarget as any).style.display='none' }} />
+          <Image src={org?.logoUrl || ORG_LOGO_PATH} alt="Logo" width={40} height={40} className="h-10 w-10 object-contain" onError={(e:any)=>{ (e.currentTarget as any).style.display='none' }} />
           <div>
-            <div className="text-xl font-semibold">{ORG_NAME}</div>
+            <div className="text-xl font-semibold">{org?.name || ORG_NAME}</div>
             <div className="text-xs text-muted-foreground">Laboratory Result</div>
             <div className="text-[10px] text-muted-foreground">
-              Email: {ORG_EMAIL} | Tel: {ORG_PHONE} | {ORG_ADDRESS}
+              Email: {org?.email || ORG_EMAIL} | Tel: {org?.phone || ORG_PHONE} | {org?.location || ORG_ADDRESS}
             </div>
           </div>
         </div>

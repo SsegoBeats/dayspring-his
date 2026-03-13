@@ -2,7 +2,6 @@
 
 import { useState, useMemo, useEffect } from "react"
 import type { LabTest } from "@/lib/lab-context"
-import { useAuth } from "@/lib/auth-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
@@ -11,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Label } from "@/components/ui/label"
 import { Checkbox } from "@/components/ui/checkbox"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
-import { FileText, Printer, AlertCircle, SortAsc, SortDesc, Loader2, Users, CheckCircle2, XCircle, PlayCircle } from "lucide-react"
+import { FileText, Printer, AlertCircle, SortAsc, SortDesc, Loader2, Users, CheckCircle2 } from "lucide-react"
 import { toast } from "sonner"
 import { useLab } from "@/lib/lab-context"
 
@@ -25,7 +24,6 @@ type SortField = 'accession' | 'patient' | 'test' | 'priority' | 'ordered' | 'ta
 type SortOrder = 'asc' | 'desc'
 
 export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueueProps & { loading?: boolean }) {
-  const { user } = useAuth()
   const { refresh } = useLab()
   const [q, setQ] = useState('')
   const [status, setStatus] = useState<'all'|'pending'|'inprogress'|'completed'|'cancelled'>('all')
@@ -180,7 +178,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
         setSelectedTests(new Set())
         setAssignDialogOpen(false)
         setAssigningTech('')
-        refresh()
+        await refresh()
       }
     } catch (e: any) {
       toast.error(e?.message || 'Failed to assign tests')
@@ -213,7 +211,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
         toast.success(`Updated ${selectedTests.size} test(s) to ${bulkStatus}`)
         setSelectedTests(new Set())
         setBulkStatusDialogOpen(false)
-        refresh()
+        await refresh()
       }
     } catch (e: any) {
       toast.error(e?.message || 'Failed to update tests')
@@ -534,9 +532,20 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                         </td>
                         <td className="py-2 px-2 font-mono">{test.accessionNumber || '-'}</td>
                         <td className="py-2 px-2">
-                          <div className="flex items-center gap-1">
-                            {test.patientName}
-                            {flags.critical && <AlertCircle className="h-3 w-3 text-red-600" title="Critical results" />}
+                          <div className="flex items-start gap-1">
+                            <button
+                              type="button"
+                              className="text-left transition-colors hover:text-sky-700"
+                              onClick={() => setViewPatient({ id: test.patientId, name: test.patientName })}
+                            >
+                              <div className="flex items-center gap-1">
+                                <span className="font-medium">{test.patientName}</span>
+                                {flags.critical ? <AlertCircle className="h-3 w-3 text-red-600" title="Critical results" /> : null}
+                              </div>
+                              {test.patientNumber ? (
+                                <div className="text-xs text-muted-foreground">{test.patientNumber}</div>
+                              ) : null}
+                            </button>
                           </div>
                         </td>
                         <td className="py-2 px-2">{test.testName}</td>
@@ -575,6 +584,14 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                         </td>
                         <td className="py-2 px-2">
                           <div className="flex items-center justify-end gap-1">
+                            <Button
+                              variant="ghost"
+                              size="sm"
+                              onClick={() => setViewPatient({ id: test.patientId, name: test.patientName })}
+                              title="View patient history"
+                            >
+                              <FileText className="h-4 w-4" />
+                            </Button>
                             <Button variant="outline" size="sm" onClick={() => onSelectTest(test.id)}>
                               Process
                             </Button>
@@ -702,7 +719,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                   <Button
                     size="sm"
                     variant="outline"
-                    onClick={() => window.open(`/lab-tests/print?patientId=${viewPatient.id}`, "_blank")}
+                    onClick={() => window.open(`/lab-tests/print?patientId=${viewPatient.id}&status=Completed`, "_blank", "noopener,noreferrer")}
                   >
                     <Printer className="mr-2 h-4 w-4" />
                     Print Results
@@ -710,7 +727,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                   <Button
                     size="sm"
                     variant="secondary"
-                    onClick={() => window.open(`/api/lab-tests/pdf?patientId=${viewPatient.id}`, "_blank")}
+                    onClick={() => window.open(`/api/lab-tests/pdf?patientId=${viewPatient.id}&status=Completed`, "_blank", "noopener,noreferrer")}
                   >
                     Download Results
                   </Button>

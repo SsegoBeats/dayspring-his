@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import {
   buildNotificationAudienceFilter,
   ensureNotificationInfrastructure,
+  filterNotificationsForPreferences,
+  getNotificationPreferences,
   getNotificationScope,
   resolveNotificationAuth,
 } from "@/lib/notifications"
@@ -94,7 +96,9 @@ export async function GET(req: Request) {
             lastCreatedAt = String(rows[0].created_at)
           }
 
-          const payload = JSON.stringify({ notifications: rows })
+          const preferences = await getNotificationPreferences(auth.userId)
+          const visibleRows = filterNotificationsForPreferences(rows, preferences)
+          const payload = JSON.stringify({ notifications: visibleRows })
           controller.enqueue(enc.encode(`data: ${payload}\n\n`))
         } catch {
           try {

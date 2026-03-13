@@ -160,6 +160,8 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
   "Lab Tech": {
     lab: ["read", "create", "update"],
     patients: ["read"],
+    documents: ["read", "create"],
+    exports: ["create"],
     beds: ["read"], // Can view bed status for patient care decisions
   },
   "Hospital Admin": {

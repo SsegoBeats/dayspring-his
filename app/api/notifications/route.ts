@@ -3,6 +3,8 @@ import { z } from "zod"
 import {
   buildNotificationAudienceFilter,
   ensureNotificationInfrastructure,
+  filterNotificationsForPreferences,
+  getNotificationPreferences,
   getNotificationScope,
   resolveNotificationAuth,
 } from "@/lib/notifications"
@@ -59,7 +61,8 @@ export async function GET(req: Request) {
     `
 
     const { rows } = await query(sql, params)
-    return NextResponse.json({ notifications: rows })
+    const preferences = await getNotificationPreferences(auth.userId)
+    return NextResponse.json({ notifications: filterNotificationsForPreferences(rows, preferences) })
   } catch (error) {
     console.error("Error loading notifications:", error)
     return NextResponse.json({ error: "Failed to load notifications" }, { status: 500 })

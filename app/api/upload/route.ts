@@ -7,6 +7,28 @@ import { RADIOLOGY_UPLOAD_EXTENSIONS, RADIOLOGY_UPLOAD_MIME_TYPES } from "@/lib/
 
 export const runtime = "nodejs"
 
+const LAB_UPLOAD_MIME_TYPES = [
+  "application/pdf",
+  "text/plain",
+  "text/csv",
+  "application/vnd.ms-excel",
+  "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet",
+] as const
+
+const LAB_UPLOAD_EXTENSIONS = [
+  ".jpg",
+  ".jpeg",
+  ".png",
+  ".gif",
+  ".webp",
+  ".bmp",
+  ".pdf",
+  ".txt",
+  ".csv",
+  ".xls",
+  ".xlsx",
+] as const
+
 export async function POST(req: Request) {
   const cookieStore = await cookies()
   const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
@@ -17,15 +39,18 @@ export async function POST(req: Request) {
   try {
     const form = await req.formData()
     const file = form.get("file") as File | null
+    const kind = String(form.get("kind") || "radiology").toLowerCase()
     if (!file) return NextResponse.json({ error: "Missing file" }, { status: 400 })
     const ct = String((file as any).type || "").toLowerCase()
     const ext = path.extname(file.name || "").toLowerCase()
     const isImage = ct.startsWith("image/")
-    const hasAllowedMime = isImage || RADIOLOGY_UPLOAD_MIME_TYPES.includes(ct as (typeof RADIOLOGY_UPLOAD_MIME_TYPES)[number])
-    const hasAllowedExtension = RADIOLOGY_UPLOAD_EXTENSIONS.includes(ext as (typeof RADIOLOGY_UPLOAD_EXTENSIONS)[number])
+    const allowedMimeTypes = kind === "lab" ? LAB_UPLOAD_MIME_TYPES : RADIOLOGY_UPLOAD_MIME_TYPES
+    const allowedExtensions = kind === "lab" ? LAB_UPLOAD_EXTENSIONS : RADIOLOGY_UPLOAD_EXTENSIONS
+    const hasAllowedMime = isImage || allowedMimeTypes.includes(ct as (typeof allowedMimeTypes)[number])
+    const hasAllowedExtension = allowedExtensions.includes(ext as (typeof allowedExtensions)[number])
     if (!(hasAllowedMime || hasAllowedExtension)) {
       return NextResponse.json(
-        { error: "Only imaging-related uploads are allowed (images, PDF, DICOM, or ZIP)." },
+        { error: kind === "lab" ? "Only lab-safe uploads are allowed (images, PDF, TXT, CSV, or Excel)." : "Only imaging-related uploads are allowed (images, PDF, DICOM, or ZIP)." },
         { status: 415 },
       )
     }

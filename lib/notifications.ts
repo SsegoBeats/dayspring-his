@@ -14,10 +14,24 @@ export type NotificationScope = {
   role: string | null
 }
 
+export type NotificationPreferences = {
+  appointmentAlerts: boolean
+  labResults: boolean
+  systemUpdates: boolean
+  emergencyAlerts: boolean
+}
+
 let ensuredInfrastructure = false
 let userMetaCache: NotificationUserMeta | null = null
 
 const META_TTL_MS = 60_000
+
+const DEFAULT_NOTIFICATION_PREFERENCES: NotificationPreferences = {
+  appointmentAlerts: true,
+  labResults: true,
+  systemUpdates: false,
+  emergencyAlerts: true,
+}
 
 export async function resolveNotificationAuth(req: Request) {
   const cookieStore = await cookies()
@@ -86,6 +100,27 @@ export async function ensureNotificationInfrastructure() {
   ensuredInfrastructure = true
 }
 
+async function ensureNotificationPreferenceColumns() {
+  await query(`
+    CREATE TABLE IF NOT EXISTS user_settings (
+      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
+      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+      theme VARCHAR(20) DEFAULT 'system',
+      locale VARCHAR(10) DEFAULT 'en-UG',
+      currency VARCHAR(10) DEFAULT 'UGX',
+      timezone VARCHAR(100) DEFAULT 'Africa/Kampala',
+      notify_email_reminders BOOLEAN DEFAULT true,
+      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+      UNIQUE (user_id)
+    )
+  `)
+  await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS appointment_alerts BOOLEAN DEFAULT true")
+  await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lab_results BOOLEAN DEFAULT true")
+  await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS system_updates BOOLEAN DEFAULT false")
+  await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS emergency_alerts BOOLEAN DEFAULT true")
+}
+
 async function getUserMeta() {
   const now = Date.now()
   if (userMetaCache && now - userMetaCache.ts < META_TTL_MS) {
@@ -128,6 +163,75 @@ export async function getNotificationScope(userId: string): Promise<Notification
     department: result.rows?.[0]?.department || null,
     role: result.rows?.[0]?.role || null,
   }
+}
+
+export async function getNotificationPreferences(userId: string): Promise<NotificationPreferences> {
+  await ensureNotificationPreferenceColumns()
+  const { rows } = await query<{
+    appointment_alerts?: boolean | null
+    lab_results?: boolean | null
+    system_updates?: boolean | null
+    emergency_alerts?: boolean | null
+  }>(
+    `SELECT appointment_alerts, lab_results, system_updates, emergency_alerts
+       FROM user_settings
+      WHERE user_id = $1`,
+    [userId],
+  )
+
+  const row = rows[0]
+  if (!row) return { ...DEFAULT_NOTIFICATION_PREFERENCES }
+  return {
+    appointmentAlerts: row.appointment_alerts ?? DEFAULT_NOTIFICATION_PREFERENCES.appointmentAlerts,
+    labResults: row.lab_results ?? DEFAULT_NOTIFICATION_PREFERENCES.labResults,
+    systemUpdates: row.system_updates ?? DEFAULT_NOTIFICATION_PREFERENCES.systemUpdates,
+    emergencyAlerts: row.emergency_alerts ?? DEFAULT_NOTIFICATION_PREFERENCES.emergencyAlerts,
+  }
+}
+
+function parseNotificationPayload(notification: any) {
+  try {
+    return notification?.payload
+      ? (typeof notification.payload === "string" ? JSON.parse(notification.payload) : notification.payload)
+      : null
+  } catch {
+    return null
+  }
+}
+
+export function isLabNotification(notification: any) {
+  const payload = parseNotificationPayload(notification)
+  return /lab/i.test(notification?.title || "")
+    || /lab/i.test(notification?.message || "")
+    || /radiology|imaging/i.test(notification?.title || "")
+    || /radiology|imaging/i.test(notification?.message || "")
+    || Boolean(payload && (payload.testId || payload.testIds?.[0] || payload.testType))
+}
+
+export function isNotificationVisibleForPreferences(
+  notification: any,
+  preferences: NotificationPreferences,
+) {
+  const title = String(notification?.title || "")
+  const message = String(notification?.message || "")
+  const type = String(notification?.type || "")
+
+  if (notification?.priority === "High" && !preferences.emergencyAlerts) return false
+  if (isLabNotification(notification) && !preferences.labResults) return false
+  if ((/appointment/i.test(title) || /appointment/i.test(message) || /appointment/i.test(type)) && !preferences.appointmentAlerts) {
+    return false
+  }
+  if ((type === "System" || /system|maintenance|update/i.test(title) || /system|maintenance|update/i.test(message)) && !preferences.systemUpdates) {
+    return false
+  }
+  return true
+}
+
+export function filterNotificationsForPreferences(
+  notifications: any[],
+  preferences: NotificationPreferences,
+) {
+  return notifications.filter((notification) => isNotificationVisibleForPreferences(notification, preferences))
 }
 
 export function buildNotificationAudienceFilter(
