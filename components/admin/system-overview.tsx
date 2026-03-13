@@ -121,8 +121,11 @@ export function SystemOverview() {
         section,
         ...filters,
       })
+      const current = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname
       const target = query ? `${pathname}?${query}` : pathname
-      router.replace(target, { scroll: false })
+      if (target !== current) {
+        router.push(target, { scroll: false })
+      }
     },
     [pathname, router, searchParams],
   )

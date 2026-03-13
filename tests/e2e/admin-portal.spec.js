@@ -50,6 +50,18 @@ test.describe("Admin portal smoke", () => {
         return box ? box.y : null
       })
       .toBeLessThan(220)
+
+    await page.goBack()
+    await expect(page).toHaveURL(/\/admin(?:\?.*)?$/)
+    await expect(page).not.toHaveURL(/section=users/)
+    await expect(page.getByText("Hospital Command Center")).toBeVisible()
+  })
+
+  test("audit quick action opens audit trail without tripping the dashboard error boundary", async ({ page }) => {
+    await page.getByRole("button", { name: /Check audit trail/i }).click()
+    await expect(page).toHaveURL(/\/admin\?section=audit/)
+    await expect(page.getByRole("heading", { name: "Audit Trail", exact: true })).toBeVisible()
+    await expect(page.getByText("Dashboard error")).not.toBeVisible()
   })
 
   test("respects finance deep links for period and tab routing", async ({ page, baseURL }) => {

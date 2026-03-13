@@ -119,13 +119,15 @@ export function AdminDashboard() {
       const params = new URLSearchParams(searchParams.toString())
       if (next === "overview") params.delete("section")
       else params.set("section", next)
+      const current = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname
       const target = params.toString() ? `${pathname}?${params.toString()}` : pathname
-      router.replace(target, { scroll: false })
-      if (next === activeTab) {
+      if (target !== current) {
+        router.push(target, { scroll: false })
+      } else {
         scrollWorkspaceIntoView()
       }
     },
-    [activeTab, pathname, router, scrollWorkspaceIntoView, searchParams],
+    [pathname, router, scrollWorkspaceIntoView, searchParams],
   )
 
   useEffect(() => {

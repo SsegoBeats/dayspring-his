@@ -112,14 +112,6 @@ export function AuditLogViewer() {
     if (target !== current) router.replace(target, { scroll: false })
   }, [actionFilter, categoryFilter, dateRange, pathname, router, search, searchParams])
 
-  useEffect(() => {
-    if (!autoRefresh) return
-    const id = setInterval(() => {
-      applyFilters(currentPage).catch(() => {})
-    }, 60000)
-    return () => clearInterval(id)
-  }, [autoRefresh, currentPage, applyFilters])
-
   const handleCleanup = async (days: number) => {
     try {
       setManagementLoading(true)
@@ -260,6 +252,14 @@ export function AuditLogViewer() {
       toast.error("Failed to refresh audit logs")
     }
   }, [applyFilters, currentPage])
+
+  useEffect(() => {
+    if (!autoRefresh) return
+    const id = setInterval(() => {
+      applyFilters(currentPage).catch(() => {})
+    }, 60000)
+    return () => clearInterval(id)
+  }, [autoRefresh, currentPage, applyFilters])
 
   useEffect(() => {
     setCurrentPage(1)
@@ -719,5 +719,4 @@ export function AuditLogViewer() {
     </Card>
   )
 }
-
 
