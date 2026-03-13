@@ -100,6 +100,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
   const [loading, setLoading] = useState(false)
   const [filter, setFilter] = useState<'all'|'unread'|'lab'>('all')
   const normalizedRole = (userRole || "").toLowerCase()
+  const resultFilterLabel = normalizedRole === 'radiologist' ? 'Imaging' : 'Lab'
   const unread = useMemo(() => items.reduce((count, n) => count + (!n.read_at ? 1 : 0), 0), [items])
   const load = useCallback(async () => {
     try {
@@ -150,7 +151,10 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
               const firstLab = added.find((n) => {
                 try {
                   const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
-                  return /lab results/i.test(n.title || '') || Boolean(payload && payload.testId && payload.testType)
+                  return /lab results/i.test(n.title || '')
+                    || /radiology|imaging/i.test(n.title || '')
+                    || /radiology|imaging/i.test(n.message || '')
+                    || Boolean(payload && (payload.testId || payload.testIds?.[0]))
                 } catch {
                   return false
                 }
@@ -163,20 +167,37 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                     : null
                 } catch {}
                 const patientId = payload?.patientId
+                const testId = payload?.testId || payload?.testIds?.[0]
+                const openAction = normalizedRole === 'radiologist' && testId
+                  ? {
+                      label: 'Open',
+                      onClick: () => {
+                        try {
+                          window.dispatchEvent(
+                            new CustomEvent('openRadiologyStudy', {
+                              detail: { testId, patientId, notificationId: firstLab.id },
+                            }),
+                          )
+                        } catch {}
+                      },
+                    }
+                  : patientId
+                    ? {
+                        label: 'Open',
+                        onClick: () => {
+                          try {
+                            window.dispatchEvent(
+                              new CustomEvent('openClinicianConsult', {
+                                detail: { patientId, initialTab: 'labs', notificationId: firstLab.id },
+                              }),
+                            )
+                          } catch {}
+                        },
+                      }
+                    : undefined
                 toast(firstLab.title || 'Lab Results Ready', {
                   description: firstLab.message || '',
-                  action: patientId ? {
-                    label: 'Open',
-                    onClick: () => {
-                      try {
-                        window.dispatchEvent(
-                          new CustomEvent('openClinicianConsult', {
-                            detail: { patientId, initialTab: 'labs', notificationId: firstLab.id },
-                          }),
-                        )
-                      } catch {}
-                    },
-                  } : undefined,
+                  action: openAction,
                 })
               }
 
@@ -187,7 +208,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
         source.onerror = () => {
           try { source.close() } catch {}
           es = null
-          // Reconnect after disconnect (e.g. Vercel 300s timeout); backoff 2–30s
+          // Reconnect after disconnect (e.g. Vercel 300s timeout); backoff 2-30s
           if (mounted && timeoutId == null) {
             const delay = Math.min(2000 + Math.random() * 4000, 30000)
             timeoutId = setTimeout(() => { timeoutId = null; connect() }, delay)
@@ -201,7 +222,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       if (timeoutId) clearTimeout(timeoutId)
       try { es?.close() } catch {}
     }
-  }, [])
+  }, [normalizedRole])
   const markRead = useCallback(async (ids: string[]) => {
     try { await fetch('/api/notifications', { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); await load() } catch {}
   }, [load])
@@ -226,7 +247,11 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       if (filter === 'lab') {
         try {
           const payload = n.payload ? (typeof n.payload === 'string' ? JSON.parse(n.payload) : n.payload) : null
-          return /lab/i.test(n.title || '') || /lab/i.test(n.message || '') || Boolean(payload && (payload.testId || payload.testType))
+          return /lab/i.test(n.title || '')
+            || /lab/i.test(n.message || '')
+            || /radiology|imaging/i.test(n.title || '')
+            || /radiology|imaging/i.test(n.message || '')
+            || Boolean(payload && (payload.testId || payload.testIds?.[0] || payload.testType))
         } catch {
           return false
         }
@@ -240,6 +265,16 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       markRead([notification.id])
       return
     }
+    let payload: any = null
+    try {
+      payload = notification.payload ? (typeof notification.payload === 'string' ? JSON.parse(notification.payload) : notification.payload) : null
+    } catch {}
+    const testId = payload?.testId || payload?.testIds?.[0]
+    if (normalizedRole === 'radiologist') {
+      if (!testId) return
+      window.dispatchEvent(new CustomEvent('openRadiologyStudy', { detail: { testId, patientId, notificationId: notification.id } }))
+      return
+    }
     if (!patientId) return
     if (normalizedRole === 'nurse') {
       const initialTab = /new patient registered/i.test(notification.title || '') ? 'triage' : 'vitals'
@@ -250,6 +285,12 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
   }, [markRead, normalizedRole])
   const getNotificationHint = useCallback((notification: any, requestId?: string, patientId?: string) => {
     if (requestId) return 'Click to review request'
+    let payload: any = null
+    try {
+      payload = notification.payload ? (typeof notification.payload === 'string' ? JSON.parse(notification.payload) : notification.payload) : null
+    } catch {}
+    const testId = payload?.testId || payload?.testIds?.[0]
+    if (normalizedRole === 'radiologist' && testId) return 'Click to open radiology study'
     if (!patientId) return null
     if (normalizedRole === 'nurse') {
       return /new patient registered/i.test(notification.title || '') ? 'Click to start triage' : 'Click to open patient care'
@@ -282,7 +323,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
             <span className="text-muted-foreground">Filter:</span>
             <button className={`rounded px-2 py-0.5 border ${filter==='all'?'bg-secondary text-foreground':'text-muted-foreground'}`} onClick={()=> setFilter('all')}>All</button>
             <button className={`rounded px-2 py-0.5 border ${filter==='unread'?'bg-secondary text-foreground':'text-muted-foreground'}`} onClick={()=> setFilter('unread')}>Unread</button>
-            <button className={`rounded px-2 py-0.5 border ${filter==='lab'?'bg-secondary text-foreground':'text-muted-foreground'}`} onClick={()=> setFilter('lab')}>Lab</button>
+            <button className={`rounded px-2 py-0.5 border ${filter==='lab'?'bg-secondary text-foreground':'text-muted-foreground'}`} onClick={()=> setFilter('lab')}>{resultFilterLabel}</button>
           </div>
           <div className="max-h-80 overflow-auto divide-y">
             {filteredItems.length === 0 ? (

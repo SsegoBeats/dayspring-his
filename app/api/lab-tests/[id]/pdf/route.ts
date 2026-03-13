@@ -5,6 +5,7 @@ import { query } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
 import { formatPatientNumber } from "@/lib/patients"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
+import { isRadiologyModality } from "@/lib/radiology"
 
 export const runtime = 'nodejs'
 
@@ -88,12 +89,14 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
               lt.doctor_id, d.name AS doctor_name,
               lt.test_name, lt.test_type, lt.status, lt.results, lt.notes,
               lt.lab_tech_id, t.name AS lab_tech_name,
+              lt.assigned_radiologist_id, ar.name AS assigned_radiologist_name,
               lt.ordered_at, lt.completed_at, lt.priority, lt.specimen_type, lt.accession_number, lt.collected_at, lt.collected_by,
               lt.reviewed_by, rb.name AS reviewed_by_name, lt.reviewed_at
          FROM lab_tests lt
          LEFT JOIN patients p ON p.id = lt.patient_id
          LEFT JOIN users d ON d.id = lt.doctor_id
          LEFT JOIN users t ON t.id = lt.lab_tech_id
+         LEFT JOIN users ar ON ar.id = lt.assigned_radiologist_id
          LEFT JOIN users rb ON rb.id = lt.reviewed_by
         WHERE lt.id = $1`, [id]
     )
@@ -119,22 +122,57 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // Compute age in years
     const dob = r.date_of_birth ? new Date(r.date_of_birth) : null
     const ageYears = (dob && !isNaN(dob.getTime())) ? (()=>{ const n=new Date(); let y = n.getFullYear()-dob.getFullYear(); const m=n.getMonth()-dob.getMonth(); if(m<0||(m===0&&n.getDate()<dob.getDate())) y--; return Math.max(0,y) })() : null
+    const isRadiologyReport = isRadiologyModality(r.test_name || r.test_type)
     const analyteRows = parseAnalytes(r.results || '', r.gender || '', ageYears)
     const interpretations = parseInterpretations(r.results || '')
     // Compute flags summary
     const highCount = analyteRows.filter((x:any)=> x.Flag === 'H').length
     const lowCount = analyteRows.filter((x:any)=> x.Flag === 'L').length
-    const meta = { Patient: patientName, 'P.ID': formatPatientNumber(r.patient_number), Gender: r.gender || '-', Age: (ageYears!=null? String(ageYears)+' yr' : '-'), Test: r.test_name || r.test_type, Accession: r.accession_number || '-', Ordered: String(r.ordered_at||''), Flags: (highCount||lowCount) ? `H:${highCount} L:${lowCount}` : undefined as any }
-    const title = `${org.name} - Laboratory Result`
-    const preparedRows = analyteRows.length ? [...analyteRows] : [{ Note: (r.results || '').slice(0, 1000) }]
-    if (highCount || lowCount) {
+    const baseMeta = {
+      Patient: patientName,
+      'P.ID': formatPatientNumber(r.patient_number),
+      Gender: String(r.gender || '-'),
+      Age: ageYears != null ? `${ageYears} yr` : '-',
+      Accession: String(r.accession_number || '-'),
+      Ordered: String(r.ordered_at || ''),
+    }
+    const meta: Record<string, string> = isRadiologyReport
+      ? {
+          ...baseMeta,
+          Study: String(r.test_name || r.test_type || '-'),
+          Priority: String(r.priority || '-'),
+          Reported: r.completed_at ? String(r.completed_at) : '-',
+          Radiologist: String(r.assigned_radiologist_name || r.reviewed_by_name || '-'),
+        }
+      : {
+          ...baseMeta,
+          Test: String(r.test_name || r.test_type || '-'),
+          ...(highCount || lowCount ? { Flags: `H:${highCount} L:${lowCount}` } : {}),
+        }
+    const title = `${org.name} - ${isRadiologyReport ? 'Radiology Report' : 'Laboratory Result'}`
+    const preparedRows = isRadiologyReport
+      ? [
+          { Section: 'Findings', Details: (r.results || '').trim() || 'No findings entered.' },
+          { Section: 'Notes', Details: (r.notes || '').trim() || 'No additional notes.' },
+          { Section: 'Status', Details: r.status || '-' },
+        ]
+      : analyteRows.length
+        ? [...analyteRows]
+        : [{ Note: (r.results || '').slice(0, 1000) }]
+    if (!isRadiologyReport && (highCount || lowCount)) {
       preparedRows.push({ Parameter: 'Flags Summary', Value: `H:${highCount} L:${lowCount}` } as any)
     }
-    if (interpretations.length) {
+    if (!isRadiologyReport && interpretations.length) {
       preparedRows.push({ Parameter: 'Interpretation', Value: interpretations.join(' | ') } as any)
     }
     const buf = await toPDF(title, preparedRows, { userId: auth.userId, timestamp: new Date().toISOString() }, false, { logoDataUrl, meta, subtitle: `${org.name} - Information System` })
-    return new NextResponse(buf, { status: 200, headers: { 'Content-Type': 'application/pdf', 'Content-Disposition': `attachment; filename=lab-result-${id}.pdf` } })
+    return new NextResponse(buf, {
+      status: 200,
+      headers: {
+        'Content-Type': 'application/pdf',
+        'Content-Disposition': `attachment; filename=${isRadiologyReport ? 'radiology-report' : 'lab-result'}-${id}.pdf`,
+      },
+    })
   } catch (e) {
     return NextResponse.json({ error: 'Failed to render PDF' }, { status: 500 })
   }

@@ -4,7 +4,7 @@ import { SettingsLayout } from "@/components/settings/settings-layout"
 import { EmailSettings } from "@/components/settings/email-settings"
 import { PasswordSettings } from "@/components/settings/password-settings"
 import { ProfileSettings, NotificationSettings, PreferenceSettings } from "@/components/settings/preference-settings"
-import { Scan, Mail, Lock, User, Bell, Palette } from "lucide-react"
+import { Scan } from "lucide-react"
 
 export default function RadiologistSettingsPage() {
   return (

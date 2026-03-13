@@ -6,6 +6,7 @@ import { verifyToken, can } from "@/lib/security"
 
 export const maxDuration = 120
 import { Datasets } from "@/lib/exports/registry"
+import type { RedactionProfile } from "@/lib/redaction"
 import { redactRow } from "@/lib/redaction"
 import { toCSV } from "@/lib/exports/writers/csv"
 import { toXLSX } from "@/lib/exports/writers/xlsx"
@@ -20,6 +21,7 @@ const Schema = z.object({
     "billing",
     "patients",
     "radiology",
+    "radiology_lab_tests",
     "pharmacy",
     "bed_assignments",
     "payments",
@@ -34,7 +36,7 @@ const Schema = z.object({
   format: z.enum(["csv", "xlsx", "pdf", "ndjson"]).default("csv"),
   filters: z.record(z.any()),
   columns: z.array(z.string()).optional(),
-  redaction_profile: z.string().default("default"),
+  redaction_profile: z.enum(["default", "billing", "clinical", "minimal"]).default("default"),
 })
 
 export async function POST(req: Request) {
@@ -89,7 +91,7 @@ export async function POST(req: Request) {
         let cursor: any = undefined
         do {
           const page = await ds.queryPage(ctx, parsedFilters, cursor, 5000)
-          const redacted = page.rows.map((r) => redactRow(r, input.redaction_profile))
+          const redacted = page.rows.map((r) => redactRow(r, input.redaction_profile as RedactionProfile))
           for (const r of redacted) out.push(input.columns && input.columns.length ? input.columns.reduce((acc: any, k: string) => ((acc[k] = (r as any)[k]), acc), {}) : r)
           cursor = page.nextCursor
         } while (cursor)
@@ -407,8 +409,6 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to generate export" }, { status: 500 })
   }
 }
-
-
 
 
 

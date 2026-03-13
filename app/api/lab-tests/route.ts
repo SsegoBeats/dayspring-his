@@ -207,7 +207,14 @@ export async function POST(req: Request) {
         ]
       )
       const createdRow = rows[0]
-      created.push({ id: createdRow.id, accessionNumber: createdRow.accession_number, orderedAt: createdRow.ordered_at, testName })
+      created.push({
+        id: createdRow.id,
+        accessionNumber: createdRow.accession_number,
+        orderedAt: createdRow.ordered_at,
+        testName,
+        testType,
+        priority,
+      })
 
       try {
         await writeAuditLog({
@@ -254,7 +261,7 @@ export async function POST(req: Request) {
              VALUES ($1, $2, $3, $4, $5, $6)`,
             [
               tech.id,
-              hasStat ? '🚨 STAT Lab Test Ordered' : 'New Lab Test Ordered',
+              hasStat ? 'STAT Lab Test Ordered' : 'New Lab Test Ordered',
               `${hasStat ? 'STAT: ' : ''}${nonRadiologyTests.length} test(s) ordered for ${patientName}: ${testNames}`,
               'Lab Test',
               priority,
@@ -275,11 +282,10 @@ export async function POST(req: Request) {
     // Notify Radiologists for radiology tests
     if (radiologyTests.length > 0) {
       try {
-        const { query } = await import("@/lib/db")
         const { rows: radiologists } = await query<{ id: string }>(
           "SELECT id FROM users WHERE role = 'Radiologist' AND is_active = true"
         )
-        const priority = created.some((t: any) => radiologyTests.includes(t) && (t.priority === 'Stat' || t.priority === 'Urgent')) 
+        const priority = radiologyTests.some((t: any) => t.priority === 'Stat' || t.priority === 'Urgent') 
           ? 'High' 
           : 'Standard'
         
@@ -293,7 +299,13 @@ export async function POST(req: Request) {
               `${radiologyTests.length} radiology ${radiologyTests.length > 1 ? 'studies' : 'study'} ordered${priority === 'High' ? ' (Priority: STAT/Urgent)' : ''}`,
               'Radiology',
               priority,
-              JSON.stringify({ patientId, testIds: radiologyTests.map((t: any) => t.id), count: radiologyTests.length })
+              JSON.stringify({
+                patientId,
+                testId: radiologyTests[0]?.id || null,
+                testIds: radiologyTests.map((t: any) => t.id),
+                count: radiologyTests.length,
+                priority: priority === 'High' ? 'Stat/Urgent' : 'Routine',
+              })
             ]
           )
         }
@@ -305,3 +317,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'Failed to order lab test', details: e.message }, { status: 500 })
   }
 }
+
+

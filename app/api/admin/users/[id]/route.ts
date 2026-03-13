@@ -76,6 +76,8 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
       ['prescriptions','dispensed_by'],
       ['lab_tests','doctor_id'],
       ['lab_tests','lab_tech_id'],
+      ['lab_tests','assigned_radiologist_id'],
+      ['lab_tests','reviewed_by'],
       ['radiology_tests','doctor_id'],
       ['radiology_tests','radiologist_id'],
       ['bills','cashier_id'],

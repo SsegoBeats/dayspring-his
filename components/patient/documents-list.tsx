@@ -6,7 +6,15 @@ import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
 
-type Doc = { id: string; type: 'ID'|'INSURANCE'|'CONSENT'|'OTHER'; file_url: string; uploaded_at: string }
+type Doc = {
+  id: string
+  type: 'ID'|'INSURANCE'|'CONSENT'|'OTHER'
+  file_url: string
+  uploaded_at: string
+  original_name?: string | null
+  mime_type?: string | null
+  notes?: string | null
+}
 
 export function DocumentsList({ patientId }: { patientId: string }) {
   const [docs, setDocs] = useState<Doc[]>([])
@@ -39,11 +47,22 @@ export function DocumentsList({ patientId }: { patientId: string }) {
         toast.error(e.error || 'Upload failed')
         return
       }
-      const { url } = await up.json()
+      const { url, originalName, mimeType } = await up.json()
       if (!url) { toast.error('Upload failed'); return }
 
       // 2) Save document record
-      const res = await fetch('/api/documents', { method: 'POST', credentials: 'include', headers: { 'Content-Type':'application/json' }, body: JSON.stringify({ patientId, type, fileUrl: url }) })
+      const res = await fetch('/api/documents', {
+        method: 'POST',
+        credentials: 'include',
+        headers: { 'Content-Type':'application/json' },
+        body: JSON.stringify({
+          patientId,
+          type,
+          fileUrl: url,
+          fileName: originalName || file.name,
+          mimeType: mimeType || file.type || undefined,
+        }),
+      })
       if (!res.ok) { const e = await res.json().catch(()=>({})); toast.error(e.error || 'Failed to add document') }
       else { toast.success('Document added'); setFile(null); await load() }
     } catch { toast.error('Failed to add document') } finally { setAdding(false) }
@@ -115,6 +134,8 @@ export function DocumentsList({ patientId }: { patientId: string }) {
             <div key={d.id} className="p-3 text-sm flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
                 <div className="font-medium">{d.type}</div>
+                {d.original_name ? <div className="text-muted-foreground">{d.original_name}</div> : null}
+                {d.notes ? <div className="text-muted-foreground">{d.notes}</div> : null}
                 <div className="text-muted-foreground">{new Date(d.uploaded_at).toLocaleString()}</div>
               </div>
               <div className="flex items-center gap-2">
@@ -130,5 +151,4 @@ export function DocumentsList({ patientId }: { patientId: string }) {
     </Card>
   )
 }
-
 

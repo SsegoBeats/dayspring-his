@@ -6,6 +6,8 @@
         "build": "next build",
         "dev": "next dev",
         "lint": "eslint .",
+        "test:e2e:radiology": "npx playwright test tests/e2e/radiology-portal.spec.js",
+        "test:e2e:radiology:headed": "npx playwright test tests/e2e/radiology-portal.spec.js --headed",
         "start": "next start",
         "migrate:create": "node-pg-migrate create -m ./migrations",
         "migrate:up": "node-pg-migrate up -m ./migrations",

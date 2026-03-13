@@ -110,7 +110,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     }
 
     if (reviewed === false) {
-      // Unreview – allowed for Admin only
+      // Unreview - allowed for Admin only
       if (role !== 'Hospital Admin') return NextResponse.json({ error: 'Only admin can unreview' }, { status: 403 })
       await query("UPDATE lab_tests SET reviewed_by = NULL, reviewed_at = NULL WHERE id = $1", [id])
       return NextResponse.json({ success: true })
@@ -222,12 +222,12 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         } catch {}
       }
 
-      // Critical value alerting - notify clinician when critical results are submitted
+      // Notify ordering clinician when radiology reports are completed, otherwise run lab critical-value checks.
       if (body.status && body.status.toLowerCase() === 'completed' && body.results) {
         try {
           const { rows: testRows } = await query(
-            `SELECT lt.doctor_id, lt.test_name, lt.test_type, lt.patient_id, 
-                    p.first_name, p.last_name, p.gender, p.date_of_birth
+            `SELECT lt.doctor_id, lt.test_name, lt.test_type, lt.patient_id,
+                    lt.priority, p.first_name, p.last_name, p.gender, p.date_of_birth
              FROM lab_tests lt
              LEFT JOIN patients p ON p.id = lt.patient_id
              WHERE lt.id = $1`,
@@ -235,43 +235,97 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           )
           const test = testRows[0]
           if (test && test.doctor_id) {
-            const criticalCheck = checkCriticalValues(
-              body.results,
-              test.gender,
-              test.date_of_birth
-            )
-            
-            if (criticalCheck.hasCritical) {
-              const patientName = test.first_name && test.last_name 
-                ? `${test.first_name} ${test.last_name}`.trim()
-                : 'patient'
-              const criticalParams = criticalCheck.criticalValues
-                .filter(v => v.severity === 'critical')
-                .map(v => `${v.parameter} (${v.value})`)
-                .join(', ')
-              
+            const isRadiologyStudy = ['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammography'].includes(test.test_name || test.test_type)
+            const patientName = test.first_name && test.last_name
+              ? `${test.first_name} ${test.last_name}`.trim()
+              : 'patient'
+
+            if (isRadiologyStudy) {
               await query(
                 `INSERT INTO notifications (user_id, title, message, type, priority, payload)
                  VALUES ($1, $2, $3, $4, $5, $6)`,
                 [
                   test.doctor_id,
-                  '🚨 CRITICAL LAB RESULTS',
-                  `CRITICAL values detected in ${test.test_name || test.test_type} for ${patientName}: ${criticalParams}. Please review immediately.`,
-                  'Lab Result',
-                  'High',
-                  JSON.stringify({ 
-                    testId: id, 
+                  'Radiology Report Ready',
+                  `Radiology report completed: ${test.test_name || test.test_type} for ${patientName}.`,
+                  'Radiology',
+                  test.priority === 'Stat' || test.priority === 'Urgent' ? 'High' : 'Standard',
+                  JSON.stringify({
+                    testId: id,
                     patientId: test.patient_id,
-                    critical: true,
-                    criticalCount: criticalCheck.criticalCount,
-                    criticalValues: criticalCheck.criticalValues.filter(v => v.severity === 'critical')
+                    reportReady: true,
                   })
                 ]
               )
+            } else {
+              const criticalCheck = checkCriticalValues(body.results, test.gender, test.date_of_birth)
+              if (criticalCheck.hasCritical) {
+                const criticalParams = criticalCheck.criticalValues
+                  .filter(v => v.severity === 'critical')
+                  .map(v => `${v.parameter} (${v.value})`)
+                  .join(', ')
+
+                await query(
+                  `INSERT INTO notifications (user_id, title, message, type, priority, payload)
+                   VALUES ($1, $2, $3, $4, $5, $6)`,
+                  [
+                    test.doctor_id,
+                    'Critical Lab Results',
+                    `CRITICAL values detected in ${test.test_name || test.test_type} for ${patientName}: ${criticalParams}. Please review immediately.`,
+                    'Lab Result',
+                    'High',
+                    JSON.stringify({
+                      testId: id,
+                      patientId: test.patient_id,
+                      critical: true,
+                      criticalCount: criticalCheck.criticalCount,
+                      criticalValues: criticalCheck.criticalValues.filter(v => v.severity === 'critical')
+                    })
+                  ]
+                )
+              }
             }
           }
         } catch (err) {
-          console.error('Error sending critical value notification:', err)
+          console.error('Error sending completion notification:', err)
+        }
+      }
+
+      if (body.status && body.status.toLowerCase() === 'cancelled') {
+        try {
+          const { rows: testRows } = await query(
+            `SELECT lt.doctor_id, lt.test_name, lt.test_type, lt.patient_id,
+                    p.first_name, p.last_name
+             FROM lab_tests lt
+             LEFT JOIN patients p ON p.id = lt.patient_id
+             WHERE lt.id = $1`,
+            [id]
+          )
+          const test = testRows[0]
+          const isRadiologyStudy = test && ['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammography'].includes(test.test_name || test.test_type)
+          if (test && test.doctor_id && isRadiologyStudy) {
+            const patientName = test.first_name && test.last_name
+              ? `${test.first_name} ${test.last_name}`.trim()
+              : 'patient'
+            await query(
+              `INSERT INTO notifications (user_id, title, message, type, priority, payload)
+               VALUES ($1, $2, $3, $4, $5, $6)`,
+              [
+                test.doctor_id,
+                'Radiology Study Cancelled',
+                `Radiology study cancelled: ${test.test_name || test.test_type} for ${patientName}.`,
+                'Radiology',
+                'Standard',
+                JSON.stringify({
+                  testId: id,
+                  patientId: test.patient_id,
+                  cancelled: true,
+                })
+              ]
+            )
+          }
+        } catch (err) {
+          console.error('Error sending radiology cancellation notification:', err)
         }
       }
 
@@ -351,3 +405,5 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Failed to update lab test' }, { status: 500 })
   }
 }
+
+

@@ -1,6 +1,7 @@
 import { z } from "zod"
 import { query } from "@/lib/db"
 import type { Dataset, ExportContext } from "@/lib/exports/registry"
+import { RADIOLOGY_MODALITIES } from "@/lib/radiology"
 
 const Filter = z.object({
   from: z.string().datetime(),
@@ -10,32 +11,75 @@ const Filter = z.object({
 
 export class RadiologyDataset implements Dataset {
   name = "radiology"
-  defaultColumns = ["study_id", "ordered_at", "status", "patient_name", "test_name", "radiologist"]
-  validateFilters(input: any) { return Filter.parse(input) }
-  async queryPage(ctx: ExportContext, f: z.infer<typeof Filter>, cursor?: { after?: string }, pageSize = 5000) {
-    const after = cursor?.after ?? null
+  defaultColumns = [
+    "study_id",
+    "ordered_at",
+    "status",
+    "priority",
+    "patient_name",
+    "patient_number",
+    "test_name",
+    "ordered_by",
+    "radiologist",
+  ]
+
+  validateFilters(input: unknown) {
+    return Filter.parse(input)
+  }
+
+  async queryPage(
+    _ctx: ExportContext,
+    f: z.infer<typeof Filter>,
+    cursor?: { after?: string; id?: string },
+    pageSize = 5000,
+  ) {
+    const params: any[] = [
+      f.from,
+      f.to,
+      f.status ?? null,
+      cursor?.after ?? null,
+      cursor?.id ?? null,
+      pageSize,
+      RADIOLOGY_MODALITIES,
+    ]
+
     const { rows } = await query(
       `
-      SELECT r.id as study_id,
-             r.ordered_at,
-             r.status,
-             CONCAT(p.first_name,' ',p.last_name) as patient_name,
-             r.test_name,
-             u.name as radiologist
-      FROM radiology_tests r
-      JOIN patients p ON p.id = r.patient_id
-      LEFT JOIN users u ON u.id = r.radiologist_id
-      WHERE r.ordered_at BETWEEN $1 AND $2
-        AND ($3::text IS NULL OR r.status = $3)
-        AND ($4::timestamp IS NULL OR r.ordered_at > $4)
-      ORDER BY r.ordered_at ASC
-      LIMIT $5
+      SELECT lt.id AS study_id,
+             lt.ordered_at,
+             lt.status,
+             lt.priority,
+             CONCAT(COALESCE(p.first_name, ''), ' ', COALESCE(p.last_name, '')) AS patient_name,
+             p.patient_number,
+             COALESCE(NULLIF(lt.test_name, ''), lt.test_type) AS test_name,
+             d.name AS ordered_by,
+             u.name AS radiologist
+      FROM lab_tests lt
+      LEFT JOIN patients p ON p.id = lt.patient_id
+      LEFT JOIN users d ON d.id = lt.doctor_id
+      LEFT JOIN users u ON u.id = lt.assigned_radiologist_id
+      WHERE COALESCE(NULLIF(lt.test_name, ''), lt.test_type) = ANY($7::text[])
+        AND lt.ordered_at BETWEEN $1 AND $2
+        AND ($3::text IS NULL OR lt.status = $3)
+        AND (
+          $4::timestamp IS NULL
+          OR lt.ordered_at > $4
+          OR (lt.ordered_at = $4 AND lt.id > COALESCE($5::uuid, '00000000-0000-0000-0000-000000000000'::uuid))
+        )
+      ORDER BY lt.ordered_at ASC, lt.id ASC
+      LIMIT $6
       `,
-      [f.from, f.to, f.status ?? null, after, pageSize],
+      params,
     )
-    const nextCursor = rows.length === pageSize ? { after: rows[rows.length - 1].ordered_at } : undefined
+
+    const nextCursor =
+      rows.length === pageSize
+        ? {
+            after: rows[rows.length - 1].ordered_at,
+            id: rows[rows.length - 1].study_id,
+          }
+        : undefined
+
     return { rows, nextCursor }
   }
 }
-
-

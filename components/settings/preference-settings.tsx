@@ -1,6 +1,6 @@
 "use client"
 
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect, useMemo, useRef } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
@@ -290,6 +290,7 @@ export function NotificationSettings() {
 }
 
 export function PreferenceSettings() {
+  const { user } = useAuth()
   const { setTheme } = useTheme()
   const previewedRef = useRef(false)
   const { refreshSettings, settings } = useSettings()
@@ -318,6 +319,25 @@ export function PreferenceSettings() {
   const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(true)
+  const normalizedRole = (user?.role || "").toLowerCase()
+  const portalHomeOptions = useMemo(() => {
+    if (normalizedRole === "radiologist") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "radiology-worklist", label: "Radiology Worklist" },
+        { value: "radiology-analytics", label: "Radiology Analytics" },
+        { value: "radiology-exports", label: "Radiology Exports" },
+      ]
+    }
+    if (normalizedRole === "nurse") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "patient-care", label: "Patient Care" },
+        { value: "latest-vitals", label: "Latest Vitals" },
+      ]
+    }
+    return [{ value: "overview", label: "Overview" }]
+  }, [normalizedRole])
 
   useEffect(() => {
     const fetchPreferences = async () => {
@@ -367,6 +387,11 @@ export function PreferenceSettings() {
     }
     fetchPreferences()
   }, [setTheme, previewedRef])
+
+  useEffect(() => {
+    if (portalHomeOptions.some((option) => option.value === preferences.defaultDashboard)) return
+    setPreferences((prev) => ({ ...prev, defaultDashboard: "overview" }))
+  }, [portalHomeOptions, preferences.defaultDashboard])
 
   // Track unsaved changes (including queue SLA thresholds used by reception queue board).
   // Currency is admin-only (org-level), not editable here.
@@ -550,9 +575,11 @@ export function PreferenceSettings() {
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="overview">Overview</SelectItem>
-                <SelectItem value="patient-care">Patient Care</SelectItem>
-                <SelectItem value="latest-vitals">Latest Vitals</SelectItem>
+                {portalHomeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>

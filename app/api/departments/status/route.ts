@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { query } from "@/lib/db"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
+import { RADIOLOGY_MODALITIES } from "@/lib/radiology"
 
 // Helper function to check authentication
 async function checkAuth() {
@@ -35,6 +36,8 @@ export async function GET() {
     if (authResult.error) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
+
+    const radiologyModalitiesSql = RADIOLOGY_MODALITIES.map((modality) => `'${modality.replace(/'/g, "''")}'`).join(", ")
 
     // Define departments and their criteria for "active" status
     const departments = [
@@ -203,7 +206,10 @@ export async function GET() {
             // Check for recent radiology tests
             recentActivityQuery = `
               SELECT COUNT(*) as count FROM (
-                SELECT ordered_at AS created_at FROM radiology_tests WHERE ordered_at > NOW() - INTERVAL '${minutes} minutes'
+                SELECT ordered_at AS created_at
+                FROM lab_tests
+                WHERE COALESCE(NULLIF(test_name, ''), test_type) IN (${radiologyModalitiesSql})
+                  AND ordered_at > NOW() - INTERVAL '${minutes} minutes'
                 UNION ALL
                 SELECT last_login as created_at FROM users WHERE role = 'Radiologist' AND last_login IS NOT NULL AND last_login > NOW() - INTERVAL '${minutes} minutes'
               ) as activity
