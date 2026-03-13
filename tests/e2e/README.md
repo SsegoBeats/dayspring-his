@@ -4,7 +4,6 @@ These Playwright smoke suites cover the main clinical/admin portals:
 
 - Admin: dashboard drill-downs, finance deep links, admin settings defaults, URL-synced user filters
 - Lab: operations hub, lab settings defaults, queue-to-detail navigation
-- Reception: command desk, reception settings defaults, section routing, payments/reports coverage
 - Radiology: command desk, radiology settings defaults, worklist navigation, optional upload flow
 
 Required environment variables by suite:
@@ -15,9 +14,6 @@ Required environment variables by suite:
 - Lab:
   - `E2E_LAB_TECH_EMAIL`
   - `E2E_LAB_TECH_PASSWORD`
-- Reception:
-  - `E2E_RECEPTIONIST_EMAIL`
-  - `E2E_RECEPTIONIST_PASSWORD`
 - Radiology:
   - `E2E_RADIOLOGIST_EMAIL`
   - `E2E_RADIOLOGIST_PASSWORD`
@@ -35,14 +31,13 @@ Shared optional variables:
 Credential note:
 
 - Provide approved credentials explicitly through your local environment or `.env.local`.
-- The repo does not create or seed Admin, Lab, Reception, or Radiology test users.
+- The repo does not create or seed Admin, Lab, or Radiology test users.
 
 Run:
 
 ```bash
 npm run test:e2e:admin
 npm run test:e2e:lab
-npm run test:e2e:reception
 npm run test:e2e:radiology
 ```
 
@@ -51,7 +46,6 @@ Headed:
 ```bash
 npm run test:e2e:admin:headed
 npm run test:e2e:lab:headed
-npm run test:e2e:reception:headed
 npm run test:e2e:radiology:headed
 ```
 
