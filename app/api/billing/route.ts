@@ -2,32 +2,50 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can, generateReceiptNumber, generateBarcodeData } from "@/lib/security"
 import { query, queryWithSession } from "@/lib/db"
+import { ensureNotificationInfrastructure } from "@/lib/notifications"
 
-export async function GET() {
+export async function GET(req: Request) {
   try {
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "billing", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-    const [bills, items] = await Promise.all([
-      queryWithSession(
-        { role: auth.role, userId: auth.userId },
-        `SELECT b.id, b.bill_number, b.patient_id, p.patient_number, p.first_name, p.last_name, p.phone, p.email,
-                b.total_amount, b.tax_amount, b.discount_amount,
-                b.final_amount, b.status, b.payment_method, b.paid_amount, b.created_at, b.paid_at
-         FROM bills b
-         JOIN patients p ON p.id = b.patient_id
-         ORDER BY b.created_at DESC
-         LIMIT 500`,
-      ),
-      queryWithSession(
-        { role: auth.role, userId: auth.userId },
-        `SELECT bill_id, description, quantity, unit_price, total_price
-           FROM bill_items`,
-      ),
-    ])
-    return NextResponse.json({ bills: bills.rows, items: items.rows })
+    const url = new URL(req.url)
+    const search = url.searchParams.get("search")?.trim() || null
+    const status = url.searchParams.get("status")?.trim() || null
+    const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit") || 500)))
+    const bills = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `SELECT b.id, b.bill_number, b.patient_id, p.patient_number, p.first_name, p.last_name, p.phone, p.email,
+              b.total_amount, b.tax_amount, b.discount_amount,
+              b.final_amount, b.status, b.payment_method, b.paid_amount, b.created_at, b.paid_at
+       FROM bills b
+       JOIN patients p ON p.id = b.patient_id
+       WHERE (
+         $1::text IS NULL OR
+         b.bill_number ILIKE $1 OR
+         p.patient_number ILIKE $1 OR
+         p.phone ILIKE $1 OR
+         CONCAT(p.first_name, ' ', p.last_name) ILIKE $1
+       )
+         AND ($2::text IS NULL OR LOWER(b.status) = LOWER($2))
+       ORDER BY b.created_at DESC
+       LIMIT $3`,
+      [search ? `%${search}%` : null, status, limit],
+    )
+    const billIds = bills.rows.map((bill: any) => bill.id).filter(Boolean)
+    const itemsRes =
+      billIds.length > 0
+        ? await queryWithSession(
+            { role: auth.role, userId: auth.userId },
+            `SELECT bill_id, description, quantity, unit_price, total_price
+               FROM bill_items
+              WHERE bill_id = ANY($1::uuid[])`,
+            [billIds],
+          )
+        : { rows: [] as any[] }
+    return NextResponse.json({ bills: bills.rows, items: itemsRes.rows })
   } catch (err: any) {
     return NextResponse.json({ error: "Failed to fetch bills" }, { status: 500 })
   }
@@ -167,21 +185,32 @@ export async function POST(req: Request) {
       )
     }
 
-    // Notify cashier department of new bill
-    try {
-      await fetch(`${process.env.NEXT_PUBLIC_APP_URL || ""}/api/notify/department`, {
-        method: "POST",
-        headers: { "Content-Type": "application/json" },
-        credentials: "include",
-        body: JSON.stringify({
-          department: "cashier",
-          title: "New Prescription Bill",
-          message: "A new prescription has been sent for billing.",
-          payload: { billId, patientId },
-        }),
-      })
-    } catch {
-      // Non-fatal
+    // Route new upstream bills into the cashier notification stream without depending on an internal HTTP call.
+    if (auth.role !== "Cashier") {
+      try {
+        await ensureNotificationInfrastructure()
+        const sourceLabel =
+          medications.length > 0
+            ? "prescription"
+            : body.source === "manual"
+              ? "manual bill"
+              : "billing request"
+        await query(
+          `INSERT INTO notifications (user_id, department, role, title, message, type, priority, payload)
+           VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)`,
+          [
+            "cashier",
+            "Cashier",
+            "New bill ready for collection",
+            `A ${sourceLabel} has been sent to cashier for collection.`,
+            "Payment",
+            medications.length > 0 ? "High" : "Normal",
+            JSON.stringify({ billId, patientId, billNumber, source: body.source || (medications.length > 0 ? "prescription" : "manual") }),
+          ],
+        )
+      } catch {
+        // Non-fatal
+      }
     }
 
     return NextResponse.json({ id: billId, billNumber })
@@ -189,5 +218,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to create bill" }, { status: 500 })
   }
 }
-
-

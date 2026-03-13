@@ -6,9 +6,10 @@ import { toPDF } from "@/lib/exports/writers/pdf"
 import { getSystemCurrency } from "@/lib/org"
 import { convertFromUGX, formatCurrencyStatic } from "@/lib/utils"
 import { groupItemsByCategory } from "@/lib/receipt-utils"
+import { ensurePaymentsBillLink } from "@/lib/billing-payments"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
 
-export async function GET(req: Request, { params }: { params: { id: string } }) {
+export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
@@ -19,12 +20,15 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    const id = params.id
+    const { id } = await params
+    await ensurePaymentsBillLink()
     const { rows } = await query(
-      `SELECT p.id, p.receipt_no, p.amount, p.method, p.reference, p.created_at,
-              pat.first_name, pat.last_name, pat.patient_number, pat.phone
+      `SELECT p.id, p.receipt_no, p.amount, p.method, p.reference, p.created_at, p.bill_id,
+              pat.first_name, pat.last_name, pat.patient_number, pat.phone,
+              b.bill_number, b.final_amount, b.paid_amount
          FROM payments p
          JOIN patients pat ON pat.id = p.patient_id
+         LEFT JOIN bills b ON b.id = p.bill_id
         WHERE p.id = $1
         LIMIT 1`,
       [id]
@@ -55,6 +59,13 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
       Date: new Date(r.created_at).toLocaleString(),
       Cashier: cashier,
     }
+    if (r.bill_number) {
+      meta["Invoice No"] = r.bill_number
+      meta["Invoice Balance"] = formatCurrencyStatic(
+        Math.max(0, Number(r.final_amount || 0) - Number(r.paid_amount || 0)),
+        currency,
+      )
+    }
     if (items.rows.length) {
       // Group items by category - payment_items only has description and amount
       // We need to create ReceiptItem-like objects for grouping
@@ -70,6 +81,7 @@ export async function GET(req: Request, { params }: { params: { id: string } }) 
     } else {
       data = [
         { field: 'Receipt No', value: r.receipt_no },
+        { field: 'Invoice No', value: r.bill_number || '' },
         { field: 'Patient', value: `${r.first_name} ${r.last_name}`.trim() },
         { field: 'Patient Number', value: r.patient_number },
         { field: 'Phone', value: r.phone || '' },

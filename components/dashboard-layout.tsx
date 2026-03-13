@@ -106,7 +106,12 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
     emergencyAlerts: true,
   })
   const normalizedRole = (userRole || "").toLowerCase()
-  const resultFilterLabel = normalizedRole === 'radiologist' ? 'Imaging' : 'Lab'
+  const resultFilterLabel =
+    normalizedRole === 'radiologist'
+      ? 'Imaging'
+      : normalizedRole === 'cashier'
+        ? 'Billing'
+        : 'Lab'
   const parsePayload = useCallback((notification: any) => {
     try {
       return notification?.payload
@@ -123,6 +128,13 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       || /radiology|imaging/i.test(notification?.title || '')
       || /radiology|imaging/i.test(notification?.message || '')
       || Boolean(payload && (payload.testId || payload.testIds?.[0] || payload.testType))
+  }, [parsePayload])
+  const isBillingNotification = useCallback((notification: any) => {
+    const payload = parsePayload(notification)
+    return /bill|invoice|payment|receipt|cashier/i.test(notification?.title || '')
+      || /bill|invoice|payment|receipt|cashier/i.test(notification?.message || '')
+      || /payment|billing/i.test(notification?.type || '')
+      || Boolean(payload && (payload.billId || payload.paymentId))
   }, [parsePayload])
   const isNotificationVisible = useCallback((notification: any) => {
     const title = String(notification?.title || '')
@@ -195,12 +207,12 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
               if (added.length === 0) return prev
 
               // Show at most one toast per SSE payload to avoid layout thrash under bursty updates.
-              const firstLab = added.find((n) => isNotificationVisible(n) && isLabNotification(n))
-              if (firstLab) {
-                const payload = parsePayload(firstLab)
+              const firstVisible = added.find((n) => isNotificationVisible(n))
+              if (firstVisible) {
+                const payload = parsePayload(firstVisible)
                 const patientId = payload?.patientId
                 const testId = payload?.testId || payload?.testIds?.[0]
-                const isAppointmentNotification = /appointment/i.test(firstLab.title || '') || /appointment/i.test(firstLab.message || '')
+                const isAppointmentNotification = /appointment/i.test(firstVisible.title || '') || /appointment/i.test(firstVisible.message || '')
                 const openAction = normalizedRole === 'radiologist' && testId
                   ? {
                       label: 'Open',
@@ -208,7 +220,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                         try {
                           window.dispatchEvent(
                             new CustomEvent('openRadiologyStudy', {
-                              detail: { testId, patientId, notificationId: firstLab.id },
+                              detail: { testId, patientId, notificationId: firstVisible.id },
                             }),
                           )
                         } catch {}
@@ -218,15 +230,15 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                     ? {
                         label: 'Open',
                         onClick: () => {
-                          try {
-                            window.dispatchEvent(
-                              new CustomEvent('openLabTest', {
-                                detail: { testId, patientId, notificationId: firstLab.id },
-                              }),
-                            )
-                          } catch {}
-                        },
-                      }
+                        try {
+                          window.dispatchEvent(
+                            new CustomEvent('openLabTest', {
+                              detail: { testId, patientId, notificationId: firstVisible.id },
+                            }),
+                          )
+                        } catch {}
+                      },
+                    }
                   : normalizedRole === 'receptionist' && (patientId || payload?.checkinId || payload?.appointmentId || payload?.paymentId)
                     ? {
                         label: 'Open',
@@ -244,7 +256,27 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                                     : payload?.checkinId || payload?.appointmentId
                                       ? 'checkin'
                                       : 'patients',
-                                  notificationId: firstLab.id,
+                                  notificationId: firstVisible.id,
+                                },
+                              }),
+                            )
+                          } catch {}
+                        },
+                      }
+                  : normalizedRole === 'cashier' && (payload?.billId || payload?.paymentId || patientId)
+                    ? {
+                        label: 'Open',
+                        onClick: () => {
+                          try {
+                            window.dispatchEvent(
+                              new CustomEvent('openCashierDesk', {
+                                detail: {
+                                  billId: payload?.billId,
+                                  paymentId: payload?.paymentId,
+                                  patientId,
+                                  initialSection: payload?.paymentId ? 'queue' : (payload?.initialSection || 'queue'),
+                                  mode: payload?.billId ? 'process' : undefined,
+                                  notificationId: firstVisible.id,
                                 },
                               }),
                             )
@@ -258,15 +290,15 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                           try {
                             window.dispatchEvent(
                               new CustomEvent('openClinicianConsult', {
-                                detail: { patientId, initialTab: isAppointmentNotification ? 'consultation' : 'labs', notificationId: firstLab.id },
+                                detail: { patientId, initialTab: isAppointmentNotification ? 'consultation' : 'labs', notificationId: firstVisible.id },
                               }),
                             )
                           } catch {}
                         },
                       }
                     : undefined
-                toast(firstLab.title || 'Lab Results Ready', {
-                  description: firstLab.message || '',
+                toast(firstVisible.title || 'New Notification', {
+                  description: firstVisible.message || '',
                   action: openAction,
                 })
               }
@@ -292,7 +324,7 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       if (timeoutId) clearTimeout(timeoutId)
       try { es?.close() } catch {}
     }
-  }, [isLabNotification, isNotificationVisible, normalizedRole, parsePayload])
+  }, [isNotificationVisible, normalizedRole, parsePayload])
   const markRead = useCallback(async (ids: string[]) => {
     try { await fetch('/api/notifications', { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ ids }) }); await load() } catch {}
   }, [load])
@@ -315,11 +347,11 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
     return visibleItems.filter((n: any) => {
       if (filter === 'unread') return !n.read_at
       if (filter === 'lab') {
-        return isLabNotification(n)
+        return normalizedRole === 'cashier' ? isBillingNotification(n) : isLabNotification(n)
       }
       return true
     })
-  }, [filter, isLabNotification, visibleItems])
+  }, [filter, isBillingNotification, isLabNotification, normalizedRole, visibleItems])
   const openNotificationTarget = useCallback((notification: any, requestId?: string, patientId?: string) => {
     if (requestId) {
       window.dispatchEvent(new CustomEvent('openDeletionDialog', { detail: { requestId } }))
@@ -358,6 +390,20 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       }))
       return
     }
+    if (normalizedRole === 'cashier') {
+      if (!payload?.billId && !payload?.paymentId && !patientId) return
+      window.dispatchEvent(new CustomEvent('openCashierDesk', {
+        detail: {
+          billId: payload?.billId,
+          paymentId: payload?.paymentId,
+          patientId,
+          initialSection: payload?.paymentId ? 'queue' : (payload?.initialSection || 'queue'),
+          mode: payload?.billId ? 'process' : undefined,
+          notificationId: notification.id,
+        },
+      }))
+      return
+    }
     if (!patientId) return
     if (normalizedRole === 'nurse') {
       const initialTab = /new patient registered/i.test(notification.title || '') ? 'triage' : 'vitals'
@@ -380,6 +426,11 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       }
       if (patientId) return 'Click to open patient record'
       return null
+    }
+    if (normalizedRole === 'cashier') {
+      if (payload?.billId) return 'Click to open invoice payment'
+      if (payload?.paymentId) return 'Click to open the collections queue'
+      return patientId ? 'Click to open the cashier portal' : null
     }
     if (!patientId) return null
     if (normalizedRole === 'nurse') {

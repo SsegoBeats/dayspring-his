@@ -16,11 +16,13 @@ interface ExportTransactionsProps {
 
 export function ExportTransactions({ onBack }: ExportTransactionsProps) {
   const { formatDate } = useFormatDate()
+  const [dataset, setDataset] = useState<"billing" | "payments">("billing")
   const [format, setFormat] = useState<"csv" | "xlsx" | "pdf">("csv")
   const [dateRange, setDateRange] = useState<"7days" | "30days" | "90days" | "custom">("30days")
   const [startDate, setStartDate] = useState<string>("")
   const [endDate, setEndDate] = useState<string>("")
   const [status, setStatus] = useState<string>("all")
+  const [method, setMethod] = useState<string>("all")
   const [exporting, setExporting] = useState(false)
 
   const handleExport = async () => {
@@ -47,7 +49,7 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
         to: toDate,
       }
 
-      if (status !== "all") {
+      if (dataset === "billing" && status !== "all") {
         // Billing dataset expects capitalized status: Pending, Paid, Partially Paid, Cancelled
         filters.status =
           status === "pending"
@@ -59,6 +61,10 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
                 : "Cancelled"
       }
 
+      if (dataset === "payments" && method !== "all") {
+        filters.method = method
+      }
+
       const response = await fetch("/api/exports/direct", {
         method: "POST",
         headers: {
@@ -66,7 +72,7 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
         },
         credentials: "include",
         body: JSON.stringify({
-          dataset: "billing",
+          dataset,
           format,
           filters,
         }),
@@ -83,13 +89,13 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
       a.href = url
       
       const dateStr = formatDate(new Date(), { year: 'numeric', month: '2-digit', day: '2-digit' })
-      a.download = `transactions-${dateRange}-${dateStr}.${format}`
+      a.download = `${dataset === "billing" ? "billing-ledger" : "payment-ledger"}-${dateRange}-${dateStr}.${format}`
       document.body.appendChild(a)
       a.click()
       window.URL.revokeObjectURL(url)
       document.body.removeChild(a)
 
-      toast.success(`Transactions exported successfully as ${format.toUpperCase()}`)
+      toast.success(`${dataset === "billing" ? "Billing ledger" : "Payment ledger"} exported successfully as ${format.toUpperCase()}`)
       if (onBack) {
         onBack()
       }
@@ -112,9 +118,22 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
       <Card>
         <CardHeader>
           <CardTitle>Export Transactions</CardTitle>
-          <CardDescription>Export billing transactions in various formats</CardDescription>
+          <CardDescription>Export invoices or captured payments in branded CSV, XLSX, or PDF formats.</CardDescription>
         </CardHeader>
         <CardContent className="space-y-6">
+          <div className="space-y-2">
+            <Label htmlFor="dataset">Export Data</Label>
+            <Select value={dataset} onValueChange={(value: "billing" | "payments") => setDataset(value)}>
+              <SelectTrigger id="dataset">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="billing">Billing Ledger</SelectItem>
+                <SelectItem value="payments">Payment Ledger</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+
           <div className="space-y-2">
             <Label htmlFor="format">Export Format</Label>
             <Select value={format} onValueChange={(v: "csv" | "xlsx" | "pdf") => setFormat(v)}>
@@ -183,21 +202,39 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
             </div>
           )}
 
-          <div className="space-y-2">
-            <Label htmlFor="status">Bill Status</Label>
-            <Select value={status} onValueChange={setStatus}>
-              <SelectTrigger id="status">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Statuses</SelectItem>
-                <SelectItem value="pending">Pending</SelectItem>
-                <SelectItem value="paid">Paid</SelectItem>
-                <SelectItem value="partially paid">Partially Paid</SelectItem>
-                <SelectItem value="cancelled">Cancelled</SelectItem>
-              </SelectContent>
-            </Select>
-          </div>
+          {dataset === "billing" ? (
+            <div className="space-y-2">
+              <Label htmlFor="status">Bill Status</Label>
+              <Select value={status} onValueChange={setStatus}>
+                <SelectTrigger id="status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Statuses</SelectItem>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="paid">Paid</SelectItem>
+                  <SelectItem value="partially paid">Partially Paid</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              <Label htmlFor="method">Payment Method</Label>
+              <Select value={method} onValueChange={setMethod}>
+                <SelectTrigger id="method">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Methods</SelectItem>
+                  <SelectItem value="cash">Cash</SelectItem>
+                  <SelectItem value="card">Card</SelectItem>
+                  <SelectItem value="mobile_money">Mobile Money</SelectItem>
+                  <SelectItem value="bank">Bank</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          )}
 
           <Button onClick={handleExport} className="w-full" disabled={exporting}>
             {exporting ? (
@@ -208,7 +245,7 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
             ) : (
               <>
                 <Download className="mr-2 h-4 w-4" />
-                Export Transactions
+                Export {dataset === "billing" ? "Billing Ledger" : "Payment Ledger"}
               </>
             )}
           </Button>

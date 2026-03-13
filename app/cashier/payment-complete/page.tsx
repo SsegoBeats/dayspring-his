@@ -14,6 +14,10 @@ function PaymentCompleteContent() {
     searchParams.get("OrderTrackingId") || searchParams.get("orderTrackingId")
   const merchantRef =
     searchParams.get("OrderMerchantReference") || searchParams.get("orderMerchantReference")
+  const billId = (() => {
+    const match = merchantRef?.match(/^BILL-(.+?)(?:-(CARD|MOBILE))?$/i)
+    return match?.[1] || null
+  })()
   const [status, setStatus] = useState<{
     payment_status_description?: string
     status_code?: number
@@ -131,8 +135,8 @@ function PaymentCompleteContent() {
         )}
 
         <Button asChild className="w-full gap-2">
-          <Link href="/cashier">
-            Back to Cashier Dashboard
+          <Link href={billId ? `/cashier?section=queue&bill=${encodeURIComponent(billId)}&mode=process` : "/cashier"}>
+            {billId ? "Open Invoice in Cashier" : "Back to Cashier Dashboard"}
             <ArrowRight className="h-4 w-4" />
           </Link>
         </Button>

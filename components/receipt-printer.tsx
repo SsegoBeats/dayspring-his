@@ -34,6 +34,8 @@ interface ReceiptPrinterProps {
   onBack?: () => void
   originalTotal?: number
   remainingBalance?: number
+  receiptPdfUrl?: string
+  invoicePdfUrl?: string
 }
 
 export function ReceiptPrinter({
@@ -49,6 +51,8 @@ export function ReceiptPrinter({
   onBack,
   originalTotal,
   remainingBalance,
+  receiptPdfUrl,
+  invoicePdfUrl,
 }: ReceiptPrinterProps) {
   const formatCurrency = useFormatCurrency()
   const { formatDateTime } = useFormatDate()
@@ -63,12 +67,28 @@ export function ReceiptPrinter({
   return (
     <div className="space-y-4">
       <div className="flex justify-between print:hidden">
-        {onBack && (
-          <Button variant="outline" onClick={onBack} className="gap-2">
-            <ArrowLeft className="h-4 w-4" />
-            Back
-          </Button>
-        )}
+        <div className="flex gap-2">
+          {onBack && (
+            <Button variant="outline" onClick={onBack} className="gap-2">
+              <ArrowLeft className="h-4 w-4" />
+              Back
+            </Button>
+          )}
+          {receiptPdfUrl && (
+            <Button variant="outline" asChild className="gap-2">
+              <a href={receiptPdfUrl} target="_blank" rel="noreferrer">
+                Open Official Receipt
+              </a>
+            </Button>
+          )}
+          {invoicePdfUrl && (
+            <Button variant="outline" asChild className="gap-2">
+              <a href={invoicePdfUrl} target="_blank" rel="noreferrer">
+                Open Invoice PDF
+              </a>
+            </Button>
+          )}
+        </div>
         <Button onClick={handlePrint} className="gap-2">
           <Printer className="h-4 w-4" />
           Print Receipt
@@ -141,7 +161,7 @@ export function ReceiptPrinter({
           </table>
         </div>
 
-        {/* Totals: Total Amount, Amount Paid, Balance (last) — no Subtotal per user feedback */}
+        {/* Totals: Total Amount, Amount Paid, Balance (last); no subtotal per user feedback */}
         <div className="space-y-2 text-sm mb-6">
           <div className="flex justify-between">
             <span className="text-muted-foreground">Total Amount:</span>
@@ -160,6 +180,12 @@ export function ReceiptPrinter({
           {(!originalTotal || originalTotal <= total) && (
             <div className="flex justify-between text-lg font-bold border-t-2 pt-2">
               <span>TOTAL PAID:</span>
+              <span className="text-primary">{formatCurrency(total)}</span>
+            </div>
+          )}
+          {originalTotal !== undefined && originalTotal > total && (
+            <div className="flex justify-between text-lg font-bold border-t-2 pt-2">
+              <span>THIS PAYMENT:</span>
               <span className="text-primary">{formatCurrency(total)}</span>
             </div>
           )}

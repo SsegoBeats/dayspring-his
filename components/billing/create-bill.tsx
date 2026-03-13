@@ -34,6 +34,7 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
   const formatCurrency = useFormatCurrency()
 
   const [patientId, setPatientId] = useState("")
+  const [patientQuery, setPatientQuery] = useState("")
   const [items, setItems] = useState<BillItem[]>([
     { description: "", quantity: 1, unitPrice: 0, total: 0, itemType: "medication" },
   ])
@@ -41,6 +42,16 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
   const [taxRate, setTaxRate] = useState(10)
   const [discountAmount, setDiscountAmount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+
+  const filteredPatients = patients.filter((patient) => {
+    const query = patientQuery.trim().toLowerCase()
+    if (!query) return true
+    return (
+      `${patient.firstName} ${patient.lastName}`.toLowerCase().includes(query) ||
+      (patient.patientNumber || "").toLowerCase().includes(query) ||
+      patient.phone.toLowerCase().includes(query)
+    )
+  })
 
   const handleAddItem = () => {
     setItems([
@@ -228,19 +239,35 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
         <CardContent>
           <form onSubmit={handleSubmit} className="space-y-6">
             <div className="space-y-2">
+              <Label htmlFor="patientSearch">Find Patient</Label>
+              <Input
+                id="patientSearch"
+                placeholder="Search by patient name, ID, or phone"
+                value={patientQuery}
+                onChange={(e) => setPatientQuery(e.target.value)}
+              />
+              <p className="text-xs text-muted-foreground">
+                {filteredPatients.length} patient{filteredPatients.length === 1 ? "" : "s"} available in the selector below
+              </p>
+            </div>
+
+            <div className="space-y-2">
               <Label htmlFor="patient">Select Patient *</Label>
               <Select value={patientId} onValueChange={setPatientId}>
                 <SelectTrigger id="patient">
                   <SelectValue placeholder="Choose a patient" />
                 </SelectTrigger>
                 <SelectContent>
-                  {patients.map((patient) => (
+                  {filteredPatients.map((patient) => (
                     <SelectItem key={patient.id} value={patient.id}>
                       {patient.firstName} {patient.lastName} ({formatPatientNumber(patient.patientNumber)})
                     </SelectItem>
                   ))}
                 </SelectContent>
               </Select>
+              {filteredPatients.length === 0 && (
+                <p className="text-xs text-amber-700">No patients match that search yet.</p>
+              )}
             </div>
 
             <div className="space-y-3">

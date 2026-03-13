@@ -9,6 +9,7 @@ import { CashierDashboard } from "@/components/dashboards/cashier-dashboard"
 export default function CashierPage() {
   const { user, isLoading } = useAuth()
   const router = useRouter()
+  const isCashier = (user?.role || "").toLowerCase() === "cashier"
 
   useEffect(() => {
     if (isLoading) return
@@ -16,11 +17,11 @@ export default function CashierPage() {
       router.push("/")
       return
     }
-    if (user.role !== "Cashier") {
+    if (!isCashier) {
       router.push("/dashboard")
       return
     }
-  }, [user, isLoading, router])
+  }, [user, isCashier, isLoading, router])
 
   if (isLoading || !user) {
     return (
@@ -30,7 +31,7 @@ export default function CashierPage() {
     )
   }
 
-  if (user.role !== "Cashier") {
+  if (!isCashier) {
     return null
   }
 

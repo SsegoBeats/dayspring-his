@@ -10,17 +10,32 @@ const Filter = z.object({
 
 export class BillingDataset implements Dataset {
   name = "billing"
-  defaultColumns = ["bill_number", "patient_number", "patient_name", "final_amount", "status", "paid_at"]
+  defaultColumns = [
+    "bill_number",
+    "created_at",
+    "patient_number",
+    "patient_name",
+    "final_amount",
+    "paid_amount",
+    "balance_due",
+    "status",
+    "payment_method",
+    "paid_at",
+  ]
   validateFilters(input: any) { return Filter.parse(input) }
   async queryPage(ctx: ExportContext, f: z.infer<typeof Filter>, cursor?: { after?: string }, pageSize = 5000) {
     const after = cursor?.after ?? null
     const { rows } = await query(
       `
       SELECT b.bill_number,
+             b.created_at,
              p.patient_number,
              CONCAT(p.first_name,' ',p.last_name) as patient_name,
              b.final_amount,
+             COALESCE(b.paid_amount, 0) AS paid_amount,
+             GREATEST(b.final_amount - COALESCE(b.paid_amount, 0), 0) AS balance_due,
              b.status,
+             COALESCE(b.payment_method, '') AS payment_method,
              b.paid_at
       FROM bills b
       JOIN patients p ON p.id = b.patient_id
@@ -32,7 +47,7 @@ export class BillingDataset implements Dataset {
       `,
       [f.from, f.to, f.status ?? null, after, pageSize],
     )
-    const nextCursor = rows.length === pageSize ? { after: rows[rows.length - 1].paid_at || rows[rows.length - 1].created_at } : undefined
+    const nextCursor = rows.length === pageSize ? { after: rows[rows.length - 1].created_at } : undefined
     return { rows, nextCursor }
   }
 }

@@ -27,6 +27,16 @@ import {
   AlertDialogTrigger,
 } from "@/components/ui/alert-dialog"
 
+type ReceiptState = {
+  receiptNumber: string
+  amount: number
+  method: string
+  items: { description: string; quantity: number; unitPrice: number; total: number }[]
+  originalTotal?: number
+  remainingBalance?: number
+  paymentId?: string | null
+}
+
 interface ProcessPaymentProps {
   billId: string
   onBack: () => void
@@ -38,10 +48,11 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const { getPatient } = usePatients()
   const bill = getBill(billId)
   const patient = bill ? getPatient(bill.patientId) : null
+  const invoicePdfUrl = bill ? `/api/billing/${bill.id}/invoice` : undefined
 
   const [paymentMethod, setPaymentMethod] = useState("")
   const [notes, setNotes] = useState("")
-  const [showReceipt, setShowReceipt] = useState(false)
+  const [receiptState, setReceiptState] = useState<ReceiptState | null>(null)
   const [processing, setProcessing] = useState(false)
   const [checkingPayment, setCheckingPayment] = useState(false)
   const [paymentType, setPaymentType] = useState<"full" | "partial" | "cancel">("full")
@@ -64,6 +75,57 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   }
 
   const isOnlinePayment = paymentMethod === "Mobile Money" || paymentMethod === "Card"
+  const currentPaidAmount = bill?.paidAmount || 0
+  const currentBalance = Math.max(0, (bill?.total || 0) - currentPaidAmount)
+
+  const formatPaymentMethodLabel = (value?: string | null) => {
+    const normalized = String(value || "").toLowerCase()
+    if (normalized === "mobile_money") return "Mobile Money"
+    if (normalized === "card") return "Card"
+    if (normalized === "cash") return "Cash"
+    if (normalized === "bank") return "Bank"
+    return value || "N/A"
+  }
+
+  const buildReceiptItems = (transactionAmount: number) => {
+    const shouldUseBillBreakdown =
+      paymentType === "full" &&
+      currentPaidAmount <= 0 &&
+      Math.abs(transactionAmount - bill.total) < 0.01
+
+    if (shouldUseBillBreakdown) {
+      return bill.items
+    }
+
+    const description =
+      paymentType === "partial"
+        ? `Partial payment for invoice ${bill.billNumber || bill.id.slice(0, 8)}`
+        : currentPaidAmount > 0
+          ? `Balance payment for invoice ${bill.billNumber || bill.id.slice(0, 8)}`
+          : `Payment for invoice ${bill.billNumber || bill.id.slice(0, 8)}`
+
+    return [{ description, quantity: 1, unitPrice: transactionAmount, total: transactionAmount }]
+  }
+
+  const fetchLatestBillPayment = async () => {
+    const response = await fetch(`/api/payments?billId=${encodeURIComponent(bill.id)}&limit=1`, {
+      credentials: "include",
+    })
+    const payload = await response.json().catch(() => ({})) as {
+      payments?: { id: string; receipt_no: string; method: string }[]
+    }
+
+    if (!response.ok || !Array.isArray(payload.payments) || payload.payments.length === 0) {
+      return null
+    }
+
+    const latest = payload.payments[0]
+    return {
+      id: latest.id,
+      receiptNo: latest.receipt_no,
+      method: latest.method,
+    }
+  }
 
   const handleInitiatePesapal = async () => {
     setProcessing(true)
@@ -144,7 +206,12 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           notes,
         }),
       })
-      const data = await res.json().catch(() => ({})) as { error?: string; bill?: { status: string; paid_amount: string | number; paid_at: string | null; payment_method: string | null } }
+      const data = await res.json().catch(() => ({})) as {
+        error?: string
+        transactionAmount?: number
+        payment?: { id: string; receiptNo: string; method: string }
+        bill?: { status: string; paid_amount: string | number; paid_at: string | null; payment_method: string | null }
+      }
       if (!res.ok) {
         const message = data?.error || `Payment failed (${res.status})`
         toast.error(message)
@@ -156,6 +223,13 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
         : paymentType === "partial"
           ? "partially paid"
           : "paid"
+
+      const transactionAmount =
+        typeof data.transactionAmount === "number"
+          ? data.transactionAmount
+          : paymentType === "partial"
+            ? partialAmount
+            : currentBalance
 
       if (data.bill) {
         const b = data.bill
@@ -179,7 +253,15 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
       toast.success(paymentType === "cancel" ? "Bill cancelled successfully" : "Payment processed successfully")
       
       if (paymentType !== "cancel") {
-        setShowReceipt(true)
+        setReceiptState({
+          receiptNumber: data.payment?.receiptNo || bill.billNumber || bill.id,
+          amount: transactionAmount,
+          method: formatPaymentMethodLabel(data.payment?.method || paymentMethod),
+          items: buildReceiptItems(transactionAmount),
+          originalTotal: bill.total,
+          remainingBalance: Math.max(0, bill.total - newPaidAmount),
+          paymentId: data.payment?.id || null,
+        })
       } else {
         onBack()
       }
@@ -192,29 +274,27 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
     }
   }
 
-  if (showReceipt) {
-    const paidAmount = paymentType === "partial" ? partialAmount : bill.total
-    const originalTotal = bill.total
-    const remainingBalance = paymentType === "partial" ? originalTotal - (bill.paidAmount || 0) - partialAmount : 0
-    
+  if (receiptState) {
     return (
       <ReceiptPrinter
-        receiptNumber={bill.billNumber || bill.id}
+        receiptNumber={receiptState.receiptNumber}
         patientName={bill.patientName}
         patientNumber={formatPatientNumber(bill.patientNumber ?? patient?.patientNumber ?? bill.patientId)}
-        items={bill.items}
+        items={receiptState.items}
         subtotal={bill.subtotal}
         tax={bill.tax}
-        total={paidAmount}
-        paymentMethod={paymentMethod || bill.paymentMethod || "N/A"}
+        total={receiptState.amount}
+        paymentMethod={receiptState.method}
         barcode={bill.barcode || ""}
         type="payment"
         onBack={() => {
-          setShowReceipt(false)
+          setReceiptState(null)
           onBack()
         }}
-        originalTotal={paymentType === "partial" ? originalTotal : undefined}
-        remainingBalance={paymentType === "partial" ? remainingBalance : undefined}
+        originalTotal={receiptState.originalTotal}
+        remainingBalance={receiptState.remainingBalance}
+        receiptPdfUrl={receiptState.paymentId ? `/api/receipts/${receiptState.paymentId}` : undefined}
+        invoicePdfUrl={invoicePdfUrl}
       />
     )
   }
@@ -245,11 +325,17 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           <ArrowLeft className="h-4 w-4" />
           Back to Queue
         </Button>
+        <Button variant="outline" size="sm" asChild className="gap-2">
+          <a href={invoicePdfUrl} target="_blank" rel="noreferrer">
+            <Printer className="h-4 w-4" />
+            Open Official Invoice
+          </a>
+        </Button>
         <Button variant="outline" size="sm" onClick={() => window.print()} className="gap-2">
           <Printer className="h-4 w-4" />
-          Print invoice
+          Print Screen Copy
         </Button>
-        {bill.status === "pending" && (
+        {bill.status === "pending" && currentPaidAmount <= 0 && (
           <AlertDialog>
             <AlertDialogTrigger asChild>
               <Button variant="outline" size="sm" className="gap-2 text-destructive hover:bg-destructive/10">
@@ -282,7 +368,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
             <div>
               <CardTitle className="text-xl tracking-tight">Invoice Details</CardTitle>
               <CardDescription className="mt-1 font-mono text-xs">
-                {bill.billNumber || bill.id.slice(0, 8) + "…"}
+                {bill.billNumber || `${bill.id.slice(0, 8)}...`}
               </CardDescription>
             </div>
             <Badge
@@ -442,7 +528,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                     <SelectContent>
                       <SelectItem value="full">Full Payment</SelectItem>
                       <SelectItem value="partial">Partial Payment</SelectItem>
-                      <SelectItem value="cancel">Cancel Bill</SelectItem>
+                      {currentPaidAmount <= 0 && <SelectItem value="cancel">Cancel Bill</SelectItem>}
                     </SelectContent>
                   </Select>
                 </div>
@@ -582,11 +668,21 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                       try {
                         const updated = await refreshBills()
                         const b = updated?.find((x) => x.id === billId)
-                        if (b?.status === "paid") {
-                          toast.success("Payment received! Preparing receipt…")
+                        if (b?.status === "paid" || (paymentType === "partial" && b?.status === "partially paid")) {
+                          toast.success("Payment received! Preparing receipt...")
                           setAwaitingMobileMoney(false)
-                          setPaymentMethod(b.paymentMethod || "N/A")
-                          setShowReceipt(true)
+                          const transactionAmount = paymentType === "partial" ? partialAmount : currentBalance
+                          const latestPayment = await fetchLatestBillPayment()
+                          setPaymentMethod(b.paymentMethod || latestPayment?.method || "N/A")
+                          setReceiptState({
+                            receiptNumber: latestPayment?.receiptNo || bill.billNumber || bill.id,
+                            amount: transactionAmount,
+                            method: formatPaymentMethodLabel(latestPayment?.method || b.paymentMethod || paymentMethod || "N/A"),
+                            items: buildReceiptItems(transactionAmount),
+                            originalTotal: bill.total,
+                            remainingBalance: Math.max(0, bill.total - ((bill.paidAmount || 0) + transactionAmount)),
+                            paymentId: latestPayment?.id || null,
+                          })
                         } else {
                           toast.info("Payment not yet received. Ask the patient to complete payment, then try again.")
                         }
@@ -600,7 +696,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                     {checkingPayment ? (
                       <>
                         <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                        Checking…
+                        Checking...
                       </>
                     ) : (
                       "Check Payment Status"

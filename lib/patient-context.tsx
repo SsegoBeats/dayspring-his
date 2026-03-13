@@ -13,6 +13,7 @@ export interface Patient {
   ageYears?: number | null
   gender: string
   phone: string
+  email?: string
   address?: string
   bloodGroup?: string
   allergies?: string
@@ -118,6 +119,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
             ageYears: typeof p.age_years === "number" ? p.age_years : undefined,
             gender: (p.gender || "Other").toString().toLowerCase(),
             phone: p.phone || "",
+            email: p.email || undefined,
             address: p.address || "",
             bloodGroup: p.blood_group || undefined,
             allergies: p.allergies || undefined,
@@ -172,6 +174,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
         ageYears: typeof p.age_years === "number" ? p.age_years : undefined,
         gender: (p.gender || "Other").toString().toLowerCase(),
         phone: p.phone || "",
+        email: p.email || undefined,
         address: p.address || "",
         bloodGroup: p.blood_group || undefined,
         registrationDate: p.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),

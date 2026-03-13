@@ -772,6 +772,7 @@ CREATE TABLE IF NOT EXISTS payments (
       'DMC' || to_char(now(),'YYMMDD') || lpad(nextval('receipt_seq')::text, 6, '0')
     ),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
+    bill_id UUID REFERENCES bills(id) ON DELETE SET NULL,
     amount NUMERIC(12,2) NOT NULL CHECK (amount >= 0),
     method VARCHAR(20) NOT NULL CHECK (method IN ('cash','card','mobile_money','bank')),
     reference VARCHAR(100),
@@ -779,7 +780,10 @@ CREATE TABLE IF NOT EXISTS payments (
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+ALTER TABLE payments
+  ADD COLUMN IF NOT EXISTS bill_id UUID REFERENCES bills(id) ON DELETE SET NULL;
 CREATE INDEX IF NOT EXISTS idx_payments_patient_created ON payments(patient_id, created_at DESC);
+CREATE INDEX IF NOT EXISTS idx_payments_bill_created ON payments(bill_id, created_at DESC);
 DROP TRIGGER IF EXISTS update_payments_updated_at ON payments;
 CREATE TRIGGER update_payments_updated_at BEFORE UPDATE ON payments FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

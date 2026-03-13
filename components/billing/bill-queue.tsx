@@ -28,9 +28,19 @@ interface BillQueueProps {
   onCreateBill?: () => void
   emptyMessage: string
   showCreateButton?: boolean
+  highlightBillId?: string | null
 }
 
-export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, onDeleteBill, emptyMessage, showCreateButton }: BillQueueProps) {
+export function BillQueue({
+  bills,
+  onSelectBill,
+  onCreateBill,
+  onEditBill,
+  onDeleteBill,
+  emptyMessage,
+  showCreateButton,
+  highlightBillId,
+}: BillQueueProps) {
   const formatCurrency = useFormatCurrency()
   const [deletingId, setDeletingId] = useState<string | null>(null)
   
@@ -69,7 +79,11 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, onDel
             {bills.map((bill) => (
               <div
                 key={bill.id}
-                className="flex flex-col gap-3 rounded-lg border border-border/60 bg-card p-4 transition-colors hover:bg-muted/40 sm:flex-row sm:items-center sm:justify-between"
+                className={`flex flex-col gap-3 rounded-lg border p-4 transition-colors sm:flex-row sm:items-center sm:justify-between ${
+                  highlightBillId === bill.id
+                    ? "border-sky-300 bg-sky-50/60 shadow-sm shadow-sky-100"
+                    : "border-border/60 bg-card hover:bg-muted/40"
+                }`}
               >
                 <div className="flex-1">
                   <div className="flex items-center gap-2">
@@ -94,7 +108,7 @@ export function BillQueue({ bills, onSelectBill, onCreateBill, onEditBill, onDel
                     </Badge>
                   </div>
                   <div className="mt-1 flex flex-wrap gap-4 text-sm text-muted-foreground">
-                    <span>Invoice: {bill.billNumber || bill.id.slice(0, 8) + "…"}</span>
+                    <span>Invoice: {bill.billNumber || `${bill.id.slice(0, 8)}...`}</span>
                     <span>Date: {bill.date}</span>
                     <span>Total: {formatCurrency(bill.total)}</span>
                     {(bill.paidAmount ?? 0) > 0 && (bill.paidAmount ?? 0) < bill.total && (

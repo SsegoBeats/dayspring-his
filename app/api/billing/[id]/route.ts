@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
-import { queryWithSession, query } from "@/lib/db"
+import { queryWithSession, query, withSession } from "@/lib/db"
+import { createPaymentForBillWithClient } from "@/lib/billing-payments"
 
 export async function GET(
   _req: Request,
@@ -93,76 +94,154 @@ export async function PATCH(
       notes?: string
     }
 
-    // Get current bill to determine status
-    const currentBillRes = await queryWithSession(
-      { role: auth.role, userId: auth.userId },
-      `SELECT final_amount, paid_amount, status FROM bills WHERE id = $1`,
-      [billId],
-    )
+    const result = await withSession({ role: auth.role, userId: auth.userId }, async (client) => {
+      const currentBillRes = await client.query<{
+        bill_number: string | null
+        final_amount: number
+        paid_amount: number | null
+        status: string
+      }>(
+        `SELECT bill_number, final_amount, paid_amount, status
+           FROM bills
+          WHERE id = $1
+          FOR UPDATE`,
+        [billId],
+      )
 
-    if (!currentBillRes.rows.length) {
-      return NextResponse.json({ error: "Bill not found" }, { status: 404 })
-    }
-
-    const currentBill = currentBillRes.rows[0]
-    const finalAmount = Number(currentBill.final_amount)
-    const currentPaidAmount = Number(currentBill.paid_amount) || 0
-    const requestedPaidAmount = body.paidAmount !== undefined ? Number(body.paidAmount) : finalAmount
-
-    // Validate requested paid amount
-    if (Number.isNaN(requestedPaidAmount) || requestedPaidAmount < 0) {
-      return NextResponse.json({ error: "Invalid payment amount" }, { status: 400 })
-    }
-    if (requestedPaidAmount > finalAmount && body.status !== "Cancelled") {
-      return NextResponse.json({ error: "Payment amount cannot exceed bill total" }, { status: 400 })
-    }
-
-    const paymentMethod = body.paymentMethod != null ? String(body.paymentMethod).trim().slice(0, 50) : null
-
-    // Determine status based on paid amount
-    let status = body.status
-    if (!status) {
-      if (requestedPaidAmount >= finalAmount) {
-        status = "Paid"
-      } else if (requestedPaidAmount > 0) {
-        status = "Partially Paid"
-      } else if (body.status === "Cancelled") {
-        status = "Cancelled"
-      } else {
-        status = currentBill.status || "Pending"
+      if (!currentBillRes.rows.length) {
+        throw new Error("BILL_NOT_FOUND")
       }
+
+      const currentBill = currentBillRes.rows[0]
+      const finalAmount = Number(currentBill.final_amount)
+      const currentPaidAmount = Number(currentBill.paid_amount) || 0
+      const requestedPaidAmount = body.paidAmount !== undefined ? Number(body.paidAmount) : finalAmount
+
+      if (Number.isNaN(requestedPaidAmount) || requestedPaidAmount < 0) {
+        throw new Error("INVALID_PAYMENT_AMOUNT")
+      }
+
+      const cancellingBill = body.status === "Cancelled"
+      if (requestedPaidAmount > finalAmount && !cancellingBill) {
+        throw new Error("PAYMENT_EXCEEDS_TOTAL")
+      }
+      if (cancellingBill && currentPaidAmount > 0) {
+        throw new Error("CANNOT_CANCEL_PAID_BILL")
+      }
+
+      const paymentMethod = body.paymentMethod != null ? String(body.paymentMethod).trim().slice(0, 50) : null
+      const paidNum = cancellingBill
+        ? 0
+        : body.paidAmount !== undefined
+          ? requestedPaidAmount
+          : requestedPaidAmount >= finalAmount
+            ? finalAmount
+            : currentPaidAmount
+
+      const status = cancellingBill
+        ? "Cancelled"
+        : paidNum >= finalAmount
+          ? "Paid"
+          : paidNum > 0
+            ? "Partially Paid"
+            : "Pending"
+
+      const transactionAmount = cancellingBill ? 0 : Math.max(0, paidNum - currentPaidAmount)
+      if (!cancellingBill && transactionAmount <= 0 && paidNum !== currentPaidAmount) {
+        throw new Error("INVALID_PAYMENT_DELTA")
+      }
+
+      const updatedRes = await client.query<{
+        id: string
+        bill_number: string | null
+        patient_id: string
+        status: string
+        payment_method: string | null
+        paid_amount: number
+        paid_at: string | null
+        final_amount: number
+        created_at: string
+      }>(
+        `UPDATE bills SET
+           status = $1,
+           payment_method = CASE
+             WHEN $2::text IS NULL AND $1 = 'Cancelled' THEN NULL
+             ELSE COALESCE($2, payment_method)
+           END,
+           paid_amount = $3::numeric,
+           paid_at = CASE
+             WHEN $1 = 'Cancelled' THEN NULL
+             WHEN ($3::numeric) > 0 AND paid_at IS NULL THEN CURRENT_TIMESTAMP
+             ELSE paid_at
+           END,
+           cashier_id = CASE WHEN $1 = 'Cancelled' THEN cashier_id ELSE $4 END
+         WHERE id = $5
+         RETURNING id, bill_number, patient_id, status, payment_method, paid_amount, paid_at, final_amount, created_at`,
+        [status, paymentMethod, paidNum, auth.userId, billId],
+      )
+
+      if (!updatedRes.rows.length) {
+        throw new Error("BILL_NOT_FOUND")
+      }
+
+      const description =
+        status === "Partially Paid"
+          ? `Partial payment for invoice ${currentBill.bill_number || billId.slice(0, 8)}`
+          : currentPaidAmount > 0
+            ? `Balance payment for invoice ${currentBill.bill_number || billId.slice(0, 8)}`
+            : `Payment for invoice ${currentBill.bill_number || billId.slice(0, 8)}`
+
+      const payment =
+        transactionAmount > 0
+          ? await createPaymentForBillWithClient(client, {
+              billId,
+              amount: transactionAmount,
+              paymentMethod,
+              cashierId: auth.userId,
+              description,
+              useFullBillBreakdown:
+                currentPaidAmount <= 0 && Math.abs(transactionAmount - finalAmount) < 0.01,
+            })
+          : null
+
+      return {
+        bill: updatedRes.rows[0],
+        payment,
+        transactionAmount,
+      }
+    }).catch((error: Error) => {
+      switch (error.message) {
+        case "BILL_NOT_FOUND":
+          return { error: "Bill not found", status: 404 as const }
+        case "INVALID_PAYMENT_AMOUNT":
+          return { error: "Invalid payment amount", status: 400 as const }
+        case "PAYMENT_EXCEEDS_TOTAL":
+          return { error: "Payment amount cannot exceed bill total", status: 400 as const }
+        case "CANNOT_CANCEL_PAID_BILL":
+          return { error: "Bills with recorded payments cannot be cancelled", status: 400 as const }
+        case "INVALID_PAYMENT_DELTA":
+          return { error: "No new payment amount was provided", status: 400 as const }
+        default:
+          throw error
+      }
+    })
+
+    if ("error" in result) {
+      return NextResponse.json({ error: result.error }, { status: result.status })
     }
 
-    // Calculate new paid amount (add to existing if partial payment)
-    const newPaidAmount = body.paidAmount !== undefined 
-      ? requestedPaidAmount 
-      : (status === "Paid" ? finalAmount : currentPaidAmount)
-
-    const paidNum = Number(newPaidAmount)
-    const { rowCount } = await queryWithSession(
-      { role: auth.role, userId: auth.userId },
-      `UPDATE bills SET
-         status = $1,
-         payment_method = COALESCE($2, payment_method),
-         paid_amount = $3::numeric,
-         paid_at = CASE WHEN ($3::numeric) > 0 AND paid_at IS NULL THEN CURRENT_TIMESTAMP ELSE paid_at END,
-         cashier_id = $4
-       WHERE id = $5`,
-      [status, paymentMethod, paidNum, auth.userId, billId],
-    )
-
-    if (!rowCount || rowCount === 0) {
-      return NextResponse.json({ error: "Bill not found" }, { status: 404 })
-    }
-
-    const updatedRes = await queryWithSession(
-      { role: auth.role, userId: auth.userId },
-      `SELECT id, bill_number, patient_id, status, payment_method, paid_amount, paid_at, final_amount, created_at
-       FROM bills WHERE id = $1`,
-      [billId],
-    )
-    const updatedBill = updatedRes.rows[0] ?? null
-    return NextResponse.json({ ok: true, bill: updatedBill })
+    return NextResponse.json({
+      ok: true,
+      bill: result.bill,
+      payment: result.payment
+        ? {
+            id: result.payment.paymentId,
+            receiptNo: result.payment.receiptNo,
+            method: result.payment.method,
+          }
+        : null,
+      transactionAmount: result.transactionAmount,
+    })
   } catch (err: any) {
     console.error("[billing] PATCH payment error:", err?.message || err)
     return NextResponse.json(

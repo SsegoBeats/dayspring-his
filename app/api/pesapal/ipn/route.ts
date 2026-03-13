@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
 import { getPesapalTransactionStatus } from "@/lib/pesapal"
-import { queryWithSession } from "@/lib/db"
+import { withSession } from "@/lib/db"
+import { createPaymentForBillWithClient, findPaymentByReferenceWithClient } from "@/lib/billing-payments"
 
 /**
  * Parse merchant reference to get billId and user's chosen payment method.
@@ -26,32 +27,61 @@ async function processSuccessfulPayment(billId: string, orderTrackingId: string,
     }
     return
   }
-  const billRes = await queryWithSession(
-    { role: "Hospital Admin", userId: "ipn" },
-    `SELECT final_amount, paid_amount FROM bills WHERE id = $1 AND status != 'Paid'`,
-    [billId],
-  )
-  if (!billRes.rows.length) return
-  const bill = billRes.rows[0] as { final_amount: number; paid_amount: number }
-  const finalAmount = Number(bill.final_amount)
-  const currentPaidAmount = Number(bill.paid_amount) || 0
-  const effectiveAmount = amountPaid
-  const newPaidAmount = currentPaidAmount + effectiveAmount
-  const status = newPaidAmount >= finalAmount ? "Paid" : "Partially Paid"
-  const paidAmountToSet = status === "Paid" ? finalAmount : newPaidAmount
+  await withSession({ role: "Hospital Admin", userId: "ipn" }, async (client) => {
+    if (orderTrackingId) {
+      await client.query(`SELECT pg_advisory_xact_lock(hashtext($1))`, [orderTrackingId])
+      const existingPayment = await findPaymentByReferenceWithClient(client, orderTrackingId)
+      if (existingPayment) {
+        if (process.env.NODE_ENV === "development") {
+          console.log("[Pesapal] Skipping duplicate IPN payment:", billId, orderTrackingId)
+        }
+        return
+      }
+    }
 
-  await queryWithSession(
-    { role: "Hospital Admin", userId: "ipn" },
-    `UPDATE bills SET
-       status = $2,
-       payment_method = $3,
-       paid_amount = $4,
-       paid_at = COALESCE(paid_at, CURRENT_TIMESTAMP)
-     WHERE id = $1`,
-    [billId, status, paymentMethod, paidAmountToSet],
-  )
+    const billRes = await client.query<{ bill_number: string | null; final_amount: number; paid_amount: number }>(
+      `SELECT bill_number, final_amount, paid_amount
+         FROM bills
+        WHERE id = $1 AND status != 'Paid'
+        FOR UPDATE`,
+      [billId],
+    )
+    if (!billRes.rows.length) return
+
+    const bill = billRes.rows[0]
+    const finalAmount = Number(bill.final_amount)
+    const currentPaidAmount = Number(bill.paid_amount) || 0
+    const effectiveAmount = Math.min(amountPaid, Math.max(0, finalAmount - currentPaidAmount))
+    if (!(effectiveAmount > 0)) return
+
+    const newPaidAmount = currentPaidAmount + effectiveAmount
+    const status = newPaidAmount >= finalAmount ? "Paid" : "Partially Paid"
+    const paidAmountToSet = status === "Paid" ? finalAmount : newPaidAmount
+
+    await client.query(
+      `UPDATE bills SET
+         status = $2,
+         payment_method = $3,
+         paid_amount = $4,
+         paid_at = COALESCE(paid_at, CURRENT_TIMESTAMP)
+       WHERE id = $1`,
+      [billId, status, paymentMethod, paidAmountToSet],
+    )
+
+    await createPaymentForBillWithClient(client, {
+      billId,
+      amount: effectiveAmount,
+      paymentMethod,
+      reference: orderTrackingId,
+      description:
+        currentPaidAmount > 0
+          ? `Online balance payment for invoice ${bill.bill_number || billId.slice(0, 8)}`
+          : `Online payment for invoice ${bill.bill_number || billId.slice(0, 8)}`,
+      useFullBillBreakdown: currentPaidAmount <= 0 && Math.abs(effectiveAmount - finalAmount) < 0.01,
+    })
+  })
   if (process.env.NODE_ENV === "development") {
-    console.log("[Pesapal] Bill updated:", billId, orderTrackingId, status)
+    console.log("[Pesapal] Bill updated:", billId, orderTrackingId)
   }
 }
 

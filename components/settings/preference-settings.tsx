@@ -365,6 +365,16 @@ export function PreferenceSettings() {
         { value: "reception-reports", label: "Reports" },
       ]
     }
+    if (normalizedRole === "cashier") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "cashier-queue", label: "Collections Queue" },
+        { value: "cashier-create", label: "Create Bill" },
+        { value: "cashier-overdue", label: "Overdue Bills" },
+        { value: "cashier-reports", label: "Financial Reports" },
+        { value: "cashier-exports", label: "Exports" },
+      ]
+    }
     return [{ value: "overview", label: "Overview" }]
   }, [normalizedRole])
 
