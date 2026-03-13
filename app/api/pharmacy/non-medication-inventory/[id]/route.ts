@@ -8,6 +8,10 @@ import {
   type NonMedicationCategory,
 } from "@/lib/constants/non-medication-inventory"
 import { normalizeInventoryName } from "@/lib/non-medication-inventory-insights"
+import {
+  getNonMedicationValidationErrors,
+  makeNonMedicationValidationDraft,
+} from "@/lib/non-medication-inventory-validation"
 
 export async function GET(req: Request, { params }: { params: { id: string } }) {
   try {
@@ -157,10 +161,20 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
                 item_name,
                 item_type,
                 item_subtype,
+                description,
+                manufacturer,
+                model_number,
+                serial_number,
                 stock_quantity,
                 unit_of_measure,
+                unit_price,
+                cost_price,
                 reorder_level,
                 min_stock_level,
+                max_stock_level,
+                location,
+                barcode,
+                expiry_date,
                 last_restocked_at
            FROM non_medication_inventory
           WHERE id = $1`,
@@ -183,16 +197,48 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
         return { error: "Invalid itemSubtype for this category", status: 400 as const }
       }
 
+      const nextDraft = makeNonMedicationValidationDraft({
+        itemName: body.itemName !== undefined ? (body.itemName || "").trim() : current.item_name,
+        itemType: nextItemType,
+        itemSubtype: nextItemSubtype,
+        description: body.description !== undefined ? (body.description || "").trim() || null : current.description,
+        manufacturer: body.manufacturer !== undefined ? (body.manufacturer || "").trim() || null : current.manufacturer,
+        modelNumber: body.modelNumber !== undefined ? (body.modelNumber || "").trim() || null : current.model_number,
+        serialNumber: body.serialNumber !== undefined ? (body.serialNumber || "").trim() || null : current.serial_number,
+        stockQuantity:
+          body.stockQuantity !== undefined ? Math.max(0, Math.trunc(body.stockQuantity as number)) : Number(current.stock_quantity) || 0,
+        unitOfMeasure: body.unitOfMeasure !== undefined ? (body.unitOfMeasure || "units").trim() : current.unit_of_measure,
+        unitPrice: body.unitPrice !== undefined ? (Number.isFinite(body.unitPrice) ? Number(body.unitPrice) : null) : current.unit_price,
+        costPrice: body.costPrice !== undefined ? (Number.isFinite(body.costPrice) ? Number(body.costPrice) : null) : current.cost_price,
+        reorderLevel:
+          body.reorderLevel !== undefined ? Math.max(0, Math.trunc(body.reorderLevel as number)) : Number(current.reorder_level) || 0,
+        minStockLevel:
+          body.minStockLevel !== undefined
+            ? Math.max(0, Math.trunc(body.minStockLevel as number))
+            : Number(current.min_stock_level) || 0,
+        maxStockLevel:
+          body.maxStockLevel !== undefined
+            ? Number.isFinite(body.maxStockLevel)
+              ? Math.max(0, Math.trunc(body.maxStockLevel as number))
+              : null
+            : current.max_stock_level,
+        location: body.location !== undefined ? (body.location || "").trim() || null : current.location,
+        barcode: body.barcode !== undefined ? (body.barcode ? String(body.barcode).trim() || null : null) : current.barcode,
+        expiryDate: body.expiryDate !== undefined ? body.expiryDate || null : current.expiry_date,
+      })
+
+      const validationErrors = getNonMedicationValidationErrors(nextDraft)
+      if (validationErrors.length > 0) {
+        return { error: validationErrors[0], errors: validationErrors, status: 400 as const }
+      }
+
       const updates: string[] = []
       const values: any[] = []
       let paramIndex = 1
       let stockDelta: number | null = null
 
       if (body.itemName !== undefined) {
-        const itemName = (body.itemName || "").trim()
-        if (!itemName) {
-          return { error: "itemName cannot be empty", status: 400 as const }
-        }
+        const itemName = nextDraft.itemName
         updates.push(`item_name = $${paramIndex++}`)
         values.push(itemName)
       }
@@ -328,7 +374,7 @@ export async function PATCH(req: Request, { params }: { params: { id: string } }
     })
 
     if ("error" in result) {
-      return NextResponse.json({ error: result.error }, { status: result.status })
+      return NextResponse.json({ error: result.error, errors: "errors" in result ? result.errors : undefined }, { status: result.status })
     }
 
     return NextResponse.json(result)

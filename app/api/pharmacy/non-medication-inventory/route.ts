@@ -7,6 +7,10 @@ import {
   isValidSubtypeForCategory,
   type NonMedicationCategory,
 } from "@/lib/constants/non-medication-inventory"
+import {
+  getNonMedicationValidationErrors,
+  makeNonMedicationValidationDraft,
+} from "@/lib/non-medication-inventory-validation"
 
 export async function GET() {
   try {
@@ -114,6 +118,32 @@ export async function POST(req: Request) {
     }
     if (itemSubtype && !isValidSubtypeForCategory(itemType as NonMedicationCategory, itemSubtype)) {
       return NextResponse.json({ error: "Invalid itemSubtype for this category" }, { status: 400 })
+    }
+
+    const validationErrors = getNonMedicationValidationErrors(
+      makeNonMedicationValidationDraft({
+        itemName,
+        itemType,
+        itemSubtype,
+        description,
+        manufacturer,
+        modelNumber,
+        serialNumber,
+        stockQuantity,
+        unitOfMeasure,
+        unitPrice,
+        costPrice,
+        reorderLevel,
+        minStockLevel,
+        maxStockLevel,
+        location,
+        barcode,
+        expiryDate,
+      }),
+    )
+
+    if (validationErrors.length > 0) {
+      return NextResponse.json({ error: validationErrors[0], errors: validationErrors }, { status: 400 })
     }
 
     const item = await withSession({ role: auth.role, userId: auth.userId }, async (client) => {

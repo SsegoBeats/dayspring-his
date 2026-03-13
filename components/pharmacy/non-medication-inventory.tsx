@@ -16,6 +16,7 @@ import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
 import { useFormatCurrency } from "@/lib/settings-context"
+import { NonMedicationBulkSetupDialog } from "@/components/pharmacy/non-medication-bulk-setup-dialog"
 import {
   NON_MEDICATION_CATEGORIES,
   NON_MEDICATION_SUBTYPES,
@@ -31,6 +32,11 @@ import {
   type InventorySignalTone,
   type NonMedicationInventoryItem,
 } from "@/lib/non-medication-inventory-insights"
+import {
+  getNonMedicationRequirementLabels,
+  getNonMedicationValidationErrors,
+  makeNonMedicationValidationDraft,
+} from "@/lib/non-medication-inventory-validation"
 import {
   AlertTriangle,
   ArrowUpRight,
@@ -228,6 +234,7 @@ function InventoryFormFields({
     formData.itemType && NON_MEDICATION_CATEGORIES.includes(formData.itemType as NonMedicationCategory)
       ? NON_MEDICATION_SUBTYPES[formData.itemType as NonMedicationCategory]
       : []
+  const requirementLabels = formData.itemType ? getNonMedicationRequirementLabels(formData.itemType) : []
 
   return (
     <div className="grid gap-4 md:grid-cols-2">
@@ -259,6 +266,15 @@ function InventoryFormFields({
             ))}
           </SelectContent>
         </Select>
+        {requirementLabels.length > 0 && (
+          <div className="flex flex-wrap gap-2 pt-1">
+            {requirementLabels.map((label) => (
+              <Badge key={`${idPrefix}-${label}`} className="rounded-full border border-sky-200 bg-sky-50 text-sky-700 hover:bg-sky-50">
+                {label}
+              </Badge>
+            ))}
+          </div>
+        )}
       </div>
 
       <div className="space-y-2">
@@ -453,6 +469,7 @@ export function NonMedicationInventory() {
   const [filterType, setFilterType] = useState<string>("all")
   const [focusFilter, setFocusFilter] = useState<InventoryFocusFilter>("all")
   const [showAddDialog, setShowAddDialog] = useState(false)
+  const [showBulkSetupDialog, setShowBulkSetupDialog] = useState(false)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [detailView, setDetailView] = useState<"overview" | "history" | "edit">("overview")
   const [detailData, setDetailData] = useState<InventoryItemDetailResponse | null>(null)
@@ -639,10 +656,32 @@ export function NonMedicationInventory() {
     event.preventDefault()
     if (!selectedItemId) return
 
-    if (!editFormData.itemName.trim() || !editFormData.itemType) {
+    const validationErrors = getNonMedicationValidationErrors(
+      makeNonMedicationValidationDraft({
+        itemName: editFormData.itemName.trim(),
+        itemType: editFormData.itemType,
+        itemSubtype: editFormData.itemSubtype.trim() || null,
+        description: editFormData.description.trim() || null,
+        manufacturer: editFormData.manufacturer.trim() || null,
+        modelNumber: editFormData.modelNumber.trim() || null,
+        serialNumber: editFormData.serialNumber.trim() || null,
+        stockQuantity: editFormData.stockQuantity === "" ? 0 : Number.parseInt(editFormData.stockQuantity, 10) || 0,
+        unitOfMeasure: editFormData.unitOfMeasure.trim() || "units",
+        unitPrice: editFormData.unitPrice ? Number.parseFloat(editFormData.unitPrice) : null,
+        costPrice: editFormData.costPrice ? Number.parseFloat(editFormData.costPrice) : null,
+        reorderLevel: editFormData.reorderLevel ? Number.parseInt(editFormData.reorderLevel, 10) : 0,
+        minStockLevel: editFormData.minStockLevel ? Number.parseInt(editFormData.minStockLevel, 10) : 0,
+        maxStockLevel: editFormData.maxStockLevel ? Number.parseInt(editFormData.maxStockLevel, 10) : null,
+        location: editFormData.location.trim() || null,
+        barcode: editFormData.barcode.trim() || null,
+        expiryDate: editFormData.expiryDate || null,
+      }),
+    )
+
+    if (validationErrors.length > 0) {
       toast({
         title: "Validation error",
-        description: "Item name and category are required",
+        description: validationErrors[0],
         variant: "destructive",
       })
       return
@@ -721,6 +760,20 @@ export function NonMedicationInventory() {
     }
   }
 
+  const handleItemsUpdated = useCallback((updatedItems: NonMedicationInventoryItem[]) => {
+    if (!updatedItems.length) return
+
+    setItems((current) =>
+      current.map((item) => updatedItems.find((updated) => updated.id === item.id) || item),
+    )
+
+    const activeUpdatedItem = selectedItemId ? updatedItems.find((item) => item.id === selectedItemId) : null
+    if (activeUpdatedItem) {
+      setDetailData((current) => (current ? { ...current, item: activeUpdatedItem } : current))
+      setEditFormData(itemToFormData(activeUpdatedItem))
+    }
+  }, [selectedItemId])
+
   if (loading) {
     return (
       <div className="mx-auto max-w-6xl">
@@ -767,7 +820,15 @@ export function NonMedicationInventory() {
                   </CardDescription>
                 </div>
               </div>
-              <div className="flex shrink-0 items-center gap-3">
+              <div className="flex shrink-0 flex-wrap items-center gap-3">
+                <Button
+                  variant="outline"
+                  className="rounded-2xl border-slate-200 bg-white/80 px-5"
+                  onClick={() => setShowBulkSetupDialog(true)}
+                >
+                  <Sparkles className="mr-2 h-4 w-4" />
+                  Bulk Setup
+                </Button>
                 <Button
                   className="rounded-2xl bg-sky-600 px-5 shadow-[0_20px_45px_-28px_rgba(2,132,199,0.8)] hover:bg-sky-700"
                   onClick={() => setShowAddDialog(true)}
@@ -1031,6 +1092,12 @@ export function NonMedicationInventory() {
       </div>
 
       <AddNonMedicationItemDialog open={showAddDialog} onOpenChange={setShowAddDialog} onSuccess={loadItems} />
+      <NonMedicationBulkSetupDialog
+        open={showBulkSetupDialog}
+        onOpenChange={setShowBulkSetupDialog}
+        items={items}
+        onItemsUpdated={handleItemsUpdated}
+      />
 
       <Dialog open={Boolean(selectedItemId)} onOpenChange={closeWorkspace}>
         <DialogContent size="xl" className="max-h-[92vh] overflow-hidden p-0 sm:max-w-5xl">
@@ -1441,10 +1508,32 @@ function AddNonMedicationItemDialog({
 
   const handleSubmit = async (event: FormEvent) => {
     event.preventDefault()
-    if (!formData.itemName.trim() || !formData.itemType) {
+    const validationErrors = getNonMedicationValidationErrors(
+      makeNonMedicationValidationDraft({
+        itemName: formData.itemName.trim(),
+        itemType: formData.itemType,
+        itemSubtype: formData.itemSubtype.trim() || null,
+        description: formData.description.trim() || null,
+        manufacturer: formData.manufacturer.trim() || null,
+        modelNumber: formData.modelNumber.trim() || null,
+        serialNumber: formData.serialNumber.trim() || null,
+        stockQuantity: formData.stockQuantity === "" ? 0 : Number.parseInt(formData.stockQuantity, 10) || 0,
+        unitOfMeasure: formData.unitOfMeasure.trim() || "units",
+        unitPrice: formData.unitPrice ? Number.parseFloat(formData.unitPrice) : null,
+        costPrice: formData.costPrice ? Number.parseFloat(formData.costPrice) : null,
+        reorderLevel: formData.reorderLevel ? Number.parseInt(formData.reorderLevel, 10) : 0,
+        minStockLevel: formData.minStockLevel ? Number.parseInt(formData.minStockLevel, 10) : 0,
+        maxStockLevel: formData.maxStockLevel ? Number.parseInt(formData.maxStockLevel, 10) : null,
+        location: formData.location.trim() || null,
+        barcode: formData.barcode.trim() || null,
+        expiryDate: formData.expiryDate || null,
+      }),
+    )
+
+    if (validationErrors.length > 0) {
       toast({
         title: "Validation error",
-        description: "Item name and category are required",
+        description: validationErrors[0],
         variant: "destructive",
       })
       return

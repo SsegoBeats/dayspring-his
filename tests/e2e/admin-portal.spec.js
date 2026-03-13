@@ -71,6 +71,7 @@ test.describe("Admin portal smoke", () => {
     await page.goto(`${baseURL || ""}/admin?section=inventory`)
     await expect(page.getByText("Inventory Control Studio")).toBeVisible()
     await expect(page.getByText("Par levels configured")).toBeVisible()
+    await expect(page.getByRole("button", { name: "Bulk Setup" })).toBeVisible()
 
     await page.getByRole("button", { name: /Open workspace for/i }).first().click()
 
@@ -82,6 +83,11 @@ test.describe("Admin portal smoke", () => {
     const box = await dialog.boundingBox()
     expect(box).not.toBeNull()
     expect(box.width).toBeLessThan(1260)
+
+    await page.getByRole("button", { name: "Close" }).click()
+    await page.getByRole("button", { name: "Bulk Setup" }).click()
+    await expect(page.getByText("Bulk Setup Console")).toBeVisible()
+    await expect(page.getByRole("tab", { name: "CSV import" })).toBeVisible()
   })
 
   test("respects finance deep links for period and tab routing", async ({ page, baseURL }) => {
