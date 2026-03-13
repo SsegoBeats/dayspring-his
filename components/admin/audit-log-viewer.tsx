@@ -70,7 +70,6 @@ export function AuditLogViewer() {
   const [showManagement, setShowManagement] = useState(false)
   const [cleanupDays, setCleanupDays] = useState(30)
   const [managementLoading, setManagementLoading] = useState(false)
-  const [filteredLogs, setFilteredLogs] = useState(logs)
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalLogs, setTotalLogs] = useState(0)
@@ -161,8 +160,6 @@ export function AuditLogViewer() {
       }
 
       const result = await response.json()
-      console.log('Delete all result:', result)
-      
       // Refresh the logs
       await applyFilters(1)
       
@@ -216,7 +213,6 @@ export function AuditLogViewer() {
       }
       
       const result = await getLogs(filterParams)
-      setFilteredLogs(result.logs)
       setTotalLogs(result.total)
       setTotalPages(result.totalPages)
       setCurrentPage(result.page)
@@ -264,11 +260,7 @@ export function AuditLogViewer() {
   useEffect(() => {
     setCurrentPage(1)
     applyFilters(1)
-  }, [search, categoryFilter, actionFilter, dateRange, applyFilters])
-
-  useEffect(() => {
-    setFilteredLogs(logs)
-  }, [logs])
+  }, [applyFilters])
 
   const activeFilterCount = [
     search ? 1 : 0,
@@ -345,9 +337,9 @@ export function AuditLogViewer() {
     )
   }
 
-  const failedLogins = filteredLogs.filter((l:any) => l.action === 'LOGIN_FAILED').length
-  const deletions = filteredLogs.filter((l:any) => l.action === 'DELETE').length
-  const userMgmt = filteredLogs.filter((l:any) => l.category === 'USER_MANAGEMENT').length
+  const failedLogins = logs.filter((l:any) => l.action === 'LOGIN_FAILED').length
+  const deletions = logs.filter((l:any) => l.action === 'DELETE').length
+  const userMgmt = logs.filter((l:any) => l.category === 'USER_MANAGEMENT').length
 
   return (
     <Card>
@@ -356,7 +348,7 @@ export function AuditLogViewer() {
           <CardTitle>Audit Trail</CardTitle>
           <div className="flex items-center gap-2 text-xs text-muted-foreground">
             <Badge variant="outline" className="text-xs">
-              {filteredLogs.length} logs
+              {logs.length} logs
             </Badge>
             <span className="inline-flex items-center gap-1">
               <ShieldCheck className="h-3 w-3 text-emerald-600" />
@@ -591,21 +583,21 @@ export function AuditLogViewer() {
               </TableRow>
             </TableHeader>
             <TableBody>
-              {loading ? (
+          {loading ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center py-8">
                     <Loader2 className="h-6 w-6 animate-spin mx-auto mb-2" />
                     <p className="text-muted-foreground">Loading audit logs...</p>
                   </TableCell>
                 </TableRow>
-              ) : filteredLogs.length === 0 ? (
+              ) : logs.length === 0 ? (
                 <TableRow>
                   <TableCell colSpan={8} className="text-center text-muted-foreground py-8">
                     No audit logs found
                   </TableCell>
                 </TableRow>
               ) : (
-                filteredLogs.map((log, idx) => (
+                logs.map((log, idx) => (
                   <TableRow key={log.id} className={idx % 2 === 0 ? "bg-background" : "bg-muted/20"}>
                     <TableCell className="text-sm" title={format(log.timestamp, "MMM dd, yyyy HH:mm:ss")}>{format(log.timestamp, "dd MMM yyyy HH:mm:ss")}</TableCell>
                     <TableCell className="font-medium">{log.userName}</TableCell>
@@ -686,7 +678,7 @@ export function AuditLogViewer() {
 
         <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between text-sm text-muted-foreground">
           <div>
-            Showing {filteredLogs.length} of {totalLogs} log{totalLogs !== 1 ? "s" : ""}
+            Showing {logs.length} of {totalLogs} log{totalLogs !== 1 ? "s" : ""}
           </div>
           {totalPages > 1 && (
             <div className="flex items-center gap-2">
@@ -719,4 +711,3 @@ export function AuditLogViewer() {
     </Card>
   )
 }
-

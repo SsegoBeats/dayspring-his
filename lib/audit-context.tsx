@@ -1,8 +1,7 @@
 "use client"
 
 import type React from "react"
-import { createContext, useContext, useState, useEffect } from "react"
-import { useAuth } from "./auth-context"
+import { createContext, useCallback, useContext, useEffect, useMemo, useState } from "react"
 
 export type AuditAction =
   | "LOGIN"
@@ -84,12 +83,11 @@ interface AuditContextType {
 const AuditContext = createContext<AuditContextType | undefined>(undefined)
 
 export function AuditProvider({ children }: { children: React.ReactNode }) {
-  const { user } = useAuth()
   const [logs, setLogs] = useState<AuditLog[]>([])
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const fetchLogs = async (filters?: {
+  const fetchLogs = useCallback(async (filters?: {
     userId?: string
     category?: AuditCategory
     action?: AuditAction
@@ -141,9 +139,9 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [])
 
-  const logAction = async (
+  const logAction = useCallback(async (
     action: AuditAction,
     category: AuditCategory,
     entityType: string,
@@ -184,9 +182,9 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
       // Silently fail - audit logging should never break main functionality
       return
     }
-  }
+  }, [])
 
-  const getLogs = async (filters?: {
+  const getLogs = useCallback(async (filters?: {
     userId?: string
     category?: AuditCategory
     action?: AuditAction
@@ -197,9 +195,9 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     limit?: number
   }) => {
     return await fetchLogs(filters)
-  }
+  }, [fetchLogs])
 
-  const exportLogs = async (filters?: any) => {
+  const exportLogs = useCallback(async (filters?: any) => {
     try {
       setLoading(true)
       setError(null)
@@ -236,11 +234,11 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
     } finally {
       setLoading(false)
     }
-  }
+  }, [logAction])
 
-  const refreshLogs = async () => {
+  const refreshLogs = useCallback(async () => {
     return await fetchLogs()
-  }
+  }, [fetchLogs])
 
   useEffect(() => {
     const handleAuditLog = (event: any) => {
@@ -250,9 +248,14 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
 
     window.addEventListener("audit-log", handleAuditLog)
     return () => window.removeEventListener("audit-log", handleAuditLog)
-  }, [user])
+  }, [logAction])
 
-  return <AuditContext.Provider value={{ logs, loading, error, logAction, getLogs, exportLogs, refreshLogs }}>{children}</AuditContext.Provider>
+  const value = useMemo(
+    () => ({ logs, loading, error, logAction, getLogs, exportLogs, refreshLogs }),
+    [error, exportLogs, getLogs, loading, logAction, logs, refreshLogs],
+  )
+
+  return <AuditContext.Provider value={value}>{children}</AuditContext.Provider>
 }
 
 export function useAudit() {

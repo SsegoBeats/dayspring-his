@@ -61,6 +61,7 @@ test.describe("Admin portal smoke", () => {
     await page.getByRole("button", { name: /Check audit trail/i }).click()
     await expect(page).toHaveURL(/\/admin\?section=audit/)
     await expect(page.getByRole("heading", { name: "Audit Trail", exact: true })).toBeVisible()
+    await expect(page.getByText("Loading audit logs...")).not.toBeVisible({ timeout: 30000 })
     await expect(page.getByText("Dashboard error")).not.toBeVisible()
   })
 

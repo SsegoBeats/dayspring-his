@@ -6,10 +6,12 @@ import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Progress } from "@/components/ui/progress"
+import { useAuth } from "@/lib/auth-context"
 import { Lock, Eye, EyeOff, CheckCircle } from "lucide-react"
 import { toast } from "sonner"
 
 export function PasswordSettings() {
+  const { user } = useAuth()
   const [currentPassword, setCurrentPassword] = useState("")
   const [newPassword, setNewPassword] = useState("")
   const [saving, setSaving] = useState(false)
@@ -106,6 +108,16 @@ export function PasswordSettings() {
       </CardHeader>
       <CardContent>
         <form onSubmit={submitPassword} className="space-y-4">
+          <input
+            type="email"
+            name="username"
+            autoComplete="username"
+            value={user?.email || ""}
+            readOnly
+            tabIndex={-1}
+            aria-hidden="true"
+            className="sr-only"
+          />
           <div className="space-y-2">
             <Label htmlFor="currentPassword">Current Password</Label>
             <div className="relative">
@@ -123,6 +135,7 @@ export function PasswordSettings() {
                 type="button"
                 onClick={() => setShowCurrentPassword(!showCurrentPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showCurrentPassword ? "Hide current password" : "Show current password"}
               >
                 {showCurrentPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
@@ -146,6 +159,7 @@ export function PasswordSettings() {
                 type="button"
                 onClick={() => setShowNewPassword(!showNewPassword)}
                 className="absolute right-3 top-1/2 -translate-y-1/2 text-muted-foreground hover:text-foreground"
+                aria-label={showNewPassword ? "Hide new password" : "Show new password"}
               >
                 {showNewPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
               </button>
