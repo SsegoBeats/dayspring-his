@@ -20,6 +20,7 @@ export function EmailSettings() {
   const [otp, setOtp] = useState("")
   const [showOtpInput, setShowOtpInput] = useState(false)
   const [resendCooldown, setResendCooldown] = useState(0)
+  const [serverMessage, setServerMessage] = useState<string | null>(null)
 
   useEffect(() => {
     ;(async () => {
@@ -57,13 +58,15 @@ export function EmailSettings() {
         body: JSON.stringify({ email }),
       })
       
+      const d = await r.json().catch(() => ({}))
       if (r.ok) {
-        toast.success("Verification code sent to " + email)
+        setServerMessage(d?.message || `Verification code sent to ${email}`)
+        toast.success(d?.message || `Verification code sent to ${email}`)
         setShowOtpInput(true)
         setResendCooldown(60) // 60 second cooldown
         console.log("[OTP Frontend] OTP sent successfully, cooldown started (60 seconds)")
       } else {
-        const d = await r.json().catch(() => ({}))
+        setServerMessage(null)
         toast.error(d.error || "Failed to send verification code")
         if (process.env.NODE_ENV === "development") console.error("[OTP Frontend] Failed:", d.error)
       }
@@ -88,6 +91,7 @@ export function EmailSettings() {
       
       if (r.ok) {
         toast.success("Email verified successfully!")
+        setServerMessage(null)
         setShowOtpInput(false)
         setOtp("")
         setVerified(true)
@@ -101,6 +105,7 @@ export function EmailSettings() {
         }
       } else {
         const d = await r.json().catch(() => ({}))
+        setServerMessage(d?.error || null)
         if (process.env.NODE_ENV === "development") console.error("[OTP Frontend] Verification failed:", d.error)
         toast.error(d.error || "Invalid verification code")
       }
@@ -181,6 +186,9 @@ export function EmailSettings() {
             <p className="text-sm text-muted-foreground">
               Enter the 6-digit code sent to {email}
             </p>
+            {serverMessage && (
+              <p className="text-sm text-blue-700">{serverMessage}</p>
+            )}
           </div>
         )}
 

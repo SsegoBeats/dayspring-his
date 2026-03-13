@@ -3,8 +3,9 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { z } from "zod"
 import { query } from "@/lib/db"
+import { ensureEmailVerificationTable, getLatestActiveEmailVerificationToken } from "@/lib/email-verification"
 
-const Schema = z.object({ otp: z.string().length(6) })
+const Schema = z.object({ otp: z.string().trim().length(6) })
 
 export async function POST(req: Request) {
   const cookieStore = await cookies()
@@ -14,6 +15,7 @@ export async function POST(req: Request) {
 
   const body = await req.json()
   const { otp } = Schema.parse(body)
+  await ensureEmailVerificationTable()
 
   // Verify OTP - use UTC timestamps consistently
   const currentTimeUTC = new Date()
@@ -27,6 +29,15 @@ export async function POST(req: Request) {
   const row = rows[0]
   
   if (!row) {
+    const latest = await getLatestActiveEmailVerificationToken(auth.userId)
+    if (latest) {
+      return NextResponse.json(
+        {
+          error: "This verification code is no longer current. Use the latest code sent to your email or click Resend Code.",
+        },
+        { status: 400 },
+      )
+    }
     return NextResponse.json({ error: "Invalid verification code. Please request a new code." }, { status: 400 })
   }
 
@@ -48,7 +59,7 @@ export async function POST(req: Request) {
   const oldEmail = userRows[0]?.email || ""
 
   await query(`UPDATE users SET email = $1, email_verified_at = NOW() WHERE id = $2`, [row.new_email, auth.userId])
-  await query(`UPDATE email_verification_tokens SET used = true WHERE user_id = $1 AND token = $2`, [auth.userId, otp])
+  await query(`UPDATE email_verification_tokens SET used = true WHERE user_id = $1`, [auth.userId])
   await query(`INSERT INTO audit_logs (user_id, action, entity_type, details) VALUES ($1,$2,$3,$4)`, [auth.userId, "email_verified", "user", JSON.stringify({ new_email: row.new_email })])
 
   try {

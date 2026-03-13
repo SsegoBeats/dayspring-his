@@ -17,6 +17,7 @@ interface EmailVerificationModalProps {
 export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVerificationModalProps) {
   const [otp, setOtp] = useState("")
   const [verifying, setVerifying] = useState(false)
+  const [serverMessage, setServerMessage] = useState<string | null>(null)
   const sentOnOpen = useRef(false)
 
   useEffect(() => {
@@ -29,12 +30,14 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
       body: JSON.stringify({ email: userEmail }),
     })
       .then(async (r) => {
+        const d = await r.json().catch(() => ({}))
         if (r.ok) {
-          toast.success("Verification code sent to your email")
+          setServerMessage(d?.message || "Verification code sent to your email")
+          toast.success(d?.message || "Verification code sent to your email")
           return
         }
-        const d = await r.json().catch(() => ({}))
         sentOnOpen.current = false
+        setServerMessage(null)
         if (d?.reason === "provider_not_configured") {
           toast.error("Email service is not configured on the server")
           return
@@ -51,6 +54,7 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
       })
       .catch(() => {
         sentOnOpen.current = false
+        setServerMessage(null)
         toast.error("Failed to send verification code")
       })
   }, [isOpen, userEmail])
@@ -76,6 +80,7 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
         window.location.reload()
       } else {
         const data = await res.json().catch(() => ({}))
+        setServerMessage(data?.error || null)
         toast.error(data.error || "Invalid verification code")
       }
     } catch (error) {
@@ -95,10 +100,12 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
         body: JSON.stringify({ email: userEmail }),
       })
 
+      const data = await res.json().catch(() => ({}))
       if (res.ok) {
-        toast.success("Verification code sent to " + userEmail)
+        setServerMessage(data?.message || `Verification code sent to ${userEmail}`)
+        toast.success(data?.message || `Verification code sent to ${userEmail}`)
       } else {
-        const data = await res.json().catch(() => ({}))
+        setServerMessage(null)
         if (data?.reason === "provider_not_configured") {
           toast.error("Email service is not configured on the server")
           return
@@ -141,6 +148,9 @@ export function EmailVerificationModal({ isOpen, userName, userEmail }: EmailVer
                 <p className="text-sm text-blue-700 mt-1">
                   A verification code has been sent to your email address. Please check your inbox and enter the 6-digit code below.
                 </p>
+                {serverMessage && (
+                  <p className="mt-2 text-xs text-blue-800">{serverMessage}</p>
+                )}
               </div>
             </div>
           </div>

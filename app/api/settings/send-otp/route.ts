@@ -3,11 +3,10 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { z } from "zod"
 import { query } from "@/lib/db"
-import crypto from "crypto"
 import { sendEmailServer } from "@/lib/email-service"
 import { rateLimitPg } from "@/lib/rate-limit-pg"
 import { ORG_NAME, ORG_SUBTITLE, ORG_EMAIL, ORG_ADDRESS } from "@/lib/org-constants"
-import { ensureEmailVerificationTable } from "@/lib/email-verification"
+import { issueEmailVerificationToken } from "@/lib/email-verification"
 
 const Schema = z.object({ email: z.string().email() })
 
@@ -26,36 +25,18 @@ export async function POST(req: Request) {
     const body = await req.json()
     const { email } = Schema.parse(body)
 
-    await ensureEmailVerificationTable()
-
-    const expiresAt = new Date(Date.now() + 10 * 60 * 1000) // 10 minutes
-
-    // Keep the token table clean and reduce unique-token collision risk on legacy schemas.
-    await query(`DELETE FROM email_verification_tokens WHERE user_id = $1 OR used = true OR expires_at < NOW()`, [auth.userId])
-
-    let otp = ""
-    let inserted = false
-    for (let i = 0; i < 5; i++) {
-      otp = crypto.randomInt(100000, 999999).toString()
-      try {
-        await query(
-          `INSERT INTO email_verification_tokens (user_id, token, new_email, expires_at, used) 
-           VALUES ($1, $2, $3, $4, false)`,
-          [auth.userId, otp, email, expiresAt.toISOString()],
-        )
-        inserted = true
-        break
-      } catch (insertErr: any) {
-        if (insertErr?.code === "23505") continue
-        throw insertErr
-      }
-    }
-    if (!inserted) throw new Error("Could not generate a unique verification code. Please try again.")
+    const issued = await issueEmailVerificationToken({
+      userId: auth.userId,
+      email,
+      ttlMinutes: 10,
+    })
+    const otp = issued.token
 
     const { rows: userRows } = await query(`SELECT name, email, email_verified_at FROM users WHERE id = $1`, [auth.userId])
     const userName = userRows[0]?.name || "there"
     const currentEmail = (userRows[0]?.email || "").trim().toLowerCase()
-    const isInitialVerification = !userRows[0]?.email_verified_at && currentEmail === email.trim().toLowerCase()
+    const normalizedEmail = email.trim().toLowerCase()
+    const isInitialVerification = !userRows[0]?.email_verified_at && currentEmail === normalizedEmail
 
     const template = {
     subject: isInitialVerification
@@ -177,17 +158,19 @@ export async function POST(req: Request) {
     }
 
     // Send the email with the new code and fail fast if delivery failed.
-    const delivery = await sendEmailServer(email, template)
+    const delivery = await sendEmailServer(normalizedEmail, template)
     await query(`INSERT INTO audit_logs (user_id, action, entity_type, details) VALUES ($1,$2,$3,$4)`, [
       auth.userId,
       "otp_sent",
       "user",
-      JSON.stringify({ email, provider: delivery.provider, messageId: delivery.messageId || null }),
+      JSON.stringify({ email: normalizedEmail, provider: delivery.provider, messageId: delivery.messageId || null, reused: issued.reused }),
     ])
 
     return NextResponse.json({
       success: true,
-      message: "Verification code sent",
+      message: issued.reused ? "Active verification code re-sent" : "Verification code sent",
+      reused: issued.reused,
+      expiresAt: issued.expiresAt.toISOString(),
       delivery: { provider: delivery.provider, messageId: delivery.messageId || null },
     })
   } catch (err: any) {

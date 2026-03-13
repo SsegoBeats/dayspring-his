@@ -149,19 +149,16 @@ export async function POST(req: Request) {
   }
 
   // Ensure table exists, then store verification token for new user
-  const { ensureEmailVerificationTable } = await import('@/lib/email-verification')
-  await ensureEmailVerificationTable()
+  const { issueEmailVerificationToken } = await import('@/lib/email-verification')
 
   let otp: string | undefined
   try {
-    const crypto = await import('crypto')
-    otp = crypto.randomInt(100000, 999999).toString()
-    const expiresAt = new Date(Date.now() + 24 * 60 * 60 * 1000) // 24 hours for initial verification
-    await query(
-      `INSERT INTO email_verification_tokens (user_id, token, new_email, expires_at, used)
-       VALUES ($1, $2, $3, $4, false)`,
-      [userId, otp, input.email, expiresAt.toISOString()]
-    )
+    const issued = await issueEmailVerificationToken({
+      userId,
+      email: input.email,
+      ttlMinutes: 24 * 60,
+    })
+    otp = issued.token
   } catch (e) {
     otp = undefined
     if (process.env.NODE_ENV === 'development') console.warn('[User Creation] email_verification_tokens insert failed:', (e as Error)?.message)
