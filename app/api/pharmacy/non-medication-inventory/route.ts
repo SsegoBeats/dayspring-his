@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
-import { queryWithSession } from "@/lib/db"
+import { queryWithSession, withSession } from "@/lib/db"
 import {
   isValidNonMedicationCategory,
   isValidSubtypeForCategory,
@@ -116,74 +116,99 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "Invalid itemSubtype for this category" }, { status: 400 })
     }
 
-    const { rows } = await queryWithSession(
-      { role: auth.role, userId: auth.userId },
-      `INSERT INTO non_medication_inventory (
-         item_name,
-         item_type,
-         item_subtype,
-         description,
-         manufacturer,
-         model_number,
-         serial_number,
-         stock_quantity,
-         unit_of_measure,
-         unit_price,
-         cost_price,
-         reorder_level,
-         min_stock_level,
-         max_stock_level,
-         location,
-         barcode,
-         expiry_date,
-         last_restocked_at,
-         created_by
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
-       RETURNING id,
-                 item_name,
-                 item_type,
-                 item_subtype,
-                 description,
-                 manufacturer,
-                 model_number,
-                 serial_number,
-                 stock_quantity,
-                 unit_of_measure,
-                 unit_price,
-                 cost_price,
-                 reorder_level,
-                 min_stock_level,
-                 max_stock_level,
-                 location,
-                 barcode,
-                 expiry_date,
-                 last_restocked_at,
-                 created_at,
-                 updated_at`,
-      [
-        itemName,
-        itemType,
-        itemSubtype,
-        description,
-        manufacturer,
-        modelNumber,
-        serialNumber,
-        stockQuantity,
-        unitOfMeasure,
-        unitPrice,
-        costPrice,
-        reorderLevel,
-        minStockLevel,
-        maxStockLevel,
-        location,
-        barcode,
-        expiryDate,
-        stockQuantity > 0 ? new Date().toISOString() : null,
-        auth.userId,
-      ],
-    )
+    const item = await withSession({ role: auth.role, userId: auth.userId }, async (client) => {
+      const { rows } = await client.query(
+        `INSERT INTO non_medication_inventory (
+           item_name,
+           item_type,
+           item_subtype,
+           description,
+           manufacturer,
+           model_number,
+           serial_number,
+           stock_quantity,
+           unit_of_measure,
+           unit_price,
+           cost_price,
+           reorder_level,
+           min_stock_level,
+           max_stock_level,
+           location,
+           barcode,
+           expiry_date,
+           last_restocked_at,
+           created_by
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+         RETURNING id,
+                   item_name,
+                   item_type,
+                   item_subtype,
+                   description,
+                   manufacturer,
+                   model_number,
+                   serial_number,
+                   stock_quantity,
+                   unit_of_measure,
+                   unit_price,
+                   cost_price,
+                   reorder_level,
+                   min_stock_level,
+                   max_stock_level,
+                   location,
+                   barcode,
+                   expiry_date,
+                   last_restocked_at,
+                   created_at,
+                   updated_at`,
+        [
+          itemName,
+          itemType,
+          itemSubtype,
+          description,
+          manufacturer,
+          modelNumber,
+          serialNumber,
+          stockQuantity,
+          unitOfMeasure,
+          unitPrice,
+          costPrice,
+          reorderLevel,
+          minStockLevel,
+          maxStockLevel,
+          location,
+          barcode,
+          expiryDate,
+          stockQuantity > 0 ? new Date().toISOString() : null,
+          auth.userId,
+        ],
+      )
 
-    return NextResponse.json({ item: rows[0] }, { status: 201 })
+      const item = rows[0]
+
+      if (stockQuantity > 0) {
+        await client.query(
+          `INSERT INTO non_medication_stock_movements (
+             item_id,
+             movement_type,
+             quantity,
+             reference,
+             notes,
+             created_by
+           ) VALUES ($1, 'Receive', $2, $3, $4, $5)`,
+          [
+            item.id,
+            stockQuantity,
+            "Initial inventory setup",
+            "Opening stock captured when the item was created",
+            auth.userId,
+          ],
+        )
+      }
+
+      return item
+    })
+
+    return NextResponse.json({ item }, { status: 201 })
   } catch (err: any) {
     console.error("Error creating non-medication inventory item:", err)
     return NextResponse.json({ error: "Failed to create non-medication inventory item" }, { status: 500 })

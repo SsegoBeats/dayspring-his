@@ -67,6 +67,23 @@ test.describe("Admin portal smoke", () => {
     await expect(page.getByText("Dashboard error")).not.toBeVisible()
   })
 
+  test("inventory workspace highlights setup gaps and opens a constrained details dialog", async ({ page, baseURL }) => {
+    await page.goto(`${baseURL || ""}/admin?section=inventory`)
+    await expect(page.getByText("Inventory Control Studio")).toBeVisible()
+    await expect(page.getByText("Par levels configured")).toBeVisible()
+
+    await page.getByRole("button", { name: /Open workspace for/i }).first().click()
+
+    const dialog = page.getByRole("dialog")
+    await expect(dialog).toBeVisible()
+    await expect(page.getByText("Inventory workspace")).toBeVisible()
+    await expect(page.getByRole("tab", { name: "Edit record" })).toBeVisible()
+
+    const box = await dialog.boundingBox()
+    expect(box).not.toBeNull()
+    expect(box.width).toBeLessThan(1260)
+  })
+
   test("respects finance deep links for period and tab routing", async ({ page, baseURL }) => {
     await page.goto(`${baseURL || ""}/admin?section=financial&financialPeriod=90days&financialTab=departments`)
     await expect(page).toHaveURL(/\/admin\?section=financial&financialPeriod=90days&financialTab=departments/)
