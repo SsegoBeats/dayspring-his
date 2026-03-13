@@ -29,7 +29,7 @@ export async function GET(req: Request) {
   let idx = 1
 
   if (search) {
-    conditions.push(`(name ILIKE $${idx} OR email ILIKE $${idx})`)
+    conditions.push(`(name ILIKE $${idx} OR email ILIKE $${idx} OR role ILIKE $${idx})`)
     params.push(`%${search}%`)
     idx++
   }

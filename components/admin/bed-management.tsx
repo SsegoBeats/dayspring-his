@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useMemo } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
@@ -15,6 +16,7 @@ import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { formatPatientNumber } from "@/lib/patients"
 import { DropdownMenu, DropdownMenuTrigger, DropdownMenuContent, DropdownMenuItem } from "@/components/ui/dropdown-menu"
+import { buildSearchParamsString } from "@/lib/search-params"
 
 interface Bed {
   id: string
@@ -102,6 +104,9 @@ const COMMON_EQUIPMENT = [
 
 export function BedManagement() {
   const { user } = useAuth()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [beds, setBeds] = useState<Bed[]>([])
   const [summary, setSummary] = useState<BedSummary>({
     total: 0,
@@ -135,17 +140,25 @@ export function BedManagement() {
   const [transferNotes, setTransferNotes] = useState("")
 
   // Search and filter state
-  const [searchTerm, setSearchTerm] = useState("")
-  const [filters, setFilters] = useState({
-    status: "",
-    ward: "",
-    bedType: "",
-    equipment: "",
-    hasPatient: ""
-  })
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get("bedSearch") ?? "")
+  const [filters, setFilters] = useState(() => ({
+    status: searchParams.get("bedStatus") ?? "",
+    ward: searchParams.get("bedWard") ?? "",
+    bedType: searchParams.get("bedType") ?? "",
+    equipment: searchParams.get("bedEquipment") ?? "",
+    hasPatient: searchParams.get("bedAssignment") ?? "",
+  }))
   const [sortBy, setSortBy] = useState<"bedNumber" | "ward" | "status" | "bedType" | "createdAt">("bedNumber")
   const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
-  const [showFilters, setShowFilters] = useState(false)
+  const [showFilters, setShowFilters] = useState(() =>
+    Boolean(
+      searchParams.get("bedStatus") ||
+      searchParams.get("bedWard") ||
+      searchParams.get("bedType") ||
+      searchParams.get("bedEquipment") ||
+      searchParams.get("bedAssignment"),
+    ),
+  )
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(12)
 
@@ -191,6 +204,42 @@ export function BedManagement() {
       setLoading(false)
     }
   }
+
+  useEffect(() => {
+    const nextSearchTerm = searchParams.get("bedSearch") ?? ""
+    const nextFilters = {
+      status: searchParams.get("bedStatus") ?? "",
+      ward: searchParams.get("bedWard") ?? "",
+      bedType: searchParams.get("bedType") ?? "",
+      equipment: searchParams.get("bedEquipment") ?? "",
+      hasPatient: searchParams.get("bedAssignment") ?? "",
+    }
+
+    setSearchTerm((prev) => (prev === nextSearchTerm ? prev : nextSearchTerm))
+    setFilters((prev) =>
+      prev.status === nextFilters.status &&
+      prev.ward === nextFilters.ward &&
+      prev.bedType === nextFilters.bedType &&
+      prev.equipment === nextFilters.equipment &&
+      prev.hasPatient === nextFilters.hasPatient
+        ? prev
+        : nextFilters,
+    )
+  }, [searchParams])
+
+  useEffect(() => {
+    const query = buildSearchParamsString(searchParams, {
+      bedSearch: searchTerm || null,
+      bedStatus: filters.status || null,
+      bedWard: filters.ward || null,
+      bedType: filters.bedType || null,
+      bedEquipment: filters.equipment || null,
+      bedAssignment: filters.hasPatient || null,
+    })
+    const current = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname
+    const target = query ? `${pathname}?${query}` : pathname
+    if (target !== current) router.replace(target, { scroll: false })
+  }, [filters.bedType, filters.equipment, filters.hasPatient, filters.status, filters.ward, pathname, router, searchParams, searchTerm])
 
   useEffect(() => {
     fetchBeds()
@@ -1382,7 +1431,7 @@ export function BedManagement() {
                 {!bed.patient && bed.lastAssignment && (
                   <div className="p-2 bg-muted rounded">
                     <p className="text-xs text-muted-foreground">
-                      Last: {bed.lastAssignment.patientName || 'Unknown'} - {new Date(bed.lastAssignment.assignedAt).toLocaleString()} {bed.lastAssignment.dischargeDate ? `→ ${new Date(bed.lastAssignment.dischargeDate).toLocaleString()}` : ''}
+                      Last: {bed.lastAssignment.patientName || "Unknown"} - {new Date(bed.lastAssignment.assignedAt).toLocaleString()} {bed.lastAssignment.dischargeDate ? `-> ${new Date(bed.lastAssignment.dischargeDate).toLocaleString()}` : ""}
                     </p>
                   </div>
                 )}

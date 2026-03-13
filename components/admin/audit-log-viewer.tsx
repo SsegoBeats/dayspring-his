@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect, useCallback } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { useAudit, type AuditAction, type AuditCategory } from "@/lib/audit-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
@@ -13,13 +14,59 @@ import { Download, Search, RefreshCw, AlertCircle, Loader2, Trash2, Settings, Ba
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
 import { toast } from "sonner"
+import { buildSearchParamsString } from "@/lib/search-params"
+
+const AUDIT_CATEGORIES = [
+  "AUTHENTICATION",
+  "PATIENT",
+  "APPOINTMENT",
+  "CONSULTATION",
+  "PRESCRIPTION",
+  "LAB_TEST",
+  "RADIOLOGY",
+  "BILLING",
+  "PAYMENT",
+  "PHARMACY",
+  "NURSING",
+  "USER_MANAGEMENT",
+  "SYSTEM",
+] as const
+
+const AUDIT_ACTIONS = [
+  "CREATE",
+  "UPDATE",
+  "DELETE",
+  "VIEW",
+  "LOGIN",
+  "LOGOUT",
+  "LOGIN_FAILED",
+  "EXPORT",
+  "APPROVE",
+  "REJECT",
+] as const
+
+const AUDIT_RANGES = ["today", "week", "month", "all"] as const
 
 export function AuditLogViewer() {
-  const { logs, loading, error, getLogs, exportLogs, refreshLogs } = useAudit()
-  const [search, setSearch] = useState("")
-  const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "ALL">("ALL")
-  const [actionFilter, setActionFilter] = useState<AuditAction | "ALL">("ALL")
-  const [dateRange, setDateRange] = useState<"today" | "week" | "month" | "all">("week")
+  const { logs, loading, error, getLogs, exportLogs } = useAudit()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [search, setSearch] = useState(() => searchParams.get("auditSearch") ?? "")
+  const [categoryFilter, setCategoryFilter] = useState<AuditCategory | "ALL">(() => {
+    const value = searchParams.get("auditCategory")
+    return value && AUDIT_CATEGORIES.includes(value as AuditCategory) ? (value as AuditCategory) : "ALL"
+  })
+  const [actionFilter, setActionFilter] = useState<AuditAction | "ALL">(() => {
+    const value = searchParams.get("auditAction")
+    return value && AUDIT_ACTIONS.includes(value as AuditAction) ? (value as AuditAction) : "ALL"
+  })
+  const [dateRange, setDateRange] = useState<"today" | "week" | "month" | "all">(() => {
+    const value = searchParams.get("auditRange")
+    return value && AUDIT_RANGES.includes(value as (typeof AUDIT_RANGES)[number])
+      ? (value as "today" | "week" | "month" | "all")
+      : "week"
+  })
   const [showManagement, setShowManagement] = useState(false)
   const [cleanupDays, setCleanupDays] = useState(30)
   const [managementLoading, setManagementLoading] = useState(false)
@@ -31,6 +78,39 @@ export function AuditLogViewer() {
   const [selectedLog, setSelectedLog] = useState<any | null>(null)
   const [autoRefresh, setAutoRefresh] = useState(true)
   const limit = 50
+
+  useEffect(() => {
+    const nextSearch = searchParams.get("auditSearch") ?? ""
+    const nextCategoryValue = searchParams.get("auditCategory")
+    const nextActionValue = searchParams.get("auditAction")
+    const nextRangeValue = searchParams.get("auditRange")
+    const nextCategory = nextCategoryValue && AUDIT_CATEGORIES.includes(nextCategoryValue as AuditCategory)
+      ? (nextCategoryValue as AuditCategory)
+      : "ALL"
+    const nextAction = nextActionValue && AUDIT_ACTIONS.includes(nextActionValue as AuditAction)
+      ? (nextActionValue as AuditAction)
+      : "ALL"
+    const nextRange = nextRangeValue && AUDIT_RANGES.includes(nextRangeValue as (typeof AUDIT_RANGES)[number])
+      ? (nextRangeValue as "today" | "week" | "month" | "all")
+      : "week"
+
+    setSearch((prev) => (prev === nextSearch ? prev : nextSearch))
+    setCategoryFilter((prev) => (prev === nextCategory ? prev : nextCategory))
+    setActionFilter((prev) => (prev === nextAction ? prev : nextAction))
+    setDateRange((prev) => (prev === nextRange ? prev : nextRange))
+  }, [searchParams])
+
+  useEffect(() => {
+    const query = buildSearchParamsString(searchParams, {
+      auditSearch: search || null,
+      auditCategory: categoryFilter === "ALL" ? null : categoryFilter,
+      auditAction: actionFilter === "ALL" ? null : actionFilter,
+      auditRange: dateRange === "week" ? null : dateRange,
+    })
+    const current = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname
+    const target = query ? `${pathname}?${query}` : pathname
+    if (target !== current) router.replace(target, { scroll: false })
+  }, [actionFilter, categoryFilter, dateRange, pathname, router, search, searchParams])
 
   useEffect(() => {
     if (!autoRefresh) return
@@ -639,6 +719,5 @@ export function AuditLogViewer() {
     </Card>
   )
 }
-
 
 

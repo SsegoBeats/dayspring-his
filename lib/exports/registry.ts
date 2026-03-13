@@ -89,6 +89,7 @@ import { ReceptionDailyDataset } from "@/lib/exports/datasets/reception-daily"
 import { ObstetricsDataset } from "@/lib/exports/datasets/obstetrics"
 import { DentalDataset } from "@/lib/exports/datasets/dental"
 import { RadiologyLabTestsDataset } from "@/lib/exports/datasets/radiology-lab-tests"
+import { UsersDataset } from "@/lib/exports/datasets/users"
 
 export const Datasets: Record<string, Dataset> = {
   appointments: new AppointmentsDataset(),
@@ -97,6 +98,7 @@ export const Datasets: Record<string, Dataset> = {
   radiology: new RadiologyDataset(),
   radiology_lab_tests: new RadiologyLabTestsDataset(),
   patients: new PatientsDataset(),
+  users: new UsersDataset(),
   pharmacy: new PharmacyDataset(),
   bed_assignments: new BedAssignmentsDataset(),
   payments: new PaymentsDataset(),

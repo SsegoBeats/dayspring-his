@@ -3,13 +3,15 @@
 import type React from "react"
 
 import { useState, useEffect, useMemo } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { useAdmin, type SystemUser, type UserRole } from "@/lib/admin-context"
 import { useFormatDate } from "@/lib/date-utils"
-import { Plus, Search, Edit, Trash2, Eye, EyeOff, Loader2, Filter, X, ChevronDown, ChevronUp, SortAsc, SortDesc, Users, UserCheck, UserX, Calendar, BarChart3, Activity, UserCircle2, CheckSquare, Square } from "lucide-react"
+import { buildSearchParamsString } from "@/lib/search-params"
+import { Plus, Search, Edit, Trash2, Eye, EyeOff, Loader2, Filter, X, ChevronDown, ChevronUp, SortAsc, SortDesc, Users, UserCheck, UserX, BarChart3, Activity, CheckSquare, Square, Download, FileSpreadsheet, FileText } from "lucide-react"
 import {
   Dialog,
   DialogContent,
@@ -20,6 +22,7 @@ import {
 } from "@/components/ui/dialog"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { toast } from "sonner"
 
 interface UserSummary {
@@ -43,16 +46,23 @@ const ROLES_FOR_FILTER: UserRole[] = [
     "Receptionist", "Lab Tech", "Radiologist", "Pharmacist", "Cashier",
   ]
 
+const USER_SORT_FIELDS = ["name", "email", "role", "status", "createdAt", "lastLogin"] as const
+type UserSortField = (typeof USER_SORT_FIELDS)[number]
+
 export function UserManagement() {
   const { users, total, summary, loading, fetchUsers, addUser, updateUser, deleteUser } = useAdmin()
   const { formatDate } = useFormatDate()
-  const [searchTerm, setSearchTerm] = useState("")
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [searchTerm, setSearchTerm] = useState(() => searchParams.get("userSearch") ?? "")
   const [isAddDialogOpen, setIsAddDialogOpen] = useState(false)
   const [editingUser, setEditingUser] = useState<SystemUser | null>(null)
   const [showAddPassword, setShowAddPassword] = useState(false)
   const [showEditPassword, setShowEditPassword] = useState(false)
   const [formLoading, setFormLoading] = useState(false)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [exportingFormat, setExportingFormat] = useState<"csv" | "xlsx" | "pdf" | null>(null)
   const [selectedIds, setSelectedIds] = useState<Set<string>>(new Set())
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkRoleDialogOpen, setBulkRoleDialogOpen] = useState(false)
@@ -61,15 +71,25 @@ export function UserManagement() {
   const [editRole, setEditRole] = useState<string>("")
   const [editStatus, setEditStatus] = useState<string>("active")
 
-  const [filters, setFilters] = useState({
-    role: "",
-    status: "",
-    createdAfter: "",
-    createdBefore: ""
+  const [filters, setFilters] = useState(() => ({
+    role: searchParams.get("userRole") ?? "",
+    status: searchParams.get("userStatus") ?? "",
+    createdAfter: searchParams.get("userCreatedAfter") ?? "",
+    createdBefore: searchParams.get("userCreatedBefore") ?? "",
+  }))
+  const [sortBy, setSortBy] = useState<UserSortField>(() => {
+    const value = searchParams.get("userSortBy")
+    return USER_SORT_FIELDS.includes(value as UserSortField) ? (value as UserSortField) : "name"
   })
-  const [sortBy, setSortBy] = useState<"name" | "email" | "role" | "status" | "createdAt" | "lastLogin">("name")
-  const [sortOrder, setSortOrder] = useState<"asc" | "desc">("asc")
-  const [showFilters, setShowFilters] = useState(false)
+  const [sortOrder, setSortOrder] = useState<"asc" | "desc">(() => (searchParams.get("userSortOrder") === "desc" ? "desc" : "asc"))
+  const [showFilters, setShowFilters] = useState(() =>
+    Boolean(
+      searchParams.get("userRole") ||
+      searchParams.get("userStatus") ||
+      searchParams.get("userCreatedAfter") ||
+      searchParams.get("userCreatedBefore"),
+    ),
+  )
   const [currentPage, setCurrentPage] = useState(1)
   const [itemsPerPage] = useState(10)
 
@@ -88,6 +108,48 @@ export function UserManagement() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, filters, sortBy, sortOrder])
+
+  useEffect(() => {
+    const nextSearchTerm = searchParams.get("userSearch") ?? ""
+    const nextFilters = {
+      role: searchParams.get("userRole") ?? "",
+      status: searchParams.get("userStatus") ?? "",
+      createdAfter: searchParams.get("userCreatedAfter") ?? "",
+      createdBefore: searchParams.get("userCreatedBefore") ?? "",
+    }
+    const nextSortByValue = searchParams.get("userSortBy")
+    const nextSortBy = USER_SORT_FIELDS.includes(nextSortByValue as UserSortField)
+      ? (nextSortByValue as UserSortField)
+      : "name"
+    const nextSortOrder = searchParams.get("userSortOrder") === "desc" ? "desc" : "asc"
+
+    setSearchTerm((prev) => (prev === nextSearchTerm ? prev : nextSearchTerm))
+    setFilters((prev) =>
+      prev.role === nextFilters.role &&
+      prev.status === nextFilters.status &&
+      prev.createdAfter === nextFilters.createdAfter &&
+      prev.createdBefore === nextFilters.createdBefore
+        ? prev
+        : nextFilters,
+    )
+    setSortBy((prev) => (prev === nextSortBy ? prev : nextSortBy))
+    setSortOrder((prev) => (prev === nextSortOrder ? prev : nextSortOrder))
+  }, [searchParams])
+
+  useEffect(() => {
+    const query = buildSearchParamsString(searchParams, {
+      userSearch: searchTerm || null,
+      userRole: filters.role || null,
+      userStatus: filters.status || null,
+      userCreatedAfter: filters.createdAfter || null,
+      userCreatedBefore: filters.createdBefore || null,
+      userSortBy: sortBy === "name" ? null : sortBy,
+      userSortOrder: sortOrder === "asc" ? null : sortOrder,
+    })
+    const current = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname
+    const target = query ? `${pathname}?${query}` : pathname
+    if (target !== current) router.replace(target, { scroll: false })
+  }, [filters.createdAfter, filters.createdBefore, filters.role, filters.status, pathname, router, searchParams, searchTerm, sortBy, sortOrder])
 
   useEffect(() => {
     fetchUsers({
@@ -249,6 +311,50 @@ export function UserManagement() {
     }
   }
 
+  const exportUsers = async (format: "csv" | "xlsx" | "pdf") => {
+    try {
+      setExportingFormat(format)
+      const response = await fetch("/api/exports/direct", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          dataset: "users",
+          format,
+          filters: {
+            search: searchTerm || undefined,
+            role: filters.role || undefined,
+            status: filters.status || undefined,
+            createdAfter: filters.createdAfter ? `${filters.createdAfter}T00:00:00.000Z` : undefined,
+            createdBefore: filters.createdBefore ? `${filters.createdBefore}T23:59:59.999Z` : undefined,
+            sortBy,
+            sortOrder,
+          },
+        }),
+      })
+
+      if (!response.ok) {
+        const data = await response.json().catch(() => ({}))
+        throw new Error(data.error || "Failed to export users")
+      }
+
+      const blob = await response.blob()
+      const url = URL.createObjectURL(blob)
+      const anchor = document.createElement("a")
+      anchor.href = url
+      anchor.download = `system-users-${new Date().toISOString().split("T")[0]}.${format}`
+      document.body.appendChild(anchor)
+      anchor.click()
+      document.body.removeChild(anchor)
+      URL.revokeObjectURL(url)
+      toast.success(`User directory exported as ${format.toUpperCase()}`)
+    } catch (error: any) {
+      toast.error(error?.message || "Failed to export users")
+    } finally {
+      setExportingFormat(null)
+    }
+  }
+
   const getRoleBadgeColor = (role: UserRole) => {
     const colors: Record<UserRole, string> = {
       "Hospital Admin": "bg-purple-100 text-purple-800",
@@ -380,7 +486,7 @@ export function UserManagement() {
                           <span className="font-medium">{u.name}</span> was added as <span className="font-medium">{u.role}</span>.
                         </p>
                         <p className="text-[10px] text-muted-foreground">
-                          Created {formatDate(u.createdAt)}{u.lastLogin ? ` · Last login ${formatDate(u.lastLogin)}` : ''}
+                          Created {formatDate(u.createdAt)}{u.lastLogin ? ` - Last login ${formatDate(u.lastLogin)}` : ""}
                         </p>
                       </div>
                     </div>
@@ -537,19 +643,45 @@ export function UserManagement() {
       </Card>
 
       {/* Add User Button */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">User Management</h2>
-        <Dialog 
-          open={isAddDialogOpen} 
-          onOpenChange={(open) => {
-            setIsAddDialogOpen(open)
-            if (!open) {
-              setShowAddPassword(false)
-            } else {
-              setAddRole("Receptionist")
-            }
-          }}
-        >
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+        <div>
+          <h2 className="text-2xl font-bold tracking-tight">User Management</h2>
+          <p className="text-sm text-muted-foreground">Provision staff accounts, enforce role coverage, and export the current directory.</p>
+        </div>
+        <div className="flex flex-wrap items-center gap-2">
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" disabled={loading || total === 0 || Boolean(exportingFormat)}>
+                <Download className="mr-2 h-4 w-4" />
+                {exportingFormat ? `Exporting ${exportingFormat.toUpperCase()}...` : "Export"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportUsers("csv")} disabled={Boolean(exportingFormat)}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportUsers("xlsx")} disabled={Boolean(exportingFormat)}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Export as Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportUsers("pdf")} disabled={Boolean(exportingFormat)}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
+          <Dialog
+            open={isAddDialogOpen}
+            onOpenChange={(open) => {
+              setIsAddDialogOpen(open)
+              if (!open) {
+                setShowAddPassword(false)
+              } else {
+                setAddRole("Receptionist")
+              }
+            }}
+          >
           <DialogTrigger asChild>
             <Button>
               <Plus className="mr-2 h-4 w-4" />
@@ -642,6 +774,7 @@ export function UserManagement() {
             </form>
           </DialogContent>
         </Dialog>
+        </div>
       </div>
 
       {/* Users List */}
@@ -772,7 +905,7 @@ export function UserManagement() {
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                     <p className="text-xs text-muted-foreground">
                       Created: {formatDate(new Date(user.createdAt))}
-                      {user.lastLogin && ` • Last login: ${formatDate(new Date(user.lastLogin))}`}
+                      {user.lastLogin && ` - Last login: ${formatDate(new Date(user.lastLogin))}`}
                     </p>
                   </div>
                   <div className="flex gap-2">
@@ -962,4 +1095,3 @@ export function UserManagement() {
     </div>
   )
 }
-

@@ -1,11 +1,13 @@
 "use client"
 
 import React, { useState, useEffect, useMemo } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuTrigger } from "@/components/ui/dropdown-menu"
 import { 
   DollarSign, 
   TrendingUp, 
@@ -13,8 +15,9 @@ import {
   CreditCard, 
   AlertCircle, 
   Download,
+  FileSpreadsheet,
+  FileText,
   RefreshCw,
-  Calendar,
   Users,
   Activity,
   BarChart3,
@@ -30,16 +33,15 @@ import {
   Pie,
   PieChart as RePieChart,
   Cell,
-  ResponsiveContainer,
   XAxis,
   YAxis,
   CartesianGrid,
   Tooltip,
-  Legend
 } from "recharts"
-import { ChartContainer, ChartTooltip, ChartTooltipContent } from "@/components/ui/chart"
+import { ChartTooltipContent } from "@/components/ui/chart"
 import { ExportPdfButton } from "@/components/reports/ExportPdfButton"
 import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
+import { buildSearchParamsString } from "@/lib/search-params"
 
 // Custom chart container that bypasses ResponsiveContainer issues
 const FixedChartContainer = ({ 
@@ -141,15 +143,54 @@ interface FinancialData {
   patientVisits: PatientVisit[]
 }
 
+const FINANCIAL_PERIODS = ["7days", "30days", "90days"] as const
+const FINANCIAL_TABS = ["revenue", "departments", "payments", "services", "visits"] as const
+
 export function FinancialReports() {
   const formatCurrency = useFormatCurrency()
   const { formatDate } = useFormatDate()
-  const [period, setPeriod] = useState<"7days" | "30days" | "90days">("30days")
-  const [activeTab, setActiveTab] = useState("revenue")
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
+  const [period, setPeriod] = useState<"7days" | "30days" | "90days">(() => {
+    const value = searchParams.get("financialPeriod")
+    return value && FINANCIAL_PERIODS.includes(value as (typeof FINANCIAL_PERIODS)[number])
+      ? (value as "7days" | "30days" | "90days")
+      : "30days"
+  })
+  const [activeTab, setActiveTab] = useState(() => {
+    const value = searchParams.get("financialTab")
+    return value && FINANCIAL_TABS.includes(value as (typeof FINANCIAL_TABS)[number]) ? value : "revenue"
+  })
   const [data, setData] = useState<FinancialData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
+  const [exportingFormat, setExportingFormat] = useState<"csv" | "xlsx" | "pdf" | null>(null)
+
+  useEffect(() => {
+    const nextPeriodValue = searchParams.get("financialPeriod")
+    const nextTabValue = searchParams.get("financialTab")
+    const nextPeriod = nextPeriodValue && FINANCIAL_PERIODS.includes(nextPeriodValue as (typeof FINANCIAL_PERIODS)[number])
+      ? (nextPeriodValue as "7days" | "30days" | "90days")
+      : "30days"
+    const nextTab = nextTabValue && FINANCIAL_TABS.includes(nextTabValue as (typeof FINANCIAL_TABS)[number])
+      ? nextTabValue
+      : "revenue"
+
+    setPeriod((prev) => (prev === nextPeriod ? prev : nextPeriod))
+    setActiveTab((prev) => (prev === nextTab ? prev : nextTab))
+  }, [searchParams])
+
+  useEffect(() => {
+    const query = buildSearchParamsString(searchParams, {
+      financialPeriod: period === "30days" ? null : period,
+      financialTab: activeTab === "revenue" ? null : activeTab,
+    })
+    const current = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname
+    const target = query ? `${pathname}?${query}` : pathname
+    if (target !== current) router.replace(target, { scroll: false })
+  }, [activeTab, pathname, period, router, searchParams])
 
   const fetchFinancialData = async () => {
     try {
@@ -220,6 +261,7 @@ export function FinancialReports() {
     if (!data) return
     
     try {
+      setExportingFormat(format)
       const response = await fetch('/api/exports/direct', {
         method: 'POST',
         headers: {
@@ -264,6 +306,8 @@ export function FinancialReports() {
         description: err.message || "Failed to export financial report",
         variant: "destructive"
       })
+    } finally {
+      setExportingFormat(null)
     }
   }
 
@@ -367,15 +411,28 @@ export function FinancialReports() {
             <RefreshCw className={`h-4 w-4 mr-2 ${loading ? 'animate-spin' : ''}`} />
             Refresh
           </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => exportData('csv')}
-            title="Export billing transactions as CSV for this period"
-          >
-            <Download className="h-4 w-4 mr-2" />
-            Export CSV
-          </Button>
+          <DropdownMenu>
+            <DropdownMenuTrigger asChild>
+              <Button variant="outline" size="sm" disabled={Boolean(exportingFormat)}>
+                <Download className="mr-2 h-4 w-4" />
+                {exportingFormat ? `Exporting ${exportingFormat.toUpperCase()}...` : "Export Data"}
+              </Button>
+            </DropdownMenuTrigger>
+            <DropdownMenuContent align="end">
+              <DropdownMenuItem onClick={() => exportData("csv")} disabled={Boolean(exportingFormat)}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as CSV
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportData("xlsx")} disabled={Boolean(exportingFormat)}>
+                <FileSpreadsheet className="mr-2 h-4 w-4" />
+                Export as Excel
+              </DropdownMenuItem>
+              <DropdownMenuItem onClick={() => exportData("pdf")} disabled={Boolean(exportingFormat)}>
+                <FileText className="mr-2 h-4 w-4" />
+                Export as PDF
+              </DropdownMenuItem>
+            </DropdownMenuContent>
+          </DropdownMenu>
           {data && (
             <ExportPdfButton
               size="sm"

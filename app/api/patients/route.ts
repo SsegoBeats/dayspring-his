@@ -188,7 +188,15 @@ export async function GET(req: Request) {
       const params: any[] = []
       let idx = 1
       if (q) {
-        where.push(`(first_name ILIKE $${idx} OR last_name ILIKE $${idx} OR patient_number ILIKE $${idx} OR phone ILIKE $${idx})`)
+        where.push(`(
+          first_name ILIKE $${idx}
+          OR last_name ILIKE $${idx}
+          OR patient_number ILIKE $${idx}
+          OR phone ILIKE $${idx}
+          OR COALESCE(next_of_kin_name, '') ILIKE $${idx}
+          OR COALESCE(next_of_kin_first_name, '') ILIKE $${idx}
+          OR COALESCE(next_of_kin_last_name, '') ILIKE $${idx}
+        )`)
         params.push(`%${q}%`)
         idx++
       }
@@ -216,7 +224,15 @@ export async function GET(req: Request) {
       idx++
     }
     if (q) {
-      whereParts.push(`(p.first_name ILIKE $${idx} OR p.last_name ILIKE $${idx} OR p.patient_number ILIKE $${idx} OR p.phone ILIKE $${idx})`)
+      whereParts.push(`(
+        p.first_name ILIKE $${idx}
+        OR p.last_name ILIKE $${idx}
+        OR p.patient_number ILIKE $${idx}
+        OR p.phone ILIKE $${idx}
+        OR COALESCE(p.next_of_kin_name, '') ILIKE $${idx}
+        OR COALESCE(p.next_of_kin_first_name, '') ILIKE $${idx}
+        OR COALESCE(p.next_of_kin_last_name, '') ILIKE $${idx}
+      )`)
       params.push(`%${q}%`)
       idx++
     }
@@ -590,4 +606,3 @@ export async function PATCH(req: Request) {
     return NextResponse.json({ error: "Failed to update patient" }, { status: 500 })
   }
 }
-

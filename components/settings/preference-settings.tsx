@@ -321,6 +321,17 @@ export function PreferenceSettings() {
   const [loading, setLoading] = useState(true)
   const normalizedRole = (user?.role || "").toLowerCase()
   const portalHomeOptions = useMemo(() => {
+    if (normalizedRole === "hospital admin" || normalizedRole === "admin") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "admin-users", label: "User Management" },
+        { value: "admin-beds", label: "Bed Management" },
+        { value: "admin-patients", label: "Patient Management" },
+        { value: "admin-financial", label: "Financial Reports" },
+        { value: "admin-audit", label: "Audit Trail" },
+        { value: "admin-inventory", label: "Non-Medication Inventory" },
+      ]
+    }
     if (normalizedRole === "radiologist") {
       return [
         { value: "overview", label: "Overview" },

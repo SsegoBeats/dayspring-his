@@ -1,14 +1,16 @@
 "use client"
 
-import { useEffect, Suspense } from "react"
+import { Suspense, useEffect } from "react"
+import { useRouter } from "next/navigation"
 import { SettingsLayout } from "@/components/settings/settings-layout"
 import { EmailSettings } from "@/components/settings/email-settings"
 import { PasswordSettings } from "@/components/settings/password-settings"
 import { ProfileSettings, NotificationSettings, PreferenceSettings } from "@/components/settings/preference-settings"
 import { OrgSettings } from "@/components/settings/org-settings"
-import { Settings, Mail, Lock, User, Bell, Palette } from "lucide-react"
+import { Settings } from "lucide-react"
 import { toast } from "sonner"
 import { useSearchParams } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 
 function SettingsContent() {
   const searchParams = useSearchParams()
@@ -39,6 +41,35 @@ function SettingsContent() {
 }
 
 export default function AdminSettingsPage() {
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!user) {
+      router.replace("/")
+      return
+    }
+
+    const normalizedRole = (user.role || "").toLowerCase()
+    if (normalizedRole !== "hospital admin" && normalizedRole !== "admin") {
+      router.replace("/settings")
+    }
+  }, [isLoading, router, user])
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-muted-foreground">Loading settings...</div>
+      </div>
+    )
+  }
+
+  const normalizedRole = (user.role || "").toLowerCase()
+  if (normalizedRole !== "hospital admin" && normalizedRole !== "admin") {
+    return null
+  }
+
   return (
     <Suspense fallback={<div className="flex min-h-screen items-center justify-center">Loading settings...</div>}>
       <SettingsContent />

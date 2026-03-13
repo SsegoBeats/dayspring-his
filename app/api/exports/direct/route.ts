@@ -20,6 +20,7 @@ const Schema = z.object({
     "labs",
     "billing",
     "patients",
+    "users",
     "radiology",
     "radiology_lab_tests",
     "pharmacy",
@@ -65,7 +66,7 @@ export async function POST(req: Request) {
     const extraInfoBase: Record<string,string> | undefined = (() => {
       const f: any = parsedFilters || {}
       const info: Record<string,string> = {}
-      if (f.from || f.to) info['Period'] = `${toDate(f.from)} – ${toDate(f.to)}`
+      if (f.from || f.to) info['Period'] = `${toDate(f.from)} - ${toDate(f.to)}`
       if (typeof f.status === 'string' && f.status) info['Status'] = f.status
       if (input.dataset === 'bed_assignments' && f.ward) info['Ward'] = f.ward
       if (input.dataset === 'payments' && typeof f.method === 'string' && f.method) info['Method'] = f.method
@@ -200,8 +201,8 @@ export async function POST(req: Request) {
           if (input.dataset === 'reception_daily') {
             const departments: Record<string, any[]> = {}
             for (const r of rows as any[]) {
-              if (typeof r.section === 'string' && r.section.startsWith('Department — ')) {
-                const name = r.section.replace('Department — ', '')
+              if (typeof r.section === 'string' && r.section.startsWith('Department - ')) {
+                const name = r.section.replace('Department - ', '')
                 if (!departments[name]) departments[name] = []
                 departments[name].push({ metric: r.metric, value: r.value })
               }
@@ -210,8 +211,8 @@ export async function POST(req: Request) {
           } else if (input.dataset === 'reception_dashboard' || input.dataset === 'reception_register' || input.dataset === 'reception_register_detailed') {
             const departments: Record<string, any[]> = {}
             for (const r of rows as any[]) {
-              if (typeof r.section === 'string' && r.section.startsWith('Department — ')) {
-                const name = r.section.replace('Department — ', '')
+              if (typeof r.section === 'string' && r.section.startsWith('Department - ')) {
+                const name = r.section.replace('Department - ', '')
                 if (!departments[name]) departments[name] = []
                 departments[name].push({ metric: r.metric, value: r.value })
               }
@@ -281,7 +282,7 @@ export async function POST(req: Request) {
             return base
           })()
           // Standardize PDF title to include org + dataset for all exports
-          const pdfTitle = `${ORG_NAME} — ${reportTitle}`
+          const pdfTitle = `${ORG_NAME} - ${reportTitle}`
           // For reception register/dashboard/daily, enrich meta with quick totals
           let pdfMeta = meta
           try {
@@ -409,7 +410,5 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Failed to generate export" }, { status: 500 })
   }
 }
-
-
 
 

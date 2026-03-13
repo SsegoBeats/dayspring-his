@@ -1,33 +1,46 @@
-# Radiology Portal Smoke Tests
+# Portal Smoke Tests
 
-These Playwright smoke tests focus on the radiologist workflow:
+These Playwright smoke suites cover the main clinical/admin portals:
 
-- dashboard and worklist load
-- radiologist settings expose radiology-specific defaults
-- an existing study can be opened from the worklist
-- external imaging upload flow works when fixture inputs are available
+- Admin: dashboard drill-downs, finance deep links, admin settings defaults, URL-synced user filters
+- Lab: operations hub, lab settings defaults, queue-to-detail navigation
+- Radiology: command desk, radiology settings defaults, worklist navigation, optional upload flow
 
-Required environment variables:
+Required environment variables by suite:
 
-- `E2E_RADIOLOGIST_EMAIL`
-- `E2E_RADIOLOGIST_PASSWORD`
+- Admin:
+  - `E2E_ADMIN_EMAIL`
+  - `E2E_ADMIN_PASSWORD`
+- Lab:
+  - `E2E_LAB_TECH_EMAIL`
+  - `E2E_LAB_TECH_PASSWORD`
+- Radiology:
+  - `E2E_RADIOLOGIST_EMAIL`
+  - `E2E_RADIOLOGIST_PASSWORD`
 
-Optional upload coverage variables:
+Optional radiology upload variables:
 
 - `E2E_RADIOLOGY_UPLOAD_PATIENT_QUERY`
 - `E2E_RADIOLOGY_UPLOAD_FILE`
+
+Shared optional variables:
+
 - `E2E_BASE_URL`
 - `PLAYWRIGHT_SKIP_WEBSERVER`
 
 Run:
 
 ```bash
+npm run test:e2e:admin
+npm run test:e2e:lab
 npm run test:e2e:radiology
 ```
 
 Headed:
 
 ```bash
+npm run test:e2e:admin:headed
+npm run test:e2e:lab:headed
 npm run test:e2e:radiology:headed
 ```
 

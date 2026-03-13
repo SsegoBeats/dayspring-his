@@ -18,34 +18,38 @@ export function OrgSettings() {
   const [saving, setSaving] = useState(false)
 
   useEffect(() => {
-    (async () => {
+    ;(async () => {
       try {
-        const res = await fetch('/api/settings/org', { credentials: 'include' })
-        if (!res.ok) throw new Error('Failed to load org settings')
+        const res = await fetch("/api/settings/org", { credentials: "include" })
+        if (!res.ok) throw new Error("Failed to load org settings")
         const data = await res.json()
         const s = data.settings || {}
-        setCurrency(s.currency || 'UGX')
-      } catch (e:any) {
-        toast.error('Failed to load organization settings', { description: e?.message || 'Error' })
-      } finally { setLoading(false) }
+        setCurrency(s.currency || "UGX")
+      } catch (e: any) {
+        toast.error("Failed to load organization settings", { description: e?.message || "Error" })
+      } finally {
+        setLoading(false)
+      }
     })()
   }, [])
 
   const save = async () => {
     setSaving(true)
     try {
-      const res = await fetch('/api/settings/org', { 
-        method: 'POST', 
-        credentials: 'include', 
-        headers: { 'Content-Type': 'application/json' }, 
-        body: JSON.stringify({ currency }) 
+      const res = await fetch("/api/settings/org", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ currency }),
       })
-      if (!res.ok) throw new Error((await res.json().catch(()=>({} as any)))?.error || 'Failed')
-      toast.success('Currency setting saved')
+      if (!res.ok) throw new Error((await res.json().catch(() => ({} as any)))?.error || "Failed")
+      toast.success("Currency setting saved")
       await refreshSettings()
-    } catch (e:any) {
-      toast.error('Failed to save currency setting', { description: e?.message || 'Error' })
-    } finally { setSaving(false) }
+    } catch (e: any) {
+      toast.error("Failed to save currency setting", { description: e?.message || "Error" })
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -58,8 +62,8 @@ export function OrgSettings() {
         <Alert>
           <Info className="h-4 w-4" />
           <AlertDescription>
-            Organization details (name, logo, email, phone, address) are system-managed and cannot be changed through this interface. 
-            Only the system currency can be modified.
+            Organization details (name, logo, email, phone, address) are system-managed and cannot be changed through
+            this interface. Only the system currency can be modified.
           </AlertDescription>
         </Alert>
 
@@ -67,30 +71,34 @@ export function OrgSettings() {
           <div className="space-y-2">
             <div>
               <Label className="text-sm font-medium">Organization Name</Label>
-              <p className="text-sm text-muted-foreground mt-1">{ORG_NAME}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{ORG_NAME}</p>
             </div>
             <div>
               <Label className="text-sm font-medium">Email</Label>
-              <p className="text-sm text-muted-foreground mt-1">{ORG_EMAIL}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{ORG_EMAIL}</p>
             </div>
             <div>
               <Label className="text-sm font-medium">Phone</Label>
-              <p className="text-sm text-muted-foreground mt-1">{ORG_PHONE}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{ORG_PHONE}</p>
             </div>
             <div>
               <Label className="text-sm font-medium">Address</Label>
-              <p className="text-sm text-muted-foreground mt-1">{ORG_ADDRESS}</p>
+              <p className="mt-1 text-sm text-muted-foreground">{ORG_ADDRESS}</p>
             </div>
           </div>
 
           <div className="space-y-1 border-t pt-4">
             <Label>System Currency</Label>
-            <p className="text-xs text-muted-foreground mb-1">Admin-only. Affects receipts, exports, billing, and the entire system.</p>
+            <p className="mb-1 text-xs text-muted-foreground">
+              Admin-only. Affects receipts, exports, billing, and the entire system.
+            </p>
             {loading ? (
-              <div className="text-sm text-muted-foreground">Loading…</div>
+              <div className="text-sm text-muted-foreground">Loading...</div>
             ) : (
               <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger>
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
                   <SelectItem value="UGX">UGX (Ugandan Shilling)</SelectItem>
                   <SelectItem value="USD">USD (US Dollar)</SelectItem>
@@ -100,11 +108,12 @@ export function OrgSettings() {
             )}
           </div>
           <div className="flex justify-end">
-            <Button onClick={save} disabled={saving || loading}>{saving? 'Saving…' : 'Save Changes'}</Button>
+            <Button onClick={save} disabled={saving || loading}>
+              {saving ? "Saving..." : "Save Changes"}
+            </Button>
           </div>
         </div>
       </CardContent>
     </Card>
   )
 }
-

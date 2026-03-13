@@ -1,6 +1,7 @@
 "use client"
 
-import { useState, useEffect } from "react"
+import { useCallback, useEffect, useMemo, useState } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { usePatients } from "@/lib/patient-context"
 import { useMedical } from "@/lib/medical-context"
@@ -10,9 +11,13 @@ import { Users, Calendar, Activity, DollarSign, Pill, TestTube, UserCheck, Alert
 import { useFormatCurrency } from "@/lib/settings-context"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
+import { buildSearchParamsString } from "@/lib/search-params"
 
 export function SystemOverview() {
   const formatCurrency = useFormatCurrency()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const { patients, appointments } = usePatients()
   const { medicalRecords, prescriptions, labResults } = useMedical()
   const { bills } = useBilling()
@@ -20,7 +25,6 @@ export function SystemOverview() {
   const activeUsersCount = summary?.active ?? 0
   const usersCount = summary?.total ?? 0
   const [bedOccupancy, setBedOccupancy] = useState(0)
-  const [waitTimeData, setWaitTimeData] = useState(0)
   const [patientSatisfaction, setPatientSatisfaction] = useState<{ avg: number | null; total: number } | null>(null)
   const [departmentStatuses, setDepartmentStatuses] = useState<Array<{
     name: string
@@ -81,17 +85,6 @@ export function SystemOverview() {
       }
     })()
 
-    // Calculate average wait time if the data exists; otherwise show N/A
-    const completedAppts = appointments.filter((a) => a.status === "completed")
-    const withActualWait = completedAppts
-      .map((apt: any) => Number(apt.wait_time_minutes))
-      .filter((v) => Number.isFinite(v) && v > 0)
-    if (withActualWait.length > 0) {
-      const avgWait = Math.round(withActualWait.reduce((a, b) => a + b, 0) / withActualWait.length)
-      setWaitTimeData(avgWait)
-    } else {
-      setWaitTimeData(0)
-    }
   }, [appointments])
 
   const todayAppointments = appointments.filter((apt) => {
@@ -105,6 +98,15 @@ export function SystemOverview() {
 
   const activePrescriptions = prescriptions.filter((p) => p.status === "active")
   const pendingLabTests = labResults.filter((r) => r.status === "pending")
+  const waitTimeData = useMemo(() => {
+    const completedAppts = appointments.filter((appointment) => appointment.status === "completed")
+    const waitTimes = completedAppts
+      .map((appointment: any) => Number(appointment.wait_time_minutes))
+      .filter((value) => Number.isFinite(value) && value > 0)
+
+    if (waitTimes.length === 0) return 0
+    return Math.round(waitTimes.reduce((total, value) => total + value, 0) / waitTimes.length)
+  }, [appointments])
 
   const satisfactionDisplay = patientSatisfaction?.total && patientSatisfaction?.avg != null
     ? `${patientSatisfaction.avg.toFixed(1)}/5 (${patientSatisfaction.total} responses)`
@@ -113,6 +115,18 @@ export function SystemOverview() {
 
   const inactiveStaff = usersCount > 0 ? usersCount - activeUsersCount : 0
 
+  const jumpToSection = useCallback(
+    (section: "users" | "beds" | "patients" | "financial" | "audit", filters: Record<string, string | null | undefined> = {}) => {
+      const query = buildSearchParamsString(searchParams, {
+        section,
+        ...filters,
+      })
+      const target = query ? `${pathname}?${query}` : pathname
+      router.replace(target, { scroll: false })
+    },
+    [pathname, router, searchParams],
+  )
+
   const stats = [
     {
       title: "Total Patients",
@@ -120,6 +134,7 @@ export function SystemOverview() {
       icon: Users,
       description: "Registered patients",
       tone: "primary" as const,
+      section: "patients" as const,
     },
     {
       title: "Today's Appointments",
@@ -141,6 +156,8 @@ export function SystemOverview() {
       icon: DollarSign,
       description: `${pendingBills.length} pending bills`,
       tone: "success" as const,
+      section: "financial" as const,
+      filters: { financialPeriod: "30days", financialTab: "revenue" },
     },
     {
       title: "Active Prescriptions",
@@ -162,6 +179,32 @@ export function SystemOverview() {
       icon: UserCheck,
       description: "System users",
       tone: "neutral" as const,
+      section: "users" as const,
+    },
+  ]
+
+  const quickStats = [
+    {
+      label: "Average Wait Time",
+      value: waitTimeData > 0 ? `${waitTimeData} mins` : "Collecting data",
+      section: "patients" as const,
+    },
+    {
+      label: "Bed Occupancy",
+      value: bedOccupancy > 0 ? `${bedOccupancy}%` : "No beds configured",
+      section: "beds" as const,
+      filters: { bedStatus: "Occupied" },
+    },
+    {
+      label: "Patient Satisfaction",
+      value: satisfactionDisplay,
+      section: "patients" as const,
+    },
+    {
+      label: "Staff Utilization",
+      value: staffUtilization > 0 ? `${staffUtilization}%` : "0%",
+      section: "users" as const,
+      filters: { userStatus: "active" },
     },
   ]
 
@@ -175,9 +218,11 @@ export function SystemOverview() {
         </AlertTitle>
         <AlertDescription className="text-[11px] text-amber-900/80 flex flex-wrap gap-2">
           {pendingBills.length > 0 ? (
-            <Badge variant="outline" className="border-amber-300 bg-amber-100/70 text-amber-900 h-5 text-[11px]">
-              {pendingBills.length} unpaid bill{pendingBills.length > 1 ? 's' : ''}
-            </Badge>
+            <button type="button" onClick={() => jumpToSection("financial", { financialPeriod: "30days", financialTab: "revenue" })}>
+              <Badge variant="outline" className="border-amber-300 bg-amber-100/70 text-amber-900 h-5 text-[11px] hover:bg-amber-200/80">
+                {pendingBills.length} unpaid bill{pendingBills.length > 1 ? 's' : ''}
+              </Badge>
+            </button>
           ) : null}
           {pendingLabTests.length > 0 ? (
             <Badge variant="outline" className="border-red-200 bg-red-50 text-red-800 h-5 text-[11px]">
@@ -185,9 +230,11 @@ export function SystemOverview() {
             </Badge>
           ) : null}
           {inactiveStaff > 0 ? (
-            <Badge variant="outline" className="border-border bg-muted text-foreground h-5 text-[11px]">
-              {inactiveStaff} staff inactive in system
-            </Badge>
+            <button type="button" onClick={() => jumpToSection("users", { userStatus: "inactive" })}>
+              <Badge variant="outline" className="border-border bg-muted text-foreground h-5 text-[11px] hover:bg-slate-200/80">
+                {inactiveStaff} staff inactive in system
+              </Badge>
+            </button>
           ) : null}
           {pendingBills.length === 0 && pendingLabTests.length === 0 && inactiveStaff === 0 ? (
             <span>All key systems look healthy. No urgent issues detected.</span>
@@ -219,18 +266,40 @@ export function SystemOverview() {
               : tone === "info"
               ? "text-blue-600"
               : "text-muted-foreground"
+          const isClickable = Boolean(stat.section)
           return (
-            <Card key={stat.title} className={`hover:shadow-sm transition-shadow ${cardClasses}`}>
-              <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-                <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
-                  {stat.title}
-                </CardTitle>
-                <Icon className={`h-4 w-4 ${iconColor}`} />
-              </CardHeader>
-              <CardContent>
-                <div className="text-2xl font-semibold text-foreground">{stat.value}</div>
-                <p className="text-xs text-muted-foreground">{stat.description}</p>
-              </CardContent>
+            <Card key={stat.title} className={`transition-shadow ${isClickable ? "hover:shadow-sm" : ""} ${cardClasses}`}>
+              {isClickable ? (
+                <button
+                  type="button"
+                  className="w-full text-left"
+                  onClick={() => jumpToSection(stat.section!, stat.filters)}
+                >
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {stat.title}
+                    </CardTitle>
+                    <Icon className={`h-4 w-4 ${iconColor}`} />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-semibold text-foreground">{stat.value}</div>
+                    <p className="text-xs text-muted-foreground">{stat.description}</p>
+                  </CardContent>
+                </button>
+              ) : (
+                <>
+                  <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
+                    <CardTitle className="text-xs font-medium uppercase tracking-wide text-muted-foreground">
+                      {stat.title}
+                    </CardTitle>
+                    <Icon className={`h-4 w-4 ${iconColor}`} />
+                  </CardHeader>
+                  <CardContent>
+                    <div className="text-2xl font-semibold text-foreground">{stat.value}</div>
+                    <p className="text-xs text-muted-foreground">{stat.description}</p>
+                  </CardContent>
+                </>
+              )}
             </Card>
           )
         })}
@@ -293,23 +362,18 @@ export function SystemOverview() {
           <CardHeader>
             <CardTitle>Quick Stats</CardTitle>
           </CardHeader>
-          <CardContent className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Average Wait Time</span>
-              <span className="text-sm font-medium">{waitTimeData > 0 ? `${waitTimeData} mins` : "Collecting data"}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Bed Occupancy</span>
-              <span className="text-sm font-medium">{bedOccupancy > 0 ? `${bedOccupancy}%` : "No beds configured"}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Patient Satisfaction</span>
-              <span className="text-sm font-medium">{satisfactionDisplay}</span>
-            </div>
-            <div className="flex items-center justify-between">
-              <span className="text-sm">Staff Utilization</span>
-              <span className="text-sm font-medium">{staffUtilization > 0 ? `${staffUtilization}%` : "0%"}</span>
-            </div>
+          <CardContent className="space-y-2">
+            {quickStats.map((item) => (
+              <button
+                key={item.label}
+                type="button"
+                onClick={() => jumpToSection(item.section, item.filters)}
+                className="flex w-full items-center justify-between rounded-xl border border-transparent px-3 py-2 text-left transition hover:border-slate-200 hover:bg-slate-50"
+              >
+                <span className="text-sm">{item.label}</span>
+                <span className="text-sm font-medium">{item.value}</span>
+              </button>
+            ))}
           </CardContent>
         </Card>
       </div>

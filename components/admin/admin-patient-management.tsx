@@ -1,6 +1,7 @@
 "use client"
 
 import { useState, useEffect } from "react"
+import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -32,6 +33,7 @@ import { Label } from "@/components/ui/label"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { useFormatDate } from "@/lib/date-utils"
 import { formatPatientNumber } from "@/lib/patients"
+import { buildSearchParamsString } from "@/lib/search-params"
 
 // Helper function to calculate age from date of birth
 function calculateAge(dateOfBirth: string): number {
@@ -106,10 +108,13 @@ interface Patient {
 export function AdminPatientManagement() {
   const formatCurrency = useFormatCurrency()
   const { formatDateTime } = useFormatDate()
+  const router = useRouter()
+  const pathname = usePathname()
+  const searchParams = useSearchParams()
   const [patients, setPatients] = useState<Patient[]>([])
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
-  const [searchQuery, setSearchQuery] = useState("")
+  const [searchQuery, setSearchQuery] = useState(() => searchParams.get("patientSearch") ?? "")
   const [deleteDialogOpen, setDeleteDialogOpen] = useState(false)
   const [viewDialogOpen, setViewDialogOpen] = useState(false)
   const [selectedPatient, setSelectedPatient] = useState<Patient | null>(null)
@@ -119,16 +124,68 @@ export function AdminPatientManagement() {
   const [cursor, setCursor] = useState<string | null>(null)
   const [hasMore, setHasMore] = useState(false)
   const [loadingMore, setLoadingMore] = useState(false)
-  const [showFilters, setShowFilters] = useState(false)
-  const [filters, setFilters] = useState({
-    gender: "",
-    status: "",
-    triage: "",
-    minAge: "",
-    maxAge: "",
-    registeredAfter: "",
-    registeredBefore: "",
-  })
+  const [showFilters, setShowFilters] = useState(() =>
+    Boolean(
+      searchParams.get("patientGender") ||
+      searchParams.get("patientStatus") ||
+      searchParams.get("patientTriage") ||
+      searchParams.get("patientMinAge") ||
+      searchParams.get("patientMaxAge") ||
+      searchParams.get("patientRegisteredAfter") ||
+      searchParams.get("patientRegisteredBefore"),
+    ),
+  )
+  const [filters, setFilters] = useState(() => ({
+    gender: searchParams.get("patientGender") ?? "",
+    status: searchParams.get("patientStatus") ?? "",
+    triage: searchParams.get("patientTriage") ?? "",
+    minAge: searchParams.get("patientMinAge") ?? "",
+    maxAge: searchParams.get("patientMaxAge") ?? "",
+    registeredAfter: searchParams.get("patientRegisteredAfter") ?? "",
+    registeredBefore: searchParams.get("patientRegisteredBefore") ?? "",
+  }))
+
+  useEffect(() => {
+    const nextSearchQuery = searchParams.get("patientSearch") ?? ""
+    const nextFilters = {
+      gender: searchParams.get("patientGender") ?? "",
+      status: searchParams.get("patientStatus") ?? "",
+      triage: searchParams.get("patientTriage") ?? "",
+      minAge: searchParams.get("patientMinAge") ?? "",
+      maxAge: searchParams.get("patientMaxAge") ?? "",
+      registeredAfter: searchParams.get("patientRegisteredAfter") ?? "",
+      registeredBefore: searchParams.get("patientRegisteredBefore") ?? "",
+    }
+
+    setSearchQuery((prev) => (prev === nextSearchQuery ? prev : nextSearchQuery))
+    setFilters((prev) =>
+      prev.gender === nextFilters.gender &&
+      prev.status === nextFilters.status &&
+      prev.triage === nextFilters.triage &&
+      prev.minAge === nextFilters.minAge &&
+      prev.maxAge === nextFilters.maxAge &&
+      prev.registeredAfter === nextFilters.registeredAfter &&
+      prev.registeredBefore === nextFilters.registeredBefore
+        ? prev
+        : nextFilters,
+    )
+  }, [searchParams])
+
+  useEffect(() => {
+    const query = buildSearchParamsString(searchParams, {
+      patientSearch: searchQuery || null,
+      patientGender: filters.gender || null,
+      patientStatus: filters.status || null,
+      patientTriage: filters.triage || null,
+      patientMinAge: filters.minAge || null,
+      patientMaxAge: filters.maxAge || null,
+      patientRegisteredAfter: filters.registeredAfter || null,
+      patientRegisteredBefore: filters.registeredBefore || null,
+    })
+    const current = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname
+    const target = query ? `${pathname}?${query}` : pathname
+    if (target !== current) router.replace(target, { scroll: false })
+  }, [filters.gender, filters.maxAge, filters.minAge, filters.registeredAfter, filters.registeredBefore, filters.status, filters.triage, pathname, router, searchParams, searchQuery])
   
   const fetchPatients = async (append: boolean = false) => {
     try {
@@ -248,7 +305,16 @@ export function AdminPatientManagement() {
         body: JSON.stringify({
           dataset: "patients",
           format: format,
-          filters: { from, to },
+          filters: {
+            from,
+            to,
+            search: searchQuery || undefined,
+            gender: filters.gender || undefined,
+            status: filters.status || undefined,
+            triage: filters.triage || undefined,
+            minAge: filters.minAge ? Number(filters.minAge) : undefined,
+            maxAge: filters.maxAge ? Number(filters.maxAge) : undefined,
+          },
         }),
       })
 
@@ -267,9 +333,6 @@ export function AdminPatientManagement() {
       a.href = url
       
       const extension = format === "xlsx" ? "xlsx" : format === "pdf" ? "pdf" : "csv"
-      const contentType = format === "xlsx" ? "application/vnd.openxmlformats-officedocument.spreadsheetml.sheet" : 
-                         format === "pdf" ? "application/pdf" : "text/csv"
-      
       a.download = `patients-export-${new Date().toISOString().split("T")[0]}.${extension}`
       a.click()
       URL.revokeObjectURL(url)
@@ -417,7 +480,7 @@ export function AdminPatientManagement() {
             <div className="rounded-md border border-border bg-muted px-3 py-2 flex items-center justify-between">
               <div>
                 <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Gender mix</p>
-                <p className="text-xs text-muted-foreground">M:{maleCount} · F:{femaleCount}</p>
+                <p className="text-xs text-muted-foreground">M:{maleCount} - F:{femaleCount}</p>
               </div>
               {avgAge && (
                 <div className="text-right">

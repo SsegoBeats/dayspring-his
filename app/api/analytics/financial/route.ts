@@ -101,17 +101,33 @@ export async function GET(request: Request) {
 
     const dailyRevenueResult = await query(dailyRevenueQuery, params)
 
-    // Get revenue by department
+    // Get revenue by department using bill-item classification.
+    // This avoids duplicating bill totals when a patient has multiple appointments.
     const departmentRevenueQuery = `
-      SELECT 
-        COALESCE(a.department, 'General') as department,
-        COALESCE(SUM(CASE WHEN b.status = 'Paid' THEN bi.total_price ELSE 0 END), 0) as revenue,
-        COUNT(CASE WHEN b.status = 'Paid' THEN 1 END) as transactions
-      FROM bills b
-      LEFT JOIN bill_items bi ON b.id = bi.bill_id
-      LEFT JOIN appointments a ON b.patient_id = a.patient_id
-      ${dateFilter}
-      GROUP BY COALESCE(a.department, 'General')
+      WITH classified_items AS (
+        SELECT
+          b.id AS bill_id,
+          CASE
+            WHEN LOWER(COALESCE(bi.description, '')) LIKE '%consult%' THEN 'Consultation'
+            WHEN LOWER(COALESCE(bi.description, '')) ~ '(lab|blood|cbc|chemistry|urine|stool|culture|test)' THEN 'Laboratory'
+            WHEN LOWER(COALESCE(bi.description, '')) ~ '(x-ray|xray|scan|ct|mri|ultrasound|radiology)' THEN 'Radiology'
+            WHEN LOWER(COALESCE(bi.description, '')) ~ '(medication|drug|tablet|capsule|syrup|injection|dispens|pharmacy)' THEN 'Pharmacy'
+            WHEN LOWER(COALESCE(bi.description, '')) ~ '(dental|tooth|teeth|extraction|filling|scaling)' THEN 'Dental'
+            WHEN LOWER(COALESCE(bi.description, '')) ~ '(anc|maternity|delivery|postnatal|obstetric|midwife)' THEN 'Maternity'
+            WHEN LOWER(COALESCE(bi.description, '')) ~ '(bed|ward|room|icu|admission)' THEN 'Inpatient'
+            ELSE 'General'
+          END AS department,
+          CASE WHEN b.status = 'Paid' THEN COALESCE(bi.total_price, 0) ELSE 0 END AS revenue
+        FROM bills b
+        LEFT JOIN bill_items bi ON b.id = bi.bill_id
+        ${dateFilter}
+      )
+      SELECT
+        department,
+        COALESCE(SUM(revenue), 0) AS revenue,
+        COUNT(DISTINCT CASE WHEN revenue > 0 THEN bill_id END) AS transactions
+      FROM classified_items
+      GROUP BY department
       ORDER BY revenue DESC
     `
 
