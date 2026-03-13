@@ -28,14 +28,10 @@ Shared optional variables:
 - `E2E_BASE_URL`
 - `PLAYWRIGHT_SKIP_WEBSERVER`
 
-Admin setup:
+Credential note:
 
-```bash
-npm run setup:e2e:admin
-```
-
-That command creates or resets a dedicated local E2E Hospital Admin account and writes
-`E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` into `.env.local`.
+- Provide approved credentials explicitly through your local environment or `.env.local`.
+- The repo does not create or seed Admin, Lab, or Radiology test users.
 
 Run:
 

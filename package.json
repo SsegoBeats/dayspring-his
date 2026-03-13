@@ -6,7 +6,6 @@
         "build": "next build",
         "dev": "next dev",
         "lint": "eslint .",
-        "setup:e2e:admin": "node scripts/setup-e2e-admin.js",
         "test:e2e:admin": "npx playwright test tests/e2e/admin-portal.spec.js",
         "test:e2e:admin:headed": "npx playwright test tests/e2e/admin-portal.spec.js --headed",
         "test:e2e:lab": "npx playwright test tests/e2e/lab-portal.spec.js",
