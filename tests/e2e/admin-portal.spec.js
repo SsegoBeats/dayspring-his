@@ -38,6 +38,20 @@ test.describe("Admin portal smoke", () => {
     await expect(page.getByText("Patient Management")).toBeVisible()
   })
 
+  test("quick actions scroll the selected workspace into view", async ({ page }) => {
+    await page.getByRole("button", { name: /Open user directory/i }).click()
+    await expect(page).toHaveURL(/\/admin\?section=users/)
+
+    const heading = page.getByRole("heading", { name: "User Management", exact: true })
+    await expect(heading).toBeVisible()
+    await expect
+      .poll(async () => {
+        const box = await heading.boundingBox()
+        return box ? box.y : null
+      })
+      .toBeLessThan(220)
+  })
+
   test("respects finance deep links for period and tab routing", async ({ page, baseURL }) => {
     await page.goto(`${baseURL || ""}/admin?section=financial&financialPeriod=90days&financialTab=departments`)
     await expect(page).toHaveURL(/\/admin\?section=financial&financialPeriod=90days&financialTab=departments/)

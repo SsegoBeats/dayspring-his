@@ -1,7 +1,7 @@
 "use client"
 
 import Link from "next/link"
-import { useCallback, useEffect, useMemo, useState } from "react"
+import { useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Button } from "@/components/ui/button"
@@ -95,6 +95,7 @@ export function AdminDashboard() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const sectionParam = searchParams.get("section")
+  const workspaceRef = useRef<HTMLDivElement | null>(null)
   const [activeTab, setActiveTab] = useState<AdminSection>("overview")
   const [exportingKey, setExportingKey] = useState<string | null>(null)
 
@@ -106,6 +107,12 @@ export function AdminDashboard() {
     [summary?.byRole],
   )
 
+  const scrollWorkspaceIntoView = useCallback((behavior: ScrollBehavior = "smooth") => {
+    requestAnimationFrame(() => {
+      workspaceRef.current?.scrollIntoView({ behavior, block: "start" })
+    })
+  }, [])
+
   const syncSection = useCallback(
     (next: AdminSection) => {
       setActiveTab(next)
@@ -114,8 +121,11 @@ export function AdminDashboard() {
       else params.set("section", next)
       const target = params.toString() ? `${pathname}?${params.toString()}` : pathname
       router.replace(target, { scroll: false })
+      if (next === activeTab) {
+        scrollWorkspaceIntoView()
+      }
     },
-    [pathname, router, searchParams],
+    [activeTab, pathname, router, scrollWorkspaceIntoView, searchParams],
   )
 
   useEffect(() => {
@@ -142,6 +152,11 @@ export function AdminDashboard() {
 
     setActiveTab(mappedPreference)
   }, [sectionParam, settings?.defaultDashboard, settingsLoading])
+
+  useEffect(() => {
+    if (activeTab === "overview") return
+    scrollWorkspaceIntoView(sectionParam ? "smooth" : "auto")
+  }, [activeTab, scrollWorkspaceIntoView, sectionParam])
 
   const runDirectExport = useCallback(
     async (
@@ -416,7 +431,7 @@ export function AdminDashboard() {
         </div>
       </section>
 
-      <div className="space-y-4">
+      <div ref={workspaceRef} className="space-y-4 scroll-mt-24">
         <div className="flex flex-col gap-3 lg:flex-row lg:items-end lg:justify-between">
           <div>
             <p className="text-xs font-medium uppercase tracking-[0.26em] text-slate-500">Admin Workspace</p>
