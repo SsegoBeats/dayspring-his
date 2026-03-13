@@ -33,6 +33,8 @@ test.describe("Admin portal smoke", () => {
   test("loads the dashboard and drills from overview into patient management", async ({ page }) => {
     await expect(page.getByText("Hospital Command Center")).toBeVisible()
     await expect(page.getByText("Export Studio")).toBeVisible()
+    await expect(page.getByText("Department Status")).toBeVisible()
+    await expect(page.getByText("Staff Active (24h)")).toBeVisible()
     await page.getByRole("button", { name: /Total Patients/i }).click()
     await expect(page).toHaveURL(/\/admin\?section=patients/)
     await expect(page.getByText("Patient Management")).toBeVisible()

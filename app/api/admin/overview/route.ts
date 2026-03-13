@@ -6,10 +6,12 @@ import {
   DEPARTMENT_ACTIVE_THRESHOLD_MINUTES,
   DEPARTMENT_ACTIVITY_WINDOW_HOURS,
   DEPARTMENT_STANDBY_THRESHOLD_MINUTES,
-  getDepartmentStatuses,
+  STAFF_ACTIVITY_WINDOW_HOURS,
+  WAIT_TIME_LOOKBACK_DAYS,
+  getAdminOverviewSnapshot,
 } from "@/lib/admin-overview"
 
-async function checkAuth() {
+async function checkAdminAuth() {
   const cookieStore = await cookies()
   const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
 
@@ -28,8 +30,12 @@ async function checkAuth() {
   )
 
   const user = rows[0]
+  const normalizedRole = (user?.role || "").toLowerCase()
   if (!user || !user.is_active) {
     return { error: "User not found or inactive", status: 401 }
+  }
+  if (normalizedRole !== "hospital admin" && normalizedRole !== "admin") {
+    return { error: "Forbidden", status: 403 }
   }
 
   return { user: { id: payload.userId, role: user.role } }
@@ -37,27 +43,27 @@ async function checkAuth() {
 
 export async function GET() {
   try {
-    const authResult = await checkAuth()
+    const authResult = await checkAdminAuth()
     if ("error" in authResult) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
 
+    const snapshot = await getAdminOverviewSnapshot()
     return NextResponse.json({
-      departments: await getDepartmentStatuses(),
-      lastUpdated: new Date().toISOString(),
+      ...snapshot,
       criteria: {
-        activityThresholdMinutes: DEPARTMENT_ACTIVE_THRESHOLD_MINUTES,
-        standbyThresholdMinutes: DEPARTMENT_STANDBY_THRESHOLD_MINUTES,
-        activityWindowHours: DEPARTMENT_ACTIVITY_WINDOW_HOURS,
-        description:
-          "Department status is based on active staff assignment and the most recent clinical, operational, or login activity.",
+        departmentActiveThresholdMinutes: DEPARTMENT_ACTIVE_THRESHOLD_MINUTES,
+        departmentStandbyThresholdMinutes: DEPARTMENT_STANDBY_THRESHOLD_MINUTES,
+        departmentActivityWindowHours: DEPARTMENT_ACTIVITY_WINDOW_HOURS,
+        staffActivityWindowHours: STAFF_ACTIVITY_WINDOW_HOURS,
+        waitTimeLookbackDays: WAIT_TIME_LOOKBACK_DAYS,
       },
     })
   } catch (error: any) {
-    console.error("[Department Status API] Error:", error)
+    console.error("[Admin Overview API] Error:", error)
     return NextResponse.json(
       {
-        error: "Failed to fetch department status",
+        error: "Failed to fetch admin overview",
         details: process.env.NODE_ENV === "development" ? error.message : undefined,
       },
       { status: 500 },

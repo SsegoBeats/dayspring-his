@@ -13,6 +13,50 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { Badge } from "@/components/ui/badge"
 import { buildSearchParamsString } from "@/lib/search-params"
 
+type DepartmentStatusSignal = {
+  name: string
+  status: string
+  statusColor: string
+  details: string
+  activeUsers: number
+  recentActivityCount: number
+  lastActivityAt: string | null
+  lastActivityMinutes: number | null
+}
+
+type OverviewSignals = {
+  quickStats: {
+    averageWaitMinutes: number | null
+    averageWaitSampleSize: number
+    bedOccupancy: number
+    totalBeds: number
+    patientSatisfactionAvg: number | null
+    patientSatisfactionTotal: number
+    activeStaffAccounts: number
+    activeStaffRecent: number
+    staffActivityRate: number | null
+  }
+  departments: DepartmentStatusSignal[]
+  lastUpdated: string
+}
+
+function formatRelativeActivity(minutes: number | null) {
+  if (minutes == null) return "No recorded activity"
+  if (minutes <= 0) return "Just now"
+  if (minutes < 60) return `${minutes} min${minutes === 1 ? "" : "s"} ago`
+
+  const hours = Math.floor(minutes / 60)
+  const remainingMinutes = minutes % 60
+  if (hours < 24) {
+    return remainingMinutes === 0
+      ? `${hours} hr${hours === 1 ? "" : "s"} ago`
+      : `${hours}h ${remainingMinutes}m ago`
+  }
+
+  const days = Math.floor(hours / 24)
+  return `${days} day${days === 1 ? "" : "s"} ago`
+}
+
 export function SystemOverview() {
   const formatCurrency = useFormatCurrency()
   const router = useRouter()
@@ -24,68 +68,42 @@ export function SystemOverview() {
   const { summary } = useAdmin()
   const activeUsersCount = summary?.active ?? 0
   const usersCount = summary?.total ?? 0
-  const [bedOccupancy, setBedOccupancy] = useState(0)
-  const [patientSatisfaction, setPatientSatisfaction] = useState<{ avg: number | null; total: number } | null>(null)
-  const [departmentStatuses, setDepartmentStatuses] = useState<Array<{
-    name: string
-    status: string
-    statusColor: string
-    details: string
-    activeUsers: number
-    recentActivity: number
-  }>>([])
+  const [overviewSignals, setOverviewSignals] = useState<OverviewSignals | null>(null)
+  const [signalsLoading, setSignalsLoading] = useState(true)
 
   useEffect(() => {
-    // Fetch bed occupancy data with enhanced error handling
-    ;(async () => {
+    let active = true
+
+    const loadOperationalSignals = async (silent = false) => {
+      if (!silent && active) setSignalsLoading(true)
       try {
-        const res = await fetch("/api/beds", { credentials: "include" })
-        if (res.ok) {
-          const data = await res.json()
-          setBedOccupancy(data.summary?.occupancyRate || 0)
-        } else {
-          console.warn("Failed to fetch bed data:", res.status)
-          setBedOccupancy(0)
+        const res = await fetch("/api/admin/overview", { credentials: "include" })
+        if (!res.ok) {
+          throw new Error(`Failed to load admin overview (${res.status})`)
+        }
+        const data = await res.json()
+        if (active) {
+          setOverviewSignals(data)
         }
       } catch (error) {
-        console.error("Failed to fetch bed data:", error)
-        setBedOccupancy(0)
-      }
-    })()
-
-    // Fetch department status data
-    ;(async () => {
-      try {
-        const res = await fetch("/api/departments/status", { credentials: "include" })
-        if (res.ok) {
-          const data = await res.json()
-          setDepartmentStatuses(data.departments || [])
-        } else {
-          console.warn("Failed to fetch department status:", res.status)
-          setDepartmentStatuses([])
+        if (process.env.NODE_ENV === "development") {
+          console.warn("Failed to load admin operational overview:", error)
         }
-      } catch (error) {
-        console.error("Failed to fetch department status:", error)
-        setDepartmentStatuses([])
+      } finally {
+        if (active) setSignalsLoading(false)
       }
-    })()
+    }
 
-    // Fetch patient satisfaction
-    ;(async () => {
-      try {
-        const res = await fetch("/api/analytics/patient-satisfaction", { credentials: "include" })
-        if (res.ok) {
-          const data = await res.json()
-          setPatientSatisfaction({ avg: data.avgRating ?? null, total: data.totalResponses ?? 0 })
-        } else {
-          setPatientSatisfaction({ avg: null, total: 0 })
-        }
-      } catch {
-        setPatientSatisfaction({ avg: null, total: 0 })
-      }
-    })()
+    void loadOperationalSignals()
+    const intervalId = setInterval(() => {
+      void loadOperationalSignals(true)
+    }, 60000)
 
-  }, [appointments])
+    return () => {
+      active = false
+      clearInterval(intervalId)
+    }
+  }, [])
 
   const todayAppointments = appointments.filter((apt) => {
     const aptDate = new Date(apt.date)
@@ -98,20 +116,35 @@ export function SystemOverview() {
 
   const activePrescriptions = prescriptions.filter((p) => p.status === "active")
   const pendingLabTests = labResults.filter((r) => r.status === "pending")
-  const waitTimeData = useMemo(() => {
-    const completedAppts = appointments.filter((appointment) => appointment.status === "completed")
-    const waitTimes = completedAppts
-      .map((appointment: any) => Number(appointment.wait_time_minutes))
-      .filter((value) => Number.isFinite(value) && value > 0)
+  const departmentStatuses = overviewSignals?.departments || []
+  const averageWaitMinutes = overviewSignals?.quickStats.averageWaitMinutes ?? null
+  const totalBeds = overviewSignals?.quickStats.totalBeds ?? 0
+  const bedOccupancy = overviewSignals?.quickStats.bedOccupancy ?? 0
+  const patientSatisfactionAvg = overviewSignals?.quickStats.patientSatisfactionAvg ?? null
+  const patientSatisfactionTotal = overviewSignals?.quickStats.patientSatisfactionTotal ?? 0
+  const activeStaffRecent = overviewSignals?.quickStats.activeStaffRecent ?? 0
+  const activeStaffAccounts = overviewSignals?.quickStats.activeStaffAccounts ?? 0
 
-    if (waitTimes.length === 0) return 0
-    return Math.round(waitTimes.reduce((total, value) => total + value, 0) / waitTimes.length)
-  }, [appointments])
-
-  const satisfactionDisplay = patientSatisfaction?.total && patientSatisfaction?.avg != null
-    ? `${patientSatisfaction.avg.toFixed(1)}/5 (${patientSatisfaction.total} responses)`
-    : "Collecting data"
-  const staffUtilization = usersCount > 0 ? Math.round((activeUsersCount / usersCount) * 100) : 0
+  const satisfactionDisplay = signalsLoading
+    ? "Loading..."
+    : patientSatisfactionTotal > 0 && patientSatisfactionAvg != null
+      ? `${patientSatisfactionAvg.toFixed(1)}/5 (${patientSatisfactionTotal} responses)`
+      : "No feedback yet"
+  const waitTimeDisplay = signalsLoading
+    ? "Loading..."
+    : averageWaitMinutes != null
+      ? `${Math.round(averageWaitMinutes)} mins`
+      : "No queue starts yet"
+  const bedOccupancyDisplay = signalsLoading
+    ? "Loading..."
+    : totalBeds > 0
+      ? `${bedOccupancy}%`
+      : "No beds configured"
+  const staffActivityDisplay = signalsLoading
+    ? "Loading..."
+    : activeStaffAccounts > 0
+      ? `${activeStaffRecent}/${activeStaffAccounts}`
+      : "No active staff"
 
   const inactiveStaff = usersCount > 0 ? usersCount - activeUsersCount : 0
 
@@ -189,12 +222,12 @@ export function SystemOverview() {
   const quickStats = [
     {
       label: "Average Wait Time",
-      value: waitTimeData > 0 ? `${waitTimeData} mins` : "Collecting data",
+      value: waitTimeDisplay,
       section: "patients" as const,
     },
     {
       label: "Bed Occupancy",
-      value: bedOccupancy > 0 ? `${bedOccupancy}%` : "No beds configured",
+      value: bedOccupancyDisplay,
       section: "beds" as const,
       filters: { bedStatus: "Occupied" },
     },
@@ -204,10 +237,10 @@ export function SystemOverview() {
       section: "patients" as const,
     },
     {
-      label: "Staff Utilization",
-      value: staffUtilization > 0 ? `${staffUtilization}%` : "0%",
+      label: "Staff Active (24h)",
+      value: staffActivityDisplay,
       section: "users" as const,
-      filters: { userStatus: "active" },
+      filters: { userStatus: "active", userSortBy: "lastLogin", userSortOrder: "desc" },
     },
   ]
 
@@ -343,9 +376,7 @@ export function SystemOverview() {
                         </td>
                         <td className="py-1.5 px-2 text-xs">{dept.activeUsers ?? 0}</td>
                         <td className="py-1.5 px-2 text-right text-xs text-muted-foreground">
-                          {typeof dept.recentActivity === 'number' && dept.recentActivity >= 0
-                            ? `${dept.recentActivity} min${dept.recentActivity === 1 ? '' : 's'} ago`
-                            : 'No data'}
+                          {formatRelativeActivity(dept.lastActivityMinutes)}
                         </td>
                       </tr>
                     ))}
@@ -355,7 +386,11 @@ export function SystemOverview() {
             ) : (
               <div className="text-center py-6">
                 <Activity className="h-8 w-8 mx-auto mb-2 text-muted-foreground" />
-                <p className="text-sm text-muted-foreground">Waiting for department activity... Once teams start working, live status will appear here.</p>
+                <p className="text-sm text-muted-foreground">
+                  {signalsLoading
+                    ? "Loading department activity..."
+                    : "Waiting for department activity... Once teams start working, live status will appear here."}
+                </p>
               </div>
             )}
           </CardContent>

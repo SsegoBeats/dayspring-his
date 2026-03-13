@@ -237,7 +237,7 @@ export function AuditProvider({ children }: { children: React.ReactNode }) {
   }, [logAction])
 
   const refreshLogs = useCallback(async () => {
-    return await fetchLogs()
+    await fetchLogs()
   }, [fetchLogs])
 
   useEffect(() => {
