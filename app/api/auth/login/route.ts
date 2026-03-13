@@ -133,6 +133,7 @@ export async function POST(req: Request) {
     if (err?.name === "ZodError") {
       return NextResponse.json({ error: "Validation error", details: err.issues }, { status: 400 })
     }
+    console.error("[auth/login] Unexpected login error:", err)
     return NextResponse.json({ error: "Login failed" }, { status: 500 })
   }
 }

@@ -21,6 +21,10 @@ function parseConnectionString(connectionString: string): { connectionString: st
     let ssl: any = false
     if (sslMode === "disable") {
       ssl = false
+    } else if (sslMode === "verify-full") {
+      ssl = { rejectUnauthorized: true }
+    } else if (sslMode === "require" || sslMode === "prefer" || sslMode === "verify-ca") {
+      ssl = { rejectUnauthorized: false }
     } else if (process.env.NODE_ENV === "production") {
       // In production, SSL is typically required
       // For managed databases (Vercel Postgres, etc.), we may need to accept self-signed certs
@@ -30,10 +34,10 @@ function parseConnectionString(connectionString: string): { connectionString: st
                        url.hostname.includes(".azure") ||
                        url.hostname.includes(".cloud")
       
-      if (sslMode === "verify-full" || (!sslMode && isCloudDb)) {
+      if (!sslMode && isCloudDb) {
         // For verify-full or cloud DBs without explicit mode, verify certificates
         ssl = { rejectUnauthorized: true }
-      } else if (sslMode === "require" || sslMode === "prefer" || sslMode === "verify-ca" || isCloudDb) {
+      } else if (isCloudDb) {
         // For require/prefer/verify-ca or cloud DBs, accept but verify when possible
         // Many cloud providers use self-signed certs, so we allow them
         ssl = { rejectUnauthorized: false }
@@ -116,5 +120,4 @@ export async function withSession<T>(session: DbSession, fn: (client: PoolClient
 export async function queryWithSession<T = any>(session: DbSession, text: string, params?: any[]): Promise<{ rows: T[] }> {
   return withSession(session, (client) => client.query(text, params))
 }
-
 

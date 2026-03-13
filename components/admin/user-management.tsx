@@ -169,12 +169,30 @@ export function UserManagement() {
   const totalPages = Math.ceil(total / itemsPerPage) || 1
   const paginatedUsers = users
 
+  const replaceUserSearchParams = (updates: Record<string, string | null>) => {
+    const query = buildSearchParamsString(searchParams, updates)
+    const target = query ? `${pathname}?${query}` : pathname
+    if (typeof window !== "undefined") {
+      window.history.replaceState(window.history.state, "", target)
+    }
+    router.replace(target, { scroll: false })
+  }
+
   const clearFilters = () => {
     setSearchTerm("")
     setFilters({ role: "", status: "", createdAfter: "", createdBefore: "" })
     setSortBy("name")
     setSortOrder("asc")
     setCurrentPage(1)
+    replaceUserSearchParams({
+      userSearch: null,
+      userRole: null,
+      userStatus: null,
+      userCreatedAfter: null,
+      userCreatedBefore: null,
+      userSortBy: null,
+      userSortOrder: null,
+    })
   }
 
   const uniqueRoles = ROLES_FOR_FILTER

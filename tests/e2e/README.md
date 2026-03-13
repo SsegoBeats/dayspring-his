@@ -28,6 +28,15 @@ Shared optional variables:
 - `E2E_BASE_URL`
 - `PLAYWRIGHT_SKIP_WEBSERVER`
 
+Admin setup:
+
+```bash
+npm run setup:e2e:admin
+```
+
+That command creates or resets a dedicated local E2E Hospital Admin account and writes
+`E2E_ADMIN_EMAIL` and `E2E_ADMIN_PASSWORD` into `.env.local`.
+
 Run:
 
 ```bash

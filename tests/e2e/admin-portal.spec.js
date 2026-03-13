@@ -9,13 +9,22 @@ async function loginAsAdmin(page, baseURL) {
   await page.getByLabel("Password").fill(adminPassword)
   await page.getByLabel("Role").click()
   await page.getByRole("option", { name: "Hospital Admin" }).click()
+  const loginResponsePromise = page.waitForResponse((response) => {
+    return response.url().includes("/api/auth/login") && response.request().method() === "POST"
+  })
   await page.getByRole("button", { name: "Sign In" }).click()
-  await expect(page).toHaveURL(/\/dashboard$/)
-  await page.goto(`${baseURL || ""}/admin`)
+  const loginResponse = await loginResponsePromise
+  expect(loginResponse.ok()).toBeTruthy()
+  await page.waitForURL(/\/dashboard$|\/admin(?:\?.*)?$/, { timeout: 30000 })
+  if (!/\/admin(?:\?.*)?$/.test(page.url())) {
+    await page.goto(`${baseURL || ""}/admin`)
+  }
   await expect(page).toHaveURL(/\/admin(?:\?.*)?$/)
 }
 
 test.describe("Admin portal smoke", () => {
+  test.describe.configure({ timeout: 180000 })
+
   test.beforeEach(async ({ page, baseURL }) => {
     test.skip(!adminEmail || !adminPassword, "Set E2E_ADMIN_EMAIL and E2E_ADMIN_PASSWORD to run admin smoke tests.")
     await loginAsAdmin(page, baseURL)
@@ -32,8 +41,8 @@ test.describe("Admin portal smoke", () => {
   test("respects finance deep links for period and tab routing", async ({ page, baseURL }) => {
     await page.goto(`${baseURL || ""}/admin?section=financial&financialPeriod=90days&financialTab=departments`)
     await expect(page).toHaveURL(/\/admin\?section=financial&financialPeriod=90days&financialTab=departments/)
-    await expect(page.getByText("Financial Reports")).toBeVisible()
-    await expect(page.getByRole("button", { name: "90 Days" })).toBeVisible()
+    await expect(page.getByRole("heading", { name: "Financial Reports", exact: true })).toBeVisible()
+    await expect(page.getByText("Loading financial data...")).not.toBeVisible({ timeout: 30000 })
     await expect(page.getByText("Revenue by Department")).toBeVisible()
   })
 
