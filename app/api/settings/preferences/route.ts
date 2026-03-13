@@ -26,16 +26,6 @@ export async function GET() {
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    // Ensure SLA columns exist for upgraded databases
-    try {
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS date_format VARCHAR(20) DEFAULT 'DD/MM/YYYY'")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS default_dashboard VARCHAR(50) DEFAULT 'overview'")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS queue_wait_warn INT DEFAULT 30")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS queue_wait_crit INT DEFAULT 60")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS service_warn INT DEFAULT 30")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS service_crit INT DEFAULT 60")
-    } catch {}
-
     const { rows } = await query(
       "SELECT theme, locale, currency, timezone, date_format, default_dashboard, queue_wait_warn, queue_wait_crit, service_warn, service_crit FROM user_settings WHERE user_id = $1",
       [payload.userId]
@@ -89,15 +79,6 @@ export async function POST(req: Request) {
 
     const body = await req.json()
     const preferences = PreferencesSchema.parse(body)
-    // Ensure columns exist before upsert
-    try {
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS date_format VARCHAR(20) DEFAULT 'DD/MM/YYYY'")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS default_dashboard VARCHAR(50) DEFAULT 'overview'")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS queue_wait_warn INT DEFAULT 30")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS queue_wait_crit INT DEFAULT 60")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS service_warn INT DEFAULT 30")
-      await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS service_crit INT DEFAULT 60")
-    } catch {}
 
     await query(
       `INSERT INTO user_settings (user_id, theme, locale, currency, timezone, date_format, default_dashboard, queue_wait_warn, queue_wait_crit, service_warn, service_crit, updated_at)

@@ -8,7 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
-import { Search, Download, Trash2, AlertCircle, Loader2, Eye, FileSpreadsheet, FileText, RefreshCw, UserCircle2, Filter, X, ChevronDown, ChevronUp, FileHeart } from "lucide-react"
+import { Search, Download, Trash2, AlertCircle, Loader2, Eye, FileSpreadsheet, RefreshCw, Filter, X, ChevronDown, ChevronUp, FileHeart } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { Alert, AlertDescription } from "@/components/ui/alert"
@@ -30,7 +30,6 @@ import {
 } from "@/components/ui/dropdown-menu"
 import { Separator } from "@/components/ui/separator"
 import { Label } from "@/components/ui/label"
-import { useFormatCurrency } from "@/lib/settings-context"
 import { useFormatDate } from "@/lib/date-utils"
 import { formatPatientNumber } from "@/lib/patients"
 import { buildSearchParamsString } from "@/lib/search-params"
@@ -106,7 +105,6 @@ interface Patient {
 }
 
 export function AdminPatientManagement() {
-  const formatCurrency = useFormatCurrency()
   const { formatDateTime } = useFormatDate()
   const router = useRouter()
   const pathname = usePathname()
@@ -446,7 +444,7 @@ export function AdminPatientManagement() {
                 </DropdownMenuTrigger>
                 <DropdownMenuContent align="end">
                   <DropdownMenuItem onClick={() => handleExport("csv")} disabled={exporting}>
-                    <FileText className="h-4 w-4 mr-2" />
+                    <Download className="h-4 w-4 mr-2" />
                     Export as CSV
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleExport("xlsx")} disabled={exporting}>
@@ -454,7 +452,7 @@ export function AdminPatientManagement() {
                     Export as Excel
                   </DropdownMenuItem>
                   <DropdownMenuItem onClick={() => handleExport("pdf")} disabled={exporting}>
-                    <FileText className="h-4 w-4 mr-2" />
+                    <FileHeart className="h-4 w-4 mr-2" />
                     Export as PDF
                   </DropdownMenuItem>
                 </DropdownMenuContent>

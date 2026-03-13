@@ -129,22 +129,6 @@ export async function POST(req: Request) {
     const title = 'New Patient Registered'
     const message = `${p.firstName} ${p.lastName} has been registered.`
     const payload = JSON.stringify({ patientId: newId })
-    await query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
-    await query(`
-      CREATE TABLE IF NOT EXISTS notifications (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        department VARCHAR(100),
-        role VARCHAR(50),
-        title VARCHAR(200) NOT NULL,
-        message TEXT NOT NULL,
-        payload JSONB,
-        read_at TIMESTAMP,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )`)
-    await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS role VARCHAR(50)`)
-    await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS payload JSONB`)
-
     const recipients = await query<{ id: string; role: string }>(
       `SELECT id, role FROM users WHERE role = ANY($1::text[])`,
       [["Nurse", "Hospital Admin"]]

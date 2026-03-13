@@ -4,6 +4,10 @@ import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 
 export const runtime = 'nodejs'
+export const maxDuration = 240
+
+const STREAM_POLL_MS = 15_000
+const STREAM_LIFETIME_MS = 235_000
 
 export async function GET(req: Request) {
   const cookieStore = await cookies()
@@ -12,7 +16,15 @@ export async function GET(req: Request) {
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
   const enc = new TextEncoder()
-  let lastHash = ''
+  let lastPayload = ''
+  let timer: ReturnType<typeof setInterval> | undefined
+  let lifetimeTimer: ReturnType<typeof setTimeout> | undefined
+  let closed = false
+  const cleanup = () => {
+    closed = true
+    if (timer) clearInterval(timer)
+    if (lifetimeTimer) clearTimeout(lifetimeTimer)
+  }
   async function load() {
     let patientFilter = ''
     let params: any[] = []
@@ -65,33 +77,39 @@ export async function GET(req: Request) {
       resultJson: r.result_json || {},
     }))
     const payload = JSON.stringify({ tests })
-    const hash = String(payload.length) // quick hash
-    return { payload, hash }
+    return { payload }
   }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
-      let timer: any
-      let closed = false
       const send = async () => {
         if (closed) return
         try {
-          const { payload, hash } = await load()
-          if (hash !== lastHash) {
-            lastHash = hash
+          const { payload } = await load()
+          if (payload !== lastPayload) {
+            lastPayload = payload
             controller.enqueue(enc.encode(`data: ${payload}\n\n`))
+          } else {
+            controller.enqueue(enc.encode(`: keep-alive\n\n`))
           }
         } catch {
           // emit error event but keep connection
           try { controller.enqueue(enc.encode(`event: error\n`+`data: {"message":"stream error"}\n\n`)) } catch {}
         }
       }
+      controller.enqueue(enc.encode("retry: 5000\n\n"))
       await send()
-      timer = setInterval(send, 15000)
-      ;(controller as any)._timer = timer
-      ;(controller as any)._closed = () => (closed = true)
+      timer = setInterval(() => { void send() }, STREAM_POLL_MS)
+      lifetimeTimer = setTimeout(() => {
+        if (closed) return
+        cleanup()
+        try { controller.enqueue(enc.encode(`event: close\ndata: {"reason":"refresh"}\n\n`)) } catch {}
+        try { controller.close() } catch {}
+      }, STREAM_LIFETIME_MS)
     },
-    cancel() { const t = (this as any)._timer; if (t) clearInterval(t); const c = (this as any)._closed; if (c) c() }
+    cancel() {
+      cleanup()
+    }
   })
   return new NextResponse(stream as any, {
     status: 200,

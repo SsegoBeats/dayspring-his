@@ -218,43 +218,64 @@ export function NurseDashboard() {
   useEffect(() => {
     if (!isEmailVerified) return
     try {
+      let es: EventSource | null = null
+      let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+      let mounted = true
       const hasCookie = typeof document !== "undefined" && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
       const tokenMatch = typeof document !== "undefined" ? document.cookie.match(/(?:^|;\s)session_dev=([^;]+)/) || document.cookie.match(/(?:^|;\s)session=([^;]+)/) : null
       const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : typeof localStorage !== "undefined" ? localStorage.getItem("session_dev_bearer") : null
-      const url = new URL("/api/notifications/stream", window.location.origin)
-      url.searchParams.set("light", "1")
-      url.searchParams.set("title", "New Patient Registered")
-      url.searchParams.set("limit", "15")
-      if (!hasCookie && token) url.searchParams.set("t", token)
+      const connect = () => {
+        if (!mounted) return
+        const url = new URL("/api/notifications/stream", window.location.origin)
+        url.searchParams.set("light", "1")
+        url.searchParams.set("title", "New Patient Registered")
+        url.searchParams.set("limit", "15")
+        if (!hasCookie && token) url.searchParams.set("t", token)
 
-      const es = new (window as any).EventSource(url.toString(), { withCredentials: true })
-      es.onmessage = (event: MessageEvent) => {
-        try {
-          const data = JSON.parse(event.data as string)
-          const list = Array.isArray(data?.notifications) ? data.notifications : []
-          if (list.length === 0) return
-          if (!streamPrimed.current) {
-            list.forEach((item: any) => { if (item?.id) seenNotif.current.add(item.id) })
-            streamPrimed.current = true
-            return
-          }
-
-          const newNames: string[] = []
-          list.forEach((item: any) => {
-            if (!item?.id || seenNotif.current.has(item.id)) return
-            if (String(item.title || "").includes("New Patient Registered")) {
-              seenNotif.current.add(item.id)
-              const name = String(item.message || "").replace(" has been registered.", "")
-              if (name) newNames.push(name)
+        const source = new (window as any).EventSource(url.toString(), { withCredentials: true }) as EventSource
+        es = source
+        source.onmessage = (event: MessageEvent) => {
+          try {
+            const data = JSON.parse(event.data as string)
+            const list = Array.isArray(data?.notifications) ? data.notifications : []
+            if (list.length === 0) return
+            if (!streamPrimed.current) {
+              list.forEach((item: any) => { if (item?.id) seenNotif.current.add(item.id) })
+              streamPrimed.current = true
+              return
             }
-          })
 
-          if (newNames.length === 1) toast.success(`New patient: ${newNames[0]}`)
-          else if (newNames.length > 1) toast.success(`${newNames.length} new patients registered`)
-        } catch {}
+            const newNames: string[] = []
+            list.forEach((item: any) => {
+              if (!item?.id || seenNotif.current.has(item.id)) return
+              if (String(item.title || "").includes("New Patient Registered")) {
+                seenNotif.current.add(item.id)
+                const name = String(item.message || "").replace(" has been registered.", "")
+                if (name) newNames.push(name)
+              }
+            })
+
+            if (newNames.length === 1) toast.success(`New patient: ${newNames[0]}`)
+            else if (newNames.length > 1) toast.success(`${newNames.length} new patients registered`)
+          } catch {}
+        }
+        source.onerror = () => {
+          try { source.close() } catch {}
+          es = null
+          if (mounted && reconnectTimer == null) {
+            reconnectTimer = setTimeout(() => {
+              reconnectTimer = null
+              connect()
+            }, 4000)
+          }
+        }
       }
-      es.onerror = () => { try { es.close() } catch {} }
-      return () => { try { es.close() } catch {} }
+      connect()
+      return () => {
+        mounted = false
+        if (reconnectTimer) clearTimeout(reconnectTimer)
+        try { es?.close() } catch {}
+      }
     } catch {}
   }, [isEmailVerified])
 

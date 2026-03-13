@@ -36,18 +36,44 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
   const [labResults, setLabResults] = useState<any[]>(labTests.filter(t=> t.patientId === patientId))
   const latestRecord = medicalHistory.length ? medicalHistory[medicalHistory.length - 1] : null
   // Patient-scoped SSE for efficient live updates in dialog
-  ;(require('react') as any).useEffect(() => {
+  useEffect(() => {
     try {
+      let es: EventSource | null = null
+      let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+      let mounted = true
       const hasCookie = typeof document !== 'undefined' && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
       const tokenMatch = typeof document !== 'undefined' ? (document.cookie.match(/(?:^|;\s)session_dev=([^;]+)/) || document.cookie.match(/(?:^|;\s)session=([^;]+)/)) : null
       const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : (typeof localStorage !== 'undefined' ? localStorage.getItem('session_dev_bearer') : null)
-      const url = new URL('/api/lab-tests/stream', window.location.origin)
-      url.searchParams.set('patientId', patientId)
-      if (!hasCookie && token) url.searchParams.set('t', token as any)
-      const es = new (window as any).EventSource(url.toString(), { withCredentials: true })
-      es.onmessage = (ev: MessageEvent) => { try { const data = JSON.parse(ev.data); if (Array.isArray(data.tests)) setLabResults(data.tests) } catch {} }
-      es.onerror = () => { try { es.close() } catch {} }
-      return () => { try { es.close() } catch {} }
+      const connect = () => {
+        if (!mounted) return
+        const url = new URL('/api/lab-tests/stream', window.location.origin)
+        url.searchParams.set('patientId', patientId)
+        if (!hasCookie && token) url.searchParams.set('t', token as any)
+        const source = new (window as any).EventSource(url.toString(), { withCredentials: true }) as EventSource
+        es = source
+        source.onmessage = (ev: MessageEvent) => {
+          try {
+            const data = JSON.parse(ev.data)
+            if (Array.isArray(data.tests)) setLabResults(data.tests)
+          } catch {}
+        }
+        source.onerror = () => {
+          try { source.close() } catch {}
+          es = null
+          if (mounted && reconnectTimer == null) {
+            reconnectTimer = setTimeout(() => {
+              reconnectTimer = null
+              connect()
+            }, 4000)
+          }
+        }
+      }
+      connect()
+      return () => {
+        mounted = false
+        if (reconnectTimer) clearTimeout(reconnectTimer)
+        try { es?.close() } catch {}
+      }
     } catch {}
   }, [patientId])
   const [orderOpen, setOrderOpen] = useState(false)

@@ -92,20 +92,41 @@ export function LabProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hasLiveLabAccess) return
     try {
+      let es: EventSource | null = null
+      let reconnectTimer: ReturnType<typeof setTimeout> | null = null
+      let mounted = true
       const hasCookie = typeof document !== 'undefined' && /(?:^|;\s)(session=|session_dev=)/.test(document.cookie)
       const tokenMatch = typeof document !== 'undefined' ? (document.cookie.match(/(?:^|;\s)session_dev=([^;]+)/) || document.cookie.match(/(?:^|;\s)session=([^;]+)/)) : null
       const token = tokenMatch ? decodeURIComponent(tokenMatch[1]) : (typeof localStorage !== 'undefined' ? localStorage.getItem('session_dev_bearer') : null)
-      const url = new URL('/api/lab-tests/stream', window.location.origin)
-      if (!hasCookie && token) url.searchParams.set('t', token)
-      const es = new (window as any).EventSource(url.toString(), { withCredentials: true })
-      es.onmessage = (ev: MessageEvent) => {
-        try {
-          const data = JSON.parse(ev.data)
-          if (Array.isArray(data.tests)) setTests(data.tests)
-        } catch {}
+      const connect = () => {
+        if (!mounted) return
+        const url = new URL('/api/lab-tests/stream', window.location.origin)
+        if (!hasCookie && token) url.searchParams.set('t', token)
+        const source = new (window as any).EventSource(url.toString(), { withCredentials: true }) as EventSource
+        es = source
+        source.onmessage = (ev: MessageEvent) => {
+          try {
+            const data = JSON.parse(ev.data)
+            if (Array.isArray(data.tests)) setTests(data.tests)
+          } catch {}
+        }
+        source.onerror = () => {
+          try { source.close() } catch {}
+          es = null
+          if (mounted && reconnectTimer == null) {
+            reconnectTimer = setTimeout(() => {
+              reconnectTimer = null
+              connect()
+            }, 4000)
+          }
+        }
       }
-      es.onerror = () => { try { es.close() } catch {} }
-      return () => { try { es.close() } catch {} }
+      connect()
+      return () => {
+        mounted = false
+        if (reconnectTimer) clearTimeout(reconnectTimer)
+        try { es?.close() } catch {}
+      }
     } catch {}
   }, [hasLiveLabAccess])
 

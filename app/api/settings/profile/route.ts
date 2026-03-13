@@ -11,15 +11,6 @@ const ProfileSchema = z.object({
   signature: z.string().optional(),
 })
 
-async function ensureUserProfileColumns() {
-  try {
-    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS department VARCHAR(100)`)
-    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS signature TEXT`)
-  } catch {
-    // If this fails, the main queries will surface real errors.
-  }
-}
-
 export async function GET() {
   try {
     const cookieStore = await cookies()
@@ -28,8 +19,6 @@ export async function GET() {
 
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-    await ensureUserProfileColumns()
 
     const { rows } = await query("SELECT name, phone, department, signature, email FROM users WHERE id = $1", [
       payload.userId,
@@ -54,8 +43,6 @@ export async function POST(req: Request) {
 
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-    await ensureUserProfileColumns()
 
     const body = await req.json()
     const { name, phone, department, signature } = ProfileSchema.parse(body)

@@ -10,7 +10,10 @@ import {
 import { query } from "@/lib/db"
 
 export const runtime = "nodejs"
-export const maxDuration = 300
+export const maxDuration = 240
+
+const STREAM_POLL_MS = 30_000
+const STREAM_LIFETIME_MS = 235_000
 
 export async function GET(req: Request) {
   let requestUrl: URL | null = null
@@ -34,7 +37,14 @@ export async function GET(req: Request) {
   const audience = buildNotificationAudienceFilter(scope, { alias: "n" })
   const enc = new TextEncoder()
   let timer: ReturnType<typeof setInterval> | undefined
+  let lifetimeTimer: ReturnType<typeof setTimeout> | undefined
   let closed = false
+
+  const cleanup = () => {
+    closed = true
+    if (timer) clearInterval(timer)
+    if (lifetimeTimer) clearTimeout(lifetimeTimer)
+  }
 
   const stream = new ReadableStream<Uint8Array>({
     async start(controller) {
@@ -104,20 +114,29 @@ export async function GET(req: Request) {
           try {
             controller.enqueue(enc.encode(`event: error\ndata: {"message":"stream error"}\n\n`))
           } catch {
-            closed = true
-            if (timer) clearInterval(timer)
+            cleanup()
           }
         }
       }
 
+      controller.enqueue(enc.encode("retry: 5000\n\n"))
       await send()
       timer = setInterval(() => {
         void send()
-      }, 30000)
+      }, STREAM_POLL_MS)
+      lifetimeTimer = setTimeout(() => {
+        if (closed) return
+        cleanup()
+        try {
+          controller.enqueue(enc.encode(`event: close\ndata: {"reason":"refresh"}\n\n`))
+        } catch {}
+        try {
+          controller.close()
+        } catch {}
+      }, STREAM_LIFETIME_MS)
     },
     cancel() {
-      closed = true
-      if (timer) clearInterval(timer)
+      cleanup()
     },
   })
 

@@ -21,7 +21,6 @@ export type NotificationPreferences = {
   emergencyAlerts: boolean
 }
 
-let ensuredInfrastructure = false
 let userMetaCache: NotificationUserMeta | null = null
 
 const META_TTL_MS = 60_000
@@ -53,72 +52,12 @@ export async function resolveNotificationAuth(req: Request) {
 }
 
 export async function ensureNotificationInfrastructure() {
-  if (ensuredInfrastructure) return
-
-  await query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
-  await query(`
-    CREATE TABLE IF NOT EXISTS notifications (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-      department VARCHAR(100),
-      role VARCHAR(50),
-      title VARCHAR(200) NOT NULL,
-      message TEXT NOT NULL,
-      type VARCHAR(50),
-      priority VARCHAR(20),
-      payload JSONB,
-      read_at TIMESTAMP,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-    )`)
-  await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS department VARCHAR(100)`)
-  await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS role VARCHAR(50)`)
-  await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS type VARCHAR(50)`)
-  await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS priority VARCHAR(20)`)
-  await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS payload JSONB`)
-  await query(`ALTER TABLE notifications ADD COLUMN IF NOT EXISTS read_at TIMESTAMP`)
-  await query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC)`)
-  await query(`CREATE INDEX IF NOT EXISTS idx_notifications_dept ON notifications(department, created_at DESC)`)
-  await query(`CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(role, created_at DESC)`)
-
-  await query(`
-    CREATE TABLE IF NOT EXISTS notification_user_states (
-      notification_id UUID NOT NULL REFERENCES notifications(id) ON DELETE CASCADE,
-      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      read_at TIMESTAMP,
-      deleted_at TIMESTAMP,
-      created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-      PRIMARY KEY (notification_id, user_id)
-    )`)
-  await query(`ALTER TABLE notification_user_states ADD COLUMN IF NOT EXISTS read_at TIMESTAMP`)
-  await query(`ALTER TABLE notification_user_states ADD COLUMN IF NOT EXISTS deleted_at TIMESTAMP`)
-  await query(`ALTER TABLE notification_user_states ADD COLUMN IF NOT EXISTS created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`)
-  await query(`ALTER TABLE notification_user_states ADD COLUMN IF NOT EXISTS updated_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP`)
-  await query(`CREATE INDEX IF NOT EXISTS idx_notification_user_states_user ON notification_user_states(user_id, updated_at DESC)`)
-  await query(`CREATE INDEX IF NOT EXISTS idx_notification_user_states_notification ON notification_user_states(notification_id)`)
-
-  ensuredInfrastructure = true
+  // Notification infrastructure is provisioned through SQL migrations.
+  // Keep the helper so older call sites remain valid without doing request-time DDL.
 }
 
 async function ensureNotificationPreferenceColumns() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS user_settings (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-      theme VARCHAR(20) DEFAULT 'system',
-      locale VARCHAR(10) DEFAULT 'en-UG',
-      currency VARCHAR(10) DEFAULT 'UGX',
-      timezone VARCHAR(100) DEFAULT 'Africa/Kampala',
-      notify_email_reminders BOOLEAN DEFAULT true,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-      UNIQUE (user_id)
-    )
-  `)
-  await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS appointment_alerts BOOLEAN DEFAULT true")
-  await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lab_results BOOLEAN DEFAULT true")
-  await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS system_updates BOOLEAN DEFAULT false")
-  await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS emergency_alerts BOOLEAN DEFAULT true")
+  // Preferences are also provisioned through migrations.
 }
 
 async function getUserMeta() {

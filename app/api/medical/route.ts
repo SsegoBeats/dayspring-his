@@ -1,17 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
-import { query, queryWithSession } from "@/lib/db"
-
-async function ensureLabSchemaForMedical() {
-  try {
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'Routine'")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS assigned_radiologist_id UUID REFERENCES users(id)")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP")
-  } catch {
-    // If this fails, we'll still attempt the main query and surface any real error there.
-  }
-}
+import { queryWithSession } from "@/lib/db"
 
 export async function GET() {
   try {
@@ -20,8 +10,6 @@ export async function GET() {
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "medical", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-    await ensureLabSchemaForMedical()
 
     const [records, prescriptions, labs] = await Promise.all([
       queryWithSession({ role: auth.role, userId: auth.userId },

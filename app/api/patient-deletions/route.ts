@@ -3,63 +3,12 @@ import { cookies } from "next/headers"
 import { query, queryWithSession } from "@/lib/db"
 import { verifyToken, can } from "@/lib/security"
 
-async function ensureTable() {
-  await query(`
-    CREATE TABLE IF NOT EXISTS patient_deletion_requests (
-      id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-      patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-      reason TEXT NOT NULL,
-      status VARCHAR(20) NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending','Approved','Rejected')),
-      requested_by UUID REFERENCES users(id),
-      approved_by UUID REFERENCES users(id),
-      approved_at TIMESTAMP,
-      created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-  `)
-}
-
-async function ensureNotifications() {
-  try {
-    await query('CREATE EXTENSION IF NOT EXISTS "uuid-ossp"')
-    await query(`
-      CREATE TABLE IF NOT EXISTS notifications (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID REFERENCES users(id) ON DELETE CASCADE,
-        department VARCHAR(100),
-        role VARCHAR(50),
-        title VARCHAR(255) NOT NULL,
-        message TEXT NOT NULL,
-        type VARCHAR(50) NOT NULL DEFAULT 'System' CHECK (type IN ('Patient Arrival', 'Lab Result', 'Prescription', 'Payment', 'Low Stock', 'System', 'Other')),
-        priority VARCHAR(20) DEFAULT 'Standard' CHECK (priority IN ('Emergency', 'High', 'Standard', 'Low')),
-        is_read BOOLEAN DEFAULT false,
-        related_patient_id UUID REFERENCES patients(id),
-        payload JSONB,
-        read_at TIMESTAMP,
-        created_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP
-      )`)
-    // Add type column if it doesn't exist (for existing installations)
-    await query(`
-      DO $$ 
-      BEGIN 
-        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name='notifications' AND column_name='type') THEN
-          ALTER TABLE notifications ADD COLUMN type VARCHAR(50) NOT NULL DEFAULT 'System' CHECK (type IN ('Patient Arrival', 'Lab Result', 'Prescription', 'Payment', 'Low Stock', 'System', 'Other'));
-        END IF;
-      END $$;
-    `)
-    await query(`CREATE INDEX IF NOT EXISTS idx_notifications_user ON notifications(user_id, created_at DESC)`)    
-    await query(`CREATE INDEX IF NOT EXISTS idx_notifications_dept ON notifications(department, created_at DESC)`) 
-    await query(`CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(role, created_at DESC)`)      
-  } catch {}
-}
-
 export async function GET(req: Request) {
   try {
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-    await ensureTable()
 
     const url = new URL(req.url)
     const status = url.searchParams.get("status") || undefined
@@ -100,8 +49,6 @@ export async function POST(req: Request) {
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    await ensureTable()
-
     const body = await req.json().catch(() => ({}))
     const patientId: string | undefined = body?.patientId
     const reason: string | undefined = (body?.reason || '').toString().trim()
@@ -129,7 +76,6 @@ export async function POST(req: Request) {
     const name = `${pat.rows?.[0]?.first_name || ''} ${pat.rows?.[0]?.last_name || ''}`.trim()
 
     // Notify admins via role-targeted notification and the requester personally
-    await ensureNotifications()
     const message = `Deletion requested for ${name} (${pn}). Reason: ${reason}`
     await query(
       `INSERT INTO notifications (user_id, role, title, message, type, payload) VALUES (NULL, $1, $2, $3, $4, $5)`,
@@ -154,8 +100,6 @@ export async function PATCH(req: Request) {
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    await ensureTable()
-
     // Only roles that can delete patients may approve/reject and perform deletion
     if (!can(auth.role, 'patients', 'delete')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
@@ -177,7 +121,6 @@ export async function PATCH(req: Request) {
         `UPDATE patient_deletion_requests SET status = 'Rejected', approved_by = $1, approved_at = CURRENT_TIMESTAMP WHERE id = $2`,
         [auth.userId, requestId]
       )
-      await ensureNotifications()
       // Notify requester of rejection
       await query(
         `INSERT INTO notifications (user_id, title, message, type, payload) VALUES ($1, $2, $3, $4, $5)`,
@@ -234,7 +177,6 @@ export async function PATCH(req: Request) {
         throw retryErr
       }
     }
-    await ensureNotifications()
     // Notify requester and admins of approval
     await query(
       `INSERT INTO notifications (user_id, title, message, type, payload) VALUES ($1, $2, $3, $4, $5)`,

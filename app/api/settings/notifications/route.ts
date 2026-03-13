@@ -12,32 +12,6 @@ const NotificationsSchema = z.object({
   emergencyAlerts: z.boolean(),
 })
 
-async function ensureUserSettingsNotifications() {
-  try {
-    await query(`
-      CREATE TABLE IF NOT EXISTS user_settings (
-        id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-        user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
-        theme VARCHAR(20) DEFAULT 'system',
-        locale VARCHAR(10) DEFAULT 'en-UG',
-        currency VARCHAR(10) DEFAULT 'UGX',
-        timezone VARCHAR(100) DEFAULT 'Africa/Kampala',
-        notify_email_reminders BOOLEAN DEFAULT true,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
-        UNIQUE (user_id)
-      )
-    `)
-    await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS appointment_alerts BOOLEAN DEFAULT true")
-    await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS lab_results BOOLEAN DEFAULT true")
-    await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS system_updates BOOLEAN DEFAULT false")
-    await query("ALTER TABLE user_settings ADD COLUMN IF NOT EXISTS emergency_alerts BOOLEAN DEFAULT true")
-    await query("CREATE INDEX IF NOT EXISTS idx_user_settings_user_id ON user_settings(user_id)")
-  } catch {
-    // ignore; main query will surface real errors if any
-  }
-}
-
 export async function GET() {
   try {
     const cookieStore = await cookies()
@@ -46,8 +20,6 @@ export async function GET() {
 
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-    await ensureUserSettingsNotifications()
 
     const { rows } = await query(
       "SELECT notify_email_reminders, appointment_alerts, lab_results, system_updates, emergency_alerts FROM user_settings WHERE user_id = $1",
@@ -89,8 +61,6 @@ export async function POST(req: Request) {
 
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-    await ensureUserSettingsNotifications()
 
     const body = await req.json()
     const notifications = NotificationsSchema.parse(body)

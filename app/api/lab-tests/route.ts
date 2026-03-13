@@ -5,41 +5,12 @@ import { formatPatientNumber } from "@/lib/patients"
 import { query, queryWithSession } from "@/lib/db"
 import { writeAuditLog } from "@/lib/audit"
 
-async function ensureSchema() {
-  try {
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS priority VARCHAR(20) DEFAULT 'Routine'")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS specimen_type VARCHAR(100)")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS accession_number VARCHAR(50)")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS collected_at TIMESTAMP")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS collected_by UUID REFERENCES users(id)")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS rejection_reason TEXT")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS assigned_radiologist_id UUID REFERENCES users(id)")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS assigned_at TIMESTAMP")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_code VARCHAR(20)")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_long_name TEXT")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_property TEXT")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_scale TEXT")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_system TEXT")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_time_aspct TEXT")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_class TEXT")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS loinc_units TEXT")
-    await query("ALTER TABLE lab_tests ADD COLUMN IF NOT EXISTS result_json JSONB DEFAULT '{}'::jsonb")
-    await query("CREATE INDEX IF NOT EXISTS idx_lab_tests_ordered ON lab_tests(ordered_at DESC)")
-    await query("CREATE INDEX IF NOT EXISTS idx_lab_tests_accession ON lab_tests(accession_number)")
-    await query("CREATE INDEX IF NOT EXISTS idx_lab_tests_assigned_radiologist ON lab_tests(assigned_radiologist_id)")
-    await query("CREATE INDEX IF NOT EXISTS idx_lab_tests_loinc ON lab_tests(loinc_code)")
-  } catch {}
-}
-
 export async function GET(req: Request) {
   try {
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-
-    // Ensure extended lab_tests schema exists (priority, assigned_radiologist_id, etc.)
-    await ensureSchema()
 
     const url = new URL(req.url)
     const status = url.searchParams.get('status')
@@ -148,7 +119,6 @@ export async function POST(req: Request) {
     if (!can(auth.role, 'medical', 'create') && !can(auth.role, 'patients', 'update')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
-    await ensureSchema()
     const body = await req.json().catch(()=> ({}))
     const patientId = String(body.patientId||'')
     const notes = body.notes ? String(body.notes) : null
