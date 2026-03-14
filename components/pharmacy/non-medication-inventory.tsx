@@ -1100,8 +1100,8 @@ export function NonMedicationInventory() {
       />
 
       <Dialog open={Boolean(selectedItemId)} onOpenChange={closeWorkspace}>
-        <DialogContent size="xl" className="max-h-[92vh] overflow-hidden p-0 sm:max-w-5xl">
-          <div className="bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.13),transparent_28%),linear-gradient(135deg,_#ffffff_0%,_#f8fbff_54%,_#f6faf7_100%)]">
+        <DialogContent size="xl" className="flex max-h-[92vh] min-h-0 flex-col overflow-hidden p-0 sm:max-w-5xl">
+          <div className="flex min-h-0 flex-1 flex-col bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),transparent_34%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.13),transparent_28%),linear-gradient(135deg,_#ffffff_0%,_#f8fbff_54%,_#f6faf7_100%)]">
             <div className="border-b border-slate-200/80 px-6 py-6">
               <DialogHeader className="gap-3">
                 <div className="inline-flex w-fit items-center gap-2 rounded-full border border-slate-200 bg-white/80 px-3 py-1 text-xs font-medium text-slate-700">
@@ -1163,7 +1163,7 @@ export function NonMedicationInventory() {
                 </div>
               </DialogHeader>
             </div>
-            <Tabs value={detailView} onValueChange={(value) => setDetailView(value as "overview" | "history" | "edit")} className="flex min-h-0 flex-col">
+            <Tabs value={detailView} onValueChange={(value) => setDetailView(value as "overview" | "history" | "edit")} className="flex min-h-0 flex-1 flex-col">
               <div className="border-b border-slate-200/70 px-6 py-4">
                 <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
                   <TabsList className="w-full justify-start rounded-2xl bg-slate-100 p-1 lg:w-auto">
@@ -1190,7 +1190,7 @@ export function NonMedicationInventory() {
                 </div>
               </div>
 
-              <ScrollArea className="max-h-[65vh]">
+              <ScrollArea className="min-h-0 flex-1">
                 {detailLoading && !detailData ? (
                   <div className="flex min-h-[320px] items-center justify-center px-6 py-16">
                     <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-sm">
