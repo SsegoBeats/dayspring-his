@@ -9,7 +9,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Separator } from "@/components/ui/separator"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -1190,7 +1189,7 @@ export function NonMedicationInventory() {
                 </div>
               </div>
 
-              <ScrollArea className="min-h-0 flex-1">
+              <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
                 {detailLoading && !detailData ? (
                   <div className="flex min-h-[320px] items-center justify-center px-6 py-16">
                     <div className="flex items-center gap-3 rounded-2xl border border-slate-200 bg-white px-5 py-4 text-sm text-slate-600 shadow-sm">
@@ -1462,7 +1461,7 @@ export function NonMedicationInventory() {
                     </TabsContent>
                   </>
                 )}
-              </ScrollArea>
+              </div>
             </Tabs>
           </div>
         </DialogContent>
