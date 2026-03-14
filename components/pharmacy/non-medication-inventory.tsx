@@ -114,6 +114,8 @@ type InventoryFormData = {
 
 type InventoryFocusFilter = "all" | "setup" | "duplicates" | "stock" | "ready"
 
+const INVENTORY_PAGE_SIZE = 20
+
 const EMPTY_FORM_DATA: InventoryFormData = {
   itemName: "",
   itemType: "",
@@ -469,6 +471,7 @@ export function NonMedicationInventory() {
   const [focusFilter, setFocusFilter] = useState<InventoryFocusFilter>("all")
   const [showAddDialog, setShowAddDialog] = useState(false)
   const [showBulkSetupDialog, setShowBulkSetupDialog] = useState(false)
+  const [currentPage, setCurrentPage] = useState(1)
   const [selectedItemId, setSelectedItemId] = useState<string | null>(null)
   const [detailView, setDetailView] = useState<"overview" | "history" | "edit">("overview")
   const [detailData, setDetailData] = useState<InventoryItemDetailResponse | null>(null)
@@ -539,6 +542,10 @@ export function NonMedicationInventory() {
       setEditFormData(itemToFormData(detailData.item))
     }
   }, [detailData])
+
+  useEffect(() => {
+    setCurrentPage(1)
+  }, [searchQuery, filterType, focusFilter])
 
   const duplicateCountByName = new Map<string, number>()
   const duplicateItemsByName = new Map<string, NonMedicationInventoryItem[]>()
@@ -620,6 +627,18 @@ export function NonMedicationInventory() {
 
     return matchesSearch && matchesType && matchesFocus
   })
+
+  const totalPages = Math.max(1, Math.ceil(filteredItems.length / INVENTORY_PAGE_SIZE))
+  const currentPageStart = (currentPage - 1) * INVENTORY_PAGE_SIZE
+  const paginatedItems = filteredItems.slice(currentPageStart, currentPageStart + INVENTORY_PAGE_SIZE)
+  const visibleRangeStart = filteredItems.length === 0 ? 0 : currentPageStart + 1
+  const visibleRangeEnd = Math.min(currentPageStart + INVENTORY_PAGE_SIZE, filteredItems.length)
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   const totalUnits = items.reduce((sum, item) => sum + (Number(item.stock_quantity) || 0), 0)
   const averageCompleteness =
@@ -775,7 +794,7 @@ export function NonMedicationInventory() {
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto w-full max-w-[92rem]">
         <Card className="overflow-hidden border-slate-200/80 shadow-[0_24px_80px_-48px_rgba(15,23,42,0.35)]">
           <CardHeader className="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),transparent_36%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.14),transparent_32%),linear-gradient(135deg,_#f8fbff_0%,_#fbfdff_50%,_#f5faf6_100%)]">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-xs font-medium text-sky-700 shadow-sm backdrop-blur">
@@ -802,7 +821,7 @@ export function NonMedicationInventory() {
 
   return (
     <>
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto w-full max-w-[92rem]">
         <Card className="overflow-hidden border-slate-200/80 shadow-[0_28px_90px_-56px_rgba(15,23,42,0.38)]">
           <CardHeader className="border-b border-slate-200/80 bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.16),transparent_36%),radial-gradient(circle_at_top_right,_rgba(16,185,129,0.14),transparent_32%),linear-gradient(135deg,_#f8fbff_0%,_#fbfdff_50%,_#f5faf6_100%)]">
             <div className="flex flex-col gap-5 lg:flex-row lg:items-start lg:justify-between">
@@ -976,6 +995,36 @@ export function NonMedicationInventory() {
                   {barcodeReady}/{items.length || 0} barcode-ready
                 </Badge>
               </div>
+
+              <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
+                <p className="text-sm text-slate-600">
+                  Showing <span className="font-medium text-slate-900">{visibleRangeStart}-{visibleRangeEnd}</span> of{" "}
+                  <span className="font-medium text-slate-900">{filteredItems.length}</span> records, 20 per page.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => setCurrentPage((page) => Math.max(1, page - 1))}
+                    disabled={currentPage === 1}
+                  >
+                    Previous
+                  </Button>
+                  <div className="rounded-xl border border-slate-200 bg-slate-50 px-3 py-2 text-sm font-medium text-slate-700">
+                    Page {totalPages === 0 ? 0 : currentPage} of {totalPages}
+                  </div>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className="rounded-xl"
+                    onClick={() => setCurrentPage((page) => Math.min(totalPages, page + 1))}
+                    disabled={currentPage >= totalPages}
+                  >
+                    Next
+                  </Button>
+                </div>
+              </div>
             </div>
 
             {filteredItems.length === 0 ? (
@@ -984,8 +1033,8 @@ export function NonMedicationInventory() {
                 <p className="mt-2 text-sm text-slate-600">Try a broader search, a different focus filter, or add a new item.</p>
               </div>
             ) : (
-              <div className="grid gap-4">
-                {filteredItems.map((item) => (
+              <div className="grid gap-4 xl:grid-cols-2">
+                {paginatedItems.map((item) => (
                   <button
                     key={item.id}
                     type="button"
@@ -993,7 +1042,7 @@ export function NonMedicationInventory() {
                     aria-label={`Open workspace for ${item.item_name}`}
                     className="group w-full rounded-[30px] border border-slate-200/80 bg-white p-5 text-left shadow-[0_18px_45px_-38px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_30px_65px_-42px_rgba(14,165,233,0.35)]"
                   >
-                    <div className="flex flex-col gap-4 xl:flex-row xl:items-start xl:justify-between">
+                    <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
                       <div className="space-y-4">
                         <div className="flex flex-wrap items-start gap-3">
                           <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-600">
@@ -1036,7 +1085,7 @@ export function NonMedicationInventory() {
                         </div>
                       </div>
 
-                      <div className="grid gap-3 sm:grid-cols-2 xl:w-[420px]">
+                      <div className="grid gap-3 sm:grid-cols-2 2xl:w-[360px]">
                         <div className="rounded-2xl border border-slate-200 bg-[linear-gradient(145deg,_rgba(15,23,42,0.98),_rgba(15,118,110,0.92))] p-4 text-white shadow-lg">
                           <p className="text-[11px] uppercase tracking-[0.24em] text-sky-100/80">On hand</p>
                           <p className="mt-3 text-3xl font-semibold">{item.stock_quantity}</p>
@@ -1056,7 +1105,7 @@ export function NonMedicationInventory() {
                       </div>
                     </div>
 
-                    <div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 text-sm md:grid-cols-2 xl:grid-cols-4">
+                    <div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-2 2xl:grid-cols-4">
                       <div>
                         <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Location</p>
                         <p className="mt-2 font-medium text-slate-900">{item.location || "Assign a storage location"}</p>
