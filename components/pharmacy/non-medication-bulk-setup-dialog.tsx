@@ -7,7 +7,6 @@ import { Button } from "@/components/ui/button"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
-import { ScrollArea } from "@/components/ui/scroll-area"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Textarea } from "@/components/ui/textarea"
 import { useToast } from "@/hooks/use-toast"
@@ -323,8 +322,8 @@ export function NonMedicationBulkSetupDialog({
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="xl" className="max-h-[92vh] overflow-hidden p-0 sm:max-w-5xl">
-        <div className="bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),transparent_32%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),transparent_28%),linear-gradient(135deg,_#ffffff_0%,_#f8fbff_52%,_#fffaf2_100%)]">
+      <DialogContent size="xl" className="flex max-h-[92vh] min-h-0 flex-col overflow-hidden p-0 sm:max-w-5xl">
+        <div className="flex min-h-0 flex-1 flex-col bg-[radial-gradient(circle_at_top_left,_rgba(14,165,233,0.14),transparent_32%),radial-gradient(circle_at_top_right,_rgba(245,158,11,0.12),transparent_28%),linear-gradient(135deg,_#ffffff_0%,_#f8fbff_52%,_#fffaf2_100%)]">
           <DialogHeader className="border-b border-slate-200/80 px-6 py-6">
             <div className="inline-flex w-fit items-center gap-2 rounded-full border border-sky-200 bg-white/80 px-3 py-1 text-xs font-medium text-sky-700 shadow-sm">
               <Sparkles className="h-3.5 w-3.5" />
@@ -352,7 +351,7 @@ export function NonMedicationBulkSetupDialog({
             </div>
           </DialogHeader>
 
-          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "grid" | "csv")} className="flex flex-col">
+          <Tabs value={activeTab} onValueChange={(value) => setActiveTab(value as "grid" | "csv")} className="flex min-h-0 flex-1 flex-col">
             <div className="border-b border-slate-200/70 px-6 py-4">
               <TabsList className="rounded-2xl bg-slate-100 p-1">
                 <TabsTrigger value="grid" className="rounded-xl">Guided grid</TabsTrigger>
@@ -360,7 +359,7 @@ export function NonMedicationBulkSetupDialog({
               </TabsList>
             </div>
 
-            <ScrollArea className="max-h-[62vh]">
+            <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
               <TabsContent value="grid" className="m-0 space-y-4 p-6">
                 {setupItems.length === 0 ? (
                   <Alert className="border-emerald-200 bg-emerald-50/80">
@@ -594,7 +593,7 @@ export function NonMedicationBulkSetupDialog({
                   </Alert>
                 )}
               </TabsContent>
-            </ScrollArea>
+            </div>
           </Tabs>
 
           <DialogFooter className="border-t border-slate-200/80 px-6 py-4">
