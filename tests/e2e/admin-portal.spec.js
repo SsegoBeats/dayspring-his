@@ -79,6 +79,8 @@ test.describe("Admin portal smoke", () => {
     await expect(dialog).toBeVisible()
     await expect(page.getByText("Inventory workspace")).toBeVisible()
     await expect(page.getByRole("tab", { name: "Edit record" })).toBeVisible()
+    await expect(page.getByText("Unable to load the item workspace")).not.toBeVisible()
+    await expect(page.getByText("Failed to fetch non-medication inventory item")).not.toBeVisible()
 
     const box = await dialog.boundingBox()
     expect(box).not.toBeNull()

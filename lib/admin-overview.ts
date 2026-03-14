@@ -94,7 +94,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
     activitySql: `
       SELECT created_at AS activity_at FROM nursing_notes
       UNION ALL
-      SELECT COALESCE(recorded_at, created_at) AS activity_at FROM vital_signs
+      SELECT recorded_at AS activity_at FROM vital_signs
       UNION ALL
       SELECT updated_at AS activity_at FROM checkins
       UNION ALL

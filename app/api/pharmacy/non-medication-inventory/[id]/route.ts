@@ -82,7 +82,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                   movement.reference,
                   movement.notes,
                   movement.created_at,
-                  TRIM(CONCAT(COALESCE(user_record.first_name, ''), ' ', COALESCE(user_record.last_name, ''))) AS actor_name
+                  NULLIF(TRIM(COALESCE(user_record.name, '')), '') AS actor_name
              FROM non_medication_stock_movements movement
              LEFT JOIN users user_record ON user_record.id = movement.created_by
             WHERE movement.item_id = $1
@@ -98,7 +98,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
                   stock_take.notes,
                   stock_take.status,
                   stock_take.taken_at,
-                  TRIM(CONCAT(COALESCE(user_record.first_name, ''), ' ', COALESCE(user_record.last_name, ''))) AS actor_name
+                  NULLIF(TRIM(COALESCE(user_record.name, '')), '') AS actor_name
              FROM non_medication_stock_taking stock_take
              LEFT JOIN users user_record ON user_record.id = stock_take.taken_by
             WHERE stock_take.item_id = $1
