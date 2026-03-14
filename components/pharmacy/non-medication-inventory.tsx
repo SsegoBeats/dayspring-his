@@ -295,7 +295,7 @@ function InventoryFormFields({
           <SelectTrigger id={`${idPrefix}-itemSubtype`}>
             <SelectValue placeholder={subtypeOptions.length ? "Select subtype" : "Choose a category first"} />
           </SelectTrigger>
-          <SelectContent>
+          <SelectContent className="max-h-[21.5rem]">
             <SelectItem value="__none">No subtype</SelectItem>
             {subtypeOptions.map((subtype) => (
               <SelectItem key={subtype} value={subtype}>
