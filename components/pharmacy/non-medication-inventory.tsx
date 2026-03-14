@@ -114,7 +114,7 @@ type InventoryFormData = {
 
 type InventoryFocusFilter = "all" | "setup" | "duplicates" | "stock" | "ready"
 
-const INVENTORY_PAGE_SIZE = 20
+const INVENTORY_PAGE_SIZE = 10
 
 const EMPTY_FORM_DATA: InventoryFormData = {
   itemName: "",
@@ -999,7 +999,7 @@ export function NonMedicationInventory() {
               <div className="mt-4 flex flex-col gap-3 rounded-2xl border border-slate-200/80 bg-white/80 px-4 py-3 sm:flex-row sm:items-center sm:justify-between">
                 <p className="text-sm text-slate-600">
                   Showing <span className="font-medium text-slate-900">{visibleRangeStart}-{visibleRangeEnd}</span> of{" "}
-                  <span className="font-medium text-slate-900">{filteredItems.length}</span> records, 20 per page.
+                  <span className="font-medium text-slate-900">{filteredItems.length}</span> records, 10 per page.
                 </p>
                 <div className="flex items-center gap-2">
                   <Button
@@ -1040,27 +1040,27 @@ export function NonMedicationInventory() {
                     type="button"
                     onClick={() => openWorkspace(item.id)}
                     aria-label={`Open workspace for ${item.item_name}`}
-                    className="group w-full rounded-[30px] border border-slate-200/80 bg-white p-5 text-left shadow-[0_18px_45px_-38px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_30px_65px_-42px_rgba(14,165,233,0.35)]"
+                    className="group w-full rounded-[26px] border border-slate-200/80 bg-white p-4 text-left shadow-[0_18px_45px_-38px_rgba(15,23,42,0.45)] transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-[0_30px_65px_-42px_rgba(14,165,233,0.35)]"
                   >
-                    <div className="flex flex-col gap-4 2xl:flex-row 2xl:items-start 2xl:justify-between">
-                      <div className="space-y-4">
-                        <div className="flex flex-wrap items-start gap-3">
-                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-3 text-slate-600">
-                            <Boxes className="h-5 w-5" />
+                    <div className="flex flex-col gap-3 2xl:flex-row 2xl:items-start 2xl:justify-between">
+                      <div className="space-y-3">
+                        <div className="flex flex-wrap items-start gap-2.5">
+                          <div className="rounded-2xl border border-slate-200 bg-slate-50 p-2.5 text-slate-600">
+                            <Boxes className="h-4 w-4" />
                           </div>
-                          <div className="space-y-2">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <h3 className="text-lg font-semibold text-slate-950">{item.item_name}</h3>
-                              <Badge className={`rounded-full border ${signalClasses(item.healthSignal.tone)} hover:bg-transparent`}>
+                          <div className="min-w-0 flex-1 space-y-1.5">
+                            <div className="flex flex-wrap items-center gap-1.5">
+                              <h3 className="text-base font-semibold leading-6 text-slate-950">{item.item_name}</h3>
+                              <Badge className={`rounded-full border px-2 py-0.5 text-[11px] ${signalClasses(item.healthSignal.tone)} hover:bg-transparent`}>
                                 {item.healthSignal.label}
                               </Badge>
                               {item.duplicateCount > 1 && (
-                                <Badge className={`rounded-full border ${signalClasses("danger")} hover:bg-transparent`}>
+                                <Badge className={`rounded-full border px-2 py-0.5 text-[11px] ${signalClasses("danger")} hover:bg-transparent`}>
                                   Duplicate family
                                 </Badge>
                               )}
                             </div>
-                            <div className="flex flex-wrap items-center gap-2 text-sm text-slate-600">
+                            <div className="flex flex-wrap items-center gap-1.5 text-sm text-slate-600">
                               <span>{item.item_type}</span>
                               {item.item_subtype && (
                                 <>
@@ -1069,15 +1069,15 @@ export function NonMedicationInventory() {
                                 </>
                               )}
                             </div>
-                            {item.description && <p className="max-w-3xl text-sm leading-6 text-slate-600">{item.description}</p>}
+                            {item.description && <p className="max-w-3xl text-sm leading-5 text-slate-600">{item.description}</p>}
                           </div>
                         </div>
 
-                        <div className="flex flex-wrap gap-2">
+                        <div className="flex flex-wrap gap-1.5">
                           {item.signals.map((signal) => (
                             <Badge
                               key={`${item.id}-${signal.id}`}
-                              className={`rounded-full border px-3 py-1 ${signalClasses(signal.tone)} hover:bg-transparent`}
+                              className={`rounded-full border px-2.5 py-0.5 text-[11px] ${signalClasses(signal.tone)} hover:bg-transparent`}
                             >
                               {signal.label}
                             </Badge>
@@ -1085,17 +1085,17 @@ export function NonMedicationInventory() {
                         </div>
                       </div>
 
-                      <div className="grid gap-3 sm:grid-cols-2 2xl:w-[360px]">
-                        <div className="rounded-2xl border border-slate-200 bg-[linear-gradient(145deg,_rgba(15,23,42,0.98),_rgba(15,118,110,0.92))] p-4 text-white shadow-lg">
+                      <div className="grid gap-2.5 sm:grid-cols-2 2xl:w-[320px]">
+                        <div className="rounded-2xl border border-slate-200 bg-[linear-gradient(145deg,_rgba(15,23,42,0.98),_rgba(15,118,110,0.92))] p-3 text-white shadow-lg">
                           <p className="text-[11px] uppercase tracking-[0.24em] text-sky-100/80">On hand</p>
-                          <p className="mt-3 text-3xl font-semibold">{item.stock_quantity}</p>
-                          <p className="mt-1 text-sm text-sky-50/80">{item.unit_of_measure}</p>
+                          <p className="mt-2 text-2xl font-semibold">{item.stock_quantity}</p>
+                          <p className="mt-0.5 text-sm text-sky-50/80">{item.unit_of_measure}</p>
                         </div>
 
-                        <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">
+                        <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-3">
                           <p className="text-[11px] uppercase tracking-[0.24em] text-slate-500">Record completeness</p>
-                          <p className="mt-3 text-3xl font-semibold text-slate-950">{item.completeness.percent}%</p>
-                          <div className="mt-3 h-2 rounded-full bg-slate-200">
+                          <p className="mt-2 text-2xl font-semibold text-slate-950">{item.completeness.percent}%</p>
+                          <div className="mt-2 h-2 rounded-full bg-slate-200">
                             <div
                               className={`h-2 rounded-full ${progressBarClasses(item.completeness.percent)}`}
                               style={{ width: `${item.completeness.percent}%` }}
@@ -1105,25 +1105,25 @@ export function NonMedicationInventory() {
                       </div>
                     </div>
 
-                    <div className="mt-5 grid gap-4 border-t border-slate-100 pt-5 text-sm sm:grid-cols-2 2xl:grid-cols-4">
+                    <div className="mt-4 grid gap-3 border-t border-slate-100 pt-4 text-sm sm:grid-cols-2 2xl:grid-cols-4">
                       <div>
                         <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Location</p>
-                        <p className="mt-2 font-medium text-slate-900">{item.location || "Assign a storage location"}</p>
+                        <p className="mt-1.5 font-medium text-slate-900">{item.location || "Assign a storage location"}</p>
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Par level</p>
-                        <p className="mt-2 font-medium text-slate-900">
+                        <p className="mt-1.5 font-medium text-slate-900">
                           {item.threshold !== null ? `${item.threshold} ${item.unit_of_measure}` : "Not configured"}
                         </p>
                       </div>
                       <div>
                         <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Last restocked</p>
-                        <p className="mt-2 font-medium text-slate-900">{formatRelativeTime(item.last_restocked_at, "Not captured yet")}</p>
+                        <p className="mt-1.5 font-medium text-slate-900">{formatRelativeTime(item.last_restocked_at, "Not captured yet")}</p>
                       </div>
                       <div className="flex items-end justify-between gap-3">
                         <div>
                           <p className="text-[11px] uppercase tracking-[0.22em] text-slate-500">Updated</p>
-                          <p className="mt-2 font-medium text-slate-900">{formatRelativeTime(item.updated_at)}</p>
+                          <p className="mt-1.5 font-medium text-slate-900">{formatRelativeTime(item.updated_at)}</p>
                         </div>
                         <span className="inline-flex items-center gap-1 text-sm font-medium text-sky-700">
                           Open workspace
