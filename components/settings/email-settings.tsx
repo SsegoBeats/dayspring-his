@@ -8,10 +8,8 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Mail, AlertCircle, Clock } from "lucide-react"
 import { toast } from "sonner"
-import { useAuth } from "@/lib/auth-context"
 
 export function EmailSettings() {
-  const { user } = useAuth()
   const [email, setEmail] = useState("")
   const [originalEmail, setOriginalEmail] = useState("") // Track original email from DB
   const [verified, setVerified] = useState<boolean | null>(null)
@@ -118,8 +116,8 @@ export function EmailSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden rounded-[28px] border-sky-100/80 bg-white/90 shadow-[0_28px_80px_-54px_rgba(14,116,144,0.48)] backdrop-blur">
+      <CardHeader className="border-b border-sky-100/70 bg-[linear-gradient(180deg,rgba(239,246,255,0.95),rgba(255,255,255,0.92))]">
         <CardTitle className="flex items-center gap-2">
           <Mail className="h-5 w-5 text-blue-600" />
           Account Email
@@ -133,7 +131,7 @@ export function EmailSettings() {
           }
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5 p-6">
         <div className="space-y-2">
           <Label htmlFor="email">Email</Label>
           <Input 
@@ -144,7 +142,7 @@ export function EmailSettings() {
             value={email} 
             onChange={(e) => setEmail(e.target.value)} 
             required 
-            className="w-full"
+            className="h-12 w-full rounded-2xl border-slate-200 bg-white/95"
             disabled={showOtpInput}
           />
           <div className="flex items-center gap-2">
@@ -180,7 +178,7 @@ export function EmailSettings() {
               value={otp}
               onChange={(e) => setOtp(e.target.value.replace(/\D/g, '').slice(0, 6))}
               placeholder="Enter 6-digit code"
-              className="w-full text-center text-lg tracking-widest"
+              className="h-12 w-full rounded-2xl border-slate-200 bg-white/95 text-center text-lg tracking-widest"
               maxLength={6}
             />
             <p className="text-sm text-muted-foreground">
@@ -192,12 +190,12 @@ export function EmailSettings() {
           </div>
         )}
 
-        <div className="flex gap-2">
+        <div className="flex flex-col gap-2 sm:flex-row">
           {!showOtpInput ? (
             <Button 
               onClick={sendOtp}
               disabled={sending || !email || (verified && email === originalEmail)}
-              className="flex-1"
+              className="w-full rounded-2xl sm:flex-1"
             >
               {sending ? "Sending..." : "Send Verification Code"}
             </Button>
@@ -206,7 +204,7 @@ export function EmailSettings() {
               <Button 
                 onClick={verifyOtp}
                 disabled={verifying || otp.length !== 6}
-                className="flex-1"
+                className="w-full rounded-2xl sm:flex-1"
               >
                 {verifying ? "Verifying..." : "Verify Code"}
               </Button>
@@ -214,7 +212,7 @@ export function EmailSettings() {
                 variant="outline"
                 onClick={sendOtp}
                 disabled={resendCooldown > 0 || sending}
-                className="px-4"
+                className="rounded-2xl px-4"
               >
                 {resendCooldown > 0 ? (
                   <>

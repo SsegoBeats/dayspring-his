@@ -26,6 +26,16 @@ export async function POST(request: Request) {
   const body = await request.json()
   const input = BulkSchema.parse(body)
 
+  const includesCurrentUser = input.userIds.includes(auth.userId)
+
+  if (includesCurrentUser && input.action === "deactivate") {
+    return NextResponse.json({ error: "You cannot deactivate your own account from bulk actions." }, { status: 400 })
+  }
+
+  if (includesCurrentUser && input.action === "changeRole") {
+    return NextResponse.json({ error: "You cannot change your own role from bulk actions." }, { status: 400 })
+  }
+
   if (input.action === "changeRole" && !input.role) {
     return NextResponse.json({ error: "role is required for changeRole action" }, { status: 400 })
   }

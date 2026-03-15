@@ -4,6 +4,19 @@ import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 import { z } from "zod"
 
+const DEFAULT_PREFERENCES = {
+  theme: "system",
+  locale: "en-GB",
+  timezone: "Africa/Kampala",
+  currency: "UGX",
+  dateFormat: "DD/MM/YYYY",
+  defaultDashboard: "overview",
+  queue_wait_warn: 30,
+  queue_wait_crit: 60,
+  service_warn: 30,
+  service_crit: 60,
+}
+
 const PreferencesSchema = z.object({
   theme: z.string(),
   locale: z.string(),
@@ -17,6 +30,37 @@ const PreferencesSchema = z.object({
   service_crit: z.number().int().min(0).max(600).optional(),
 })
 
+async function ensurePreferenceColumns() {
+  await query(`
+    DO $$
+    BEGIN
+      IF EXISTS (SELECT 1 FROM information_schema.tables WHERE table_name = 'user_settings') THEN
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'timezone') THEN
+          ALTER TABLE user_settings ADD COLUMN timezone VARCHAR(50) DEFAULT 'Africa/Kampala';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'date_format') THEN
+          ALTER TABLE user_settings ADD COLUMN date_format VARCHAR(20) DEFAULT 'DD/MM/YYYY';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'default_dashboard') THEN
+          ALTER TABLE user_settings ADD COLUMN default_dashboard VARCHAR(50) DEFAULT 'overview';
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'queue_wait_warn') THEN
+          ALTER TABLE user_settings ADD COLUMN queue_wait_warn INT DEFAULT 30;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'queue_wait_crit') THEN
+          ALTER TABLE user_settings ADD COLUMN queue_wait_crit INT DEFAULT 60;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'service_warn') THEN
+          ALTER TABLE user_settings ADD COLUMN service_warn INT DEFAULT 30;
+        END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'service_crit') THEN
+          ALTER TABLE user_settings ADD COLUMN service_crit INT DEFAULT 60;
+        END IF;
+      END IF;
+    END$$;
+  `)
+}
+
 export async function GET() {
   try {
     const cookieStore = await cookies()
@@ -26,6 +70,8 @@ export async function GET() {
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
+    await ensurePreferenceColumns()
+
     const { rows } = await query(
       "SELECT theme, locale, currency, timezone, date_format, default_dashboard, queue_wait_warn, queue_wait_crit, service_warn, service_crit FROM user_settings WHERE user_id = $1",
       [payload.userId]
@@ -33,33 +79,22 @@ export async function GET() {
 
     if (rows.length === 0) {
       return NextResponse.json({
-        preferences: {
-          theme: "system",
-          locale: "en-GB",
-          timezone: "Africa/Kampala",
-          currency: "UGX",
-          dateFormat: "DD/MM/YYYY",
-          defaultDashboard: "overview",
-          queue_wait_warn: 30,
-          queue_wait_crit: 60,
-          service_warn: 30,
-          service_crit: 60,
-        }
+        preferences: DEFAULT_PREFERENCES
       })
     }
 
     return NextResponse.json({
       preferences: {
-        theme: rows[0].theme || "system",
-        locale: rows[0].locale || "en-GB",
-        timezone: rows[0].timezone || "Africa/Kampala",
-        currency: rows[0].currency || "UGX",
-        dateFormat: rows[0].date_format || "DD/MM/YYYY",
-        defaultDashboard: rows[0].default_dashboard || "overview",
-        queue_wait_warn: rows[0].queue_wait_warn ?? 30,
-        queue_wait_crit: rows[0].queue_wait_crit ?? 60,
-        service_warn: rows[0].service_warn ?? 30,
-        service_crit: rows[0].service_crit ?? 60,
+        theme: rows[0].theme || DEFAULT_PREFERENCES.theme,
+        locale: rows[0].locale || DEFAULT_PREFERENCES.locale,
+        timezone: rows[0].timezone || DEFAULT_PREFERENCES.timezone,
+        currency: rows[0].currency || DEFAULT_PREFERENCES.currency,
+        dateFormat: rows[0].date_format || DEFAULT_PREFERENCES.dateFormat,
+        defaultDashboard: rows[0].default_dashboard || DEFAULT_PREFERENCES.defaultDashboard,
+        queue_wait_warn: rows[0].queue_wait_warn ?? DEFAULT_PREFERENCES.queue_wait_warn,
+        queue_wait_crit: rows[0].queue_wait_crit ?? DEFAULT_PREFERENCES.queue_wait_crit,
+        service_warn: rows[0].service_warn ?? DEFAULT_PREFERENCES.service_warn,
+        service_crit: rows[0].service_crit ?? DEFAULT_PREFERENCES.service_crit,
       }
     })
   } catch (error) {
@@ -76,6 +111,8 @@ export async function POST(req: Request) {
     
     const payload = verifyToken(token)
     if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    await ensurePreferenceColumns()
 
     const body = await req.json()
     const preferences = PreferencesSchema.parse(body)

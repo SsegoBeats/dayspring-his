@@ -61,6 +61,7 @@ export function PasswordSettings() {
     e.preventDefault()
     setSaving(true)
     try {
+      await fetch("/api/csrf", { credentials: "include" }).catch(() => null)
       const csrf = (document.cookie.split(";").find((c) => c.trim().startsWith("csrfToken=")) || "").split("=")[1] || ""
       const r = await fetch("/api/settings/change-password", {
         method: "POST",
@@ -96,8 +97,8 @@ export function PasswordSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden rounded-[28px] border-sky-100/80 bg-white/90 shadow-[0_28px_80px_-54px_rgba(37,99,235,0.42)] backdrop-blur">
+      <CardHeader className="border-b border-sky-100/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,0.92))]">
         <CardTitle className="flex items-center gap-2">
           <Lock className="h-5 w-5 text-blue-600" />
           Password
@@ -106,7 +107,7 @@ export function PasswordSettings() {
           Update your password. Use a strong password with at least 8 characters.
         </CardDescription>
       </CardHeader>
-      <CardContent>
+      <CardContent className="p-6">
         <form onSubmit={submitPassword} className="space-y-4">
           <input
             type="email"
@@ -129,7 +130,7 @@ export function PasswordSettings() {
                 value={currentPassword} 
                 onChange={(e) => setCurrentPassword(e.target.value)} 
                 required 
-                className="pr-10"
+                className="h-12 rounded-2xl border-slate-200 bg-white/95 pr-10"
               />
               <button
                 type="button"
@@ -153,7 +154,7 @@ export function PasswordSettings() {
                 value={newPassword} 
                 onChange={(e) => setNewPassword(e.target.value)} 
                 required 
-                className="pr-10"
+                className="h-12 rounded-2xl border-slate-200 bg-white/95 pr-10"
               />
               <button
                 type="button"
@@ -207,13 +208,15 @@ export function PasswordSettings() {
             )}
           </div>
           
-          <Button 
-            type="submit" 
-            disabled={saving || !currentPassword || !newPassword || passwordStrength < 40}
-            className="w-full"
-          >
-            {saving ? "Saving..." : "Change Password"}
-          </Button>
+          <div className="flex justify-end">
+            <Button 
+              type="submit" 
+              disabled={saving || !currentPassword || !newPassword || passwordStrength < 40}
+              className="min-w-[170px] rounded-2xl"
+            >
+              {saving ? "Saving..." : "Change Password"}
+            </Button>
+          </div>
         </form>
       </CardContent>
     </Card>

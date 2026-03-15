@@ -31,6 +31,9 @@ export async function PUT(_: Request, { params }: { params: Promise<{ id: string
   const auth = token ? verifyToken(token) : null
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "users", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (auth.userId === id) {
+    return NextResponse.json({ error: "You cannot change your own role or status from User Management." }, { status: 400 })
+  }
 
   const body = await _.json()
   const input = UpdateSchema.parse(body)
@@ -62,6 +65,9 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   const auth = token ? verifyToken(token) : null
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "users", "delete")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  if (auth.userId === id) {
+    return NextResponse.json({ error: "You cannot delete your own account from User Management." }, { status: 400 })
+  }
   try {
     // Proactively null-out references in many tables so delete never fails
     const nullify: Array<[string,string]> = [

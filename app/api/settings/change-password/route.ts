@@ -18,7 +18,7 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Too many requests" }, { status: 429 })
   }
   const cookieStore = await cookies()
-  const token = cookieStore.get("session")?.value
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
   const auth = token ? verifyToken(token) : null
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

@@ -53,13 +53,13 @@ export function OrgSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden rounded-[28px] border-sky-100/80 bg-white/90 shadow-[0_28px_80px_-52px_rgba(14,116,144,0.55)] backdrop-blur">
+      <CardHeader className="border-b border-sky-100/70 bg-[linear-gradient(180deg,rgba(240,249,255,0.95),rgba(255,255,255,0.9))]">
         <CardTitle>Organization Settings</CardTitle>
         <CardDescription>Manage system-wide organization settings</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <Alert>
+      <CardContent className="space-y-5 p-6">
+        <Alert className="border-sky-100 bg-sky-50/70 text-slate-700">
           <Info className="h-4 w-4" />
           <AlertDescription>
             Organization details (name, logo, email, phone, address) are system-managed and cannot be changed through
@@ -67,36 +67,36 @@ export function OrgSettings() {
           </AlertDescription>
         </Alert>
 
-        <div className="space-y-4 border-t pt-4">
-          <div className="space-y-2">
+        <div className="space-y-5 border-t border-slate-200/80 pt-5">
+          <div className="grid gap-4 md:grid-cols-2">
             <div>
               <Label className="text-sm font-medium">Organization Name</Label>
-              <p className="mt-1 text-sm text-muted-foreground">{ORG_NAME}</p>
+              <div className="mt-2 rounded-2xl border border-slate-200/80 bg-slate-50/90 px-4 py-3 text-sm text-slate-600">{ORG_NAME}</div>
             </div>
             <div>
               <Label className="text-sm font-medium">Email</Label>
-              <p className="mt-1 text-sm text-muted-foreground">{ORG_EMAIL}</p>
+              <div className="mt-2 rounded-2xl border border-slate-200/80 bg-slate-50/90 px-4 py-3 text-sm text-slate-600">{ORG_EMAIL}</div>
             </div>
             <div>
               <Label className="text-sm font-medium">Phone</Label>
-              <p className="mt-1 text-sm text-muted-foreground">{ORG_PHONE}</p>
+              <div className="mt-2 rounded-2xl border border-slate-200/80 bg-slate-50/90 px-4 py-3 text-sm text-slate-600">{ORG_PHONE}</div>
             </div>
             <div>
               <Label className="text-sm font-medium">Address</Label>
-              <p className="mt-1 text-sm text-muted-foreground">{ORG_ADDRESS}</p>
+              <div className="mt-2 rounded-2xl border border-slate-200/80 bg-slate-50/90 px-4 py-3 text-sm text-slate-600">{ORG_ADDRESS}</div>
             </div>
           </div>
 
-          <div className="space-y-1 border-t pt-4">
+          <div className="space-y-2 border-t border-slate-200/80 pt-5">
             <Label>System Currency</Label>
-            <p className="mb-1 text-xs text-muted-foreground">
+            <p className="text-xs text-muted-foreground">
               Admin-only. Affects receipts, exports, billing, and the entire system.
             </p>
             {loading ? (
               <div className="text-sm text-muted-foreground">Loading...</div>
             ) : (
               <Select value={currency} onValueChange={setCurrency}>
-                <SelectTrigger>
+                <SelectTrigger className="h-12 rounded-2xl border-slate-200 bg-white/90">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -108,7 +108,7 @@ export function OrgSettings() {
             )}
           </div>
           <div className="flex justify-end">
-            <Button onClick={save} disabled={saving || loading}>
+            <Button onClick={save} disabled={saving || loading} className="min-w-[150px] rounded-2xl">
               {saving ? "Saving..." : "Save Changes"}
             </Button>
           </div>

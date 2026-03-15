@@ -532,6 +532,53 @@ export function BedManagement() {
     return filtered
   }, [beds, searchTerm, filters, sortBy, sortOrder])
 
+  const displaySummary = useMemo<BedSummary>(() => {
+    if (!searchTerm && !Object.values(filters).some(Boolean)) {
+      return summary
+    }
+
+    const total = filteredAndSortedBeds.length
+    const occupied = filteredAndSortedBeds.filter((bed) => bed.status === "Occupied").length
+    const available = filteredAndSortedBeds.filter((bed) => bed.status === "Available").length
+    const maintenance = filteredAndSortedBeds.filter((bed) => bed.status === "Maintenance").length
+    const reserved = filteredAndSortedBeds.filter((bed) => bed.status === "Reserved").length
+    const occupancyRate = total > 0 ? Math.round((occupied / total) * 100) : 0
+    const totalWards = new Set(filteredAndSortedBeds.map((bed) => bed.ward)).size
+
+    return {
+      total,
+      occupied,
+      available,
+      maintenance,
+      reserved,
+      occupancyRate,
+      totalWards,
+    }
+  }, [filteredAndSortedBeds, filters, searchTerm, summary])
+
+  const displayWardBreakdown = useMemo<WardBreakdown[]>(() => {
+    if (!searchTerm && !Object.values(filters).some(Boolean)) {
+      return wardBreakdown
+    }
+
+    const groups = new Map<string, { totalBeds: number; occupiedBeds: number }>()
+    for (const bed of filteredAndSortedBeds) {
+      const current = groups.get(bed.ward) || { totalBeds: 0, occupiedBeds: 0 }
+      current.totalBeds += 1
+      if (bed.status === "Occupied") current.occupiedBeds += 1
+      groups.set(bed.ward, current)
+    }
+
+    return Array.from(groups.entries())
+      .sort(([a], [b]) => a.localeCompare(b))
+      .map(([ward, data]) => ({
+        ward,
+        totalBeds: data.totalBeds,
+        occupiedBeds: data.occupiedBeds,
+        occupancyRate: data.totalBeds > 0 ? Math.round((data.occupiedBeds / data.totalBeds) * 100) : 0,
+      }))
+  }, [filteredAndSortedBeds, filters, searchTerm, wardBreakdown])
+
   // Pagination
   const totalPages = Math.ceil(filteredAndSortedBeds.length / itemsPerPage)
   const paginatedBeds = filteredAndSortedBeds.slice(
@@ -543,6 +590,12 @@ export function BedManagement() {
   useEffect(() => {
     setCurrentPage(1)
   }, [searchTerm, filters, sortBy, sortOrder])
+
+  useEffect(() => {
+    if (totalPages > 0 && currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   // Clear all filters
   const clearFilters = () => {
@@ -627,8 +680,8 @@ export function BedManagement() {
             <Bed className="h-4 w-4 text-sky-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-foreground">{summary.total}</div>
-            <p className="text-xs text-muted-foreground">Across {summary.totalWards} wards</p>
+            <div className="text-3xl font-semibold text-foreground">{displaySummary.total}</div>
+            <p className="text-xs text-muted-foreground">Across {displaySummary.totalWards} wards</p>
           </CardContent>
         </Card>
 
@@ -640,11 +693,11 @@ export function BedManagement() {
           <CardContent>
             <div className="flex items-center justify-between gap-3">
               <div>
-                <div className="text-3xl font-semibold text-rose-700">{summary.occupied}</div>
-                <p className="text-xs text-muted-foreground">{summary.occupancyRate}% occupancy rate</p>
+                <div className="text-3xl font-semibold text-rose-700">{displaySummary.occupied}</div>
+                <p className="text-xs text-muted-foreground">{displaySummary.occupancyRate}% occupancy rate</p>
               </div>
               <div className="relative h-12 w-12 rounded-full bg-rose-100 flex items-center justify-center text-[11px] font-semibold text-rose-700">
-                <span>{summary.occupancyRate}%</span>
+                <span>{displaySummary.occupancyRate}%</span>
               </div>
             </div>
           </CardContent>
@@ -656,7 +709,7 @@ export function BedManagement() {
             <Bed className="h-4 w-4 text-emerald-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-emerald-700">{summary.available}</div>
+            <div className="text-3xl font-semibold text-emerald-700">{displaySummary.available}</div>
             <p className="text-xs text-muted-foreground">Ready for patients</p>
           </CardContent>
         </Card>
@@ -667,21 +720,21 @@ export function BedManagement() {
             <Activity className="h-4 w-4 text-amber-600" />
           </CardHeader>
           <CardContent>
-            <div className="text-3xl font-semibold text-amber-700">{summary.maintenance}</div>
+            <div className="text-3xl font-semibold text-amber-700">{displaySummary.maintenance}</div>
             <p className="text-xs text-muted-foreground">Under maintenance</p>
           </CardContent>
         </Card>
       </div>
 
       {/* Ward Breakdown */}
-      {wardBreakdown.length > 0 && (
+      {displayWardBreakdown.length > 0 && (
         <Card>
           <CardHeader>
             <CardTitle>Ward Breakdown</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-4">
-              {wardBreakdown.map((ward) => {
+              {displayWardBreakdown.map((ward) => {
                 const occupiedPct = ward.occupancyRate
                 const availablePct = Math.max(0, 100 - occupiedPct)
                 return (
@@ -884,8 +937,7 @@ export function BedManagement() {
       </Card>
 
       {/* Add Bed Button - Only Hospital Admin */}
-      <div className="flex justify-between items-center">
-        <h2 className="text-2xl font-bold">Bed Inventory</h2>
+      <div className="flex justify-end items-center">
         {canAddBeds && (
           <Dialog open={isAddDialogOpen} onOpenChange={setIsAddDialogOpen}>
             <DialogTrigger asChild>
@@ -1111,7 +1163,7 @@ export function BedManagement() {
                     </div>
                     <div className="text-xs text-muted-foreground mt-1">
                       Assigned: {h.assignedAt ? new Date(h.assignedAt).toLocaleString() : '-'}
-                      {h.dischargeDate ? ` → Discharged: ${new Date(h.dischargeDate).toLocaleString()}` : ''}
+                      {h.dischargeDate ? ` -> Discharged: ${new Date(h.dischargeDate).toLocaleString()}` : ''}
                     </div>
                     {h.notes && (
                       <div className="text-xs mt-1">Notes: {h.notes}</div>

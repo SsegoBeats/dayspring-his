@@ -411,11 +411,7 @@ export function AdminPatientManagement() {
     <>
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div>
-              <CardTitle>Patient Management</CardTitle>
-              <CardDescription>View, filter, and export patient records across the hospital.</CardDescription>
-            </div>
+          <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-end">
             <div className="flex flex-wrap items-center gap-2">
               <Button
                 variant="outline"
@@ -435,6 +431,27 @@ export function AdminPatientManagement() {
                 Filters
                 {showFilters ? <ChevronUp className="h-4 w-4 ml-1" /> : <ChevronDown className="h-4 w-4 ml-1" />}
               </Button>
+              {(searchQuery || activeFilters.length > 0) && (
+                <Button
+                  variant="outline"
+                  size="sm"
+                  onClick={() => {
+                    setSearchQuery("")
+                    setFilters({
+                      gender: "",
+                      status: "",
+                      triage: "",
+                      minAge: "",
+                      maxAge: "",
+                      registeredAfter: "",
+                      registeredBefore: "",
+                    })
+                  }}
+                >
+                  <X className="h-4 w-4 mr-1" />
+                  Clear All
+                </Button>
+              )}
               <DropdownMenu>
                 <DropdownMenuTrigger asChild>
                   <Button disabled={exporting || patients.length === 0}>
@@ -464,20 +481,20 @@ export function AdminPatientManagement() {
           {/* Analytics strip */}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-md border border-sky-100 bg-sky-50/40 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total patients</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Loaded patients</p>
               <p className="text-lg font-semibold text-foreground">{totalPatients}</p>
             </div>
             <div className="rounded-md border border-emerald-100 bg-emerald-50/40 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">Registered today</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">Loaded today</p>
               <p className="text-lg font-semibold text-emerald-800">{newlyRegisteredToday}</p>
             </div>
             <div className="rounded-md border border-amber-100 bg-amber-50/40 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700">Not triaged</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700">Loaded not triaged</p>
               <p className="text-lg font-semibold text-amber-800">{notTriaged}</p>
             </div>
             <div className="rounded-md border border-border bg-muted px-3 py-2 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Gender mix</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Loaded gender mix</p>
                 <p className="text-xs text-muted-foreground">M:{maleCount} - F:{femaleCount}</p>
               </div>
               {avgAge && (
@@ -621,7 +638,7 @@ export function AdminPatientManagement() {
                             </div>
                             <div className="flex items-center gap-2 text-[11px] text-muted-foreground">
                               <span className="font-mono">{formatPatientNumber(patient.patient_number)}</span>
-                              <span>·</span>
+                              <span>-</span>
                               <span>{patient.phone || '-'}</span>
                             </div>
                           </div>
@@ -695,14 +712,15 @@ export function AdminPatientManagement() {
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
-              Showing <strong>{filteredPatients.length}</strong> of <strong>{patients.length}</strong> patient{patients.length !== 1 ? 's' : ''}
+              Loaded <strong>{filteredPatients.length}</strong> patient{filteredPatients.length !== 1 ? 's' : ''}
               {searchQuery && (
                 <span> matching &quot;{searchQuery}&quot;</span>
               )}
+              {hasMore && <span>; more results available</span>}
             </span>
             {patients.length > 0 && (
               <Badge variant="outline" className="ml-2">
-                Total: {patients.length}
+                Loaded: {patients.length}
               </Badge>
             )}
           </div>

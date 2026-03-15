@@ -2,10 +2,13 @@
 > my-v0-project@0.1.0 dev
 > next dev
 
-   ▲ Next.js 16.0.0 (Turbopack)
-   - Local:        http://localhost:3000
-   - Network:      http://192.168.192.4:3000
-   - Environments: .env.local, .env
+▲ Next.js 16.1.1 (Turbopack)
+- Local:         http://localhost:3000
+- Network:       http://192.168.192.3:3000
+- Environments: .env.local, .env
 
- ✓ Starting...
- ✓ Ready in 17.2s
+✓ Starting...
+Creating turbopack project { dir: 'C:\\Users\\ssego\\Documents\\dayspring-his', testMode: true }
+✓ Ready in 4.4s
+ GET /api/auth/me 200 in 929ms (proxy.ts: 393ms)
+ GET /api/auth/me 200 in 51ms (compile: 11ms, proxy.ts: 11ms, render: 29ms)

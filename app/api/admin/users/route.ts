@@ -43,12 +43,12 @@ export async function GET(req: Request) {
     else if (status === "inactive") conditions.push("is_active = false")
   }
   if (createdAfter) {
-    conditions.push(`created_at >= $${idx}`)
+    conditions.push(`created_at >= $${idx}::date`)
     params.push(createdAfter)
     idx++
   }
   if (createdBefore) {
-    conditions.push(`created_at <= $${idx}`)
+    conditions.push(`created_at < ($${idx}::date + INTERVAL '1 day')`)
     params.push(createdBefore)
     idx++
   }

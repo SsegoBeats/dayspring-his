@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useAudit, type AuditAction, type AuditCategory } from "@/lib/audit-context"
+import { useAudit, type AuditCategory } from "@/lib/audit-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -41,8 +41,20 @@ const AUDIT_ACTIONS = [
   "LOGOUT",
   "LOGIN_FAILED",
   "EXPORT",
+  "PRINT",
   "APPROVE",
   "REJECT",
+  "DISPENSE",
+  "CANCEL",
+  "ASSIGN",
+  "DISCHARGE",
+  "TRANSFER",
+  "PAYMENT_CREATE",
+  "CHECKIN_CREATE",
+  "CHECKIN_UPDATE",
+  "QUEUE_ADD",
+  "QUEUE_UPDATE",
+  "QUEUE_DELETE",
 ] as const
 
 const AUDIT_RANGES = ["today", "week", "month", "all"] as const
@@ -57,9 +69,9 @@ export function AuditLogViewer() {
     const value = searchParams.get("auditCategory")
     return value && AUDIT_CATEGORIES.includes(value as AuditCategory) ? (value as AuditCategory) : "ALL"
   })
-  const [actionFilter, setActionFilter] = useState<AuditAction | "ALL">(() => {
+  const [actionFilter, setActionFilter] = useState<string | "ALL">(() => {
     const value = searchParams.get("auditAction")
-    return value && AUDIT_ACTIONS.includes(value as AuditAction) ? (value as AuditAction) : "ALL"
+    return value || "ALL"
   })
   const [dateRange, setDateRange] = useState<"today" | "week" | "month" | "all">(() => {
     const value = searchParams.get("auditRange")
@@ -86,9 +98,7 @@ export function AuditLogViewer() {
     const nextCategory = nextCategoryValue && AUDIT_CATEGORIES.includes(nextCategoryValue as AuditCategory)
       ? (nextCategoryValue as AuditCategory)
       : "ALL"
-    const nextAction = nextActionValue && AUDIT_ACTIONS.includes(nextActionValue as AuditAction)
-      ? (nextActionValue as AuditAction)
-      : "ALL"
+    const nextAction = nextActionValue || "ALL"
     const nextRange = nextRangeValue && AUDIT_RANGES.includes(nextRangeValue as (typeof AUDIT_RANGES)[number])
       ? (nextRangeValue as "today" | "week" | "month" | "all")
       : "week"
@@ -269,7 +279,7 @@ export function AuditLogViewer() {
     dateRange !== 'week' ? 1 : 0,
   ].reduce((a, b) => a + b, 0)
 
-  const getActionColor = (action: AuditAction) => {
+  const getActionColor = (action: string) => {
     switch (action) {
       case "CREATE":
         return "bg-green-500"
@@ -508,16 +518,11 @@ export function AuditLogViewer() {
             </SelectTrigger>
             <SelectContent>
               <SelectItem value="ALL">All Actions</SelectItem>
-              <SelectItem value="CREATE">Create</SelectItem>
-              <SelectItem value="UPDATE">Update</SelectItem>
-              <SelectItem value="DELETE">Delete</SelectItem>
-              <SelectItem value="VIEW">View</SelectItem>
-              <SelectItem value="LOGIN">Login</SelectItem>
-              <SelectItem value="LOGOUT">Logout</SelectItem>
-              <SelectItem value="LOGIN_FAILED">Login Failed</SelectItem>
-              <SelectItem value="EXPORT">Export</SelectItem>
-              <SelectItem value="APPROVE">Approve</SelectItem>
-              <SelectItem value="REJECT">Reject</SelectItem>
+              {AUDIT_ACTIONS.map((action) => (
+                <SelectItem key={action} value={action}>
+                  {action.replace(/_/g, " ")}
+                </SelectItem>
+              ))}
             </SelectContent>
           </Select>
 

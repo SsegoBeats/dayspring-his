@@ -314,12 +314,6 @@ export function FinancialReports() {
   if (loading && !data) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">Financial Reports & Analytics</h2>
-            <p className="text-muted-foreground">Comprehensive financial insights and performance metrics</p>
-          </div>
-        </div>
         <div className="flex items-center justify-center py-12">
           <div className="text-center">
             <RefreshCw className="h-8 w-8 animate-spin mx-auto mb-4 text-muted-foreground" />
@@ -333,12 +327,6 @@ export function FinancialReports() {
   if (error) {
     return (
       <div className="space-y-6">
-        <div className="flex items-center justify-between">
-          <div>
-            <h2 className="text-2xl font-bold tracking-tight text-foreground">Financial Reports & Analytics</h2>
-            <p className="text-muted-foreground">Comprehensive financial insights and performance metrics</p>
-          </div>
-        </div>
         <Alert variant="destructive">
           <AlertCircle className="h-4 w-4" />
           <AlertDescription>
@@ -375,10 +363,8 @@ export function FinancialReports() {
   return (
     <div className="space-y-6">
       {/* Header */}
-      <div className="flex items-center justify-between">
+      <div className="flex flex-col gap-3 lg:flex-row lg:items-start lg:justify-between">
         <div>
-          <h2 className="text-2xl font-bold tracking-tight text-foreground">Financial Reports & Analytics</h2>
-          <p className="text-muted-foreground">Comprehensive financial insights and performance metrics</p>
           {lastUpdated && (
             <p className="text-xs text-muted-foreground mt-1">
               Last updated: {formatDate(lastUpdated, { 
@@ -585,7 +571,7 @@ export function FinancialReports() {
                     <td className={`text-right py-2 ${data.summary.avgTransactionValue - data.previousPeriod.avgTransactionValue >= 0 ? "text-green-600" : "text-red-600"}`}>
                       {data.previousPeriod.avgTransactionValue > 0
                         ? `${((data.summary.avgTransactionValue - data.previousPeriod.avgTransactionValue) / data.previousPeriod.avgTransactionValue * 100).toFixed(1)}%`
-                        : "—"}
+                        : "-"}
                     </td>
                   </tr>
                   <tr>

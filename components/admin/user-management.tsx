@@ -8,6 +8,7 @@ import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
+import { useAuth } from "@/lib/auth-context"
 import { useAdmin, type SystemUser, type UserRole } from "@/lib/admin-context"
 import { useFormatDate } from "@/lib/date-utils"
 import { buildSearchParamsString } from "@/lib/search-params"
@@ -32,6 +33,16 @@ interface UserSummary {
   byRole: Record<UserRole, number>
 }
 
+const mapApiUser = (user: any): SystemUser => ({
+  id: user.id,
+  name: user.name,
+  email: user.email,
+  role: user.role || "Hospital Admin",
+  status: user.status ? "active" : "inactive",
+  createdAt: user.created_at,
+  lastLogin: user.last_login || undefined,
+})
+
 const API_SORT_MAP: Record<string, string> = {
     name: "name",
     email: "email",
@@ -50,7 +61,8 @@ const USER_SORT_FIELDS = ["name", "email", "role", "status", "createdAt", "lastL
 type UserSortField = (typeof USER_SORT_FIELDS)[number]
 
 export function UserManagement() {
-  const { users, total, summary, loading, fetchUsers, addUser, updateUser, deleteUser } = useAdmin()
+  const { user: currentUser } = useAuth()
+  const { users, total, summary, loading, fetchUsers, fetchSummary, addUser, updateUser, deleteUser } = useAdmin()
   const { formatDate } = useFormatDate()
   const router = useRouter()
   const pathname = usePathname()
@@ -67,6 +79,9 @@ export function UserManagement() {
   const [bulkLoading, setBulkLoading] = useState(false)
   const [bulkRoleDialogOpen, setBulkRoleDialogOpen] = useState(false)
   const [bulkRoleValue, setBulkRoleValue] = useState<string>("")
+  const [recentUsers, setRecentUsers] = useState<SystemUser[]>([])
+  const [recentUsersLoading, setRecentUsersLoading] = useState(true)
+  const [recentUsersVersion, setRecentUsersVersion] = useState(0)
   const [addRole, setAddRole] = useState<string>("Receptionist")
   const [editRole, setEditRole] = useState<string>("")
   const [editStatus, setEditStatus] = useState<string>("active")
@@ -166,8 +181,60 @@ export function UserManagement() {
     // eslint-disable-next-line react-hooks/exhaustive-deps -- intentional: refetch when pagination/filters change
   }, [currentPage, itemsPerPage, searchTerm, filters.role, filters.status, filters.createdAfter, filters.createdBefore, sortBy, sortOrder])
 
+  useEffect(() => {
+    let cancelled = false
+
+    async function loadRecentUsers() {
+      setRecentUsersLoading(true)
+
+      try {
+        const response = await fetch("/api/admin/users?page=1&pageSize=5&sortBy=created_at&sortOrder=desc", {
+          credentials: "include",
+        })
+
+        if (!response.ok) {
+          if (!cancelled) setRecentUsers([])
+          return
+        }
+
+        const data = await response.json()
+        if (!cancelled) setRecentUsers((data.users || []).map(mapApiUser))
+      } catch {
+        if (!cancelled) setRecentUsers([])
+      } finally {
+        if (!cancelled) setRecentUsersLoading(false)
+      }
+    }
+
+    void loadRecentUsers()
+
+    return () => {
+      cancelled = true
+    }
+  }, [recentUsersVersion])
+
   const totalPages = Math.ceil(total / itemsPerPage) || 1
   const paginatedUsers = users
+  const selectableVisibleUsers = useMemo(
+    () => paginatedUsers.filter((user) => user.id !== currentUser?.id),
+    [currentUser?.id, paginatedUsers],
+  )
+  const visibleUserIds = useMemo(() => selectableVisibleUsers.map((user) => user.id), [selectableVisibleUsers])
+  const visibleSelectedCount = useMemo(
+    () => visibleUserIds.filter((id) => selectedIds.has(id)).length,
+    [selectedIds, visibleUserIds],
+  )
+  const allVisibleSelected = selectableVisibleUsers.length > 0 && visibleSelectedCount === selectableVisibleUsers.length
+
+  useEffect(() => {
+    setSelectedIds(new Set())
+  }, [currentPage, searchTerm, filters.role, filters.status, filters.createdAfter, filters.createdBefore, sortBy, sortOrder])
+
+  useEffect(() => {
+    if (currentPage > totalPages) {
+      setCurrentPage(totalPages)
+    }
+  }, [currentPage, totalPages])
 
   const replaceUserSearchParams = (updates: Record<string, string | null>) => {
     const query = buildSearchParamsString(searchParams, updates)
@@ -207,10 +274,10 @@ export function UserManagement() {
   }, [filters])
 
   const toggleSelectAll = () => {
-    if (selectedIds.size === paginatedUsers.length) {
+    if (allVisibleSelected) {
       setSelectedIds(new Set())
     } else {
-      setSelectedIds(new Set(paginatedUsers.map((u) => u.id)))
+      setSelectedIds(new Set(selectableVisibleUsers.map((u) => u.id)))
     }
   }
 
@@ -241,7 +308,8 @@ export function UserManagement() {
       setSelectedIds(new Set())
       setBulkRoleDialogOpen(false)
       setBulkRoleValue("")
-      await refetch()
+      await Promise.all([refetch(), fetchSummary()])
+      setRecentUsersVersion((value) => value + 1)
     } catch (e: any) {
       toast.error(e.message || "Bulk action failed")
     } finally {
@@ -290,6 +358,7 @@ export function UserManagement() {
       setIsAddDialogOpen(false)
       setShowAddPassword(false)
       await refetch()
+      setRecentUsersVersion((value) => value + 1)
     } catch (error: any) {
       // Display detailed password validation errors if available
       if (error.message && error.message.includes("Weak password")) {
@@ -322,6 +391,7 @@ export function UserManagement() {
       setEditingUser(null)
       setShowEditPassword(false)
       await refetch()
+      setRecentUsersVersion((value) => value + 1)
     } catch (error: any) {
       toast.error(error.message || "Failed to update user")
     } finally {
@@ -485,15 +555,19 @@ export function UserManagement() {
             <CardHeader>
               <CardTitle className="flex items-center gap-2 text-sm">
                 <Activity className="h-4 w-4" />
-                Recent User Activity
+                Recently Added Users
               </CardTitle>
             </CardHeader>
             <CardContent className="space-y-3 text-xs">
-              {users.length === 0 ? (
-                <p className="text-muted-foreground">No user accounts yet. New activity will appear here once staff accounts are created.</p>
+              {recentUsersLoading ? (
+                <div className="flex items-center gap-2 text-muted-foreground">
+                  <Loader2 className="h-4 w-4 animate-spin" />
+                  <span>Loading recent users...</span>
+                </div>
+              ) : recentUsers.length === 0 ? (
+                <p className="text-muted-foreground">No user accounts yet. New additions will appear here once staff accounts are created.</p>
               ) : (
-                users
-                  .slice(0, 5)
+                recentUsers
                   .map((u) => (
                     <div key={u.id} className="flex items-start gap-2">
                       <div className="mt-0.5 flex h-6 w-6 items-center justify-center rounded-full bg-muted text-[11px] font-medium text-muted-foreground">
@@ -661,11 +735,7 @@ export function UserManagement() {
       </Card>
 
       {/* Add User Button */}
-      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
-        <div>
-          <h2 className="text-2xl font-bold tracking-tight">User Management</h2>
-          <p className="text-sm text-muted-foreground">Provision staff accounts, enforce role coverage, and export the current directory.</p>
-        </div>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-end">
         <div className="flex flex-wrap items-center gap-2">
           <DropdownMenu>
             <DropdownMenuTrigger asChild>
@@ -805,9 +875,10 @@ export function UserManagement() {
                 type="button"
                 className="text-sm text-muted-foreground hover:text-foreground flex items-center gap-2"
                 onClick={toggleSelectAll}
+                disabled={selectableVisibleUsers.length === 0}
               >
-                {selectedIds.size === paginatedUsers.length ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
-                {selectedIds.size === paginatedUsers.length ? "Deselect all" : "Select all"}
+                {allVisibleSelected ? <CheckSquare className="h-4 w-4" /> : <Square className="h-4 w-4" />}
+                {allVisibleSelected ? "Deselect all" : "Select all"}
               </button>
             )}
           </div>
@@ -903,14 +974,19 @@ export function UserManagement() {
                 </div>
               )}
               <div className="space-y-4">
-                {paginatedUsers.map((user) => (
+                {paginatedUsers.map((user) => {
+                const isCurrentUser = currentUser?.id === user.id
+
+                return (
                 <div key={user.id} className="flex items-center justify-between rounded-lg border border-border p-4">
                   <div className="flex items-center gap-3 flex-1">
                     <button
                       type="button"
-                      className="shrink-0 text-muted-foreground hover:text-foreground"
+                      className="shrink-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
                       onClick={() => toggleSelect(user.id)}
                       aria-label={selectedIds.has(user.id) ? "Deselect" : "Select"}
+                      disabled={isCurrentUser}
+                      title={isCurrentUser ? "Your account cannot be selected for bulk actions." : undefined}
                     >
                       {selectedIds.has(user.id) ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
                     </button>
@@ -919,6 +995,7 @@ export function UserManagement() {
                       <p className="font-medium">{user.name}</p>
                       <Badge className={getRoleBadgeColor(user.role)}>{user.role}</Badge>
                       <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
+                      {isCurrentUser ? <Badge variant="outline">You</Badge> : null}
                     </div>
                     <p className="text-sm text-muted-foreground">{user.email}</p>
                     <p className="text-xs text-muted-foreground">
@@ -935,7 +1012,13 @@ export function UserManagement() {
                         }
                       }}>
                       <DialogTrigger asChild>
-                        <Button variant="outline" size="sm" onClick={() => { setEditingUser(user); setEditRole(user.role); setEditStatus(user.status) }}>
+                        <Button
+                          variant="outline"
+                          size="sm"
+                          onClick={() => { setEditingUser(user); setEditRole(user.role); setEditStatus(user.status) }}
+                          disabled={isCurrentUser}
+                          title={isCurrentUser ? "Update your own role and status from Settings instead." : undefined}
+                        >
                           <Edit className="h-4 w-4" />
                         </Button>
                       </DialogTrigger>
@@ -960,7 +1043,7 @@ export function UserManagement() {
                           <Input
                             id="edit-password"
                             name="password"
-                            value="••••••••"
+                            value="********"
                             readOnly
                             disabled
                             className="bg-muted"
@@ -1015,7 +1098,8 @@ export function UserManagement() {
                   <Button
                     variant="outline"
                     size="sm"
-                    disabled={deletingId === user.id}
+                    disabled={deletingId === user.id || isCurrentUser}
+                    title={isCurrentUser ? "You cannot delete your own account." : undefined}
                     onClick={async () => {
                       if (confirm(`Are you sure you want to delete ${user.name}? This action cannot be undone.`)) {
                         setDeletingId(user.id)
@@ -1023,6 +1107,7 @@ export function UserManagement() {
                           await deleteUser(user.id)
                           toast.success("User deleted successfully")
                           await refetch()
+                          setRecentUsersVersion((value) => value + 1)
                         } catch (error: any) {
                           toast.error(error.message || "Failed to delete user")
                         } finally {
@@ -1040,7 +1125,7 @@ export function UserManagement() {
                     </div>
                   </div>
                 </div>
-              ))}
+              )})}
               </div>
 
               {/* Pagination Controls */}

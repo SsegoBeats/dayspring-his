@@ -7,14 +7,13 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { User, Bell, Palette, Globe } from "lucide-react"
+import { User, Bell, Palette } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { useTheme } from "next-themes"
 import { useSettings } from "@/lib/settings-context"
 
 export function ProfileSettings() {
-  const { user } = useAuth()
   const [profile, setProfile] = useState({
     name: "",
     phone: "",
@@ -69,8 +68,8 @@ export function ProfileSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden rounded-[28px] border-sky-100/80 bg-white/90 shadow-[0_28px_80px_-54px_rgba(14,116,144,0.42)] backdrop-blur">
+      <CardHeader className="border-b border-sky-100/70 bg-[linear-gradient(180deg,rgba(239,246,255,0.92),rgba(255,255,255,0.92))]">
         <CardTitle className="flex items-center gap-2">
           <User className="h-5 w-5 text-blue-600" />
           Profile Information
@@ -79,7 +78,7 @@ export function ProfileSettings() {
           Update your personal information and professional details.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-4 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="name">Full Name</Label>
@@ -90,6 +89,7 @@ export function ProfileSettings() {
               value={profile.name}
               onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
               placeholder="Enter your full name"
+              className="h-12 rounded-2xl border-slate-200 bg-white/95"
             />
           </div>
           <div className="space-y-2">
@@ -102,6 +102,7 @@ export function ProfileSettings() {
               value={profile.phone}
               onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
               placeholder="+256 700 000 000"
+              className="h-12 rounded-2xl border-slate-200 bg-white/95"
             />
           </div>
         </div>
@@ -114,7 +115,7 @@ export function ProfileSettings() {
               value={profile.department} 
               onValueChange={(value) => setProfile(prev => ({ ...prev, department: value }))}
             >
-              <SelectTrigger id="department">
+              <SelectTrigger id="department" className="h-12 rounded-2xl border-slate-200 bg-white/95">
                 <SelectValue placeholder="Select department" />
               </SelectTrigger>
               <SelectContent>
@@ -138,15 +139,18 @@ export function ProfileSettings() {
               value={profile.signature}
               onChange={(e) => setProfile(prev => ({ ...prev, signature: e.target.value }))}
               placeholder="e.g. Your name or title"
+              className="h-12 rounded-2xl border-slate-200 bg-white/95"
             />
           </div>
         </div>
 
         {/* Queue thresholds belong in preferences; moved to PreferenceSettings */}
 
-        <Button onClick={saveProfile} disabled={saving} className="w-full">
-          {saving ? "Saving..." : "Save Profile"}
-        </Button>
+        <div className="flex justify-end">
+          <Button onClick={saveProfile} disabled={saving} className="min-w-[150px] rounded-2xl">
+            {saving ? "Saving..." : "Save Profile"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
@@ -203,8 +207,8 @@ export function NotificationSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden rounded-[28px] border-sky-100/80 bg-white/90 shadow-[0_28px_80px_-54px_rgba(30,64,175,0.4)] backdrop-blur">
+      <CardHeader className="border-b border-sky-100/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,0.92))]">
         <CardTitle className="flex items-center gap-2">
           <Bell className="h-5 w-5 text-blue-600" />
           Notification Preferences
@@ -213,9 +217,9 @@ export function NotificationSettings() {
           Choose how you want to be notified about important events.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
-        <div className="space-y-4">
-          <div className="flex items-center justify-between">
+      <CardContent className="space-y-5 p-6">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
             <div>
               <Label htmlFor="emailReminders">Email Reminders</Label>
               <p className="text-sm text-muted-foreground">Receive email notifications for appointments and tasks</p>
@@ -228,7 +232,7 @@ export function NotificationSettings() {
             />
           </div>
           
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
             <div>
               <Label htmlFor="appointmentAlerts">Appointment Alerts</Label>
               <p className="text-sm text-muted-foreground">Get notified about upcoming appointments</p>
@@ -241,7 +245,7 @@ export function NotificationSettings() {
             />
           </div>
           
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
             <div>
               <Label htmlFor="labResults">Lab Results</Label>
               <p className="text-sm text-muted-foreground">Notifications when lab results are ready</p>
@@ -254,7 +258,7 @@ export function NotificationSettings() {
             />
           </div>
           
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
             <div>
               <Label htmlFor="systemUpdates">System Updates</Label>
               <p className="text-sm text-muted-foreground">General system announcements and updates</p>
@@ -267,7 +271,7 @@ export function NotificationSettings() {
             />
           </div>
           
-          <div className="flex items-center justify-between">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
             <div>
               <Label htmlFor="emergencyAlerts">Emergency Alerts</Label>
               <p className="text-sm text-muted-foreground">Critical alerts that require immediate attention</p>
@@ -281,9 +285,11 @@ export function NotificationSettings() {
           </div>
         </div>
 
-        <Button onClick={saveNotifications} disabled={saving} className="w-full">
-          {saving ? "Saving..." : "Save Preferences"}
-        </Button>
+        <div className="flex justify-end">
+          <Button onClick={saveNotifications} disabled={saving} className="min-w-[170px] rounded-2xl">
+            {saving ? "Saving..." : "Save Preferences"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
@@ -517,8 +523,8 @@ export function PreferenceSettings() {
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="overflow-hidden rounded-[28px] border-sky-100/80 bg-white/90 shadow-[0_28px_80px_-54px_rgba(14,116,144,0.48)] backdrop-blur">
+      <CardHeader className="border-b border-sky-100/70 bg-[linear-gradient(180deg,rgba(255,247,237,0.92),rgba(255,255,255,0.92))]">
         <CardTitle className="flex items-center gap-2">
           <Palette className="h-5 w-5 text-blue-600" />
           Display Preferences
@@ -527,7 +533,7 @@ export function PreferenceSettings() {
           Customize how the system looks and behaves for you.
         </CardDescription>
       </CardHeader>
-      <CardContent className="space-y-4">
+      <CardContent className="space-y-5 p-6">
         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
           <div className="space-y-2">
             <Label htmlFor="theme">Theme</Label>
@@ -541,7 +547,7 @@ export function PreferenceSettings() {
                 setTheme(value)
               }}
             >
-              <SelectTrigger id="theme">
+              <SelectTrigger id="theme" className="h-12 rounded-2xl border-slate-200 bg-white/95">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -559,7 +565,7 @@ export function PreferenceSettings() {
               value={preferences.locale} 
               onValueChange={(value) => setPreferences(prev => ({ ...prev, locale: value }))}
             >
-              <SelectTrigger id="language">
+              <SelectTrigger id="language" className="h-12 rounded-2xl border-slate-200 bg-white/95">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -576,7 +582,7 @@ export function PreferenceSettings() {
               value={preferences.timezone} 
               onValueChange={(value) => setPreferences(prev => ({ ...prev, timezone: value }))}
             >
-              <SelectTrigger id="timezone">
+              <SelectTrigger id="timezone" className="h-12 rounded-2xl border-slate-200 bg-white/95">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -593,7 +599,7 @@ export function PreferenceSettings() {
               value={preferences.dateFormat}
               onValueChange={(value) => setPreferences(prev => ({ ...prev, dateFormat: value }))}
             >
-              <SelectTrigger id="dateFormat">
+              <SelectTrigger id="dateFormat" className="h-12 rounded-2xl border-slate-200 bg-white/95">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -610,7 +616,7 @@ export function PreferenceSettings() {
               value={preferences.defaultDashboard}
               onValueChange={(value) => setPreferences(prev => ({ ...prev, defaultDashboard: value }))}
             >
-              <SelectTrigger id="defaultDashboard">
+              <SelectTrigger id="defaultDashboard" className="h-12 rounded-2xl border-slate-200 bg-white/95">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>
@@ -626,7 +632,7 @@ export function PreferenceSettings() {
         </div>
 
         {/* Queue SLA Thresholds (minutes) */}
-        <div className="mt-6 border-t pt-4">
+        <div className="mt-6 border-t border-slate-200/80 pt-5">
           <h4 className="text-sm font-semibold mb-2">Queue SLA Thresholds (minutes)</h4>
           <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
             <div className="space-y-1">
@@ -638,6 +644,7 @@ export function PreferenceSettings() {
                 max={600}
                 value={preferences.queue_wait_warn}
                 onChange={(e) => setPreferences(prev => ({ ...prev, queue_wait_warn: Number(e.target.value || 0) }))}
+                className="h-12 rounded-2xl border-slate-200 bg-white/95"
               />
             </div>
             <div className="space-y-1">
@@ -649,6 +656,7 @@ export function PreferenceSettings() {
                 max={600}
                 value={preferences.queue_wait_crit}
                 onChange={(e) => setPreferences(prev => ({ ...prev, queue_wait_crit: Number(e.target.value || 0) }))}
+                className="h-12 rounded-2xl border-slate-200 bg-white/95"
               />
             </div>
             <div className="space-y-1">
@@ -660,6 +668,7 @@ export function PreferenceSettings() {
                 max={600}
                 value={preferences.service_warn}
                 onChange={(e) => setPreferences(prev => ({ ...prev, service_warn: Number(e.target.value || 0) }))}
+                className="h-12 rounded-2xl border-slate-200 bg-white/95"
               />
             </div>
             <div className="space-y-1">
@@ -671,6 +680,7 @@ export function PreferenceSettings() {
                 max={600}
                 value={preferences.service_crit}
                 onChange={(e) => setPreferences(prev => ({ ...prev, service_crit: Number(e.target.value || 0) }))}
+                className="h-12 rounded-2xl border-slate-200 bg-white/95"
               />
             </div>
           </div>
@@ -685,9 +695,11 @@ export function PreferenceSettings() {
           </p>
         )}
         
-        <Button onClick={savePreferences} disabled={saving || loading} className="w-full">
-          {loading ? "Loading..." : saving ? "Saving..." : "Save Preferences"}
-        </Button>
+        <div className="flex justify-end">
+          <Button onClick={savePreferences} disabled={saving || loading} className="min-w-[170px] rounded-2xl">
+            {loading ? "Loading..." : saving ? "Saving..." : "Save Preferences"}
+          </Button>
+        </div>
       </CardContent>
     </Card>
   )
