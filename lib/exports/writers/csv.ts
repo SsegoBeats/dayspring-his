@@ -17,7 +17,14 @@ export function toCSV(
     ? opts.columns
     : (rows && rows.length ? Object.keys(rows[0]) : [])
   const columns = keys.map((k) => ({ key: k, header: opts?.headerMap?.[k] || formatHeader(k) }))
-  return stringify(rows || [], { header, columns })
+  return stringify(rows || [], {
+    header,
+    columns,
+    cast: {
+      boolean: (value) => (value ? "Yes" : "No"),
+      date: (value) => value.toISOString(),
+    },
+  })
 }
 
 

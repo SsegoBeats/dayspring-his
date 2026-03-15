@@ -38,6 +38,14 @@ export async function POST(req: Request) {
     const normalizedEmail = email.trim().toLowerCase()
     const isInitialVerification = !userRows[0]?.email_verified_at && currentEmail === normalizedEmail
 
+    const { rows: existingUsers } = await query(
+      `SELECT id FROM users WHERE LOWER(email) = $1 AND id <> $2 LIMIT 1`,
+      [normalizedEmail, auth.userId],
+    )
+    if (existingUsers.length > 0) {
+      return NextResponse.json({ error: "That email address is already in use by another account." }, { status: 409 })
+    }
+
     const template = {
       subject: isInitialVerification
         ? `Verify Your Email - ${ORG_NAME}`

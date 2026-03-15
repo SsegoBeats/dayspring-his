@@ -8,8 +8,10 @@ import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { CheckCircle, Mail, AlertCircle, Clock } from "lucide-react"
 import { toast } from "sonner"
+import { useAuth } from "@/lib/auth-context"
 
 export function EmailSettings() {
+  const { refreshUser } = useAuth()
   const [email, setEmail] = useState("")
   const [originalEmail, setOriginalEmail] = useState("") // Track original email from DB
   const [verified, setVerified] = useState<boolean | null>(null)
@@ -44,6 +46,17 @@ export function EmailSettings() {
       console.log("[OTP Frontend] Resend cooldown completed")
     }
   }, [resendCooldown, showOtpInput])
+
+  const normalizedOriginalEmail = originalEmail.trim().toLowerCase()
+  const normalizedCurrentEmail = email.trim().toLowerCase()
+  const isPendingEmailChange = verified === true && normalizedCurrentEmail !== normalizedOriginalEmail
+
+  const resetOtpFlow = () => {
+    setShowOtpInput(false)
+    setOtp("")
+    setServerMessage(null)
+    setResendCooldown(0)
+  }
 
   const sendOtp = async () => {
     if (process.env.NODE_ENV === "development") console.log("[OTP Frontend] Requesting OTP")
@@ -90,8 +103,7 @@ export function EmailSettings() {
       if (r.ok) {
         toast.success("Email verified successfully!")
         setServerMessage(null)
-        setShowOtpInput(false)
-        setOtp("")
+        resetOtpFlow()
         setVerified(true)
         // Refresh user data to get updated email and verification status
         const me = await fetch("/api/auth/me", { credentials: "include" })
@@ -101,6 +113,7 @@ export function EmailSettings() {
           setOriginalEmail(data.user?.email || "") // Update original email after verification
           setVerified(!!data.user?.email_verified_at)
         }
+        await refreshUser()
       } else {
         const d = await r.json().catch(() => ({}))
         setServerMessage(d?.error || null)
@@ -123,9 +136,11 @@ export function EmailSettings() {
           Account Email
         </CardTitle>
         <CardDescription>
-          {verified === true 
-            ? `Email verified: ${email}` 
-            : verified === false 
+          {verified === true && !isPendingEmailChange
+            ? `Current verified email: ${originalEmail}`
+            : isPendingEmailChange
+              ? `Verify ${email} to replace your current login email ${originalEmail}.`
+              : verified === false 
               ? `Change your login email. A 6-digit verification code will be sent.`
               : "Loading email status..."
           }
@@ -152,10 +167,16 @@ export function EmailSettings() {
                 Unverified
               </Badge>
             )}
-            {verified === true && (
+            {verified === true && !isPendingEmailChange && (
               <Badge variant="outline" className="text-green-600 border-green-200">
                 <CheckCircle className="h-3 w-3 mr-1" />
                 Verified
+              </Badge>
+            )}
+            {isPendingEmailChange && (
+              <Badge variant="outline" className="border-amber-200 text-amber-600">
+                <AlertCircle className="h-3 w-3 mr-1" />
+                Verification Required
               </Badge>
             )}
           </div>
@@ -222,6 +243,13 @@ export function EmailSettings() {
                 ) : (
                   "Resend"
                 )}
+              </Button>
+              <Button
+                variant="ghost"
+                onClick={resetOtpFlow}
+                className="rounded-2xl px-4"
+              >
+                Change Email
               </Button>
             </>
           )}

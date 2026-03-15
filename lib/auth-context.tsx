@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 
 export type UserRole =
   | "Receptionist"
@@ -26,6 +26,7 @@ interface AuthContextType {
   user: User | null
   login: (email: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>
   logout: () => void
+  refreshUser: () => Promise<void>
   isLoading: boolean
 }
 
@@ -35,23 +36,34 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [user, setUser] = useState<User | null>(null)
   const [isLoading, setIsLoading] = useState(true)
 
+  const refreshUser = useCallback(async () => {
+    try {
+      const res = await fetch("/api/auth/me", { credentials: "include" })
+      if (res.status === 401 || res.status === 403) {
+        setUser(null)
+        return
+      }
+      if (!res.ok) return
+      const data = await res.json()
+      if (data?.user) {
+        setUser({
+          ...data.user,
+          emailVerified: !!data.user.email_verified_at,
+        })
+      } else {
+        setUser(null)
+      }
+    } catch {
+      // Preserve the current auth state on transient failures.
+    }
+  }, [])
+
   useEffect(() => {
     ;(async () => {
-      try {
-        const res = await fetch("/api/auth/me", { credentials: "include" })
-        if (res.ok) {
-          const data = await res.json()
-          if (data?.user) {
-            setUser({
-              ...data.user,
-              emailVerified: !!data.user.email_verified_at,
-            })
-          }
-        }
-      } catch {}
+      await refreshUser()
       setIsLoading(false)
     })()
-  }, [])
+  }, [refreshUser])
 
   const login = async (email: string, password: string, role: UserRole): Promise<{ success: boolean; error?: string }> => {
     try {
@@ -85,16 +97,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       }
       // Ensure browser stores cookie before providers fire requests
       try {
-        const me = await fetch("/api/auth/me", { credentials: "include" })
-        if (me.ok) {
-          const m = await me.json()
-          if (m?.user) {
-            setUser({
-              ...m.user,
-              emailVerified: !!m.user.email_verified_at,
-            })
-          }
-        } else if (typeof window !== "undefined") {
+        await refreshUser()
+        if (typeof window !== "undefined" && !document.cookie.match(/(?:^|;\s)(session=|session_dev=)/)) {
           // Fallback: force a full navigation so Set-Cookie is applied
           window.location.href = "/dashboard"
         }
@@ -145,7 +149,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     try { if (typeof window !== "undefined") window.location.href = "/" } catch {}
   }
 
-  return <AuthContext.Provider value={{ user, login, logout, isLoading }}>{children}</AuthContext.Provider>
+  return <AuthContext.Provider value={{ user, login, logout, refreshUser, isLoading }}>{children}</AuthContext.Provider>
 }
 
 export function useAuth() {
@@ -155,4 +159,3 @@ export function useAuth() {
   }
   return context
 }
-

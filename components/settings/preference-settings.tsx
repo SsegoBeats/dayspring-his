@@ -14,6 +14,7 @@ import { useTheme } from "next-themes"
 import { useSettings } from "@/lib/settings-context"
 
 export function ProfileSettings() {
+  const { refreshUser } = useAuth()
   const [profile, setProfile] = useState({
     name: "",
     phone: "",
@@ -55,6 +56,7 @@ export function ProfileSettings() {
       })
       
       if (res.ok) {
+        await refreshUser()
         toast.success("Profile updated successfully")
       } else {
         const data = await res.json()
