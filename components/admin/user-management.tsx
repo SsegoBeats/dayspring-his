@@ -973,13 +973,14 @@ export function UserManagement() {
                   <Button variant="ghost" size="sm" onClick={() => setSelectedIds(new Set())}>Clear</Button>
                 </div>
               )}
-              <div className="space-y-4">
+              <div className="grid gap-4 xl:grid-cols-2">
                 {paginatedUsers.map((user) => {
                 const isCurrentUser = currentUser?.id === user.id
 
                 return (
-                <div key={user.id} className="flex items-center justify-between rounded-lg border border-border p-4">
-                  <div className="flex items-center gap-3 flex-1">
+                <div key={user.id} className="flex h-full flex-col gap-4 rounded-lg border border-border p-4">
+                  <div className="flex flex-1 flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
+                    <div className="flex items-start gap-3">
                     <button
                       type="button"
                       className="shrink-0 text-muted-foreground hover:text-foreground disabled:cursor-not-allowed disabled:opacity-40"
@@ -990,21 +991,22 @@ export function UserManagement() {
                     >
                       {selectedIds.has(user.id) ? <CheckSquare className="h-5 w-5" /> : <Square className="h-5 w-5" />}
                     </button>
-                  <div className="space-y-1">
-                    <div className="flex items-center gap-2">
-                      <p className="font-medium">{user.name}</p>
-                      <Badge className={getRoleBadgeColor(user.role)}>{user.role}</Badge>
-                      <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
-                      {isCurrentUser ? <Badge variant="outline">You</Badge> : null}
+                    <div className="space-y-1">
+                      <div className="flex flex-wrap items-center gap-2">
+                        <p className="font-medium">{user.name}</p>
+                        <Badge className={getRoleBadgeColor(user.role)}>{user.role}</Badge>
+                        <Badge variant={user.status === "active" ? "default" : "secondary"}>{user.status}</Badge>
+                        {isCurrentUser ? <Badge variant="outline">You</Badge> : null}
+                      </div>
+                      <p className="text-sm text-muted-foreground break-all">{user.email}</p>
+                      <p className="text-xs text-muted-foreground">
+                        Created: {formatDate(new Date(user.createdAt))}
+                        {user.lastLogin && ` - Last login: ${formatDate(new Date(user.lastLogin))}`}
+                      </p>
                     </div>
-                    <p className="text-sm text-muted-foreground">{user.email}</p>
-                    <p className="text-xs text-muted-foreground">
-                      Created: {formatDate(new Date(user.createdAt))}
-                      {user.lastLogin && ` - Last login: ${formatDate(new Date(user.lastLogin))}`}
-                    </p>
-                  </div>
-                  <div className="flex gap-2">
-                    <Dialog open={editingUser?.id === user.id} onOpenChange={(open) => {
+                    </div>
+                    <div className="flex shrink-0 gap-2 sm:justify-end">
+                      <Dialog open={editingUser?.id === user.id} onOpenChange={(open) => {
                         if (!open) setEditingUser(null)
                         else {
                           setEditRole(user.role)
@@ -1115,13 +1117,13 @@ export function UserManagement() {
                         }
                       }
                     }}
-                  >
-                    {deletingId === user.id ? (
-                      <Loader2 className="h-4 w-4 animate-spin text-destructive" />
-                    ) : (
-                      <Trash2 className="h-4 w-4 text-destructive" />
-                    )}
-                  </Button>
+                    >
+                      {deletingId === user.id ? (
+                        <Loader2 className="h-4 w-4 animate-spin text-destructive" />
+                      ) : (
+                        <Trash2 className="h-4 w-4 text-destructive" />
+                      )}
+                      </Button>
                     </div>
                   </div>
                 </div>
