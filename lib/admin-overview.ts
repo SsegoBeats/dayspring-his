@@ -1,8 +1,10 @@
 import { query } from "@/lib/db"
 import { RADIOLOGY_MODALITIES } from "@/lib/radiology"
 
-export const DEPARTMENT_ACTIVE_THRESHOLD_MINUTES = 30
-export const DEPARTMENT_STANDBY_THRESHOLD_MINUTES = 8 * 60
+// Treat "Active" as a very recent signal, then degrade quickly for operational monitoring.
+export const DEPARTMENT_ACTIVE_THRESHOLD_MINUTES = 5
+export const DEPARTMENT_STANDBY_THRESHOLD_MINUTES = 15
+export const DEPARTMENT_IDLE_THRESHOLD_MINUTES = 30
 export const DEPARTMENT_ACTIVITY_WINDOW_HOURS = 24
 export const STAFF_ACTIVITY_WINDOW_HOURS = 24
 export const WAIT_TIME_LOOKBACK_DAYS = 7
@@ -150,7 +152,7 @@ function classifyDepartment(activeUsers: number, lastActivityMinutes: number | n
     return { status: "Inactive", statusColor: "text-red-600" }
   }
   if (lastActivityMinutes == null) {
-    return { status: "Idle", statusColor: "text-slate-600" }
+    return { status: "Inactive", statusColor: "text-red-600" }
   }
   if (lastActivityMinutes <= DEPARTMENT_ACTIVE_THRESHOLD_MINUTES) {
     return { status: "Active", statusColor: "text-emerald-600" }
@@ -158,7 +160,10 @@ function classifyDepartment(activeUsers: number, lastActivityMinutes: number | n
   if (lastActivityMinutes <= DEPARTMENT_STANDBY_THRESHOLD_MINUTES) {
     return { status: "Standby", statusColor: "text-amber-600" }
   }
-  return { status: "Idle", statusColor: "text-slate-600" }
+  if (lastActivityMinutes <= DEPARTMENT_IDLE_THRESHOLD_MINUTES) {
+    return { status: "Idle", statusColor: "text-slate-600" }
+  }
+  return { status: "Inactive", statusColor: "text-red-600" }
 }
 
 export async function getDepartmentStatuses(): Promise<AdminDepartmentStatus[]> {

@@ -5,6 +5,7 @@ import { verifyToken } from "@/lib/security"
 import {
   DEPARTMENT_ACTIVE_THRESHOLD_MINUTES,
   DEPARTMENT_ACTIVITY_WINDOW_HOURS,
+  DEPARTMENT_IDLE_THRESHOLD_MINUTES,
   DEPARTMENT_STANDBY_THRESHOLD_MINUTES,
   STAFF_ACTIVITY_WINDOW_HOURS,
   WAIT_TIME_LOOKBACK_DAYS,
@@ -54,6 +55,7 @@ export async function GET() {
       criteria: {
         departmentActiveThresholdMinutes: DEPARTMENT_ACTIVE_THRESHOLD_MINUTES,
         departmentStandbyThresholdMinutes: DEPARTMENT_STANDBY_THRESHOLD_MINUTES,
+        departmentIdleThresholdMinutes: DEPARTMENT_IDLE_THRESHOLD_MINUTES,
         departmentActivityWindowHours: DEPARTMENT_ACTIVITY_WINDOW_HOURS,
         staffActivityWindowHours: STAFF_ACTIVITY_WINDOW_HOURS,
         waitTimeLookbackDays: WAIT_TIME_LOOKBACK_DAYS,

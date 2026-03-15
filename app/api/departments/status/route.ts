@@ -5,6 +5,7 @@ import { verifyToken } from "@/lib/security"
 import {
   DEPARTMENT_ACTIVE_THRESHOLD_MINUTES,
   DEPARTMENT_ACTIVITY_WINDOW_HOURS,
+  DEPARTMENT_IDLE_THRESHOLD_MINUTES,
   DEPARTMENT_STANDBY_THRESHOLD_MINUTES,
   getDepartmentStatuses,
 } from "@/lib/admin-overview"
@@ -48,6 +49,7 @@ export async function GET() {
       criteria: {
         activityThresholdMinutes: DEPARTMENT_ACTIVE_THRESHOLD_MINUTES,
         standbyThresholdMinutes: DEPARTMENT_STANDBY_THRESHOLD_MINUTES,
+        idleThresholdMinutes: DEPARTMENT_IDLE_THRESHOLD_MINUTES,
         activityWindowHours: DEPARTMENT_ACTIVITY_WINDOW_HOURS,
         description:
           "Department status is based on active staff assignment and the most recent clinical, operational, or login activity.",
