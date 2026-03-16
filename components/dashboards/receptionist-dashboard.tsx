@@ -1,6 +1,5 @@
 "use client"
 
-import Link from "next/link"
 import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
@@ -10,7 +9,7 @@ import { usePatients } from "@/lib/patient-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ArrowUpRight, BellRing, Calendar, ClipboardList, CreditCard, RefreshCw, Settings, Users } from "lucide-react"
+import { ArrowUpRight, BellRing, Calendar, ClipboardList, CreditCard, RefreshCw, Users } from "lucide-react"
 import { CheckInPanel } from "@/components/reception/check-in-panel"
 import { QueueBoardPro } from "@/components/reception/queue-board-pro"
 import { ReceptionRegister } from "@/components/reception/reception-register"
@@ -263,12 +262,6 @@ export function ReceptionistDashboard() {
               <QuickButton label="Launch check-in desk" description="Create arrivals and schedule appointments without leaving reception." onClick={() => syncSection("checkin")} />
               <QuickButton label="Review queue flow" description="See waiting pressure and move patients through service lanes." onClick={() => syncSection("queue")} />
               <QuickButton label="Open reports" description="Export the reception register, dashboard, and daily pack." onClick={() => syncSection("reports")} />
-              <Button asChild variant="outline">
-                <Link href="/receptionist/settings">
-                  <Settings className="mr-2 h-4 w-4" />
-                  Portal settings
-                </Link>
-              </Button>
             </div>
           </div>
         </div>

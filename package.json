@@ -10,6 +10,8 @@
         "test:e2e:admin:headed": "npx playwright test tests/e2e/admin-portal.spec.js --headed",
         "test:e2e:lab": "npx playwright test tests/e2e/lab-portal.spec.js",
         "test:e2e:lab:headed": "npx playwright test tests/e2e/lab-portal.spec.js --headed",
+        "test:e2e:receptionist": "npx playwright test tests/e2e/receptionist-portal.spec.js",
+        "test:e2e:receptionist:headed": "npx playwright test tests/e2e/receptionist-portal.spec.js --headed",
         "test:e2e:radiology": "npx playwright test tests/e2e/radiology-portal.spec.js",
         "test:e2e:radiology:headed": "npx playwright test tests/e2e/radiology-portal.spec.js --headed",
         "start": "next start",

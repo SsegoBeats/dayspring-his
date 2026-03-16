@@ -64,18 +64,18 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             </div>
             <NotificationsBell userRole={user?.role} />
             {showAncLink && (
-              <Link href="/midwife/anc">
-                <Button variant="ghost" size="sm">ANC</Button>
-              </Link>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/midwife/anc">ANC</Link>
+              </Button>
             )}
             {showSchedulesLink && (
-              <Link href="/clinician/schedules">
-                <Button variant="ghost" size="sm">Schedules</Button>
-              </Link>
+              <Button asChild variant="ghost" size="sm">
+                <Link href="/clinician/schedules">Schedules</Link>
+              </Button>
             )}
-            <Link href="/settings">
-              <Button variant="secondary" size="sm">Settings</Button>
-            </Link>
+            <Button asChild variant="secondary" size="sm">
+              <Link href="/settings">Settings</Link>
+            </Button>
             <Button variant="outline" size="sm" onClick={logout}>
               <LogOut className="mr-2 h-4 w-4" />
               Logout
