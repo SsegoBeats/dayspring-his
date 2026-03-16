@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { z } from "zod"
-import { verifyToken, can, hashPassword } from "@/lib/security"
+import { verifyToken, can } from "@/lib/security"
 import { query } from "@/lib/db"
 import { writeAuditLog } from "@/lib/audit"
 
@@ -23,6 +23,111 @@ const UpdateSchema = z.object({
     .optional(),
   status: z.boolean().optional(),
 })
+
+type UserReference = {
+  table_name: string
+  column_name: string
+  constraint_name: string
+  delete_rule: string
+  is_nullable: "YES" | "NO"
+  is_primary_key: boolean
+}
+
+const USER_OWNED_TABLES = new Set([
+  "doctor_schedules",
+  "email_verification_tokens",
+  "notification_user_states",
+  "password_reset_tokens",
+  "user_settings",
+])
+
+function quoteIdentifier(identifier: string) {
+  return `"${identifier.replace(/"/g, `""`)}"`
+}
+
+async function cleanupUserReferences(userId: string) {
+  const { rows: refs } = await query<UserReference>(
+    `SELECT
+       tc.table_name,
+       kcu.column_name,
+       tc.constraint_name,
+       rc.delete_rule,
+       cols.is_nullable,
+       EXISTS (
+         SELECT 1
+         FROM information_schema.table_constraints pk
+         JOIN information_schema.key_column_usage pk_kcu
+           ON pk.constraint_name = pk_kcu.constraint_name
+          AND pk.constraint_schema = pk_kcu.constraint_schema
+         WHERE pk.constraint_type = 'PRIMARY KEY'
+           AND pk.table_schema = tc.table_schema
+           AND pk.table_name = tc.table_name
+           AND pk_kcu.column_name = kcu.column_name
+       ) AS is_primary_key
+     FROM information_schema.table_constraints tc
+     JOIN information_schema.key_column_usage kcu
+       ON tc.constraint_name = kcu.constraint_name
+      AND tc.constraint_schema = kcu.constraint_schema
+     JOIN information_schema.constraint_column_usage ccu
+       ON tc.constraint_name = ccu.constraint_name
+      AND tc.constraint_schema = ccu.constraint_schema
+     JOIN information_schema.referential_constraints rc
+       ON tc.constraint_name = rc.constraint_name
+      AND tc.constraint_schema = rc.constraint_schema
+     JOIN information_schema.columns cols
+       ON cols.table_schema = tc.table_schema
+      AND cols.table_name = tc.table_name
+      AND cols.column_name = kcu.column_name
+     WHERE tc.constraint_type = 'FOREIGN KEY'
+       AND tc.table_schema = 'public'
+       AND ccu.table_schema = 'public'
+       AND ccu.table_name = 'users'
+       AND ccu.column_name = 'id'
+     ORDER BY tc.table_name, kcu.column_name`,
+  )
+
+  for (const ref of refs) {
+    const table = quoteIdentifier(ref.table_name)
+    const column = quoteIdentifier(ref.column_name)
+
+    if (USER_OWNED_TABLES.has(ref.table_name) || ref.is_primary_key) {
+      await query(`DELETE FROM ${table} WHERE ${column} = $1`, [userId]).catch(() => {})
+      continue
+    }
+
+    const updateSql = `UPDATE ${table} SET ${column} = NULL WHERE ${column} = $1`
+
+    try {
+      await query(updateSql, [userId])
+      continue
+    } catch (error: any) {
+      const code = String(error?.code || "")
+      const deleteRule = String(ref.delete_rule || "").toUpperCase()
+      const needsNormalization =
+        ref.is_nullable !== "YES" ||
+        deleteRule !== "SET NULL" ||
+        code === "23502" ||
+        code === "23503"
+
+      if (!needsNormalization) {
+        throw error
+      }
+    }
+
+    const constraint = quoteIdentifier(ref.constraint_name)
+    try {
+      await query(`ALTER TABLE ${table} ALTER COLUMN ${column} DROP NOT NULL`)
+    } catch {}
+    try {
+      await query(`ALTER TABLE ${table} DROP CONSTRAINT IF EXISTS ${constraint}`)
+      await query(
+        `ALTER TABLE ${table} ADD CONSTRAINT ${constraint} FOREIGN KEY (${column}) REFERENCES users(id) ON DELETE SET NULL`,
+      )
+    } catch {}
+
+    await query(updateSql, [userId])
+  }
+}
 
 export async function PUT(_: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
@@ -69,66 +174,21 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     return NextResponse.json({ error: "You cannot delete your own account from User Management." }, { status: 400 })
   }
   try {
-    // Proactively null-out references in many tables so delete never fails
-    const nullify: Array<[string,string]> = [
-      ['audit_logs','user_id'],
-      ['triage_assessments','recorded_by'],
-      ['appointments','doctor_id'],
-      ['appointments','created_by'],
-      ['medical_records','doctor_id'],
-      ['vital_signs','nurse_id'],
-      ['nursing_notes','nurse_id'],
-      ['prescriptions','doctor_id'],
-      ['prescriptions','dispensed_by'],
-      ['lab_tests','doctor_id'],
-      ['lab_tests','lab_tech_id'],
-      ['lab_tests','assigned_radiologist_id'],
-      ['lab_tests','reviewed_by'],
-      ['radiology_tests','doctor_id'],
-      ['radiology_tests','radiologist_id'],
-      ['bills','cashier_id'],
-      ['payments','cashier_id'],
-      ['patient_routing','routed_by'],
-      ['bed_assignments','assigned_by'],
-      ['checkins','receptionist_id'],
-      ['documents','uploaded_by'],
-      ['notifications','user_id'],
-    ]
-    for (const [tbl, col] of nullify) {
-      try { await query(`UPDATE ${tbl} SET ${col} = NULL WHERE ${col} = $1`, [id]) } catch {}
-    }
-    // Tables we prefer to fully remove (in case FKs are RESTRICT): schedules/tokens
-    try { await query(`DELETE FROM doctor_schedules WHERE doctor_id = $1`, [id]) } catch {}
-    try { await query(`DELETE FROM email_verification_tokens WHERE user_id = $1`, [id]) } catch {}
-    try { await query(`DELETE FROM password_reset_tokens WHERE user_id = $1`, [id]) } catch {}
-
+    await cleanupUserReferences(id)
     await query(`DELETE FROM users WHERE id = $1`, [id])
     await writeAuditLog({ action: "user_delete", entityType: "user", entityId: id, userId: auth.userId })
     return NextResponse.json({ success: true })
   } catch (e: any) {
     const code = e?.code || ''
     if (code === '23503') {
-      const constraint = e?.constraint || ''
-      // Auto-remediate a common legacy constraint on checkins.receptionist_id
-      if (constraint === 'checkins_receptionist_id_fkey') {
-        try {
-          await query(`ALTER TABLE checkins ALTER COLUMN receptionist_id DROP NOT NULL`)
-        } catch {}
-        try {
-          await query(`ALTER TABLE checkins DROP CONSTRAINT IF EXISTS checkins_receptionist_id_fkey`)
-          await query(`ALTER TABLE checkins ADD CONSTRAINT checkins_receptionist_id_fkey FOREIGN KEY (receptionist_id) REFERENCES users(id) ON DELETE SET NULL`)
-        } catch {}
-        try { await query(`UPDATE checkins SET receptionist_id = NULL WHERE receptionist_id = $1`, [id]) } catch {}
-        // Retry delete once
-        try {
-          await query(`DELETE FROM users WHERE id = $1`, [id])
-          await writeAuditLog({ action: "user_delete", entityType: "user", entityId: id, userId: undefined })
-          return NextResponse.json({ success: true, remediated: true })
-        } catch (ee: any) {
-          return NextResponse.json({ error: 'User cannot be deleted due to existing references.', constraint: ee?.constraint, detail: ee?.detail }, { status: 409 })
-        }
-      }
-      return NextResponse.json({ error: 'User cannot be deleted due to existing references. Please run migrations and try again.', constraint: constraint || undefined, detail: e?.detail || undefined }, { status: 409 })
+      return NextResponse.json(
+        {
+          error: "User cannot be deleted because related records still reference this account.",
+          constraint: e?.constraint || undefined,
+          detail: e?.detail || undefined,
+        },
+        { status: 409 },
+      )
     }
     return NextResponse.json({ error: 'Failed to delete user' }, { status: 500 })
   }
