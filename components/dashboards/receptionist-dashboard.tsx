@@ -80,15 +80,6 @@ type AttentionItem = {
   onClick: () => void
 }
 
-type ActivityFeedItem = {
-  id: string
-  title: string
-  detail: string
-  timestamp: number
-  onClick: () => void
-  accent: "sky" | "emerald"
-}
-
 function isReceptionSection(value: string | null | undefined): value is ReceptionSection {
   return Boolean(value && RECEPTION_SECTIONS.includes(value as ReceptionSection))
 }
@@ -324,33 +315,6 @@ export function ReceptionistDashboard() {
     syncSection,
     todayPayments.length,
   ])
-
-  const recentActivity = useMemo<ActivityFeedItem[]>(() => {
-    const checkinItems = arrivals.map((arrival) => ({
-      id: `checkin-${arrival.id}`,
-      title: `Arrival registered for ${arrival.first_name} ${arrival.last_name}`,
-      detail: `${formatPatientNumber(arrival.patient_number)} moved into ${arrival.status} at ${new Date(arrival.created_at).toLocaleTimeString()}.`,
-      timestamp: getSafeTimestamp(arrival.created_at),
-      onClick: () => {
-        setFocusPatientId(arrival.patient_id)
-        syncSection("patients")
-      },
-      accent: "sky" as const,
-    }))
-
-    const paymentItems = todayPayments.map((payment) => ({
-      id: `payment-${payment.id}`,
-      title: `Payment posted for ${payment.first_name} ${payment.last_name}`,
-      detail: `${formatCurrency(Number(payment.amount || 0))} via ${payment.method} on receipt ${payment.receipt_no}.`,
-      timestamp: getSafeTimestamp(payment.created_at),
-      onClick: () => syncSection("payments"),
-      accent: "emerald" as const,
-    }))
-
-    return [...checkinItems, ...paymentItems]
-      .sort((left, right) => right.timestamp - left.timestamp)
-      .slice(0, 8)
-  }, [arrivals, formatCurrency, syncSection, todayPayments])
 
   const loadOpsSnapshot = useCallback(async () => {
     try {
@@ -834,62 +798,6 @@ export function ReceptionistDashboard() {
                 </Card>
               </div>
 
-              <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
-                <Card className="border-slate-200 bg-white/95 shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-base">Recent Front-Desk Activity</CardTitle>
-                    <CardDescription>Latest patient arrivals and payment events captured by the reception workflow.</CardDescription>
-                  </CardHeader>
-                  <CardContent>
-                    {opsLoading ? (
-                      <div className="space-y-2">
-                        <Skeleton className="h-14 w-full" />
-                        <Skeleton className="h-14 w-full" />
-                        <Skeleton className="h-14 w-full" />
-                      </div>
-                    ) : recentActivity.length === 0 ? (
-                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-5 text-sm text-muted-foreground">
-                        No arrival or payment activity has been captured yet.
-                      </div>
-                    ) : (
-                      <div className="space-y-2">
-                        {recentActivity.map((item) => (
-                          <ActivityFeedRow key={item.id} item={item} />
-                        ))}
-                      </div>
-                    )}
-                  </CardContent>
-                </Card>
-
-                <Card className="border-slate-200 bg-white/95 shadow-sm">
-                  <CardHeader>
-                    <CardTitle className="text-base">Workflow Handoffs</CardTitle>
-                    <CardDescription>Open the right desk surface with the current live count already in view.</CardDescription>
-                  </CardHeader>
-                  <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
-                    <ActionCard
-                      title="Patients"
-                      description={`${patients.length} registered records available for demographic fixes and insurance review.`}
-                      onClick={() => syncSection("patients")}
-                    />
-                    <ActionCard
-                      title="Check-In"
-                      description={`${todayAppointments.length} scheduled appointments and ${arrivals.length} arrivals are feeding through reception today.`}
-                      onClick={() => syncSection("checkin")}
-                    />
-                    <ActionCard
-                      title="Queue"
-                      description={`${waitingQueue.length} waiting and ${inServiceQueue.length} in service across live departments.`}
-                      onClick={() => syncSection("queue")}
-                    />
-                    <ActionCard
-                      title="Reports"
-                      description="Download the reception register, queue history, and daily reconciliation pack from one place."
-                      onClick={() => syncSection("reports")}
-                    />
-                  </CardContent>
-                </Card>
-              </div>
             </TabsContent>
 
             <TabsContent value="patients">
@@ -970,19 +878,6 @@ function MetricCard({
   )
 }
 
-function ActionCard({ title, description, onClick }: { title: string; description: string; onClick: () => void }) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-4 text-left transition hover:border-sky-300 hover:bg-white hover:shadow-sm"
-    >
-      <div className="font-medium text-foreground">{title}</div>
-      <div className="mt-2 text-sm text-muted-foreground">{description}</div>
-    </button>
-  )
-}
-
 function statusPillClassName(tone: OverviewTone) {
   if (tone === "critical") {
     return "inline-flex max-w-xl items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-900"
@@ -1037,25 +932,5 @@ function AttentionCard({ item }: { item: AttentionItem }) {
         </Button>
       </div>
     </div>
-  )
-}
-
-function ActivityFeedRow({ item }: { item: ActivityFeedItem }) {
-  return (
-    <button
-      type="button"
-      onClick={item.onClick}
-      className={`w-full rounded-2xl border px-4 py-3 text-left transition hover:shadow-sm ${item.accent === "sky" ? "border-sky-200 bg-sky-50/70 hover:border-sky-300" : "border-emerald-200 bg-emerald-50/70 hover:border-emerald-300"}`}
-    >
-      <div className="flex items-start justify-between gap-3">
-        <div>
-          <div className="font-medium text-foreground">{item.title}</div>
-          <div className="mt-1 text-sm leading-6 text-muted-foreground">{item.detail}</div>
-        </div>
-        <div className="text-xs text-muted-foreground">
-          {item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "Now"}
-        </div>
-      </div>
-    </button>
   )
 }
