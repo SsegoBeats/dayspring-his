@@ -18,9 +18,11 @@ import { ErrorBoundary } from "@/components/error-boundary"
 import { useSettings } from "@/lib/settings-context"
 import { buildSearchParamsString } from "@/lib/search-params"
 import { formatPatientNumber } from "@/lib/patients"
+import { ScrollArea } from "@/components/ui/scroll-area"
 
 const RECEPTION_SECTIONS = ["overview", "patients", "checkin", "queue", "payments", "reports"] as const
 type ReceptionSection = (typeof RECEPTION_SECTIONS)[number]
+const OVERVIEW_LIST_HEIGHT_CLASS = "h-[26rem]"
 
 type CheckinRow = {
   id: string
@@ -374,15 +376,17 @@ export function ReceptionistDashboard() {
                   No appointments are scheduled for today.
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {todayAppointments.slice(0, 5).map((appointment) => (
-                    <div key={appointment.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
-                      <div className="font-medium text-foreground">{appointment.patientName}</div>
-                      <div className="text-sm text-muted-foreground">{appointment.time} | {appointment.department || appointment.type}</div>
-                      <div className="text-xs text-muted-foreground">Clinician: {appointment.doctorName || "Unassigned"}</div>
-                    </div>
-                  ))}
-                </div>
+                <ScrollArea className={OVERVIEW_LIST_HEIGHT_CLASS}>
+                  <div className="space-y-2 pr-4">
+                    {todayAppointments.map((appointment) => (
+                      <div key={appointment.id} className="rounded-2xl border border-slate-200 bg-white px-4 py-3">
+                        <div className="font-medium text-foreground">{appointment.patientName}</div>
+                        <div className="text-sm text-muted-foreground">{appointment.time} | {appointment.department || appointment.type}</div>
+                        <div className="text-xs text-muted-foreground">Clinician: {appointment.doctorName || "Unassigned"}</div>
+                      </div>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
             </div>
             <div className="space-y-3 rounded-3xl border border-slate-200 bg-slate-50/70 p-4">
@@ -403,26 +407,28 @@ export function ReceptionistDashboard() {
                   No check-ins have been recorded yet today.
                 </div>
               ) : (
-                <div className="space-y-2">
-                  {arrivals.slice(0, 5).map((arrival) => (
-                    <button
-                      key={arrival.id}
-                      type="button"
-                      onClick={() => {
-                        setFocusPatientId(arrival.patient_id)
-                        syncSection("patients")
-                      }}
-                      className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-sky-300 hover:shadow-sm"
-                    >
-                      <div className="font-medium text-foreground">
-                        {formatPatientNumber(arrival.patient_number)} - {arrival.first_name} {arrival.last_name}
-                      </div>
-                      <div className="text-sm text-muted-foreground">
-                        {arrival.status} | {new Date(arrival.created_at).toLocaleTimeString()}
-                      </div>
-                    </button>
-                  ))}
-                </div>
+                <ScrollArea className={OVERVIEW_LIST_HEIGHT_CLASS}>
+                  <div className="space-y-2 pr-4">
+                    {arrivals.map((arrival) => (
+                      <button
+                        key={arrival.id}
+                        type="button"
+                        onClick={() => {
+                          setFocusPatientId(arrival.patient_id)
+                          syncSection("patients")
+                        }}
+                        className="w-full rounded-2xl border border-slate-200 bg-white px-4 py-3 text-left transition hover:border-sky-300 hover:shadow-sm"
+                      >
+                        <div className="font-medium text-foreground">
+                          {formatPatientNumber(arrival.patient_number)} - {arrival.first_name} {arrival.last_name}
+                        </div>
+                        <div className="text-sm text-muted-foreground">
+                          {arrival.status} | {new Date(arrival.created_at).toLocaleTimeString()}
+                        </div>
+                      </button>
+                    ))}
+                  </div>
+                </ScrollArea>
               )}
             </div>
           </CardContent>
@@ -445,24 +451,26 @@ export function ReceptionistDashboard() {
                 No queue build-up is visible right now.
               </div>
             ) : (
-              <>
-                {waitingQueue.slice(0, 4).map((entry) => (
-                  <div key={entry.id} className="rounded-2xl border border-amber-200 bg-amber-50/75 px-4 py-3">
-                    <div className="font-medium text-foreground">{entry.first_name} {entry.last_name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {entry.department} | waiting {Math.max(0, Math.round(Number(entry.waiting_minutes || 0)))} min
+              <ScrollArea className={OVERVIEW_LIST_HEIGHT_CLASS}>
+                <div className="space-y-2 pr-4">
+                  {waitingQueue.map((entry) => (
+                    <div key={entry.id} className="rounded-2xl border border-amber-200 bg-amber-50/75 px-4 py-3">
+                      <div className="font-medium text-foreground">{entry.first_name} {entry.last_name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {entry.department} | waiting {Math.max(0, Math.round(Number(entry.waiting_minutes || 0)))} min
+                      </div>
                     </div>
-                  </div>
-                ))}
-                {inServiceQueue.slice(0, 2).map((entry) => (
-                  <div key={entry.id} className="rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3">
-                    <div className="font-medium text-foreground">{entry.first_name} {entry.last_name}</div>
-                    <div className="text-sm text-muted-foreground">
-                      {entry.department} | in service {Math.max(0, Math.round(Number(entry.in_service_minutes || 0)))} min
+                  ))}
+                  {inServiceQueue.map((entry) => (
+                    <div key={entry.id} className="rounded-2xl border border-emerald-200 bg-emerald-50/70 px-4 py-3">
+                      <div className="font-medium text-foreground">{entry.first_name} {entry.last_name}</div>
+                      <div className="text-sm text-muted-foreground">
+                        {entry.department} | in service {Math.max(0, Math.round(Number(entry.in_service_minutes || 0)))} min
+                      </div>
                     </div>
-                  </div>
-                ))}
-              </>
+                  ))}
+                </div>
+              </ScrollArea>
             )}
             <Button variant="outline" className="w-full" onClick={() => syncSection("queue")}>
               Open Queue Board

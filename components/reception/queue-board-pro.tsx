@@ -10,6 +10,9 @@ import { toast } from "sonner"
 import { runExport } from "@/lib/reception-export-utils"
 import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
 import { formatPatientNumber } from "@/lib/patients"
+import { ScrollArea } from "@/components/ui/scroll-area"
+
+const LANE_HEIGHT_CLASS = "h-[36rem]"
 
 type QueueRow = {
   id: string
@@ -216,9 +219,9 @@ export function QueueBoardPro() {
       <CardContent className="space-y-3">
         <div className="flex flex-wrap items-center gap-2">
           <div className="w-56 space-y-1">
-            <span className="text-xs text-muted-foreground block">Department (board + exports)</span>
+            <Label htmlFor="queue-department-filter" className="text-xs text-muted-foreground block">Department (board + exports)</Label>
             <Select value={department} onValueChange={(v: string) => setDepartment(v === "__CLEAR__" ? "" : v)}>
-              <SelectTrigger aria-label="Filter by department"><SelectValue placeholder="All departments" /></SelectTrigger>
+              <SelectTrigger id="queue-department-filter" aria-label="Filter by department"><SelectValue placeholder="All departments" /></SelectTrigger>
               <SelectContent>
                 <SelectItem value="__CLEAR__">All</SelectItem>
                 {RECEPTION_DEPARTMENTS.map((d) => (
@@ -241,22 +244,22 @@ export function QueueBoardPro() {
           <div className="flex items-end gap-2 border-l pl-2 border-border/50">
             <span className="text-xs text-muted-foreground self-center hidden sm:inline">Export period:</span>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground sr-only">Export from date</Label>
-              <input className="border rounded px-2 py-1 text-sm w-36" type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Export from date" />
+              <Label htmlFor="queue-export-from" className="text-xs text-muted-foreground sr-only">Export from date</Label>
+              <input id="queue-export-from" name="queueExportFrom" className="border rounded px-2 py-1 text-sm w-36" type="date" value={from} onChange={(e) => setFrom(e.target.value)} aria-label="Export from date" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-muted-foreground sr-only">Export to date</Label>
-              <input className="border rounded px-2 py-1 text-sm w-36" type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Export to date" />
+              <Label htmlFor="queue-export-to" className="text-xs text-muted-foreground sr-only">Export to date</Label>
+              <input id="queue-export-to" name="queueExportTo" className="border rounded px-2 py-1 text-sm w-36" type="date" value={to} onChange={(e) => setTo(e.target.value)} aria-label="Export to date" />
             </div>
             <div className="w-44">
-              <Label className="text-xs text-muted-foreground sr-only">Export status filter</Label>
+              <Label htmlFor="queue-export-status" className="text-xs text-muted-foreground sr-only">Export status filter</Label>
               <Select
                 value={statusFilter}
                 onValueChange={(v: string) =>
                   setStatusFilter(v === "__CLEAR__" ? "" : (v as "waiting" | "in_service" | "done" | "cancelled"))
                 }
               >
-                <SelectTrigger aria-label="Export status filter"><SelectValue placeholder="Any Status" /></SelectTrigger>
+                <SelectTrigger id="queue-export-status" aria-label="Export status filter"><SelectValue placeholder="Any Status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="__CLEAR__">Any Status</SelectItem>
                   <SelectItem value="waiting">Waiting</SelectItem>
@@ -323,7 +326,7 @@ export function QueueBoardPro() {
             { title: 'In Service', status: 'in_service', data: inService },
             { title: 'Done', status: 'done', data: done },
           ] as const).map((lane) => (
-            <div key={lane.status} className="rounded border min-h-[200px]"
+            <div key={lane.status} className="overflow-hidden rounded border min-h-[200px]"
               onDragOver={(e)=>{ e.preventDefault(); e.dataTransfer.dropEffect='move' }}
               onDrop={(e)=>{
                 e.preventDefault()
@@ -358,92 +361,94 @@ export function QueueBoardPro() {
                   })()}
                 </span>
               </div>
-              <div>
-                {(lane.data || []).length === 0 ? (
-                  <div className="p-3 text-sm text-muted-foreground">No entries</div>
-                ) : lane.data.map((r) => {
-                  const cls = (() => {
-                    if (lane.status === 'waiting') {
-                      const v = typeof r.waiting_minutes === 'number' ? r.waiting_minutes : 0
-                      if (v >= warn.critWait) return 'bg-red-50'
-                      if (v >= warn.wait) return 'bg-amber-50'
+              <ScrollArea className={LANE_HEIGHT_CLASS}>
+                <div>
+                  {(lane.data || []).length === 0 ? (
+                    <div className="p-3 text-sm text-muted-foreground">No entries</div>
+                  ) : lane.data.map((r) => {
+                    const cls = (() => {
+                      if (lane.status === 'waiting') {
+                        const v = typeof r.waiting_minutes === 'number' ? r.waiting_minutes : 0
+                        if (v >= warn.critWait) return 'bg-red-50'
+                        if (v >= warn.wait) return 'bg-amber-50'
+                        return ''
+                      }
+                      if (lane.status === 'in_service') {
+                        const v = typeof r.in_service_minutes === 'number' ? r.in_service_minutes : 0
+                        if (v >= warn.critSvc) return 'bg-red-50'
+                        if (v >= warn.svc) return 'bg-amber-50'
+                        return ''
+                      }
                       return ''
-                    }
-                    if (lane.status === 'in_service') {
-                      const v = typeof r.in_service_minutes === 'number' ? r.in_service_minutes : 0
-                      if (v >= warn.critSvc) return 'bg-red-50'
-                      if (v >= warn.svc) return 'bg-amber-50'
-                      return ''
-                    }
-                    return ''
-                  })()
-                  return (
-                    <div
-                      key={r.id}
-                      className={`p-3 flex items-center justify-between border-t transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 ${cls}`}
-                      draggable
-                      onDragStart={(e)=>{
-                        e.dataTransfer.setData('text/plain', JSON.stringify({ id: r.id, status: lane.status }))
-                        e.dataTransfer.effectAllowed = 'move'
-                      }}
-                      onDragOver={(e)=>{ e.preventDefault(); e.currentTarget.classList.add('bg-emerald-50'); e.dataTransfer.dropEffect='move' }}
-                      onDragLeave={(e)=>{ e.currentTarget.classList.remove('bg-emerald-50') }}
-                      onDrop={(e)=>{
-                        e.preventDefault()
-                        e.currentTarget.classList.remove('bg-emerald-50')
-                        let srcId: string
-                        let srcStatus: LaneStatus
-                        try {
-                          const raw = e.dataTransfer.getData('text/plain')
-                          const parsed = raw.startsWith('{') ? JSON.parse(raw) as { id: string; status: LaneStatus } : { id: raw, status: lane.status }
-                          srcId = parsed.id
-                          srcStatus = parsed.status ?? lane.status
-                        } catch { srcId = e.dataTransfer.getData('text/plain'); srcStatus = lane.status }
-                        if (!srcId || srcId === r.id) return
-                        const place: 'before' | 'after' = e.shiftKey ? 'before' : 'after'
-                        handleDropOnCard(srcId, srcStatus, lane.status, r.id, place)
-                      }}
-                      tabIndex={0}
-                      onKeyDown={(e)=>{
-                        if (e.key === 'a' || e.key === 'A') { update(r.id, 'start') }
-                        if (e.key === 'd' || e.key === 'D') { update(r.id, 'done') }
-                        if (e.key === 'c' || e.key === 'C') { update(r.id, 'cancel') }
-                      }}
-                    >
-                      <div className="text-sm">
-                        <div className="font-medium">{formatPatientNumber(r.patient_number)} - {r.first_name} {r.last_name}</div>
-                        <div className="text-muted-foreground">{r.department} | Priority {r.priority} | Position {r.position}</div>
-                        {lane.status === 'waiting' && typeof r.waiting_minutes === 'number' && (
-                          <div className="text-xs text-amber-600">Waiting: {Math.max(0, Math.round(r.waiting_minutes))} min</div>
-                        )}
-                        {lane.status === 'in_service' && typeof r.in_service_minutes === 'number' && (
-                          <div className="text-xs text-emerald-600">In Service: {Math.max(0, Math.round(r.in_service_minutes))} min</div>
-                        )}
-                      </div>
-                      <div className="flex gap-2 items-center">
-                        <div className="flex items-center gap-1">
-                          <Button size="sm" variant="outline" onClick={() => setPriority(r.id, Math.max(0, r.priority - 1))}>-</Button>
-                          <Button size="sm" variant="outline" onClick={() => setPriority(r.id, r.priority + 1)}>+</Button>
+                    })()
+                    return (
+                      <div
+                        key={r.id}
+                        className={`p-3 flex items-center justify-between border-t transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 ${cls}`}
+                        draggable
+                        onDragStart={(e)=>{
+                          e.dataTransfer.setData('text/plain', JSON.stringify({ id: r.id, status: lane.status }))
+                          e.dataTransfer.effectAllowed = 'move'
+                        }}
+                        onDragOver={(e)=>{ e.preventDefault(); e.currentTarget.classList.add('bg-emerald-50'); e.dataTransfer.dropEffect='move' }}
+                        onDragLeave={(e)=>{ e.currentTarget.classList.remove('bg-emerald-50') }}
+                        onDrop={(e)=>{
+                          e.preventDefault()
+                          e.currentTarget.classList.remove('bg-emerald-50')
+                          let srcId: string
+                          let srcStatus: LaneStatus
+                          try {
+                            const raw = e.dataTransfer.getData('text/plain')
+                            const parsed = raw.startsWith('{') ? JSON.parse(raw) as { id: string; status: LaneStatus } : { id: raw, status: lane.status }
+                            srcId = parsed.id
+                            srcStatus = parsed.status ?? lane.status
+                          } catch { srcId = e.dataTransfer.getData('text/plain'); srcStatus = lane.status }
+                          if (!srcId || srcId === r.id) return
+                          const place: 'before' | 'after' = e.shiftKey ? 'before' : 'after'
+                          handleDropOnCard(srcId, srcStatus, lane.status, r.id, place)
+                        }}
+                        tabIndex={0}
+                        onKeyDown={(e)=>{
+                          if (e.key === 'a' || e.key === 'A') { update(r.id, 'start') }
+                          if (e.key === 'd' || e.key === 'D') { update(r.id, 'done') }
+                          if (e.key === 'c' || e.key === 'C') { update(r.id, 'cancel') }
+                        }}
+                      >
+                        <div className="text-sm">
+                          <div className="font-medium">{formatPatientNumber(r.patient_number)} - {r.first_name} {r.last_name}</div>
+                          <div className="text-muted-foreground">{r.department} | Priority {r.priority} | Position {r.position}</div>
+                          {lane.status === 'waiting' && typeof r.waiting_minutes === 'number' && (
+                            <div className="text-xs text-amber-600">Waiting: {Math.max(0, Math.round(r.waiting_minutes))} min</div>
+                          )}
+                          {lane.status === 'in_service' && typeof r.in_service_minutes === 'number' && (
+                            <div className="text-xs text-emerald-600">In Service: {Math.max(0, Math.round(r.in_service_minutes))} min</div>
+                          )}
                         </div>
-                        <Button size="sm" variant="outline" onClick={() => fetch(`/api/queues?id=${r.id}`, { method:'PATCH', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'top', department: department || undefined, statusCtx: lane.status }) }).then(()=>load())}>Top</Button>
-                        {lane.status === 'waiting' && (
-                          <>
-                            <Button size="sm" onClick={() => update(r.id, 'start')}>Start</Button>
-                            <Button size="sm" variant="secondary" onClick={() => update(r.id, 'advance')}>Advance</Button>
-                            <Button size="sm" variant="destructive" onClick={() => update(r.id, 'cancel')}>Cancel</Button>
-                          </>
-                        )}
-                        {lane.status === 'in_service' && (
-                          <Button size="sm" onClick={() => update(r.id, 'done')}>Mark Done</Button>
-                        )}
-                        {lane.status === 'done' && (
-                          <Button size="sm" variant="destructive" onClick={() => handleDeleteDone(r.id)}>Remove</Button>
-                        )}
+                        <div className="flex gap-2 items-center">
+                          <div className="flex items-center gap-1">
+                            <Button size="sm" variant="outline" onClick={() => setPriority(r.id, Math.max(0, r.priority - 1))}>-</Button>
+                            <Button size="sm" variant="outline" onClick={() => setPriority(r.id, r.priority + 1)}>+</Button>
+                          </div>
+                          <Button size="sm" variant="outline" onClick={() => fetch(`/api/queues?id=${r.id}`, { method:'PATCH', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'top', department: department || undefined, statusCtx: lane.status }) }).then(()=>load())}>Top</Button>
+                          {lane.status === 'waiting' && (
+                            <>
+                              <Button size="sm" onClick={() => update(r.id, 'start')}>Start</Button>
+                              <Button size="sm" variant="secondary" onClick={() => update(r.id, 'advance')}>Advance</Button>
+                              <Button size="sm" variant="destructive" onClick={() => update(r.id, 'cancel')}>Cancel</Button>
+                            </>
+                          )}
+                          {lane.status === 'in_service' && (
+                            <Button size="sm" onClick={() => update(r.id, 'done')}>Mark Done</Button>
+                          )}
+                          {lane.status === 'done' && (
+                            <Button size="sm" variant="destructive" onClick={() => handleDeleteDone(r.id)}>Remove</Button>
+                          )}
+                        </div>
                       </div>
-                    </div>
-                  )
-                })}
-              </div>
+                    )
+                  })}
+                </div>
+              </ScrollArea>
             </div>
           ))}
         </div>
