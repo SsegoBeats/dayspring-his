@@ -1,6 +1,6 @@
 "use client"
 
-import { type ReactNode, useCallback, useEffect, useMemo, useState } from "react"
+import { type ReactNode, useCallback, useEffect, useMemo, useRef, useState } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { PatientList } from "@/components/patient/patient-list"
@@ -83,6 +83,7 @@ export function ReceptionistDashboard() {
   const pathname = usePathname()
   const searchParams = useSearchParams()
   const sectionParam = searchParams.get("section")
+  const workspaceRef = useRef<HTMLDivElement | null>(null)
   const [activeTab, setActiveTab] = useState<ReceptionSection>("overview")
   const [focusPatientId, setFocusPatientId] = useState<string | undefined>(undefined)
   const [refreshingOverview, setRefreshingOverview] = useState(false)
@@ -110,11 +111,27 @@ export function ReceptionistDashboard() {
     [todayPayments],
   )
 
+  const scrollWorkspaceIntoView = useCallback((behavior: ScrollBehavior = "smooth") => {
+    requestAnimationFrame(() => {
+      workspaceRef.current?.scrollIntoView({ behavior, block: "start" })
+    })
+  }, [])
+
   const syncSection = useCallback((next: ReceptionSection) => {
     setActiveTab(next)
     const params = buildSearchParamsString(searchParams, { section: next === "overview" ? null : next })
-    router.replace(params ? `${pathname}?${params}` : pathname, { scroll: false })
-  }, [pathname, router, searchParams])
+    const current = searchParams.toString() ? `${pathname}?${searchParams.toString()}` : pathname
+    const target = params ? `${pathname}?${params}` : pathname
+
+    if (target !== current) {
+      router.replace(target, { scroll: false })
+      return
+    }
+
+    if (next !== "overview") {
+      scrollWorkspaceIntoView()
+    }
+  }, [pathname, router, scrollWorkspaceIntoView, searchParams])
 
   const loadOpsSnapshot = useCallback(async () => {
     try {
@@ -193,6 +210,11 @@ export function ReceptionistDashboard() {
 
     setActiveTab(mappedPreference)
   }, [sectionParam, settings?.defaultDashboard, settingsLoading])
+
+  useEffect(() => {
+    if (activeTab === "overview") return
+    scrollWorkspaceIntoView(sectionParam ? "smooth" : "auto")
+  }, [activeTab, scrollWorkspaceIntoView, sectionParam])
 
   useEffect(() => {
     const handler = async (event: Event) => {
@@ -453,51 +475,53 @@ export function ReceptionistDashboard() {
         fallbackTitle="Dashboard error"
         fallbackDescription="Something went wrong in the reception dashboard. Try again or refresh the page."
       >
-        <Tabs value={activeTab} onValueChange={(next) => syncSection(next as ReceptionSection)}>
-          <TabsList className="grid w-full grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-2 md:grid-cols-3 xl:grid-cols-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="patients">Patients</TabsTrigger>
-            <TabsTrigger value="checkin">Check-In</TabsTrigger>
-            <TabsTrigger value="queue">Queue</TabsTrigger>
-            <TabsTrigger value="payments">Payments</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-          </TabsList>
+        <div ref={workspaceRef}>
+          <Tabs value={activeTab} onValueChange={(next) => syncSection(next as ReceptionSection)}>
+            <TabsList className="grid w-full grid-cols-2 gap-2 rounded-2xl bg-slate-100 p-2 md:grid-cols-3 xl:grid-cols-6">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="patients">Patients</TabsTrigger>
+              <TabsTrigger value="checkin">Check-In</TabsTrigger>
+              <TabsTrigger value="queue">Queue</TabsTrigger>
+              <TabsTrigger value="payments">Payments</TabsTrigger>
+              <TabsTrigger value="reports">Reports</TabsTrigger>
+            </TabsList>
 
-          <TabsContent value="overview" className="space-y-4">
-            <Card className="border-slate-200 bg-white/95 shadow-sm">
-              <CardHeader>
-                <CardTitle>Reception Workflow Coverage</CardTitle>
-                <CardDescription>The portal now routes directly into patient, queue, payment, and export work without dead-end tabs.</CardDescription>
-              </CardHeader>
-              <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <ActionCard title="Patients" description="Open the live patient register and jump straight into demographics." onClick={() => syncSection("patients")} />
-                <ActionCard title="Check-In" description="Record arrivals and launch appointment scheduling from the same desk." onClick={() => syncSection("checkin")} />
-                <ActionCard title="Queue" description="Move patients through waiting, service, and completion states." onClick={() => syncSection("queue")} />
-                <ActionCard title="Reports" description="Export the daily reception register, dashboard, and queue history." onClick={() => syncSection("reports")} />
-              </CardContent>
-            </Card>
-          </TabsContent>
+            <TabsContent value="overview" className="space-y-4">
+              <Card className="border-slate-200 bg-white/95 shadow-sm">
+                <CardHeader>
+                  <CardTitle>Reception Workflow Coverage</CardTitle>
+                  <CardDescription>The portal now routes directly into patient, queue, payment, and export work without dead-end tabs.</CardDescription>
+                </CardHeader>
+                <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
+                  <ActionCard title="Patients" description="Open the live patient register and jump straight into demographics." onClick={() => syncSection("patients")} />
+                  <ActionCard title="Check-In" description="Record arrivals and launch appointment scheduling from the same desk." onClick={() => syncSection("checkin")} />
+                  <ActionCard title="Queue" description="Move patients through waiting, service, and completion states." onClick={() => syncSection("queue")} />
+                  <ActionCard title="Reports" description="Export the daily reception register, dashboard, and queue history." onClick={() => syncSection("reports")} />
+                </CardContent>
+              </Card>
+            </TabsContent>
 
-          <TabsContent value="patients">
-            <PatientList initialSelectedPatientId={focusPatientId} />
-          </TabsContent>
+            <TabsContent value="patients">
+              <PatientList initialSelectedPatientId={focusPatientId} />
+            </TabsContent>
 
-          <TabsContent value="checkin">
-            <CheckInPanel />
-          </TabsContent>
+            <TabsContent value="checkin">
+              <CheckInPanel />
+            </TabsContent>
 
-          <TabsContent value="queue">
-            <QueueBoardPro />
-          </TabsContent>
+            <TabsContent value="queue">
+              <QueueBoardPro />
+            </TabsContent>
 
-          <TabsContent value="payments">
-            <PaymentsPanel />
-          </TabsContent>
+            <TabsContent value="payments">
+              <PaymentsPanel />
+            </TabsContent>
 
-          <TabsContent value="reports">
-            <ReceptionRegister />
-          </TabsContent>
-        </Tabs>
+            <TabsContent value="reports">
+              <ReceptionRegister />
+            </TabsContent>
+          </Tabs>
+        </div>
       </ErrorBoundary>
     </div>
   )

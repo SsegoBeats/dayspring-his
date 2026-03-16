@@ -111,14 +111,24 @@ function waitForExport(page, dataset, format) {
   })
 }
 
+function queuePanel(page) {
+  return page.getByRole("tabpanel", { name: "Queue" })
+}
+
 function patientQueueCards(page) {
-  return page
-    .locator("div.p-3.flex.items-center.justify-between.border-t")
+  return queuePanel(page)
+    .locator("div")
     .filter({ hasText: new RegExp(`${patientFixture.patient_number}\\s*-`, "i") })
 }
 
 function patientQueueCardWithAction(page, actionName) {
-  return patientQueueCards(page).filter({ has: page.getByRole("button", { name: actionName }) }).first()
+  return queuePanel(page)
+    .locator("div")
+    .filter({
+      hasText: new RegExp(`${patientFixture.patient_number}\\s*-`, "i"),
+      has: queuePanel(page).getByRole("button", { name: actionName }),
+    })
+    .first()
 }
 
 test.describe("Receptionist portal smoke", () => {
@@ -148,20 +158,25 @@ test.describe("Receptionist portal smoke", () => {
 
     await page.getByRole("button", { name: /Open patient register/i }).click()
     await expect(page.getByText("Patient List")).toBeVisible({ timeout: 60000 })
+    await expect(page.getByText("Patient List")).toBeInViewport()
 
     await page.getByRole("button", { name: /Launch check-in desk/i }).click()
     await expect(page.getByText("Quick Check-In")).toBeVisible({ timeout: 60000 })
+    await expect(page.getByText("Quick Check-In")).toBeInViewport()
 
     await page.getByRole("button", { name: /Review queue flow/i }).click()
     await expect(page.getByText("Department Queue")).toBeVisible({ timeout: 60000 })
+    await expect(page.getByText("Department Queue")).toBeInViewport()
 
     await page.getByRole("button", { name: /Open reports/i }).click()
     await expect(page.getByRole("button", { name: "Reception Register", exact: true })).toBeVisible({ timeout: 60000 })
+    await expect(page.getByRole("button", { name: "Reception Register", exact: true })).toBeInViewport()
 
     await page.getByRole("tab", { name: "Overview" }).click()
     await expect(page.getByText("Reception Workflow Coverage")).toBeVisible({ timeout: 60000 })
     await page.getByRole("button", { name: /Registered Patients/i }).click()
     await expect(page.getByText("Patient List")).toBeVisible({ timeout: 60000 })
+    await expect(page.getByText("Patient List")).toBeInViewport()
   })
 
   test("opens receptionist settings and the patient register actions", async ({ page, baseURL }) => {
@@ -178,6 +193,7 @@ test.describe("Receptionist portal smoke", () => {
 
     await page.goto("/receptionist?section=patients")
     await expect(page.getByText("Patient List")).toBeVisible()
+    await expect(page.getByText("Patient List")).toBeInViewport()
 
     await page.getByRole("button", { name: "Register Patient" }).click()
     await expect(page.getByText("Enter patient demographics and contact information to register a new patient.")).toBeVisible()
@@ -224,9 +240,10 @@ test.describe("Receptionist portal smoke", () => {
     await expect(page.getByText("Department Queue")).toBeVisible({ timeout: 60000 })
     await page.getByRole("combobox", { name: "Filter by department" }).click()
     await page.getByRole("option", { name: queueTestDepartment }).click()
+    await expect(page.getByRole("button", { name: "Refresh queue" })).toBeEnabled({ timeout: 30000 })
 
     const waitingRow = patientQueueCardWithAction(page, "Start")
-    await expect(waitingRow).toBeVisible()
+    await expect(waitingRow).toBeVisible({ timeout: 30000 })
     await waitingRow.getByRole("button", { name: "Start" }).click()
 
     const inServiceRow = patientQueueCardWithAction(page, "Mark Done")
