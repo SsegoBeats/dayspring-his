@@ -117,22 +117,37 @@ export async function getDefaultPrinterName(): Promise<string | undefined> {
   return receipt || printers[0]
 }
 
-export async function printCurrentPageViaQz(): Promise<void> {
-  const qz = await initQz()
-  if (!qz.websocket.isActive()) {
-    await qz.websocket.connect()
-  }
-  const printer = await getDefaultPrinterName()
-  if (!printer) throw new Error("No printers found")
-  const cfg = qz.configs.create(printer, {
-    // Try to encourage 80mm-like width for receipts
-    size: { width: 80, units: "mm" },
+function buildReceiptConfig(qz: any, printer: string, widthMm = 80) {
+  return qz.configs.create(printer, {
+    size: { width: widthMm, units: "mm" },
     rasterize: true,
     colorType: "grayscale",
     copies: 1,
     margins: { top: 5, right: 5, bottom: 5, left: 5 },
   })
-  const url = window.location.href
-  const data = [{ type: "html", format: "file", data: url }]
-  await qz.print(cfg, data)
+}
+
+export async function printUrlViaQz(url: string, options?: { widthMm?: number; printerName?: string }): Promise<void> {
+  const qz = await initQz()
+  if (!qz.websocket.isActive()) {
+    await qz.websocket.connect()
+  }
+
+  const resolvedUrl = new URL(url, window.location.origin).toString()
+  const response = await fetch(resolvedUrl, { credentials: "include" })
+  if (!response.ok) {
+    throw new Error(`Failed to load print content (${response.status})`)
+  }
+
+  const html = await response.text()
+  const printer = options?.printerName || await getDefaultPrinterName()
+  if (!printer) throw new Error("No printers found")
+
+  const config = buildReceiptConfig(qz, printer, options?.widthMm || 80)
+  const data = [{ type: "html", format: "plain", data: html }]
+  await qz.print(config, data)
+}
+
+export async function printCurrentPageViaQz(): Promise<void> {
+  await printUrlViaQz(window.location.href)
 }

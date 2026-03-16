@@ -219,7 +219,7 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
       </Card>
 
       <Dialog open={triageOpen} onOpenChange={setTriageOpen}>
-        <DialogContent className="w-[min(96vw,1000px)] max-h-[85vh] overflow-y-auto">
+        <DialogContent size="xl" className="max-h-[88vh] overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Triage Assessment - {patient.firstName} {patient.lastName}</DialogTitle>
             <DialogDescription>Record triage category, vital signs, and chief complaint for this patient.</DialogDescription>

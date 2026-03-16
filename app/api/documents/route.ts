@@ -15,22 +15,35 @@ const Create = z.object({
   mimeType: z.string().max(255).optional(),
 })
 
+declare global {
+  var __dayspringDocumentColumnsPromise: Promise<void> | null | undefined
+}
+
 async function ensureDocumentColumns() {
-  try {
-    await query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS notes TEXT`)
-  } catch {
-    // Non-fatal; main queries will surface genuine schema issues.
+  if (!globalThis.__dayspringDocumentColumnsPromise) {
+    globalThis.__dayspringDocumentColumnsPromise = (async () => {
+      try {
+        await query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS notes TEXT`)
+      } catch {
+        // Non-fatal; main queries will surface genuine schema issues.
+      }
+      try {
+        await query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS original_name TEXT`)
+      } catch {
+        // Non-fatal; main queries will surface genuine schema issues.
+      }
+      try {
+        await query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS mime_type TEXT`)
+      } catch {
+        // Non-fatal; main queries will surface genuine schema issues.
+      }
+    })().catch((error) => {
+      globalThis.__dayspringDocumentColumnsPromise = null
+      throw error
+    })
   }
-  try {
-    await query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS original_name TEXT`)
-  } catch {
-    // Non-fatal; main queries will surface genuine schema issues.
-  }
-  try {
-    await query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS mime_type TEXT`)
-  } catch {
-    // Non-fatal; main queries will surface genuine schema issues.
-  }
+
+  await globalThis.__dayspringDocumentColumnsPromise
 }
 
 export async function GET(req: Request) {

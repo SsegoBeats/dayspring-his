@@ -145,7 +145,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
-      <DialogContent size="lg" className="max-h-[85vh] overflow-y-auto">
+      <DialogContent size="xl" className="max-h-[88vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Edit Patient</DialogTitle>
           <DialogDescription>Update patient demographics, contact information, and next of kin.</DialogDescription>
@@ -158,23 +158,23 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
           )}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>First Name</Label>
+              <Label htmlFor="edit-patient-firstName">First Name</Label>
               <Input id="edit-patient-firstName" name="firstName" value={form.firstName} onChange={(e)=>setForm({ ...form, firstName: e.target.value })} required />
             </div>
             <div className="space-y-2">
-              <Label>Last Name</Label>
+              <Label htmlFor="edit-patient-lastName">Last Name</Label>
               <Input id="edit-patient-lastName" name="lastName" value={form.lastName} onChange={(e)=>setForm({ ...form, lastName: e.target.value })} required />
             </div>
           </div>
           <div className="grid gap-4 md:grid-cols-3">
             <div className="space-y-2">
-              <Label>Age (years)</Label>
+              <Label htmlFor="edit-patient-ageYears">Age (years)</Label>
               <Input id="edit-patient-ageYears" name="ageYears" type="number" inputMode="numeric" min={0} max={130} value={form.ageYears} onChange={(e)=>setForm({ ...form, ageYears: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Gender</Label>
+              <Label htmlFor="edit-patient-gender">Gender</Label>
               <Select value={form.gender} onValueChange={(v)=>setForm({ ...form, gender: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="edit-patient-gender" aria-label="Gender"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="male">Male</SelectItem>
                   <SelectItem value="female">Female</SelectItem>
@@ -183,16 +183,16 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Phone</Label>
+              <Label htmlFor="edit-patient-phone">Phone</Label>
               <Input id="edit-patient-phone" name="phone" value={form.phone} onChange={(e)=>setForm({ ...form, phone: e.target.value })} required />
             </div>
           </div>
           <div className="space-y-2">
-            <Label>Address</Label>
+            <Label htmlFor="edit-patient-address">Address</Label>
             <Input id="edit-patient-address" name="address" value={form.address} onChange={(e)=>setForm({ ...form, address: e.target.value })} />
           </div>
           <div className="space-y-2">
-            <Label>Blood Group</Label>
+            <Label htmlFor="edit-patient-bloodGroup">Blood Group</Label>
             <Input
               id="edit-patient-bloodGroup"
               name="bloodGroup"
@@ -203,11 +203,11 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
           </div>
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Emergency Contact Name</Label>
+              <Label htmlFor="edit-patient-emergencyContactName">Emergency Contact Name</Label>
               <Input id="edit-patient-emergencyContactName" name="emergencyContactName" value={form.emergencyContactName} onChange={(e)=>setForm({ ...form, emergencyContactName: e.target.value })} />
             </div>
             <div className="space-y-2">
-              <Label>Emergency Contact Phone</Label>
+              <Label htmlFor="edit-patient-emergencyContactPhone">Emergency Contact Phone</Label>
               <Input id="edit-patient-emergencyContactPhone" name="emergencyContactPhone" value={form.emergencyContactPhone} onChange={(e)=>setForm({ ...form, emergencyContactPhone: e.target.value })} />
             </div>
           </div>
@@ -215,26 +215,26 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
             <div className="font-medium">Next of Kin</div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label>First Name</Label>
+                <Label htmlFor="edit-patient-nextOfKinFirstName">First Name</Label>
                 <Input id="edit-patient-nextOfKinFirstName" name="nextOfKinFirstName" value={form.nextOfKinFirstName} onChange={(e)=>setForm({ ...form, nextOfKinFirstName: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Last Name</Label>
+                <Label htmlFor="edit-patient-nextOfKinLastName">Last Name</Label>
                 <Input id="edit-patient-nextOfKinLastName" name="nextOfKinLastName" value={form.nextOfKinLastName} onChange={(e)=>setForm({ ...form, nextOfKinLastName: e.target.value })} />
               </div>
             </div>
             <div className="grid gap-4 md:grid-cols-3">
               <div className="space-y-2">
-                <Label>Phone</Label>
+                <Label htmlFor="edit-patient-nextOfKinPhone">Phone</Label>
                 <Input id="edit-patient-nextOfKinPhone" name="nextOfKinPhone" value={form.nextOfKinPhone} onChange={(e)=>setForm({ ...form, nextOfKinPhone: e.target.value })} />
               </div>
               <div className="space-y-2">
-                <Label>Relationship</Label>
+                <Label htmlFor="edit-patient-nextOfKinRelation">Relationship</Label>
                 <Select
                   value={form.nextOfKinRelation || ""}
                   onValueChange={(value) => setForm({ ...form, nextOfKinRelation: value })}
                 >
-                  <SelectTrigger>
+                  <SelectTrigger id="edit-patient-nextOfKinRelation" aria-label="Next of kin relationship">
                     <SelectValue placeholder="Select relationship" />
                   </SelectTrigger>
                   <SelectContent>
@@ -248,7 +248,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
                 </Select>
               </div>
               <div className="space-y-2">
-                <Label>Residence</Label>
+                <Label htmlFor="edit-patient-nextOfKinResidence">Residence</Label>
                 <Input id="edit-patient-nextOfKinResidence" name="nextOfKinResidence" value={form.nextOfKinResidence} onChange={(e)=>setForm({ ...form, nextOfKinResidence: e.target.value })} />
               </div>
             </div>

@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Slider } from "@/components/ui/slider"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
+import { Textarea } from "@/components/ui/textarea"
 import { AlertCircle, Activity, Heart, Thermometer, Wind, Droplets, Loader2 } from "lucide-react"
 import { toast } from "sonner"
 
@@ -77,8 +78,8 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
           isPostpartum: form.isPostpartum,
           postpartumDays: form.postpartumDays ? Number(form.postpartumDays) : undefined,
           hasTrauma: form.hasTrauma,
-          traumaType: form.traumaType,
-          traumaMechanism: form.traumaMechanism,
+          traumaType: form.traumaType || undefined,
+          traumaMechanism: form.traumaMechanism || undefined,
           burnsPercentage: form.burnsPercentage ? Number(form.burnsPercentage) : undefined,
           weight: form.weight ? Number(form.weight) : undefined,
           hasRespiratoryDistress: form.hasRespiratoryDistress,
@@ -151,9 +152,9 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
           {/* Mode Selection */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Patient Mode *</Label>
+              <Label htmlFor="triage-mode">Patient Mode *</Label>
               <Select value={form.mode} onValueChange={(v) => setForm({ ...form, mode: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="triage-mode" aria-label="Patient Mode"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Adult">Adult</SelectItem>
                   <SelectItem value="Child">Child (&lt;12 years)</SelectItem>
@@ -162,8 +163,10 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
             </div>
             {form.mode === "Child" && (
               <div className="space-y-2">
-                <Label>Weight (kg)</Label>
+                <Label htmlFor="triage-weight">Weight (kg)</Label>
                 <Input 
+                  id="triage-weight"
+                  name="weight"
                   type="number" 
                   inputMode="numeric" value={form.weight} 
                   onChange={(e) => setForm({ ...form, weight: e.target.value })} 
@@ -176,9 +179,9 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
           {/* AVPU and Mobility */}
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-2">
-              <Label>Consciousness Level (AVPU) *</Label>
+              <Label htmlFor="triage-avpu">Consciousness Level (AVPU) *</Label>
               <Select value={form.avpu} onValueChange={(v) => setForm({ ...form, avpu: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="triage-avpu" aria-label="Consciousness Level"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="A">A - Alert</SelectItem>
                   <SelectItem value="V">V - Voice responsive</SelectItem>
@@ -188,9 +191,9 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
               </Select>
             </div>
             <div className="space-y-2">
-              <Label>Mobility *</Label>
+              <Label htmlFor="triage-mobility">Mobility *</Label>
               <Select value={form.mobility} onValueChange={(v) => setForm({ ...form, mobility: v })}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+                <SelectTrigger id="triage-mobility" aria-label="Mobility"><SelectValue /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="ambulatory">Ambulatory (walking)</SelectItem>
                   <SelectItem value="wheelchair">Wheelchair</SelectItem>
@@ -208,11 +211,13 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
             </h3>
           <div className="grid gap-4 md:grid-cols-4">
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="triage-systolic" className="flex items-center gap-1">
                   <Heart className="h-3 w-3" />
                   Systolic BP (mmHg)
                 </Label>
                 <Input 
+                  id="triage-systolic"
+                  name="systolic"
                   type="number" 
                   inputMode="numeric" min={50} max={260} step={1} value={form.systolic} 
                   onChange={(e) => setForm({ ...form, systolic: e.target.value })} 
@@ -220,8 +225,10 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
                 />
               </div>
               <div className="space-y-2">
-                <Label>Diastolic BP (mmHg)</Label>
+                <Label htmlFor="triage-diastolic">Diastolic BP (mmHg)</Label>
                 <Input 
+                  id="triage-diastolic"
+                  name="diastolic"
                   type="number" 
                   inputMode="numeric" min={30} max={160} step={1} value={form.diastolic} 
                   onChange={(e) => setForm({ ...form, diastolic: e.target.value })} 
@@ -229,11 +236,13 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
                 />
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="triage-heartRate" className="flex items-center gap-1">
                   <Heart className="h-3 w-3" />
                   Heart Rate (bpm)
                 </Label>
                 <Input 
+                  id="triage-heartRate"
+                  name="heartRate"
                   type="number" 
                   inputMode="numeric" min={20} max={220} step={1} value={form.heartRate} 
                   onChange={(e) => setForm({ ...form, heartRate: e.target.value })} 
@@ -241,11 +250,13 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
                 />
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="triage-respiratoryRate" className="flex items-center gap-1">
                   <Wind className="h-3 w-3" />
                   Respiratory Rate (bpm)
                 </Label>
                 <Input 
+                  id="triage-respiratoryRate"
+                  name="respiratoryRate"
                   type="number" 
                   inputMode="numeric" min={5} max={60} step={1} value={form.respiratoryRate} 
                   onChange={(e) => setForm({ ...form, respiratoryRate: e.target.value })} 
@@ -255,11 +266,13 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
             </div>
             <div className="grid gap-4 md:grid-cols-2">
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="triage-temperature" className="flex items-center gap-1">
                   <Thermometer className="h-3 w-3" />
                   Temperature (C)
                 </Label>
                 <Input 
+                  id="triage-temperature"
+                  name="temperature"
                   type="number" inputMode="decimal" step="0.1" min={30} max={43}
                   value={form.temperature} 
                   onChange={(e) => setForm({ ...form, temperature: e.target.value })} 
@@ -267,11 +280,13 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
                 />
               </div>
               <div className="space-y-2">
-                <Label className="flex items-center gap-1">
+                <Label htmlFor="triage-spo2" className="flex items-center gap-1">
                   <Droplets className="h-3 w-3" />
                   SpO2 (%)
                 </Label>
                 <Input 
+                  id="triage-spo2"
+                  name="spo2"
                   type="number" inputMode="numeric" min={50} max={100} step={1} value={form.spo2} 
                   onChange={(e) => setForm({ ...form, spo2: e.target.value })} 
                   placeholder="98"
@@ -285,20 +300,20 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
             <h3 className="font-semibold">Additional Measurements</h3>
             <div className="grid gap-4 md:grid-cols-4">
               <div className="space-y-2">
-                <Label>Height (cm)</Label>
+                <Label htmlFor="triage-heightCm">Height (cm)</Label>
                 <Input id="triage-heightCm" name="heightCm" type="number" inputMode="numeric" min={30} max={230} step={1} value={form.heightCm} onChange={(e)=>setForm({ ...form, heightCm: e.target.value })} placeholder="170" />
               </div>
               <div className="space-y-2">
-                <Label>Random Blood Glucose (mmol/L)</Label>
+                <Label htmlFor="triage-bloodGlucose">Random Blood Glucose (mmol/L)</Label>
                 <Input id="triage-bloodGlucose" name="bloodGlucose" type="number" inputMode="decimal" min={1} max={40} step={0.1} value={form.bloodGlucose} onChange={(e)=>setForm({ ...form, bloodGlucose: e.target.value })} placeholder="5.6" />
               </div>
               <div className="space-y-2">
-                <Label>Capillary Refill (sec)</Label>
+                <Label htmlFor="triage-capillaryRefill">Capillary Refill (sec)</Label>
                 <Input id="triage-capillaryRefill" name="capillaryRefill" type="number" inputMode="numeric" min={0} max={10} step={0.5} value={form.capillaryRefill} onChange={(e)=>setForm({ ...form, capillaryRefill: e.target.value })} placeholder="2" />
               </div>
               {form.mode === 'Child' && (
                 <div className="space-y-2">
-                  <Label>MUAC (cm)</Label>
+                  <Label htmlFor="triage-muacCm">MUAC (cm)</Label>
                   <Input id="triage-muacCm" name="muacCm" type="number" inputMode="numeric" min={5} max={30} step={0.1} value={form.muacCm} onChange={(e)=>setForm({ ...form, muacCm: e.target.value })} placeholder="13.5" />
                 </div>
               )}
@@ -340,6 +355,8 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
                   </div>
                   {form.isPregnant && (
                     <Input
+                      id="triage-pregnancyWeeks"
+                      name="pregnancyWeeks"
                       type="number"
                       inputMode="numeric" value={form.pregnancyWeeks}
                       onChange={(e) => setForm({ ...form, pregnancyWeeks: e.target.value })}
@@ -360,6 +377,8 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
                   </div>
                   {form.isPostpartum && (
                     <Input
+                      id="triage-postpartumDays"
+                      name="postpartumDays"
                       type="number"
                       inputMode="numeric" value={form.postpartumDays}
                       onChange={(e) => setForm({ ...form, postpartumDays: e.target.value })}
@@ -388,9 +407,9 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
               {form.hasTrauma && (
                 <div className="grid gap-4 md:grid-cols-2">
                   <div className="space-y-2">
-                    <Label>Trauma Type</Label>
+                    <Label htmlFor="triage-traumaType">Trauma Type</Label>
                     <Select value={form.traumaType} onValueChange={(v) => setForm({ ...form, traumaType: v })}>
-                      <SelectTrigger><SelectValue placeholder="Select type" /></SelectTrigger>
+                      <SelectTrigger id="triage-traumaType" aria-label="Trauma Type"><SelectValue placeholder="Select type" /></SelectTrigger>
                       <SelectContent>
                         <SelectItem value="blunt">Blunt trauma</SelectItem>
                         <SelectItem value="penetrating">Penetrating trauma</SelectItem>
@@ -403,8 +422,10 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
                   </div>
                   {form.traumaType === "burns" && (
                     <div className="space-y-2">
-                      <Label>Burn Surface Area (%)</Label>
+                      <Label htmlFor="triage-burnsPercentage">Burn Surface Area (%)</Label>
                       <Input
+                        id="triage-burnsPercentage"
+                        name="burnsPercentage"
                         type="number"
                         inputMode="numeric" value={form.burnsPercentage}
                         onChange={(e) => setForm({ ...form, burnsPercentage: e.target.value })}
@@ -413,8 +434,10 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
                     </div>
                   )}
                   <div className="space-y-2">
-                    <Label>Mechanism</Label>
+                    <Label htmlFor="triage-traumaMechanism">Mechanism</Label>
                     <Input
+                      id="triage-traumaMechanism"
+                      name="traumaMechanism"
                       value={form.traumaMechanism}
                       onChange={(e) => setForm({ ...form, traumaMechanism: e.target.value })}
                       placeholder="Describe mechanism"
@@ -464,11 +487,14 @@ export function TriageForm({ patientId, onSaved }: { patientId: string; onSaved?
 
           {/* Chief Complaint */}
           <div className="space-y-2">
-            <Label>Chief Complaint *</Label>
-            <Input 
+            <Label htmlFor="triage-chiefComplaint">Chief Complaint *</Label>
+            <Textarea
+              id="triage-chiefComplaint"
+              name="chiefComplaint"
               value={form.chiefComplaint} 
               onChange={(e) => setForm({ ...form, chiefComplaint: e.target.value })} 
               placeholder="Primary reason for visit..."
+              rows={3}
               required
             />
           </div>

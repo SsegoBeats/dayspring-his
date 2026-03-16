@@ -696,7 +696,21 @@ CREATE TABLE IF NOT EXISTS insurance_policies (
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
     payer_id UUID NOT NULL REFERENCES insurance_payers(id) ON DELETE RESTRICT,
     policy_no VARCHAR(100) NOT NULL,
+    member_id VARCHAR(100),
+    group_no VARCHAR(100),
+    plan_name VARCHAR(150),
+    subscriber_name VARCHAR(150),
+    subscriber_relationship VARCHAR(30),
+    coordination_order INTEGER NOT NULL DEFAULT 1 CHECK (coordination_order BETWEEN 1 AND 9),
+    effective_date DATE,
+    expiry_date DATE,
     coverage_notes TEXT,
+    verification_status VARCHAR(30) NOT NULL DEFAULT 'Unverified' CHECK (verification_status IN ('Unverified','Verified','Pending','Rejected','Expired')),
+    verification_reference VARCHAR(100),
+    verification_notes TEXT,
+    verified_at TIMESTAMP,
+    authorization_required BOOLEAN NOT NULL DEFAULT false,
+    authorization_reference VARCHAR(100),
     active BOOLEAN DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -704,6 +718,8 @@ CREATE TABLE IF NOT EXISTS insurance_policies (
 );
 CREATE INDEX IF NOT EXISTS idx_policies_patient ON insurance_policies(patient_id);
 CREATE INDEX IF NOT EXISTS idx_policies_payer ON insurance_policies(payer_id);
+CREATE INDEX IF NOT EXISTS idx_policies_active ON insurance_policies(active);
+CREATE INDEX IF NOT EXISTS idx_policies_verification_status ON insurance_policies(verification_status);
 DROP TRIGGER IF EXISTS update_insurance_policies_updated_at ON insurance_policies;
 CREATE TRIGGER update_insurance_policies_updated_at BEFORE UPDATE ON insurance_policies FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 

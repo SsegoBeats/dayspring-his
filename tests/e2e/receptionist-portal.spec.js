@@ -57,6 +57,114 @@ async function cleanupQueueLane(patientId) {
   })
 }
 
+async function cleanupInsuranceArtifacts(patientId, runId) {
+  await withDb(async (client) => {
+    await client.query(
+      `
+        DELETE FROM documents
+        WHERE patient_id = $1
+          AND (
+            notes = $2
+            OR original_name = $3
+          )
+      `,
+      [patientId, `E2E insurance doc ${runId}`, `insurance-card-${runId}.pdf`],
+    )
+
+    await client.query(
+      `
+        DELETE FROM insurance_policies
+        WHERE patient_id = $1
+          AND policy_no = $2
+      `,
+      [patientId, `POL-${runId}`],
+    )
+
+    await client.query(
+      `
+        DELETE FROM insurance_payers
+        WHERE name = $1
+      `,
+      [`E2E Payer ${runId}`],
+    )
+  })
+}
+
+async function cleanupRegisteredPatientByPhone(phone) {
+  await withDb(async (client) => {
+    const patientRes = await client.query(
+      `
+        SELECT id
+        FROM patients
+        WHERE phone = $1
+      `,
+      [phone],
+    )
+
+    for (const row of patientRes.rows) {
+      await client.query(
+        `
+          DELETE FROM queues
+          WHERE checkin_id IN (
+            SELECT id
+            FROM checkins
+            WHERE patient_id = $1
+          )
+        `,
+        [row.id],
+      )
+      await client.query(`DELETE FROM checkins WHERE patient_id = $1`, [row.id])
+      await client.query(`DELETE FROM triage_assessments WHERE patient_id = $1`, [row.id])
+      await client.query(`DELETE FROM insurance_policies WHERE patient_id = $1`, [row.id])
+      await client.query(`DELETE FROM documents WHERE patient_id = $1`, [row.id])
+      await client.query(`DELETE FROM patients WHERE id = $1`, [row.id])
+    }
+  })
+}
+
+async function loadPatientSnapshot(patientId) {
+  return withDb(async (client) => {
+    const result = await client.query(
+      `
+        SELECT address, triage_category
+        FROM patients
+        WHERE id = $1
+      `,
+      [patientId],
+    )
+
+    return result.rows[0] || { address: null, triage_category: null }
+  })
+}
+
+async function restorePatientSnapshot(patientId, snapshot) {
+  await withDb(async (client) => {
+    await client.query(
+      `
+        UPDATE patients
+        SET address = $2,
+            triage_category = $3,
+            updated_at = CURRENT_TIMESTAMP
+        WHERE id = $1
+      `,
+      [patientId, snapshot.address || null, snapshot.triage_category || null],
+    )
+  })
+}
+
+async function cleanupTriageArtifact(patientId, chiefComplaint) {
+  await withDb(async (client) => {
+    await client.query(
+      `
+        DELETE FROM triage_assessments
+        WHERE patient_id = $1
+          AND chief_complaint = $2
+      `,
+      [patientId, chiefComplaint],
+    )
+  })
+}
+
 function buildReceptionToken() {
   return jwt.sign(
     {
@@ -173,7 +281,7 @@ test.describe("Receptionist portal smoke", () => {
     await expect(page.getByRole("button", { name: "Reception Register", exact: true })).toBeInViewport()
 
     await page.getByRole("tab", { name: "Overview" }).click()
-    await expect(page.getByText("Reception Workflow Coverage")).toBeVisible({ timeout: 60000 })
+    await expect(page.getByText("Reception Operations Overview")).toBeVisible({ timeout: 60000 })
     await page.getByRole("button", { name: /Registered Patients/i }).click()
     await expect(page.getByText("Patient List")).toBeVisible({ timeout: 60000 })
     await expect(page.getByText("Patient List")).toBeInViewport()
@@ -210,6 +318,133 @@ test.describe("Receptionist portal smoke", () => {
     await expect(page.getByText("Request Patient Deletion")).toBeVisible()
     await page.getByRole("button", { name: "Cancel" }).click()
     await expect(page.getByText("Request Patient Deletion")).toHaveCount(0)
+  })
+
+  test("opens patient detail edit and triage workflows in larger dialogs", async ({ page, baseURL }) => {
+    const patientSnapshot = await loadPatientSnapshot(patientFixture.id)
+    const updatedAddress = `Reception desk verification ${Date.now()}`
+    const triageChiefComplaint = `Reception triage smoke ${Date.now()}`
+
+    try {
+      await authenticateReceptionist(page, baseURL)
+
+      await page.goto("/receptionist?section=patients")
+      await expect(page.getByText("Patient List")).toBeVisible()
+      await page.locator("#patient-list-search").fill(patientFixture.patient_number)
+      await expect(page.getByText("Showing 1-1 of 1 patients")).toBeVisible({ timeout: 30000 })
+      await page.getByRole("button", { name: /^View$/ }).click()
+
+      await expect(page.getByRole("button", { name: "Edit Patient" })).toBeVisible({ timeout: 60000 })
+      await page.getByRole("button", { name: "Edit Patient" }).click()
+      const editDialog = page.locator('[data-slot="dialog-content"]').filter({ hasText: "Edit Patient" })
+      await expect(editDialog).toBeVisible()
+      const editDialogBox = await editDialog.boundingBox()
+      expect(editDialogBox && editDialogBox.width).toBeGreaterThan(820)
+
+      await page.locator("#edit-patient-address").fill(updatedAddress)
+      const patientSavePromise = page.waitForResponse(
+        (response) => response.url().includes("/api/patients") && response.request().method() === "PATCH",
+      )
+      await editDialog.getByRole("button", { name: "Save Changes" }).click()
+      expect((await patientSavePromise).ok()).toBeTruthy()
+      await expect(editDialog).toHaveCount(0, { timeout: 30000 })
+      await expect(page.getByText(updatedAddress)).toBeVisible({ timeout: 30000 })
+
+      await page.getByRole("button", { name: "Record Triage" }).click()
+      const triageDialog = page.locator('[data-slot="dialog-content"]').filter({ hasText: "Triage Assessment" })
+      await expect(triageDialog).toBeVisible()
+      const triageDialogBox = await triageDialog.boundingBox()
+      expect(triageDialogBox && triageDialogBox.width).toBeGreaterThan(820)
+
+      await page.locator("#triage-systolic").fill("118")
+      await page.locator("#triage-diastolic").fill("76")
+      await page.locator("#triage-heartRate").fill("78")
+      await page.locator("#triage-respiratoryRate").fill("16")
+      await page.locator("#triage-temperature").fill("36.8")
+      await page.locator("#triage-spo2").fill("98")
+      await page.locator("#triage-chiefComplaint").fill(triageChiefComplaint)
+
+      const triageSavePromise = page.waitForResponse(
+        (response) => response.url().includes("/api/triage") && response.request().method() === "POST",
+      )
+      await triageDialog.getByRole("button", { name: "Save Triage Assessment" }).click()
+      expect((await triageSavePromise).ok()).toBeTruthy()
+      await expect(triageDialog).toHaveCount(0, { timeout: 30000 })
+      await expect(page.getByText("Triage:")).toBeVisible({ timeout: 30000 })
+    } finally {
+      await cleanupTriageArtifact(patientFixture.id, triageChiefComplaint)
+      await restorePatientSnapshot(patientFixture.id, patientSnapshot)
+    }
+  })
+
+  test("registers a patient and opens a receipt-sized queue token for printing", async ({ page, baseURL }) => {
+    const localSuffix = String(Date.now()).slice(-8)
+    const patientPhone = `+2567${localSuffix}`
+    const emergencyPhone = `+25675${String(Date.now() + 11111).slice(-7)}`
+
+    await cleanupRegisteredPatientByPhone(patientPhone)
+
+    try {
+      await authenticateReceptionist(page, baseURL)
+
+      await page.goto("/receptionist?section=patients")
+      await expect(page.getByText("Patient List")).toBeVisible()
+      await page.getByRole("button", { name: "Register Patient" }).click()
+
+      const registrationDialog = page.locator('[data-slot="dialog-content"]').filter({ hasText: "Register New Patient" })
+      await expect(registrationDialog).toBeVisible({ timeout: 60000 })
+
+      await page.locator("#firstName").fill("Thermal")
+      await page.locator("#lastName").fill("Token")
+      await page.locator("#ageYears").fill("29")
+
+      await page.getByRole("button", { name: /Identification & Address/i }).click()
+      await page.locator("#address").fill("Wanyange reception desk")
+
+      await page.getByRole("button", { name: /Contact Information/i }).click()
+      await page.locator("#phone").fill(patientPhone)
+
+      await page.getByRole("button", { name: /Clinical & Department/i }).click()
+      await page.locator("#department").click()
+      await page.getByRole("option", { name: queueTestDepartment, exact: true }).click()
+
+      await page.getByRole("button", { name: /Emergency Contact/i }).click()
+      await page.locator("#emergencyContact").fill("Desk Contact")
+      await page.locator("#emergencyPhone").fill(emergencyPhone)
+
+      const popupPromise = page.waitForEvent("popup")
+      const createPatientPromise = page.waitForResponse(
+        (response) => response.url().includes("/api/patients") && response.request().method() === "POST",
+      )
+      await registrationDialog.getByRole("button", { name: "Register Patient" }).click()
+      expect((await createPatientPromise).ok()).toBeTruthy()
+
+      const popup = await popupPromise
+      await popup.waitForLoadState("domcontentloaded")
+      await expect(popup).toHaveURL(/\/api\/queue\/token\//)
+      await expect(popup.getByText("Queue Token")).toBeVisible({ timeout: 60000 })
+      await expect(popup.getByText("Queue Position")).toBeVisible()
+      await expect(popup.getByText(queueTestDepartment)).toBeVisible()
+      await expect(popup.getByText("Thermal Token")).toBeVisible()
+
+      const popupHtml = await popup.content()
+      expect(popupHtml).toContain("size: 80mm auto")
+      expect(popupHtml).toContain("Print Token")
+
+      const qzTokenHtml = await page.evaluate(async (popupUrl) => {
+        const qzUrl = new URL(popupUrl)
+        qzUrl.searchParams.set("render", "qz")
+        const response = await fetch(qzUrl.toString(), { credentials: "include" })
+        return response.text()
+      }, popup.url())
+      expect(qzTokenHtml).toContain("Queue Position")
+      expect(qzTokenHtml).not.toContain("Print Token")
+      expect(qzTokenHtml).not.toContain("window.print()")
+
+      await popup.close()
+    } finally {
+      await cleanupRegisteredPatientByPhone(patientPhone)
+    }
   })
 
   test("checks in a patient, works the queue lane, and verifies payments and report exports", async ({ page, baseURL }) => {
@@ -272,5 +507,94 @@ test.describe("Receptionist portal smoke", () => {
     await page.getByRole("button", { name: "Reception Register", exact: true }).click()
     await page.getByRole("menuitem", { name: "CSV" }).click()
     expect((await reportsExportPromise).ok()).toBeTruthy()
+  })
+
+  test("manages patient insurance coverage and supporting documents", async ({ page, baseURL }) => {
+    const runId = Date.now()
+    const payerName = `E2E Payer ${runId}`
+    const payerCode = `PAYER-${runId}`
+    const policyNo = `POL-${runId}`
+    const memberId = `MEM-${runId}`
+    const groupNo = `GRP-${runId}`
+    const planName = "Executive Inpatient"
+    const verificationReference = `VR-${runId}`
+    const authorizationReference = `AUTH-${runId}`
+    const documentNotes = `E2E insurance doc ${runId}`
+    const fileName = `insurance-card-${runId}.pdf`
+
+    await cleanupInsuranceArtifacts(patientFixture.id, runId)
+
+    try {
+      await authenticateReceptionist(page, baseURL)
+
+      await page.goto("/receptionist?section=patients")
+      await expect(page.getByText("Patient List")).toBeVisible()
+      await page.locator("#patient-list-search").fill(patientFixture.patient_number)
+      await expect(page.getByText("Showing 1-1 of 1 patients")).toBeVisible({ timeout: 30000 })
+      await page.getByRole("button", { name: /^View$/ }).click()
+
+      const insuranceHeading = page.getByText("Insurance", { exact: true }).first()
+      await expect(insuranceHeading).toBeVisible({ timeout: 60000 })
+      await insuranceHeading.scrollIntoViewIfNeeded()
+
+      await page.locator("#insurance-payer-name").fill(payerName)
+      await page.locator("#insurance-payer-code").fill(payerCode)
+      await page.getByRole("button", { name: "Add Payer" }).click()
+
+      await page.locator("#insurance-create-payer").click()
+      await page.getByRole("option", { name: payerName }).click()
+      await page.locator("#insurance-create-plan-name").fill(planName)
+      await page.locator("#insurance-create-policy-number").fill(policyNo)
+      await page.locator("#insurance-create-member-id").fill(memberId)
+      await page.locator("#insurance-create-group-number").fill(groupNo)
+      await page.locator("#insurance-create-subscriber-name").fill(`${patientFixture.first_name} ${patientFixture.last_name}`)
+      await page.locator("#insurance-create-relationship").click()
+      await page.getByRole("option", { name: "Self", exact: true }).click()
+      await page.locator("#insurance-create-effective-date").fill("2026-01-01")
+      await page.locator("#insurance-create-expiry-date").fill("2026-12-31")
+      await page.locator("#insurance-create-verification-status").click()
+      await page.getByRole("option", { name: "Verified", exact: true }).click()
+      await page.locator("#insurance-create-verification-reference").fill(verificationReference)
+      await page.locator("#insurance-create-verification-notes").fill("Eligibility checked against payer portal.")
+      await page.getByRole("switch", { name: "Authorization required" }).first().click()
+      await page.locator("#insurance-create-authorization-reference").fill(authorizationReference)
+      await page.locator("#insurance-create-coverage-notes").fill("Cover confirmed for consultation and basic diagnostics.")
+      await page.getByRole("button", { name: "Add Policy" }).click()
+
+      const policyCard = page.locator(`[data-policy-number="${policyNo}"]`)
+      const policyTrigger = page.getByRole("button", { name: new RegExp(payerName) })
+      await expect(policyTrigger).toBeVisible({ timeout: 60000 })
+      await expect(page.getByText(policyNo)).toBeVisible()
+      await policyTrigger.click()
+
+      const policyVerificationTrigger = page.locator('[id^="insurance-policy-"][id$="-verification-status"]').first()
+      await policyVerificationTrigger.click()
+      await page.getByRole("option", { name: "Pending", exact: true }).click()
+      await page.locator(`textarea[id^="insurance-policy-"][id$="-verification-notes"]`).first().fill("Awaiting payer callback for bed-cap approval.")
+      await page.getByRole("button", { name: "Save changes" }).click()
+      await expect(page.getByText("Pending")).toBeVisible()
+
+      await page.locator("#patient-document-type").click()
+      await page.getByRole("option", { name: "Insurance card", exact: true }).click()
+      await page.locator("#patient-document-file").setInputFiles({
+        name: fileName,
+        mimeType: "application/pdf",
+        buffer: Buffer.from("%PDF-1.4\n1 0 obj\n<<>>\nendobj\ntrailer\n<<>>\n%%EOF"),
+      })
+      await page.locator("#patient-document-notes").fill(documentNotes)
+      await page.getByRole("button", { name: "Add Document" }).click()
+      const documentRow = page.locator(`[data-document-name="${fileName}"]`)
+      await expect(documentRow).toBeVisible({ timeout: 60000 })
+
+      page.once("dialog", (dialog) => dialog.accept())
+      await documentRow.getByRole("button", { name: "Remove" }).click()
+      await expect(page.getByText(fileName)).toHaveCount(0, { timeout: 30000 })
+
+      page.once("dialog", (dialog) => dialog.accept())
+      await policyCard.getByRole("button", { name: "Remove" }).click()
+      await expect(policyTrigger).toHaveCount(0)
+    } finally {
+      await cleanupInsuranceArtifacts(patientFixture.id, runId)
+    }
   })
 })

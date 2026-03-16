@@ -2,12 +2,24 @@ import { NextResponse } from "next/server"
 import crypto from "crypto"
 import fs from "fs"
 import path from "path"
+import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/security"
 
 // Ensure Node.js runtime (fs/crypto not available on Edge)
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
+async function requireSession() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  return token ? verifyToken(token) : null
+}
+
 export async function GET(req: Request) {
+  const auth = await requireSession()
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
   const url = new URL(req.url)
   const mode = url.searchParams.get("mode")
   if (mode === "cert") {
@@ -22,7 +34,12 @@ export async function GET(req: Request) {
       }
       cert = cert.trim()
       if (!cert) return NextResponse.json({ error: "Missing QZ_PUBLIC_CERT or QZ_PUBLIC_CERT_FILE" }, { status: 500 })
-      return new NextResponse(cert, { headers: { "Content-Type": "text/plain; charset=utf-8" } })
+      return new NextResponse(cert, {
+        headers: {
+          "Content-Type": "text/plain; charset=utf-8",
+          "Cache-Control": "no-store",
+        },
+      })
     } catch (e: any) {
       return NextResponse.json({ error: `Failed to load cert: ${e?.message || e}` }, { status: 500 })
     }
@@ -31,6 +48,10 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
+  const auth = await requireSession()
+  if (!auth) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
   try {
     const { toSign } = await req.json()
     if (!toSign || typeof toSign !== "string") {

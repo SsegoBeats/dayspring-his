@@ -9,13 +9,13 @@ import { usePatients } from "@/lib/patient-context"
 import { Skeleton } from "@/components/ui/skeleton"
 import { Button } from "@/components/ui/button"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
-import { ArrowUpRight, BellRing, Calendar, ClipboardList, CreditCard, RefreshCw, Users } from "lucide-react"
+import { AlertTriangle, ArrowUpRight, BellRing, Calendar, ClipboardList, Clock3, CreditCard, RefreshCw, Users } from "lucide-react"
 import { CheckInPanel } from "@/components/reception/check-in-panel"
 import { QueueBoardPro } from "@/components/reception/queue-board-pro"
 import { ReceptionRegister } from "@/components/reception/reception-register"
 import { PaymentsPanel } from "@/components/reception/payments-panel"
 import { ErrorBoundary } from "@/components/error-boundary"
-import { useSettings } from "@/lib/settings-context"
+import { useFormatCurrency, useSettings } from "@/lib/settings-context"
 import { buildSearchParamsString } from "@/lib/search-params"
 import { formatPatientNumber } from "@/lib/patients"
 import { ScrollArea } from "@/components/ui/scroll-area"
@@ -56,6 +56,39 @@ type PaymentRow = {
   patient_number: string
 }
 
+type DepartmentPressureRow = {
+  department: string
+  waitingCount: number
+  inServiceCount: number
+  longestWaitMinutes: number
+  totalPatients: number
+}
+
+type OverviewTone = "critical" | "watch" | "calm"
+
+type OverviewStatus = {
+  label: string
+  tone: OverviewTone
+  detail: string
+}
+
+type AttentionItem = {
+  title: string
+  detail: string
+  actionLabel: string
+  tone: OverviewTone
+  onClick: () => void
+}
+
+type ActivityFeedItem = {
+  id: string
+  title: string
+  detail: string
+  timestamp: number
+  onClick: () => void
+  accent: "sky" | "emerald"
+}
+
 function isReceptionSection(value: string | null | undefined): value is ReceptionSection {
   return Boolean(value && RECEPTION_SECTIONS.includes(value as ReceptionSection))
 }
@@ -67,6 +100,21 @@ function buildTodayRange() {
     from: new Date(`${today}T00:00:00Z`).toISOString(),
     to: new Date(`${today}T23:59:59Z`).toISOString(),
   }
+}
+
+function getSafeTimestamp(value: string | null | undefined) {
+  if (!value) return 0
+  const timestamp = new Date(value).getTime()
+  return Number.isNaN(timestamp) ? 0 : timestamp
+}
+
+function parseAppointmentDateTime(date: string, time?: string | null) {
+  if (!date) return null
+  const normalizedTime = time?.trim() || "00:00"
+  const isoCandidate = new Date(`${date}T${normalizedTime}`)
+  if (!Number.isNaN(isoCandidate.getTime())) return isoCandidate
+  const fallback = new Date(`${date} ${normalizedTime}`)
+  return Number.isNaN(fallback.getTime()) ? null : fallback
 }
 
 export function ReceptionistDashboard() {
@@ -81,6 +129,7 @@ export function ReceptionistDashboard() {
     refreshAppointments,
   } = usePatients()
   const { settings, loading: settingsLoading } = useSettings()
+  const formatCurrency = useFormatCurrency()
   const router = useRouter()
   const pathname = usePathname()
   const searchParams = useSearchParams()
@@ -96,22 +145,6 @@ export function ReceptionistDashboard() {
   const [inServiceQueue, setInServiceQueue] = useState<QueueRow[]>([])
   const [todayPayments, setTodayPayments] = useState<PaymentRow[]>([])
   const [lastUpdated, setLastUpdated] = useState<Date | null>(null)
-
-  const todayAppointments = useMemo(() => {
-    const today = new Date().toISOString().split("T")[0]
-    return appointments.filter((appointment) => appointment.date === today && appointment.status === "scheduled")
-  }, [appointments])
-
-  const queueAverageWait = useMemo(() => {
-    const values = waitingQueue.map((entry) => Number(entry.waiting_minutes || 0)).filter((value) => value > 0)
-    if (!values.length) return 0
-    return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
-  }, [waitingQueue])
-
-  const paymentsTotal = useMemo(
-    () => todayPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
-    [todayPayments],
-  )
 
   const scrollWorkspaceIntoView = useCallback((behavior: ScrollBehavior = "smooth") => {
     requestAnimationFrame(() => {
@@ -134,6 +167,190 @@ export function ReceptionistDashboard() {
       scrollWorkspaceIntoView()
     }
   }, [pathname, router, scrollWorkspaceIntoView, searchParams])
+
+  const todayAppointments = useMemo(() => {
+    const today = new Date().toISOString().split("T")[0]
+    return appointments.filter((appointment) => appointment.date === today && appointment.status === "scheduled")
+  }, [appointments])
+
+  const queueAverageWait = useMemo(() => {
+    const values = waitingQueue.map((entry) => Number(entry.waiting_minutes || 0)).filter((value) => value > 0)
+    if (!values.length) return 0
+    return Math.round(values.reduce((sum, value) => sum + value, 0) / values.length)
+  }, [waitingQueue])
+
+  const paymentsTotal = useMemo(
+    () => todayPayments.reduce((sum, payment) => sum + Number(payment.amount || 0), 0),
+    [todayPayments],
+  )
+
+  const arrivalsLastHour = useMemo(() => {
+    const oneHourAgo = Date.now() - 60 * 60 * 1000
+    return arrivals.filter((arrival) => getSafeTimestamp(arrival.created_at) >= oneHourAgo).length
+  }, [arrivals])
+
+  const longestWaitingEntry = useMemo(() => {
+    if (!waitingQueue.length) return null
+    return waitingQueue.reduce((longest, entry) => {
+      const longestMinutes = Number(longest.waiting_minutes || 0)
+      const currentMinutes = Number(entry.waiting_minutes || 0)
+      return currentMinutes > longestMinutes ? entry : longest
+    })
+  }, [waitingQueue])
+
+  const longestWaitMinutes = longestWaitingEntry ? Math.max(0, Math.round(Number(longestWaitingEntry.waiting_minutes || 0))) : 0
+
+  const appointmentsWithoutClinician = useMemo(
+    () =>
+      todayAppointments.filter(
+        (appointment) => !appointment.doctorName || appointment.doctorName.toLowerCase() === "unassigned",
+      ).length,
+    [todayAppointments],
+  )
+
+  const appointmentsDueNow = useMemo(() => {
+    const now = Date.now()
+    return todayAppointments.filter((appointment) => {
+      const scheduled = parseAppointmentDateTime(appointment.date, appointment.time)
+      if (!scheduled) return false
+      return scheduled.getTime() <= now
+    }).length
+  }, [todayAppointments])
+
+  const departmentPressure = useMemo<DepartmentPressureRow[]>(() => {
+    const rows = new Map<string, DepartmentPressureRow>()
+
+    const register = (department: string, mode: "waiting" | "inService", minutes: number) => {
+      const key = department || "Unassigned"
+      const current = rows.get(key) || {
+        department: key,
+        waitingCount: 0,
+        inServiceCount: 0,
+        longestWaitMinutes: 0,
+        totalPatients: 0,
+      }
+
+      if (mode === "waiting") current.waitingCount += 1
+      else current.inServiceCount += 1
+
+      current.totalPatients += 1
+      current.longestWaitMinutes = Math.max(current.longestWaitMinutes, Math.max(0, Math.round(minutes)))
+      rows.set(key, current)
+    }
+
+    waitingQueue.forEach((entry) => register(entry.department, "waiting", Number(entry.waiting_minutes || 0)))
+    inServiceQueue.forEach((entry) => register(entry.department, "inService", Number(entry.in_service_minutes || 0)))
+
+    return Array.from(rows.values()).sort((left, right) => {
+      if (right.waitingCount !== left.waitingCount) return right.waitingCount - left.waitingCount
+      if (right.longestWaitMinutes !== left.longestWaitMinutes) return right.longestWaitMinutes - left.longestWaitMinutes
+      return left.department.localeCompare(right.department)
+    })
+  }, [inServiceQueue, waitingQueue])
+
+  const overviewStatus = useMemo<OverviewStatus>(() => {
+    if (longestWaitMinutes >= 45 || waitingQueue.length >= 8) {
+      return {
+        label: "Escalation needed",
+        tone: "critical",
+        detail: "Queue pressure is above the safe desk threshold. Move the next patients forward and alert the affected departments.",
+      }
+    }
+
+    if (longestWaitMinutes >= 20 || appointmentsWithoutClinician > 0 || appointmentsDueNow > arrivals.length) {
+      return {
+        label: "Watch closely",
+        tone: "watch",
+        detail: "The desk is moving, but there are early signs of delay in queue flow or clinician allocation.",
+      }
+    }
+
+    return {
+      label: "Flow stable",
+      tone: "calm",
+      detail: "Realtime front-desk activity is within a manageable range. Keep arrivals, payments, and queue handoffs synchronized.",
+    }
+  }, [appointmentsDueNow, appointmentsWithoutClinician, arrivals.length, longestWaitMinutes, waitingQueue.length])
+
+  const attentionItems = useMemo<AttentionItem[]>(() => {
+    const items: AttentionItem[] = []
+
+    if (longestWaitingEntry && longestWaitMinutes >= 30) {
+      items.push({
+        title: `${longestWaitingEntry.first_name} ${longestWaitingEntry.last_name} has the oldest queue wait`,
+        detail: `${longestWaitingEntry.department} has been waiting ${longestWaitMinutes} minutes. Clear or escalate this lane first.`,
+        actionLabel: "Open queue",
+        tone: longestWaitMinutes >= 45 ? "critical" : "watch",
+        onClick: () => syncSection("queue"),
+      })
+    }
+
+    if (appointmentsWithoutClinician > 0) {
+      items.push({
+        title: `${appointmentsWithoutClinician} appointments do not have a clinician assigned`,
+        detail: "Reception should confirm clinician ownership before the arrivals stack up at the desk.",
+        actionLabel: "Open check-in",
+        tone: "watch",
+        onClick: () => syncSection("checkin"),
+      })
+    }
+
+    if (arrivals.length > 0 && todayPayments.length === 0) {
+      items.push({
+        title: "Arrivals are landing but no payments have posted yet",
+        detail: "Confirm whether these visits are cash, insured, or deferred to avoid end-of-day reconciliation drift.",
+        actionLabel: "Open payments",
+        tone: "watch",
+        onClick: () => syncSection("payments"),
+      })
+    }
+
+    if (!items.length) {
+      items.push({
+        title: "No urgent desk blockers are visible",
+        detail: "Use this window to verify patient demographics, insurance details, and export readiness before the next rush.",
+        actionLabel: "Open patients",
+        tone: "calm",
+        onClick: () => syncSection("patients"),
+      })
+    }
+
+    return items.slice(0, 3)
+  }, [
+    appointmentsWithoutClinician,
+    arrivals.length,
+    longestWaitMinutes,
+    longestWaitingEntry,
+    syncSection,
+    todayPayments.length,
+  ])
+
+  const recentActivity = useMemo<ActivityFeedItem[]>(() => {
+    const checkinItems = arrivals.map((arrival) => ({
+      id: `checkin-${arrival.id}`,
+      title: `Arrival registered for ${arrival.first_name} ${arrival.last_name}`,
+      detail: `${formatPatientNumber(arrival.patient_number)} moved into ${arrival.status} at ${new Date(arrival.created_at).toLocaleTimeString()}.`,
+      timestamp: getSafeTimestamp(arrival.created_at),
+      onClick: () => {
+        setFocusPatientId(arrival.patient_id)
+        syncSection("patients")
+      },
+      accent: "sky" as const,
+    }))
+
+    const paymentItems = todayPayments.map((payment) => ({
+      id: `payment-${payment.id}`,
+      title: `Payment posted for ${payment.first_name} ${payment.last_name}`,
+      detail: `${formatCurrency(Number(payment.amount || 0))} via ${payment.method} on receipt ${payment.receipt_no}.`,
+      timestamp: getSafeTimestamp(payment.created_at),
+      onClick: () => syncSection("payments"),
+      accent: "emerald" as const,
+    }))
+
+    return [...checkinItems, ...paymentItems]
+      .sort((left, right) => right.timestamp - left.timestamp)
+      .slice(0, 8)
+  }, [arrivals, formatCurrency, syncSection, todayPayments])
 
   const loadOpsSnapshot = useCallback(async () => {
     try {
@@ -334,7 +551,13 @@ export function ReceptionistDashboard() {
           label="Payments Today"
           value={opsLoading ? null : todayPayments.length}
           loading={opsLoading}
-          hint={opsError ? "Payment feed unavailable" : paymentsTotal ? `${paymentsTotal.toLocaleString()} collected` : "No payments captured today yet."}
+          hint={
+            opsError
+              ? "Payment feed unavailable"
+              : paymentsTotal
+                ? `${formatCurrency(paymentsTotal)} collected across ${todayPayments.length} receipt${todayPayments.length === 1 ? "" : "s"}`
+                : "No payments captured today yet."
+          }
           icon={<CreditCard className="h-4 w-4 text-rose-600" />}
           onClick={() => syncSection("payments")}
         />
@@ -496,17 +719,177 @@ export function ReceptionistDashboard() {
 
             <TabsContent value="overview" className="space-y-4">
               <Card className="border-slate-200 bg-white/95 shadow-sm">
-                <CardHeader>
-                  <CardTitle>Reception Workflow Coverage</CardTitle>
-                  <CardDescription>The portal now routes directly into patient, queue, payment, and export work without dead-end tabs.</CardDescription>
+                <CardHeader className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+                  <div>
+                    <CardTitle>Reception Operations Overview</CardTitle>
+                    <CardDescription>
+                      A live front-desk command view for arrivals, waits, handoffs, and collections. Prioritize pressure early and route work without leaving reception.
+                    </CardDescription>
+                  </div>
+                  <div className={statusPillClassName(overviewStatus.tone)}>
+                    <AlertTriangle className="h-4 w-4" />
+                    <div>
+                      <div className="text-sm font-semibold">{overviewStatus.label}</div>
+                      <div className="text-xs opacity-90">{overviewStatus.detail}</div>
+                    </div>
+                  </div>
                 </CardHeader>
                 <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                  <ActionCard title="Patients" description="Open the live patient register and jump straight into demographics." onClick={() => syncSection("patients")} />
-                  <ActionCard title="Check-In" description="Record arrivals and launch appointment scheduling from the same desk." onClick={() => syncSection("checkin")} />
-                  <ActionCard title="Queue" description="Move patients through waiting, service, and completion states." onClick={() => syncSection("queue")} />
-                  <ActionCard title="Reports" description="Export the daily reception register, dashboard, and queue history." onClick={() => syncSection("reports")} />
+                  <OverviewSignalCard
+                    title="Arrivals in the last hour"
+                    value={opsLoading ? "Loading" : String(arrivalsLastHour)}
+                    detail={opsError ? "Realtime arrival feed unavailable." : `${arrivals.length} total check-ins recorded on the reception day.`}
+                    icon={<BellRing className="h-4 w-4 text-sky-600" />}
+                    onClick={() => syncSection("checkin")}
+                  />
+                  <OverviewSignalCard
+                    title="Longest active wait"
+                    value={opsLoading ? "Loading" : longestWaitMinutes ? `${longestWaitMinutes} min` : "Clear"}
+                    detail={
+                      longestWaitingEntry
+                        ? `${longestWaitingEntry.department} is holding the oldest waiting patient.`
+                        : "No patients are currently waiting for service."
+                    }
+                    icon={<Clock3 className="h-4 w-4 text-amber-600" />}
+                    onClick={() => syncSection("queue")}
+                  />
+                  <OverviewSignalCard
+                    title="Appointments due now"
+                    value={loadingAppointments ? "Loading" : String(appointmentsDueNow)}
+                    detail={
+                      appointmentsWithoutClinician
+                        ? `${appointmentsWithoutClinician} scheduled patient${appointmentsWithoutClinician === 1 ? "" : "s"} still need clinician ownership.`
+                        : "Clinician assignments are aligned with the current reception schedule."
+                    }
+                    icon={<Calendar className="h-4 w-4 text-emerald-600" />}
+                    onClick={() => syncSection("checkin")}
+                  />
+                  <OverviewSignalCard
+                    title="Collections recorded"
+                    value={opsLoading ? "Loading" : formatCurrency(paymentsTotal)}
+                    detail={
+                      opsError
+                        ? "Payment feed unavailable."
+                        : `${todayPayments.length} receipt${todayPayments.length === 1 ? "" : "s"} posted by reception today.`
+                    }
+                    icon={<CreditCard className="h-4 w-4 text-rose-600" />}
+                    onClick={() => syncSection("payments")}
+                  />
                 </CardContent>
               </Card>
+
+              <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                <Card className="border-slate-200 bg-white/95 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Attention Board</CardTitle>
+                    <CardDescription>What needs a receptionist decision or follow-up next.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {attentionItems.map((item) => (
+                      <AttentionCard key={item.title} item={item} />
+                    ))}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-200 bg-white/95 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Department Pressure</CardTitle>
+                    <CardDescription>Realtime load by lane so the desk can see which unit is pulling back patient flow.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="space-y-3">
+                    {opsLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-16 w-full" />
+                        <Skeleton className="h-16 w-full" />
+                        <Skeleton className="h-16 w-full" />
+                      </div>
+                    ) : departmentPressure.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-5 text-sm text-muted-foreground">
+                        No departments are holding active queue load right now.
+                      </div>
+                    ) : (
+                      departmentPressure.slice(0, 5).map((row) => (
+                        <button
+                          key={row.department}
+                          type="button"
+                          onClick={() => syncSection("queue")}
+                          className="w-full rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-3 text-left transition hover:border-sky-300 hover:bg-white"
+                        >
+                          <div className="flex items-start justify-between gap-3">
+                            <div>
+                              <div className="font-medium text-foreground">{row.department}</div>
+                              <div className="text-sm text-muted-foreground">
+                                {row.waitingCount} waiting, {row.inServiceCount} in service
+                              </div>
+                            </div>
+                            <div className="text-right text-sm text-muted-foreground">
+                              <div className="font-medium text-foreground">{row.totalPatients} active</div>
+                              <div>Longest wait {row.longestWaitMinutes} min</div>
+                            </div>
+                          </div>
+                        </button>
+                      ))
+                    )}
+                  </CardContent>
+                </Card>
+              </div>
+
+              <div className="grid gap-4 xl:grid-cols-[1.1fr_0.9fr]">
+                <Card className="border-slate-200 bg-white/95 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Recent Front-Desk Activity</CardTitle>
+                    <CardDescription>Latest patient arrivals and payment events captured by the reception workflow.</CardDescription>
+                  </CardHeader>
+                  <CardContent>
+                    {opsLoading ? (
+                      <div className="space-y-2">
+                        <Skeleton className="h-14 w-full" />
+                        <Skeleton className="h-14 w-full" />
+                        <Skeleton className="h-14 w-full" />
+                      </div>
+                    ) : recentActivity.length === 0 ? (
+                      <div className="rounded-2xl border border-dashed border-slate-200 bg-slate-50/60 px-4 py-5 text-sm text-muted-foreground">
+                        No arrival or payment activity has been captured yet.
+                      </div>
+                    ) : (
+                      <div className="space-y-2">
+                        {recentActivity.map((item) => (
+                          <ActivityFeedRow key={item.id} item={item} />
+                        ))}
+                      </div>
+                    )}
+                  </CardContent>
+                </Card>
+
+                <Card className="border-slate-200 bg-white/95 shadow-sm">
+                  <CardHeader>
+                    <CardTitle className="text-base">Workflow Handoffs</CardTitle>
+                    <CardDescription>Open the right desk surface with the current live count already in view.</CardDescription>
+                  </CardHeader>
+                  <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-1">
+                    <ActionCard
+                      title="Patients"
+                      description={`${patients.length} registered records available for demographic fixes and insurance review.`}
+                      onClick={() => syncSection("patients")}
+                    />
+                    <ActionCard
+                      title="Check-In"
+                      description={`${todayAppointments.length} scheduled appointments and ${arrivals.length} arrivals are feeding through reception today.`}
+                      onClick={() => syncSection("checkin")}
+                    />
+                    <ActionCard
+                      title="Queue"
+                      description={`${waitingQueue.length} waiting and ${inServiceQueue.length} in service across live departments.`}
+                      onClick={() => syncSection("queue")}
+                    />
+                    <ActionCard
+                      title="Reports"
+                      description="Download the reception register, queue history, and daily reconciliation pack from one place."
+                      onClick={() => syncSection("reports")}
+                    />
+                  </CardContent>
+                </Card>
+              </div>
             </TabsContent>
 
             <TabsContent value="patients">
@@ -596,6 +979,83 @@ function ActionCard({ title, description, onClick }: { title: string; descriptio
     >
       <div className="font-medium text-foreground">{title}</div>
       <div className="mt-2 text-sm text-muted-foreground">{description}</div>
+    </button>
+  )
+}
+
+function statusPillClassName(tone: OverviewTone) {
+  if (tone === "critical") {
+    return "inline-flex max-w-xl items-start gap-3 rounded-2xl border border-rose-200 bg-rose-50 px-4 py-3 text-rose-900"
+  }
+
+  if (tone === "watch") {
+    return "inline-flex max-w-xl items-start gap-3 rounded-2xl border border-amber-200 bg-amber-50 px-4 py-3 text-amber-900"
+  }
+
+  return "inline-flex max-w-xl items-start gap-3 rounded-2xl border border-emerald-200 bg-emerald-50 px-4 py-3 text-emerald-900"
+}
+
+function OverviewSignalCard({
+  title,
+  value,
+  detail,
+  icon,
+  onClick,
+}: {
+  title: string
+  value: string
+  detail: string
+  icon: ReactNode
+  onClick: () => void
+}) {
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="rounded-2xl border border-slate-200 bg-slate-50/70 px-4 py-4 text-left transition hover:border-sky-300 hover:bg-white hover:shadow-sm"
+    >
+      <div className="flex items-center justify-between gap-3">
+        <div className="text-sm font-medium text-muted-foreground">{title}</div>
+        {icon}
+      </div>
+      <div className="mt-3 text-2xl font-semibold text-foreground">{value}</div>
+      <div className="mt-2 text-sm leading-6 text-muted-foreground">{detail}</div>
+    </button>
+  )
+}
+
+function AttentionCard({ item }: { item: AttentionItem }) {
+  return (
+    <div className={`rounded-2xl border px-4 py-4 ${item.tone === "critical" ? "border-rose-200 bg-rose-50/80" : item.tone === "watch" ? "border-amber-200 bg-amber-50/80" : "border-emerald-200 bg-emerald-50/80"}`}>
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start sm:justify-between">
+        <div>
+          <div className="font-medium text-foreground">{item.title}</div>
+          <div className="mt-1 text-sm leading-6 text-muted-foreground">{item.detail}</div>
+        </div>
+        <Button variant="outline" size="sm" onClick={item.onClick}>
+          {item.actionLabel}
+        </Button>
+      </div>
+    </div>
+  )
+}
+
+function ActivityFeedRow({ item }: { item: ActivityFeedItem }) {
+  return (
+    <button
+      type="button"
+      onClick={item.onClick}
+      className={`w-full rounded-2xl border px-4 py-3 text-left transition hover:shadow-sm ${item.accent === "sky" ? "border-sky-200 bg-sky-50/70 hover:border-sky-300" : "border-emerald-200 bg-emerald-50/70 hover:border-emerald-300"}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div>
+          <div className="font-medium text-foreground">{item.title}</div>
+          <div className="mt-1 text-sm leading-6 text-muted-foreground">{item.detail}</div>
+        </div>
+        <div className="text-xs text-muted-foreground">
+          {item.timestamp ? new Date(item.timestamp).toLocaleTimeString() : "Now"}
+        </div>
+      </div>
     </button>
   )
 }

@@ -1,14 +1,17 @@
 "use client"
 
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { toast } from "sonner"
+import { getPatientDocumentTypeLabel, PATIENT_DOCUMENT_TYPES, type PatientDocumentType } from "@/lib/insurance"
 
 type Doc = {
   id: string
-  type: 'ID'|'INSURANCE'|'CONSENT'|'OTHER'
+  type: PatientDocumentType
   file_url: string
   uploaded_at: string
   original_name?: string | null
@@ -18,137 +21,205 @@ type Doc = {
 
 export function DocumentsList({ patientId }: { patientId: string }) {
   const [docs, setDocs] = useState<Doc[]>([])
-  const [type, setType] = useState<'ID'|'INSURANCE'|'CONSENT'|'OTHER'>('ID')
+  const [type, setType] = useState<PatientDocumentType>("ID")
+  const [notes, setNotes] = useState("")
   const [loading, setLoading] = useState(false)
   const [adding, setAdding] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
-  async function load() {
-    try { setLoading(true)
-      const res = await fetch(`/api/documents?patientId=${patientId}`, { credentials: 'include' })
+  const load = useCallback(async () => {
+    try {
+      setLoading(true)
+      const res = await fetch(`/api/documents?patientId=${patientId}`, { credentials: "include" })
       if (res.ok) setDocs((await res.json()).documents || [])
-    } catch {} finally { setLoading(false) }
-  }
+    } catch {
+      // Silent load failure; the UI keeps the last known state.
+    } finally {
+      setLoading(false)
+    }
+  }, [patientId])
 
-  // eslint-disable-next-line react-hooks/exhaustive-deps -- reload when patientId changes
-  useEffect(() => { load() }, [patientId])
+  useEffect(() => {
+    void load()
+  }, [load])
 
   const add = async () => {
-    if (!file) { toast.error('Choose a file to upload'); return }
+    if (!file) {
+      toast.error("Choose a file to upload")
+      return
+    }
     setAdding(true)
     try {
-      // 1) Upload file to server
       const fd = new FormData()
-      fd.append('file', file)
-      const up = await fetch('/api/upload', { method: 'POST', body: fd, credentials: 'include' })
+      fd.append("file", file)
+      fd.append("kind", "lab")
+
+      const up = await fetch("/api/upload", { method: "POST", body: fd, credentials: "include" })
       if (!up.ok) {
-        const e = await up.json().catch(()=>({}))
-        toast.error(e.error || 'Upload failed')
+        const error = await up.json().catch(() => ({}))
+        toast.error(error.error || "Upload failed")
         return
       }
-      const { url, originalName, mimeType } = await up.json()
-      if (!url) { toast.error('Upload failed'); return }
 
-      // 2) Save document record
-      const res = await fetch('/api/documents', {
-        method: 'POST',
-        credentials: 'include',
-        headers: { 'Content-Type':'application/json' },
+      const { url, originalName, mimeType } = await up.json()
+      if (!url) {
+        toast.error("Upload failed")
+        return
+      }
+
+      const res = await fetch("/api/documents", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientId,
           type,
           fileUrl: url,
+          notes: notes.trim() || undefined,
           fileName: originalName || file.name,
           mimeType: mimeType || file.type || undefined,
         }),
       })
-      if (!res.ok) { const e = await res.json().catch(()=>({})); toast.error(e.error || 'Failed to add document') }
-      else { toast.success('Document added'); setFile(null); await load() }
-    } catch { toast.error('Failed to add document') } finally { setAdding(false) }
+      if (!res.ok) {
+        const error = await res.json().catch(() => ({}))
+        toast.error(error.error || "Failed to add document")
+      } else {
+        toast.success("Document added")
+        setFile(null)
+        setNotes("")
+        await load()
+      }
+    } catch {
+      toast.error("Failed to add document")
+    } finally {
+      setAdding(false)
+    }
   }
 
   const deleteDocument = async (id: string) => {
     if (!window.confirm("Remove this document from the patient record?")) return
     setDeletingId(id)
     try {
-      const res = await fetch(`/api/documents?id=${id}`, { method: 'DELETE', credentials: 'include' })
+      const res = await fetch(`/api/documents?id=${id}`, { method: "DELETE", credentials: "include" })
       if (!res.ok) {
         const err = await res.json().catch(() => ({}))
-        toast.error(err.error || 'Failed to remove document')
+        toast.error(err.error || "Failed to remove document")
       } else {
-        toast.success('Document removed')
+        toast.success("Document removed")
         await load()
       }
     } catch {
-      toast.error('Failed to remove document')
+      toast.error("Failed to remove document")
     } finally {
       setDeletingId(null)
     }
   }
 
   return (
-    <Card>
-      <CardHeader>
+    <Card className="border-0 shadow-none">
+      <CardHeader className="px-0 pt-0">
         <CardTitle>Documents</CardTitle>
-        <CardDescription>Attach identification, insurance cards, and consents</CardDescription>
+        <CardDescription>Attach identification, insurance cards, and signed consents.</CardDescription>
       </CardHeader>
-      <CardContent className="space-y-3">
-        <div className="flex flex-col gap-3">
-          <div className="grid gap-2 grid-cols-1 md:grid-cols-[120px_1fr_auto] items-center">
-            <div>
-              <Select value={type} onValueChange={(v:any)=>setType(v)}>
-                <SelectTrigger><SelectValue /></SelectTrigger>
+      <CardContent className="space-y-4 px-0 pb-0">
+        <div className="rounded-lg border p-4">
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="patient-document-type">Document type</Label>
+              <Select value={type} onValueChange={(value: PatientDocumentType) => setType(value)}>
+                <SelectTrigger id="patient-document-type" aria-label="Document type" className="w-full">
+                  <SelectValue />
+                </SelectTrigger>
                 <SelectContent>
-                  <SelectItem value="ID">ID</SelectItem>
-                  <SelectItem value="INSURANCE">INSURANCE</SelectItem>
-                  <SelectItem value="CONSENT">CONSENT</SelectItem>
-                  <SelectItem value="OTHER">OTHER</SelectItem>
+                  {PATIENT_DOCUMENT_TYPES.map((documentType) => (
+                    <SelectItem key={documentType} value={documentType}>
+                      {getPatientDocumentTypeLabel(documentType)}
+                    </SelectItem>
+                  ))}
                 </SelectContent>
               </Select>
             </div>
-            <label
-              className="flex-1 rounded-md border border-input bg-background px-4 py-2 text-sm font-medium text-muted-foreground shadow-sm transition hover:border-border hover:bg-muted focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-sky-500 focus-visible:ring-offset-2 cursor-pointer"
-              role="button"
-            >
-              {file ? file.name : "Choose a file"}
-              <input
+            <div className="space-y-2">
+              <Label htmlFor="patient-document-file">Select document file</Label>
+              <label
+                htmlFor="patient-document-file"
+                className="flex min-h-9 cursor-pointer items-center rounded-md border border-input bg-background px-4 py-2 text-sm text-muted-foreground shadow-xs transition hover:bg-muted"
+              >
+                {file ? file.name : "Choose a PDF or image"}
+              </label>
+              <Input
+                id="patient-document-file"
+                name="patientDocumentFile"
                 type="file"
                 accept="image/*,.pdf"
-                onChange={(e)=> setFile(e.target.files && e.target.files[0] ? e.target.files![0] : null)}
+                onChange={(event) =>
+                  setFile(event.target.files && event.target.files[0] ? event.target.files[0] : null)
+                }
                 className="sr-only"
               />
-            </label>
-            <Button onClick={add} disabled={adding || !file}>{adding ? 'Adding...':'Add Document'}</Button>
+            </div>
+          </div>
+
+          <div className="mt-4 space-y-2">
+            <Label htmlFor="patient-document-notes">Document notes</Label>
+            <Input
+              id="patient-document-notes"
+              name="patientDocumentNotes"
+              placeholder="Example: Insurance card front, national ID, signed consent."
+              value={notes}
+              onChange={(event) => setNotes(event.target.value)}
+            />
+          </div>
+
+          <div className="mt-4 flex items-center justify-between gap-3">
+            <p className="text-xs text-muted-foreground">
+              Upload scans or PDFs so reception, billing, and clinical teams can retrieve cover documents quickly.
+            </p>
+            <Button onClick={add} disabled={adding || !file}>
+              {adding ? "Adding..." : "Add Document"}
+            </Button>
           </div>
         </div>
-        <div className="text-xs text-muted-foreground">
-          Upload scans or PDFs to keep identification, insurance cards, and consents next to this patient.
-        </div>
-        <div className="rounded border divide-y mt-2">
+
+        <div className="rounded border divide-y" data-testid="patient-documents-list">
           {loading ? (
             <div className="p-3 text-sm text-muted-foreground">Loading...</div>
           ) : docs.length === 0 ? (
             <div className="p-3 text-sm text-muted-foreground">No documents</div>
-          ) : docs.map((d) => (
-            <div key={d.id} className="p-3 text-sm flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-              <div>
-                <div className="font-medium">{d.type}</div>
-                {d.original_name ? <div className="text-muted-foreground">{d.original_name}</div> : null}
-                {d.notes ? <div className="text-muted-foreground">{d.notes}</div> : null}
-                <div className="text-muted-foreground">{new Date(d.uploaded_at).toLocaleString()}</div>
+          ) : (
+            docs.map((document) => (
+              <div
+                key={document.id}
+                data-document-name={document.original_name || ""}
+                className="flex flex-col gap-2 p-3 text-sm md:flex-row md:items-center md:justify-between"
+              >
+                <div>
+                  <div className="font-medium">{getPatientDocumentTypeLabel(document.type)}</div>
+                  {document.original_name ? (
+                    <div className="text-muted-foreground">{document.original_name}</div>
+                  ) : null}
+                  {document.notes ? <div className="text-muted-foreground">{document.notes}</div> : null}
+                  <div className="text-muted-foreground">{new Date(document.uploaded_at).toLocaleString()}</div>
+                </div>
+                <div className="flex items-center gap-2">
+                  <a className="text-primary underline" href={document.file_url} target="_blank" rel="noreferrer">
+                    Open
+                  </a>
+                  <Button
+                    size="sm"
+                    variant="ghost"
+                    onClick={() => deleteDocument(document.id)}
+                    disabled={deletingId === document.id}
+                  >
+                    {deletingId === document.id ? "Removing..." : "Remove"}
+                  </Button>
+                </div>
               </div>
-              <div className="flex items-center gap-2">
-                <a className="text-primary underline" href={d.file_url} target="_blank" rel="noreferrer">Open</a>
-                <Button size="sm" variant="ghost" onClick={() => deleteDocument(d.id)} disabled={deletingId === d.id}>
-                  {deletingId === d.id ? 'Removing...' : 'Remove'}
-                </Button>
-              </div>
-            </div>
-          ))}
+            ))
+          )}
         </div>
       </CardContent>
     </Card>
   )
 }
-

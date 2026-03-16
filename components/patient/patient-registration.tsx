@@ -13,11 +13,16 @@ import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { toast } from "sonner"
 import { PhoneInput } from "@/components/ui/phone-input"
 import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
+import { isQzEnabled, printUrlViaQz } from "@/lib/printing"
 import { Printer, X, ChevronDown, User, MapPin, Heart, Phone, FileText, Users, Briefcase } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
 interface PatientRegistrationProps {
-  onSuccess?: (patientId?: string) => void
+  onSuccess?: (result?: {
+    patientId?: string
+    checkInTokenId?: string | null
+    tokenPrintDispatched?: boolean
+  }) => void
 }
 
 export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
@@ -26,6 +31,7 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
   const [errors, setErrors] = useState<{ [k: string]: string }>({})
   const [formError, setFormError] = useState<string>("")
   const [tokenId, setTokenId] = useState<string | null>(null)
+  const [tokenPrintMode, setTokenPrintMode] = useState<"qz" | "popup" | "blocked" | null>(null)
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
@@ -136,6 +142,8 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
       if (createRes.ok) {
         const created = await createRes.json()
         const patientId = created.id
+        let checkInTokenId: string | null = null
+        let tokenPrintDispatched = false
         try { await refreshPatients() } catch {}
         // Offer a quick View Patient action via toast
         try {
@@ -143,7 +151,7 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
             action: {
               label: 'View patient',
               onClick: () => {
-                try { onSuccess?.(patientId) } catch {}
+                try { onSuccess?.({ patientId }) } catch {}
               },
             },
           })
@@ -163,7 +171,35 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
             if (ck.ok) {
               const c = await ck.json()
               // Persist a print banner instead of auto-redirecting
-              if (c?.id) setTokenId(c.id)
+              if (c?.id) {
+                checkInTokenId = c.id
+                setTokenId(c.id)
+                const tokenUrl = `/api/queue/token/${c.id}`
+                const qzTokenUrl = `${tokenUrl}?render=qz`
+                if (isQzEnabled()) {
+                  try {
+                    await printUrlViaQz(qzTokenUrl, { widthMm: 80 })
+                    tokenPrintDispatched = true
+                    setTokenPrintMode("qz")
+                  } catch {
+                    try {
+                      const popup = window.open(tokenUrl, '_blank', 'noopener,noreferrer')
+                      tokenPrintDispatched = !!popup
+                      setTokenPrintMode(popup ? "popup" : "blocked")
+                    } catch {
+                      setTokenPrintMode("blocked")
+                    }
+                  }
+                } else {
+                  try {
+                    const popup = window.open(tokenUrl, '_blank', 'noopener,noreferrer')
+                    tokenPrintDispatched = !!popup
+                    setTokenPrintMode(popup ? "popup" : "blocked")
+                  } catch {
+                    setTokenPrintMode("blocked")
+                  }
+                }
+              }
               toast.success('Patient registered and checked in')
             } else {
               toast.success('Patient registered')
@@ -174,7 +210,13 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
         }
 
         // Notify caller so dialogs can close and navigate to the new patient
-        try { onSuccess?.(patientId) } catch {}
+        try {
+          onSuccess?.({
+            patientId,
+            checkInTokenId,
+            tokenPrintDispatched,
+          })
+        } catch {}
       } else {
         let msg = "Failed to register patient"
         try { const j = await createRes.json(); if (j?.error) msg = String(j.error) } catch {}
@@ -232,17 +274,39 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
           <Alert className="mb-4 flex flex-col gap-3 md:flex-row md:items-center md:justify-between">
             <div>
               <AlertTitle>Queue token ready</AlertTitle>
-              <AlertDescription>Token {tokenId}. Click print to open/print the token. This will stay until you close it.</AlertDescription>
+              <AlertDescription>
+                {tokenPrintMode === "qz"
+                  ? `Token ${tokenId} was sent directly to the receipt printer. Use the button below to print it again if needed.`
+                  : tokenPrintMode === "blocked"
+                    ? `The print window was blocked. Token ${tokenId} is ready below for a receipt-printer printout.`
+                    : `Token ${tokenId} opened in a print window. Use the button below if you need to print it again.`}
+              </AlertDescription>
             </div>
             <div className="flex gap-2">
               <Button
                 variant="outline"
                 size="sm"
-                onClick={() => { try { window.open(`/api/queue/token/${tokenId}`, '_blank') } catch {} }}
+                onClick={async () => {
+                  const tokenUrl = `/api/queue/token/${tokenId}`
+                  const qzTokenUrl = `${tokenUrl}?render=qz`
+                  if (isQzEnabled()) {
+                    try {
+                      await printUrlViaQz(qzTokenUrl, { widthMm: 80 })
+                      setTokenPrintMode("qz")
+                      return
+                    } catch {}
+                  }
+                  try {
+                    const popup = window.open(tokenUrl, '_blank', 'noopener,noreferrer')
+                    setTokenPrintMode(popup ? "popup" : "blocked")
+                  } catch {
+                    setTokenPrintMode("blocked")
+                  }
+                }}
               >
                 <Printer className="mr-2 h-4 w-4" /> Print token
               </Button>
-              <Button variant="ghost" size="icon" onClick={() => setTokenId(null)}>
+              <Button variant="ghost" size="icon" onClick={() => { setTokenId(null); setTokenPrintMode(null) }}>
                 <X className="h-4 w-4" />
               </Button>
             </div>
@@ -613,5 +677,3 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
     </Card>
   )
 }
-
-

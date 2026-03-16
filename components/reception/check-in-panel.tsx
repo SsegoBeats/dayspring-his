@@ -11,6 +11,7 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import AppointmentForm from "@/components/appointments/appointment-form"
 import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
 import { formatPatientNumber } from "@/lib/patients"
+import { isQzEnabled, printUrlViaQz } from "@/lib/printing"
 
 type CompactPatient = { id: string; patient_number: string; first_name: string; last_name: string }
 
@@ -25,6 +26,7 @@ export function CheckInPanel() {
   const [errorMsg, setErrorMsg] = useState("")
   const [appointmentsOpen, setAppointmentsOpen] = useState(false)
   const [lastCheckInTokenId, setLastCheckInTokenId] = useState<string | null>(null)
+  const [lastCheckInPrintMode, setLastCheckInPrintMode] = useState<"qz" | "popup" | "blocked" | null>(null)
 
   useEffect(() => {
     if (!q || q.length < 2) {
@@ -90,13 +92,48 @@ export function CheckInPanel() {
       }
       const tokenId = data?.id as string | undefined
       setLastCheckInTokenId(tokenId ?? null)
+      let tokenPrinted = false
+      let printMode: "qz" | "popup" | "blocked" | null = null
+      if (tokenId) {
+        const tokenUrl = `/api/queue/token/${tokenId}`
+        const qzTokenUrl = `${tokenUrl}?render=qz`
+        if (isQzEnabled()) {
+          try {
+            await printUrlViaQz(qzTokenUrl, { widthMm: 80 })
+            printMode = "qz"
+            setLastCheckInPrintMode("qz")
+            tokenPrinted = true
+          } catch {
+            try {
+              const popup = window.open(tokenUrl, "_blank", "noopener,noreferrer")
+              printMode = popup ? "popup" : "blocked"
+              setLastCheckInPrintMode(printMode)
+              tokenPrinted = !!popup
+            } catch {
+              printMode = "blocked"
+              setLastCheckInPrintMode("blocked")
+            }
+          }
+        } else {
+          try {
+            const popup = window.open(tokenUrl, "_blank", "noopener,noreferrer")
+            printMode = popup ? "popup" : "blocked"
+            setLastCheckInPrintMode(printMode)
+            tokenPrinted = !!popup
+          } catch {
+            printMode = "blocked"
+            setLastCheckInPrintMode("blocked")
+          }
+        }
+      }
       toast.success(
-        tokenId ? "Patient checked in. Print token below if the popup was blocked." : "Patient checked in successfully",
+        tokenId
+          ? tokenPrinted || printMode === "qz"
+            ? "Patient checked in and queue token sent for printing."
+            : "Patient checked in. Print token below if the popup was blocked."
+          : "Patient checked in successfully",
         { duration: 5000 },
       )
-      try {
-        if (tokenId) window.open(`/api/queue/token/${tokenId}`, "_blank", "noopener,noreferrer")
-      } catch {}
       setQ("")
       setPatients([])
       clearSelectedPatient()
@@ -123,17 +160,49 @@ export function CheckInPanel() {
       <CardContent className="space-y-3">
         {lastCheckInTokenId && (
           <div className="flex items-center justify-between gap-2 rounded-md border border-emerald-200 bg-emerald-50 px-3 py-2 text-sm dark:border-emerald-800 dark:bg-emerald-950/30">
-            <span className="text-emerald-800 dark:text-emerald-200">Token ready to print</span>
+            <span className="text-emerald-800 dark:text-emerald-200">
+              Token ready to print
+              <span className="ml-2 text-xs text-emerald-700 dark:text-emerald-300">
+                {lastCheckInPrintMode === "qz"
+                  ? "Sent to thermal printer"
+                  : lastCheckInPrintMode === "blocked"
+                    ? "Print window blocked"
+                    : "Browser print available"}
+              </span>
+            </span>
             <span className="flex items-center gap-2">
-              <a
-                href={`/api/queue/token/${lastCheckInTokenId}`}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-blue-600 hover:underline"
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                className="font-medium text-blue-600 hover:text-blue-700"
+                onClick={async () => {
+                  const tokenUrl = `/api/queue/token/${lastCheckInTokenId}`
+                  const qzTokenUrl = `${tokenUrl}?render=qz`
+                  if (isQzEnabled()) {
+                    try {
+                      await printUrlViaQz(qzTokenUrl, { widthMm: 80 })
+                      setLastCheckInPrintMode("qz")
+                      return
+                    } catch {}
+                  }
+                  try {
+                    const popup = window.open(tokenUrl, "_blank", "noopener,noreferrer")
+                    setLastCheckInPrintMode(popup ? "popup" : "blocked")
+                  } catch {
+                    setLastCheckInPrintMode("blocked")
+                  }
+                }}
               >
                 Open / print token
-              </a>
-              <Button type="button" variant="ghost" size="sm" onClick={() => setLastCheckInTokenId(null)} aria-label="Dismiss token link">
+              </Button>
+              <Button
+                type="button"
+                variant="ghost"
+                size="sm"
+                onClick={() => { setLastCheckInTokenId(null); setLastCheckInPrintMode(null) }}
+                aria-label="Dismiss token link"
+              >
                 Dismiss
               </Button>
             </span>

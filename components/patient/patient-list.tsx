@@ -280,12 +280,16 @@ export function PatientList({ initialSelectedPatientId }: { initialSelectedPatie
             <DialogDescription>Enter patient demographics and contact information to register a new patient.</DialogDescription>
           </DialogHeader>
           <PatientRegistration
-            onSuccess={async (id) => {
+            onSuccess={async (result) => {
+              const patientId = result?.patientId
+              const checkInTokenId = result?.checkInTokenId
+              const tokenPrintDispatched = result?.tokenPrintDispatched
               try {
-                setRegisterOpen(false)
                 await refreshPatients()
               } catch {}
-              if (id) setSelectedPatientId(id)
+              if (checkInTokenId && !tokenPrintDispatched) return
+              setRegisterOpen(false)
+              if (patientId) setSelectedPatientId(patientId)
             }}
           />
         </DialogContent>
