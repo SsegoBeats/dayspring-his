@@ -346,7 +346,7 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
       <div id="patient-insurance-docs" className="grid min-w-0 gap-4 xl:grid-cols-2">
         <Card id="patient-insurance" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
           <CardContent className="p-4">
-            <InsurancePolicies patientId={patientId} hideAuthorizations />
+            <InsurancePolicies patientId={patientId} hideAuthorizations hideRecords hideAddPayer />
           </CardContent>
         </Card>
 
@@ -360,6 +360,11 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
       {/* Full-width: detach authorizations from left column */}
       <div className="mt-4 min-w-0">
         <InsuranceAuthorizations patientId={patientId} />
+      </div>
+
+      {/* Full-width: detach policy records + payer management */}
+      <div className="mt-4 min-w-0">
+        <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake compact />
       </div>
 
       <Dialog open={triageOpen} onOpenChange={setTriageOpen}>

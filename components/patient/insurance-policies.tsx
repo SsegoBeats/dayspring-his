@@ -870,7 +870,21 @@ function PreauthorizationEditor({
   )
 }
 
-export function InsurancePolicies({ patientId, hideAuthorizations }: { patientId: string; hideAuthorizations?: boolean }) {
+export function InsurancePolicies({
+  patientId,
+  hideAuthorizations,
+  hideIntake,
+  hideRecords,
+  hideAddPayer,
+  compact,
+}: {
+  patientId: string
+  hideAuthorizations?: boolean
+  hideIntake?: boolean
+  hideRecords?: boolean
+  hideAddPayer?: boolean
+  compact?: boolean
+}) {
   const [payers, setPayers] = useState<Payer[]>([])
   const [policies, setPolicies] = useState<Policy[]>([])
   const [preauthorizations, setPreauthorizations] = useState<Preauthorization[]>([])
@@ -1232,14 +1246,16 @@ export function InsurancePolicies({ patientId, hideAuthorizations }: { patientId
 
   return (
     <Card className="border-0 shadow-none">
-      <CardHeader className="px-0 pt-0">
-        <CardTitle>Insurance</CardTitle>
-        <CardDescription>
-          Capture insurer, HMO, or corporate guarantee details the way Ugandan reception desks actually work: member identity, scheme ownership, panel check, eligibility verification, and service authorization.
-        </CardDescription>
-      </CardHeader>
+      {!compact ? (
+        <CardHeader className="px-0 pt-0">
+          <CardTitle>Insurance</CardTitle>
+          <CardDescription>
+            Capture insurer, HMO, or corporate guarantee details the way Ugandan reception desks actually work: member identity, scheme ownership, panel check, eligibility verification, and service authorization.
+          </CardDescription>
+        </CardHeader>
+      ) : null}
       <CardContent className="space-y-4 px-0 pb-0">
-        {(missingVerificationCount > 0 || missingPreauthCount > 0) && (
+        {!compact && (missingVerificationCount > 0 || missingPreauthCount > 0) ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-sm">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
               <div>
@@ -1290,147 +1306,155 @@ export function InsurancePolicies({ patientId, hideAuthorizations }: { patientId
               </div>
             </div>
           </div>
-        )}
+        ) : null}
 
-        <div className="grid gap-3 md:grid-cols-4">
-          <InsuranceHoverNote title="Active cover" description="Policies available for the current visit. Inactive records stay as history only.">
-            <div className="rounded-lg border bg-slate-50/80 p-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Active cover</div>
-              <div className="mt-2 text-2xl font-semibold text-slate-950">{activePolicies.length}</div>
-              <p className="text-xs text-muted-foreground">Policies currently available to reception and billing.</p>
+        {!compact ? (
+          <>
+            <div className="grid gap-3 md:grid-cols-4">
+              <InsuranceHoverNote title="Active cover" description="Policies available for the current visit. Inactive records stay as history only.">
+                <div className="rounded-lg border bg-slate-50/80 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-slate-500">Active cover</div>
+                  <div className="mt-2 text-2xl font-semibold text-slate-950">{activePolicies.length}</div>
+                  <p className="text-xs text-muted-foreground">Policies currently available to reception and billing.</p>
+                </div>
+              </InsuranceHoverNote>
+              <InsuranceHoverNote title="Verified cover" description="Cover already checked against a payer call, portal, email, or traceable eligibility source.">
+                <div className="rounded-lg border bg-emerald-50/70 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Verified</div>
+                  <div className="mt-2 text-2xl font-semibold text-emerald-900">{verifiedPolicies.length}</div>
+                  <p className="text-xs text-muted-foreground">Eligibility already confirmed by the payer or sponsor.</p>
+                </div>
+              </InsuranceHoverNote>
+              <InsuranceHoverNote title="Verification gaps" description="Active policies that still need a proper eligibility check.">
+                <div className="rounded-lg border bg-amber-50/70 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Needs verification</div>
+                  <div className="mt-2 text-2xl font-semibold text-amber-900">{missingVerificationCount}</div>
+                  <p className="text-xs text-muted-foreground">Clear these before the patient reaches billing or a restricted service.</p>
+                </div>
+              </InsuranceHoverNote>
+              <InsuranceHoverNote title="Authorization tracker" description="Policies that require approval should be matched to an open or approved authorization record.">
+                <div className="rounded-lg border bg-sky-50/70 p-3">
+                  <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Auth follow-up</div>
+                  <div className="mt-2 text-2xl font-semibold text-sky-900">{missingPreauthCount}</div>
+                  <p className="text-xs text-muted-foreground">Policies that still need an authorization record attached.</p>
+                </div>
+              </InsuranceHoverNote>
             </div>
-          </InsuranceHoverNote>
-          <InsuranceHoverNote title="Verified cover" description="Cover already checked against a payer call, portal, email, or traceable eligibility source.">
-            <div className="rounded-lg border bg-emerald-50/70 p-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-emerald-700">Verified</div>
-              <div className="mt-2 text-2xl font-semibold text-emerald-900">{verifiedPolicies.length}</div>
-              <p className="text-xs text-muted-foreground">Eligibility already confirmed by the payer or sponsor.</p>
-            </div>
-          </InsuranceHoverNote>
-          <InsuranceHoverNote title="Verification gaps" description="Active policies that still need a proper eligibility check.">
-            <div className="rounded-lg border bg-amber-50/70 p-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-amber-700">Needs verification</div>
-              <div className="mt-2 text-2xl font-semibold text-amber-900">{missingVerificationCount}</div>
-              <p className="text-xs text-muted-foreground">Clear these before the patient reaches billing or a restricted service.</p>
-            </div>
-          </InsuranceHoverNote>
-          <InsuranceHoverNote title="Authorization tracker" description="Policies that require approval should be matched to an open or approved authorization record.">
-            <div className="rounded-lg border bg-sky-50/70 p-3">
-              <div className="text-xs font-semibold uppercase tracking-[0.18em] text-sky-700">Auth follow-up</div>
-              <div className="mt-2 text-2xl font-semibold text-sky-900">{missingPreauthCount}</div>
-              <p className="text-xs text-muted-foreground">Policies that still need an authorization record attached.</p>
-            </div>
-          </InsuranceHoverNote>
-        </div>
 
-        <div className="grid gap-3 md:grid-cols-3">
-          {ugandaWorkflowGuides.map((guide) => (
-            <InsuranceHoverNote key={guide.title} title={guide.title} description={guide.description}>
-              <div className="rounded-lg border bg-white px-4 py-3">
-                <div className="text-sm font-semibold text-foreground">{guide.title}</div>
-                <p className="mt-1 text-xs leading-5 text-muted-foreground">{guide.description}</p>
+            <div className="grid gap-3 md:grid-cols-3">
+              {ugandaWorkflowGuides.map((guide) => (
+                <InsuranceHoverNote key={guide.title} title={guide.title} description={guide.description}>
+                  <div className="rounded-lg border bg-white px-4 py-3">
+                    <div className="text-sm font-semibold text-foreground">{guide.title}</div>
+                    <p className="mt-1 text-xs leading-5 text-muted-foreground">{guide.description}</p>
+                  </div>
+                </InsuranceHoverNote>
+              ))}
+            </div>
+          </>
+        ) : null}
+
+        {!hideIntake ? (
+          <div className="rounded-lg border p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Add cover</h3>
+                <p className="text-xs text-muted-foreground">
+                  Record the payer, scheme, member identity, verification trail, and any pre-authorization requirement before the patient leaves reception.
+                </p>
               </div>
-            </InsuranceHoverNote>
-          ))}
-        </div>
-
-        <div className="rounded-lg border p-4">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Add cover</h3>
-              <p className="text-xs text-muted-foreground">
-                Record the payer, scheme, member identity, verification trail, and any pre-authorization requirement before the patient leaves reception.
-              </p>
+              <Button onClick={addPolicy} disabled={creating || !payers.length}>
+                {creating ? "Adding..." : "Add Policy"}
+              </Button>
             </div>
-            <Button onClick={addPolicy} disabled={creating || !payers.length}>
-              {creating ? "Adding..." : "Add Policy"}
-            </Button>
+            <PolicyEditor form={createForm} onChange={updateCreateForm} payerOptions={payers} idPrefix="insurance-create" />
           </div>
-          <PolicyEditor form={createForm} onChange={updateCreateForm} payerOptions={payers} idPrefix="insurance-create" />
-        </div>
+        ) : null}
 
-        <Card className="border-border/80 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Policy records</CardTitle>
-            <CardDescription>Expand a policy to update it, refine verification notes, or change authorization flags.</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            {loading ? (
-              <div className="text-sm text-muted-foreground">Loading coverage records...</div>
-            ) : policies.length === 0 ? (
-              <div className="text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
-            ) : (
-              <ScrollArea className="h-[30rem]">
-                <Accordion type="single" collapsible className="px-4">
-                  {policies.map((policy) => {
-                    const draft = policyDrafts[policy.id] || toPolicyForm(policy)
-                    const verificationStatus = isExpired(policy) ? "Expired" : policy.verification_status || "Unverified"
-                    return (
-                      <AccordionItem key={policy.id} value={policy.id} data-payer-name={policy.payer_name} data-policy-number={policy.policy_no}>
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
-                            <div className="space-y-1">
+        {!hideRecords ? (
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Policy records</CardTitle>
+              <CardDescription>Expand a policy to update it, refine verification notes, or change authorization flags.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              {loading ? (
+                <div className="text-sm text-muted-foreground">Loading coverage records...</div>
+              ) : policies.length === 0 ? (
+                <div className="text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
+              ) : (
+                <ScrollArea className="h-[30rem]">
+                  <Accordion type="single" collapsible className="px-4">
+                    {policies.map((policy) => {
+                      const draft = policyDrafts[policy.id] || toPolicyForm(policy)
+                      const verificationStatus = isExpired(policy) ? "Expired" : policy.verification_status || "Unverified"
+                      return (
+                        <AccordionItem key={policy.id} value={policy.id} data-payer-name={policy.payer_name} data-policy-number={policy.policy_no}>
+                          <AccordionTrigger className="hover:no-underline">
+                            <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-base font-semibold text-foreground">{policy.payer_name}</span>
+                                  <InsuranceHoverNote
+                                    title="Payer type"
+                                    description={getInsurancePayerTypeDescription((policy.payer_type || "INSURER") as InsurancePayerType)}
+                                  >
+                                    <Badge variant="outline">{getInsurancePayerTypeLabel(policy.payer_type || "INSURER")}</Badge>
+                                  </InsuranceHoverNote>
+                                  {policy.plan_name ? <span className="text-sm text-muted-foreground">{policy.plan_name}</span> : null}
+                                  {policy.scheme_name ? <span className="text-sm text-muted-foreground">| {policy.scheme_name}</span> : null}
+                                </div>
+                                <div className="text-sm text-muted-foreground">
+                                  Policy {policy.policy_no}
+                                  {policy.member_id ? ` | Member ${policy.member_id}` : ""}
+                                  {policy.staff_number ? ` | Staff ${policy.staff_number}` : ""}
+                                </div>
+                                <div className="text-xs text-muted-foreground">{formatCoverageWindow(policy)}</div>
+                              </div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-base font-semibold text-foreground">{policy.payer_name}</span>
-                                <InsuranceHoverNote
-                                  title="Payer type"
-                                  description={getInsurancePayerTypeDescription((policy.payer_type || "INSURER") as InsurancePayerType)}
-                                >
-                                  <Badge variant="outline">{getInsurancePayerTypeLabel(policy.payer_type || "INSURER")}</Badge>
+                                <Badge variant={policy.active ? "default" : "secondary"}>{policy.active ? "Active" : "Inactive"}</Badge>
+                                <Badge variant="outline">{formatCoverageOrder(policy.coordination_order || 1)}</Badge>
+                                <InsuranceHoverNote title="Eligibility verification" description={getVerificationStatusDescription(verificationStatus as any)}>
+                                  <Badge variant="outline" className={verificationBadgeClass(verificationStatus)}>{verificationStatus}</Badge>
                                 </InsuranceHoverNote>
-                                {policy.plan_name ? <span className="text-sm text-muted-foreground">{policy.plan_name}</span> : null}
-                                {policy.scheme_name ? <span className="text-sm text-muted-foreground">| {policy.scheme_name}</span> : null}
+                                <InsuranceHoverNote title="Provider panel status" description={getPanelStatusDescription((policy.panel_status || "Unknown") as any)}>
+                                  <Badge variant="outline">{policy.panel_status || "Unknown panel"}</Badge>
+                                </InsuranceHoverNote>
+                                {policy.authorization_required ? <Badge variant="secondary">Authorization required</Badge> : null}
                               </div>
-                              <div className="text-sm text-muted-foreground">
-                                Policy {policy.policy_no}
-                                {policy.member_id ? ` | Member ${policy.member_id}` : ""}
-                                {policy.staff_number ? ` | Staff ${policy.staff_number}` : ""}
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="space-y-4">
+                            <PolicyEditor
+                              form={draft}
+                              onChange={(field, value) => updatePolicyDraft(policy.id, field, value)}
+                              payerOptions={payers}
+                              idPrefix={`insurance-policy-${policy.id}`}
+                            />
+                            <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+                              <div>
+                                Last updated {policy.updated_at ? new Date(policy.updated_at).toLocaleString() : "-"}
+                                {policy.verified_at ? ` | Verified ${new Date(policy.verified_at).toLocaleString()}` : ""}
                               </div>
-                              <div className="text-xs text-muted-foreground">{formatCoverageWindow(policy)}</div>
+                              <div className="flex items-center gap-2">
+                                <Button size="sm" variant="outline" onClick={() => savePolicy(policy.id)} disabled={savingPolicyId === policy.id}>
+                                  {savingPolicyId === policy.id ? "Saving..." : "Save changes"}
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => deletePolicy(policy.id)} disabled={deletingPolicyId === policy.id}>
+                                  {deletingPolicyId === policy.id ? "Removing..." : "Remove"}
+                                </Button>
+                              </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant={policy.active ? "default" : "secondary"}>{policy.active ? "Active" : "Inactive"}</Badge>
-                              <Badge variant="outline">{formatCoverageOrder(policy.coordination_order || 1)}</Badge>
-                              <InsuranceHoverNote title="Eligibility verification" description={getVerificationStatusDescription(verificationStatus as any)}>
-                                <Badge variant="outline" className={verificationBadgeClass(verificationStatus)}>{verificationStatus}</Badge>
-                              </InsuranceHoverNote>
-                              <InsuranceHoverNote title="Provider panel status" description={getPanelStatusDescription((policy.panel_status || "Unknown") as any)}>
-                                <Badge variant="outline">{policy.panel_status || "Unknown panel"}</Badge>
-                              </InsuranceHoverNote>
-                              {policy.authorization_required ? <Badge variant="secondary">Authorization required</Badge> : null}
-                            </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-4">
-                          <PolicyEditor
-                            form={draft}
-                            onChange={(field, value) => updatePolicyDraft(policy.id, field, value)}
-                            payerOptions={payers}
-                            idPrefix={`insurance-policy-${policy.id}`}
-                          />
-                          <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-                            <div>
-                              Last updated {policy.updated_at ? new Date(policy.updated_at).toLocaleString() : "-"}
-                              {policy.verified_at ? ` | Verified ${new Date(policy.verified_at).toLocaleString()}` : ""}
-                            </div>
-                            <div className="flex items-center gap-2">
-                              <Button size="sm" variant="outline" onClick={() => savePolicy(policy.id)} disabled={savingPolicyId === policy.id}>
-                                {savingPolicyId === policy.id ? "Saving..." : "Save changes"}
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={() => deletePolicy(policy.id)} disabled={deletingPolicyId === policy.id}>
-                                {deletingPolicyId === policy.id ? "Removing..." : "Remove"}
-                              </Button>
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    )
-                  })}
-                </Accordion>
-              </ScrollArea>
-            )}
-          </CardContent>
-        </Card>
+                          </AccordionContent>
+                        </AccordionItem>
+                      )
+                    })}
+                  </Accordion>
+                </ScrollArea>
+              )}
+            </CardContent>
+          </Card>
+        ) : null}
 
         {!hideAuthorizations ? (
           <div className="space-y-4">
@@ -1526,14 +1550,15 @@ export function InsurancePolicies({ patientId, hideAuthorizations }: { patientId
           </div>
         ) : null}
 
-        <Card className="border-border/80 shadow-sm">
-          <CardHeader className="pb-3">
-            <CardTitle className="text-sm">Add new payer</CardTitle>
-            <CardDescription>Only add a payer when the master list does not already cover the insurer, HMO, or sponsor handling the patient.</CardDescription>
-          </CardHeader>
-          <CardContent className="pt-0">
-            <div className="space-y-4">
-            <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
+        {!hideAddPayer ? (
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Add new payer</CardTitle>
+              <CardDescription>Only add a payer when the master list does not already cover the insurer, HMO, or sponsor handling the patient.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
+              <div className="space-y-4">
+              <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-2">
                 <InsuranceFieldLabel htmlFor="insurance-payer-name" help="Official payer, HMO, employer, or sponsor name as it appears on the card or letter." required>
                   Payer name
@@ -1622,9 +1647,10 @@ export function InsurancePolicies({ patientId, hideAuthorizations }: { patientId
                 {addingPayer ? "Adding..." : "Add Payer"}
               </Button>
             </div>
-            </div>
-          </CardContent>
-        </Card>
+              </div>
+            </CardContent>
+          </Card>
+        ) : null}
       </CardContent>
     </Card>
   )
