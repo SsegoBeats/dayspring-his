@@ -343,7 +343,7 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
 
       {/* Below patient details: insurance + documents + detached sections */}
       <Separator />
-      <div className="rounded-lg bg-muted/20 p-2">
+      <div className="bg-background">
         <div id="patient-insurance-docs" className="grid min-w-0 gap-4 xl:grid-cols-2">
           <Card id="patient-insurance" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
             <CardContent className="p-4">
