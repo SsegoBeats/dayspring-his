@@ -870,239 +870,7 @@ function PreauthorizationEditor({
   )
 }
 
-export function InsuranceAuthorizations({ patientId }: { patientId: string }) {
-  const [payers, setPayers] = useState<Payer[]>([])
-  const [policies, setPolicies] = useState<Policy[]>([])
-  const [preauthorizations, setPreauthorizations] = useState<Preauthorization[]>([])
-  const [preauthForm, setPreauthForm] = useState<PreauthFormState>(emptyPreauthForm())
-  const [preauthDrafts, setPreauthDrafts] = useState<Record<string, PreauthFormState>>({})
-  const [loading, setLoading] = useState(true)
-  const [creatingPreauth, setCreatingPreauth] = useState(false)
-  const [savingPreauthId, setSavingPreauthId] = useState<string | null>(null)
-  const [deletingPreauthId, setDeletingPreauthId] = useState<string | null>(null)
-
-  useEffect(() => {
-    let cancelled = false
-    setLoading(true)
-    void (async () => {
-      try {
-        const [payersRes, policiesRes, preauthRes] = await Promise.all([
-          fetch("/api/insurance/payers", { credentials: "include" }),
-          fetch(`/api/insurance/policies?patientId=${encodeURIComponent(patientId)}`, { credentials: "include" }),
-          fetch(`/api/insurance/preauthorizations?patientId=${encodeURIComponent(patientId)}`, { credentials: "include" }),
-        ])
-        if (cancelled) return
-
-        if (payersRes.ok) setPayers(((await payersRes.json()).payers || []) as Payer[])
-        if (policiesRes.ok) setPolicies(((await policiesRes.json()).policies || []) as Policy[])
-        if (preauthRes.ok) {
-          const next = ((await preauthRes.json()).preauthorizations || []) as Preauthorization[]
-          setPreauthorizations(next)
-          const nextDrafts: Record<string, PreauthFormState> = {}
-          next.forEach((p) => {
-            nextDrafts[p.id] = toPreauthForm(p)
-          })
-          setPreauthDrafts(nextDrafts)
-        }
-      } catch {
-        if (!cancelled) {
-          setPayers([])
-          setPolicies([])
-          setPreauthorizations([])
-          setPreauthDrafts({})
-        }
-      } finally {
-        if (!cancelled) setLoading(false)
-      }
-    })()
-
-    return () => {
-      cancelled = true
-    }
-  }, [patientId])
-
-  const updatePreauthForm = (field: keyof PreauthFormState, value: string) => {
-    setPreauthForm((current) => ({
-      ...current,
-      [field]: value,
-    }))
-  }
-
-  const updatePreauthDraft = (preauthId: string, field: keyof PreauthFormState, value: string) => {
-    setPreauthDrafts((current) => ({
-      ...current,
-      [preauthId]: {
-        ...(current[preauthId] || emptyPreauthForm()),
-        [field]: value,
-      },
-    }))
-  }
-
-  const addPreauthorization = async () => {
-    const payload = normalizePreauthPayload(preauthForm)
-    setCreatingPreauth(true)
-    try {
-      const res = await fetch("/api/insurance/preauthorizations", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ patientId, ...payload }),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        toast.error(data.error || "Failed to add authorization")
-        return
-      }
-      toast.success("Authorization created")
-      setPreauthForm(emptyPreauthForm())
-      const refreshed = await fetch(`/api/insurance/preauthorizations?patientId=${encodeURIComponent(patientId)}`, { credentials: "include" })
-      if (refreshed.ok) {
-        const next = ((await refreshed.json()).preauthorizations || []) as Preauthorization[]
-        setPreauthorizations(next)
-        const nextDrafts: Record<string, PreauthFormState> = {}
-        next.forEach((p) => (nextDrafts[p.id] = toPreauthForm(p)))
-        setPreauthDrafts(nextDrafts)
-      }
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to add authorization")
-    } finally {
-      setCreatingPreauth(false)
-    }
-  }
-
-  const savePreauthorization = async (preauthId: string) => {
-    const draft = preauthDrafts[preauthId]
-    if (!draft) return
-    const payload = normalizePreauthPayload(draft)
-    setSavingPreauthId(preauthId)
-    try {
-      const res = await fetch(`/api/insurance/preauthorizations?id=${encodeURIComponent(preauthId)}`, {
-        method: "PATCH",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        toast.error(data.error || "Failed to save authorization")
-        return
-      }
-      toast.success("Authorization updated")
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to save authorization")
-    } finally {
-      setSavingPreauthId(null)
-    }
-  }
-
-  const deletePreauthorization = async (preauthId: string) => {
-    setDeletingPreauthId(preauthId)
-    try {
-      const res = await fetch(`/api/insurance/preauthorizations?id=${encodeURIComponent(preauthId)}`, {
-        method: "DELETE",
-        credentials: "include",
-      })
-      if (!res.ok) {
-        const data = await res.json().catch(() => ({}))
-        toast.error(data.error || "Failed to remove authorization")
-        return
-      }
-      toast.success("Authorization removed")
-      setPreauthorizations((prev) => prev.filter((p) => p.id !== preauthId))
-      setPreauthDrafts((prev) => {
-        const next = { ...prev }
-        delete next[preauthId]
-        return next
-      })
-    } catch (e: any) {
-      toast.error(e?.message || "Failed to remove authorization")
-    } finally {
-      setDeletingPreauthId(null)
-    }
-  }
-
-  return (
-    <div className="space-y-4">
-      <div className="rounded-lg border p-4">
-        <div className="mb-4 flex items-center justify-between gap-3">
-          <div>
-            <h3 className="text-sm font-semibold text-foreground">Authorization tracker</h3>
-            <p className="text-xs text-muted-foreground">
-              Log payer approvals for admission, scans, surgery, maternity, and other services that cannot proceed without clearance.
-            </p>
-          </div>
-          <Button onClick={addPreauthorization} disabled={creatingPreauth || !payers.length}>
-            {creatingPreauth ? "Adding..." : "Add Authorization"}
-          </Button>
-        </div>
-        <PreauthorizationEditor form={preauthForm} onChange={updatePreauthForm} payerOptions={payers} policyOptions={policies} idPrefix="insurance-preauth-create" />
-      </div>
-
-      <div className="rounded-lg border">
-        <div className="border-b px-4 py-3">
-          <h3 className="text-sm font-semibold text-foreground">Pre-authorization records</h3>
-          <p className="text-xs text-muted-foreground">Track pending, approved, denied, and expired authorizations against the patient and payer.</p>
-        </div>
-        {loading ? (
-          <div className="p-4 text-sm text-muted-foreground">Loading authorization records...</div>
-        ) : preauthorizations.length === 0 ? (
-          <div className="p-4 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
-        ) : (
-          <ScrollArea className="h-[22rem]">
-            <Accordion type="single" collapsible className="px-4">
-              {preauthorizations.map((preauth) => {
-                const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
-                return (
-                  <AccordionItem key={preauth.id} value={preauth.id} data-preauth-id={preauth.id}>
-                    <AccordionTrigger className="hover:no-underline">
-                      <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
-                        <div className="space-y-1">
-                          <div className="flex flex-wrap items-center gap-2">
-                            <span className="text-base font-semibold text-foreground">{preauth.payer_name}</span>
-                            <span className="text-sm text-muted-foreground">{preauth.service_category || "Other"}</span>
-                          </div>
-                          <div className="text-sm text-muted-foreground">{preauth.requested_service || "Requested service not recorded"}</div>
-                          <div className="text-xs text-muted-foreground">{formatPreauthWindow(preauth)}</div>
-                        </div>
-                        <div className="flex flex-wrap items-center gap-2">
-                          <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>{preauth.status}</Badge>
-                          {preauth.policy_no ? <Badge variant="outline">Policy {preauth.policy_no}</Badge> : null}
-                          {preauth.auth_code ? <Badge variant="secondary">Code {preauth.auth_code}</Badge> : null}
-                        </div>
-                      </div>
-                    </AccordionTrigger>
-                    <AccordionContent className="space-y-4">
-                      <PreauthorizationEditor form={draft} onChange={(field, value) => updatePreauthDraft(preauth.id, field, value)} payerOptions={payers} policyOptions={policies} idPrefix={`insurance-preauth-${preauth.id}`} />
-                      <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-                        <div>Last updated {preauth.updated_at ? new Date(preauth.updated_at).toLocaleString() : "-"}</div>
-                        <div className="flex items-center gap-2">
-                          <Button size="sm" variant="outline" onClick={() => savePreauthorization(preauth.id)} disabled={savingPreauthId === preauth.id}>
-                            {savingPreauthId === preauth.id ? "Saving..." : "Save changes"}
-                          </Button>
-                          <Button size="sm" variant="destructive" onClick={() => deletePreauthorization(preauth.id)} disabled={deletingPreauthId === preauth.id}>
-                            {deletingPreauthId === preauth.id ? "Removing..." : "Remove"}
-                          </Button>
-                        </div>
-                      </div>
-                    </AccordionContent>
-                  </AccordionItem>
-                )
-              })}
-            </Accordion>
-          </ScrollArea>
-        )}
-      </div>
-    </div>
-  )
-}
-
-export function InsurancePolicies({
-  patientId,
-  hideAuthorizations = false,
-}: {
-  patientId: string
-  hideAuthorizations?: boolean
-}) {
+export function InsurancePolicies({ patientId }: { patientId: string }) {
   const [payers, setPayers] = useState<Payer[]>([])
   const [policies, setPolicies] = useState<Policy[]>([])
   const [preauthorizations, setPreauthorizations] = useState<Preauthorization[]>([])
@@ -1566,36 +1334,120 @@ export function InsurancePolicies({
           ))}
         </div>
 
-        {/* Top two-column layout: intake (left) + authorizations (right) */}
-        <div className="grid gap-4 xl:grid-cols-2">
-          <div className="rounded-lg border p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Add cover</h3>
-                <p className="text-xs text-muted-foreground">
-                  Record the payer, scheme, member identity, verification trail, and any pre-authorization requirement before the patient leaves reception.
-                </p>
-              </div>
-              <Button onClick={addPolicy} disabled={creating || !payers.length}>
-                {creating ? "Adding..." : "Add Policy"}
-              </Button>
+        <div className="rounded-lg border p-4">
+          <div className="mb-4 flex items-center justify-between gap-3">
+            <div>
+              <h3 className="text-sm font-semibold text-foreground">Add cover</h3>
+              <p className="text-xs text-muted-foreground">
+                Record the payer, scheme, member identity, verification trail, and any pre-authorization requirement before the patient leaves reception.
+              </p>
             </div>
-            <PolicyEditor form={createForm} onChange={updateCreateForm} payerOptions={payers} idPrefix="insurance-create" />
+            <Button onClick={addPolicy} disabled={creating || !payers.length}>
+              {creating ? "Adding..." : "Add Policy"}
+            </Button>
           </div>
+          <PolicyEditor form={createForm} onChange={updateCreateForm} payerOptions={payers} idPrefix="insurance-create" />
+        </div>
 
-          <div className="space-y-4">
-            <div className="rounded-lg border p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
+        <Card className="border-border/80 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Policy records</CardTitle>
+            <CardDescription>Expand a policy to update it, refine verification notes, or change authorization flags.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            {loading ? (
+              <div className="text-sm text-muted-foreground">Loading coverage records...</div>
+            ) : policies.length === 0 ? (
+              <div className="text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
+            ) : (
+              <ScrollArea className="h-[30rem]">
+                <Accordion type="single" collapsible className="px-4">
+                  {policies.map((policy) => {
+                    const draft = policyDrafts[policy.id] || toPolicyForm(policy)
+                    const verificationStatus = isExpired(policy) ? "Expired" : policy.verification_status || "Unverified"
+                    return (
+                      <AccordionItem key={policy.id} value={policy.id} data-payer-name={policy.payer_name} data-policy-number={policy.policy_no}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-base font-semibold text-foreground">{policy.payer_name}</span>
+                                <InsuranceHoverNote
+                                  title="Payer type"
+                                  description={getInsurancePayerTypeDescription((policy.payer_type || "INSURER") as InsurancePayerType)}
+                                >
+                                  <Badge variant="outline">{getInsurancePayerTypeLabel(policy.payer_type || "INSURER")}</Badge>
+                                </InsuranceHoverNote>
+                                {policy.plan_name ? <span className="text-sm text-muted-foreground">{policy.plan_name}</span> : null}
+                                {policy.scheme_name ? <span className="text-sm text-muted-foreground">| {policy.scheme_name}</span> : null}
+                              </div>
+                              <div className="text-sm text-muted-foreground">
+                                Policy {policy.policy_no}
+                                {policy.member_id ? ` | Member ${policy.member_id}` : ""}
+                                {policy.staff_number ? ` | Staff ${policy.staff_number}` : ""}
+                              </div>
+                              <div className="text-xs text-muted-foreground">{formatCoverageWindow(policy)}</div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant={policy.active ? "default" : "secondary"}>{policy.active ? "Active" : "Inactive"}</Badge>
+                              <Badge variant="outline">{formatCoverageOrder(policy.coordination_order || 1)}</Badge>
+                              <InsuranceHoverNote title="Eligibility verification" description={getVerificationStatusDescription(verificationStatus as any)}>
+                                <Badge variant="outline" className={verificationBadgeClass(verificationStatus)}>{verificationStatus}</Badge>
+                              </InsuranceHoverNote>
+                              <InsuranceHoverNote title="Provider panel status" description={getPanelStatusDescription((policy.panel_status || "Unknown") as any)}>
+                                <Badge variant="outline">{policy.panel_status || "Unknown panel"}</Badge>
+                              </InsuranceHoverNote>
+                              {policy.authorization_required ? <Badge variant="secondary">Authorization required</Badge> : null}
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-4">
+                          <PolicyEditor
+                            form={draft}
+                            onChange={(field, value) => updatePolicyDraft(policy.id, field, value)}
+                            payerOptions={payers}
+                            idPrefix={`insurance-policy-${policy.id}`}
+                          />
+                          <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                              Last updated {policy.updated_at ? new Date(policy.updated_at).toLocaleString() : "-"}
+                              {policy.verified_at ? ` | Verified ${new Date(policy.verified_at).toLocaleString()}` : ""}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="outline" onClick={() => savePolicy(policy.id)} disabled={savingPolicyId === policy.id}>
+                                {savingPolicyId === policy.id ? "Saving..." : "Save changes"}
+                              </Button>
+                              <Button size="sm" variant="destructive" onClick={() => deletePolicy(policy.id)} disabled={deletingPolicyId === policy.id}>
+                                {deletingPolicyId === policy.id ? "Removing..." : "Remove"}
+                              </Button>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  })}
+                </Accordion>
+              </ScrollArea>
+            )}
+          </CardContent>
+        </Card>
+
+        <div className="space-y-4">
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="pb-3">
+              <div className="flex items-start justify-between gap-3">
                 <div>
-                  <h3 className="text-sm font-semibold text-foreground">Authorization tracker</h3>
-                  <p className="text-xs text-muted-foreground">
+                  <CardTitle className="text-sm">Authorization tracker</CardTitle>
+                  <CardDescription>
                     Log payer approvals for admission, scans, surgery, maternity, and other services that cannot proceed without clearance.
-                  </p>
+                  </CardDescription>
                 </div>
                 <Button onClick={addPreauthorization} disabled={creatingPreauth || !payers.length}>
                   {creatingPreauth ? "Adding..." : "Add Authorization"}
                 </Button>
               </div>
+            </CardHeader>
+            <CardContent className="pt-0">
               <PreauthorizationEditor
                 form={preauthForm}
                 onChange={updatePreauthForm}
@@ -1603,19 +1455,21 @@ export function InsurancePolicies({
                 policyOptions={policies}
                 idPrefix="insurance-preauth-create"
               />
-            </div>
+            </CardContent>
+          </Card>
 
-            <div className="rounded-lg border">
-              <div className="border-b px-4 py-3">
-                <h3 className="text-sm font-semibold text-foreground">Pre-authorization records</h3>
-                <p className="text-xs text-muted-foreground">Track pending, approved, denied, and expired authorizations against the patient and payer.</p>
-              </div>
+          <Card className="border-border/80 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-sm">Pre-authorization records</CardTitle>
+              <CardDescription>Track pending, approved, denied, and expired authorizations against the patient and payer.</CardDescription>
+            </CardHeader>
+            <CardContent className="pt-0">
               {loading ? (
-                <div className="p-4 text-sm text-muted-foreground">Loading authorization records...</div>
+                <div className="text-sm text-muted-foreground">Loading authorization records...</div>
               ) : preauthorizations.length === 0 ? (
-                <div className="p-4 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
+                <div className="text-sm text-muted-foreground">No authorization records for this patient yet.</div>
               ) : (
-                <ScrollArea className="h-[22rem]">
+                <ScrollArea className="h-[32rem]">
                   <Accordion type="single" collapsible className="px-4">
                     {preauthorizations.map((preauth) => {
                       const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
@@ -1632,7 +1486,9 @@ export function InsurancePolicies({
                                 <div className="text-xs text-muted-foreground">{formatPreauthWindow(preauth)}</div>
                               </div>
                               <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>{preauth.status}</Badge>
+                                <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>
+                                  {preauth.status}
+                                </Badge>
                                 {preauth.policy_no ? <Badge variant="outline">Policy {preauth.policy_no}</Badge> : null}
                                 {preauth.auth_code ? <Badge variant="secondary">Code {preauth.auth_code}</Badge> : null}
                               </div>
@@ -1664,94 +1520,17 @@ export function InsurancePolicies({
                   </Accordion>
                 </ScrollArea>
               )}
-            </div>
-          </div>
+            </CardContent>
+          </Card>
         </div>
 
-        {/* Full-width: Policy records */}
-        <div className="rounded-lg border">
-          <div className="border-b px-4 py-3">
-            <h3 className="text-sm font-semibold text-foreground">Policy records</h3>
-            <p className="text-xs text-muted-foreground">Expand a policy to update it, refine verification notes, or change authorization flags.</p>
-          </div>
-          {loading ? (
-            <div className="p-4 text-sm text-muted-foreground">Loading coverage records...</div>
-          ) : policies.length === 0 ? (
-            <div className="p-4 text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
-          ) : (
-            <ScrollArea className="h-[30rem]">
-              <Accordion type="single" collapsible className="px-4">
-                {policies.map((policy) => {
-                  const draft = policyDrafts[policy.id] || toPolicyForm(policy)
-                  const verificationStatus = isExpired(policy) ? "Expired" : policy.verification_status || "Unverified"
-                  return (
-                    <AccordionItem key={policy.id} value={policy.id} data-payer-name={policy.payer_name} data-policy-number={policy.policy_no}>
-                      <AccordionTrigger className="hover:no-underline">
-                        <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
-                          <div className="space-y-1">
-                            <div className="flex flex-wrap items-center gap-2">
-                              <span className="text-base font-semibold text-foreground">{policy.payer_name}</span>
-                              <InsuranceHoverNote
-                                title="Payer type"
-                                description={getInsurancePayerTypeDescription((policy.payer_type || "INSURER") as InsurancePayerType)}
-                              >
-                                <Badge variant="outline">{getInsurancePayerTypeLabel(policy.payer_type || "INSURER")}</Badge>
-                              </InsuranceHoverNote>
-                              {policy.plan_name ? <span className="text-sm text-muted-foreground">{policy.plan_name}</span> : null}
-                              {policy.scheme_name ? <span className="text-sm text-muted-foreground">| {policy.scheme_name}</span> : null}
-                            </div>
-                            <div className="text-sm text-muted-foreground">
-                              Policy {policy.policy_no}
-                              {policy.member_id ? ` | Member ${policy.member_id}` : ""}
-                              {policy.staff_number ? ` | Staff ${policy.staff_number}` : ""}
-                            </div>
-                            <div className="text-xs text-muted-foreground">{formatCoverageWindow(policy)}</div>
-                          </div>
-                          <div className="flex flex-wrap items-center gap-2">
-                            <Badge variant={policy.active ? "default" : "secondary"}>{policy.active ? "Active" : "Inactive"}</Badge>
-                            <Badge variant="outline">{formatCoverageOrder(policy.coordination_order || 1)}</Badge>
-                            <InsuranceHoverNote title="Eligibility verification" description={getVerificationStatusDescription(verificationStatus as any)}>
-                              <Badge variant="outline" className={verificationBadgeClass(verificationStatus)}>{verificationStatus}</Badge>
-                            </InsuranceHoverNote>
-                            <InsuranceHoverNote title="Provider panel status" description={getPanelStatusDescription((policy.panel_status || "Unknown") as any)}>
-                              <Badge variant="outline">{policy.panel_status || "Unknown panel"}</Badge>
-                            </InsuranceHoverNote>
-                            {policy.authorization_required ? <Badge variant="secondary">Authorization required</Badge> : null}
-                          </div>
-                        </div>
-                      </AccordionTrigger>
-                      <AccordionContent className="space-y-4">
-                        <PolicyEditor form={draft} onChange={(field, value) => updatePolicyDraft(policy.id, field, value)} payerOptions={payers} idPrefix={`insurance-policy-${policy.id}`} />
-                        <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-                          <div>
-                            Last updated {policy.updated_at ? new Date(policy.updated_at).toLocaleString() : "-"}
-                            {policy.verified_at ? ` | Verified ${new Date(policy.verified_at).toLocaleString()}` : ""}
-                          </div>
-                          <div className="flex items-center gap-2">
-                            <Button size="sm" variant="outline" onClick={() => savePolicy(policy.id)} disabled={savingPolicyId === policy.id}>
-                              {savingPolicyId === policy.id ? "Saving..." : "Save changes"}
-                            </Button>
-                            <Button size="sm" variant="destructive" onClick={() => deletePolicy(policy.id)} disabled={deletingPolicyId === policy.id}>
-                              {deletingPolicyId === policy.id ? "Removing..." : "Remove"}
-                            </Button>
-                          </div>
-                        </div>
-                      </AccordionContent>
-                    </AccordionItem>
-                  )
-                })}
-              </Accordion>
-            </ScrollArea>
-          )}
-        </div>
-
-        {/* Full-width: Add new payer */}
-        <div className="rounded-lg border p-4">
-          <div className="mb-3">
-            <h3 className="text-sm font-semibold text-foreground">Add new payer</h3>
-            <p className="text-xs text-muted-foreground">Only add a payer when the master list does not already cover the insurer, HMO, or sponsor handling the patient.</p>
-          </div>
-          <div className="space-y-4">
+        <Card className="border-border/80 shadow-sm">
+          <CardHeader className="pb-3">
+            <CardTitle className="text-sm">Add new payer</CardTitle>
+            <CardDescription>Only add a payer when the master list does not already cover the insurer, HMO, or sponsor handling the patient.</CardDescription>
+          </CardHeader>
+          <CardContent className="pt-0">
+            <div className="space-y-4">
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
               <div className="space-y-2">
                 <InsuranceFieldLabel htmlFor="insurance-payer-name" help="Official payer, HMO, employer, or sponsor name as it appears on the card or letter." required>
@@ -1841,8 +1620,9 @@ export function InsurancePolicies({
                 {addingPayer ? "Adding..." : "Add Payer"}
               </Button>
             </div>
-          </div>
-        </div>
+            </div>
+          </CardContent>
+        </Card>
       </CardContent>
     </Card>
   )
