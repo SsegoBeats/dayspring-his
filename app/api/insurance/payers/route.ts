@@ -148,13 +148,17 @@ async function requireAuth() {
   return token ? verifyToken(token) : null
 }
 
-export async function GET() {
+export async function GET(req: Request) {
   const auth = await requireAuth()
   if (!auth || !can(auth.role, "insurance", "read")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
 
   await ensureUgandanPayerSeed()
+
+  const url = new URL(req.url)
+  const includeTestData = url.searchParams.get("includeTestData") === "1"
+  const allowTestData = includeTestData && auth.role === "Hospital Admin"
 
   const { rows } = await queryWithSession(
     { role: auth.role, userId: auth.userId },
@@ -172,6 +176,10 @@ export async function GET() {
         active
       FROM insurance_payers
       WHERE active = true
+        AND (
+          $1::boolean = true
+          OR (name NOT ILIKE 'E2E %' AND COALESCE(payer_code, '') NOT ILIKE 'E2E%')
+        )
       ORDER BY
         CASE payer_type
           WHEN 'INSURER' THEN 1
@@ -182,6 +190,7 @@ export async function GET() {
           ELSE 9
         END,
         name ASC`,
+    [allowTestData],
   )
 
   return NextResponse.json({ payers: rows })

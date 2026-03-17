@@ -207,11 +207,11 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
 
           <Separator />
           {/* Insurance and Documents side by side */}
-          <div className="grid gap-4 md:grid-cols-[1.6fr_1fr]">
-            <div className="rounded-lg border bg-card p-4">
+          <div className="grid min-w-0 gap-4 md:grid-cols-[1.6fr_1fr]">
+            <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
               <InsurancePolicies patientId={patientId} />
             </div>
-            <div className="rounded-lg border bg-card p-4">
+            <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
               <DocumentsList patientId={patientId} />
             </div>
           </div>
