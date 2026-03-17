@@ -251,21 +251,6 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
           })()}
           </CardContent>
           </Card>
-
-          {/* Insurance + Documents in their own cards (two columns) */}
-          <div id="patient-insurance-docs" className="grid min-w-0 gap-4 md:grid-cols-2">
-            <Card id="patient-insurance" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
-              <CardContent className="p-4">
-                <InsurancePolicies patientId={patientId} />
-              </CardContent>
-            </Card>
-
-            <Card id="patient-documents" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
-              <CardContent className="p-4">
-                <DocumentsList patientId={patientId} />
-              </CardContent>
-            </Card>
-          </div>
         </div>
 
         {/* Wide-screen sidebar */}
@@ -354,6 +339,22 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
             </Card>
           </div>
         </div>
+      </div>
+
+      {/* Below patient details: full-width insurance/documents section */}
+      <Separator />
+      <div id="patient-insurance-docs" className="grid min-w-0 gap-4 xl:grid-cols-2">
+        <Card id="patient-insurance" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
+          <CardContent className="p-4">
+            <InsurancePolicies patientId={patientId} />
+          </CardContent>
+        </Card>
+
+        <Card id="patient-documents" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
+          <CardContent className="p-4">
+            <DocumentsList patientId={patientId} />
+          </CardContent>
+        </Card>
       </div>
 
       <Dialog open={triageOpen} onOpenChange={setTriageOpen}>
