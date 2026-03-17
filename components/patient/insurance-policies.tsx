@@ -1566,21 +1566,109 @@ export function InsurancePolicies({
           ))}
         </div>
 
-        <div className="rounded-lg border p-4">
-          <div className="mb-4 flex items-center justify-between gap-3">
-            <div>
-              <h3 className="text-sm font-semibold text-foreground">Add cover</h3>
-              <p className="text-xs text-muted-foreground">
-                Record the payer, scheme, member identity, verification trail, and any pre-authorization requirement before the patient leaves reception.
-              </p>
+        {/* Top two-column layout: intake (left) + authorizations (right) */}
+        <div className="grid gap-4 xl:grid-cols-2">
+          <div className="rounded-lg border p-4">
+            <div className="mb-4 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-sm font-semibold text-foreground">Add cover</h3>
+                <p className="text-xs text-muted-foreground">
+                  Record the payer, scheme, member identity, verification trail, and any pre-authorization requirement before the patient leaves reception.
+                </p>
+              </div>
+              <Button onClick={addPolicy} disabled={creating || !payers.length}>
+                {creating ? "Adding..." : "Add Policy"}
+              </Button>
             </div>
-            <Button onClick={addPolicy} disabled={creating || !payers.length}>
-              {creating ? "Adding..." : "Add Policy"}
-            </Button>
+            <PolicyEditor form={createForm} onChange={updateCreateForm} payerOptions={payers} idPrefix="insurance-create" />
           </div>
-          <PolicyEditor form={createForm} onChange={updateCreateForm} payerOptions={payers} idPrefix="insurance-create" />
+
+          <div className="space-y-4">
+            <div className="rounded-lg border p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Authorization tracker</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Log payer approvals for admission, scans, surgery, maternity, and other services that cannot proceed without clearance.
+                  </p>
+                </div>
+                <Button onClick={addPreauthorization} disabled={creatingPreauth || !payers.length}>
+                  {creatingPreauth ? "Adding..." : "Add Authorization"}
+                </Button>
+              </div>
+              <PreauthorizationEditor
+                form={preauthForm}
+                onChange={updatePreauthForm}
+                payerOptions={payers}
+                policyOptions={policies}
+                idPrefix="insurance-preauth-create"
+              />
+            </div>
+
+            <div className="rounded-lg border">
+              <div className="border-b px-4 py-3">
+                <h3 className="text-sm font-semibold text-foreground">Pre-authorization records</h3>
+                <p className="text-xs text-muted-foreground">Track pending, approved, denied, and expired authorizations against the patient and payer.</p>
+              </div>
+              {loading ? (
+                <div className="p-4 text-sm text-muted-foreground">Loading authorization records...</div>
+              ) : preauthorizations.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
+              ) : (
+                <ScrollArea className="h-[22rem]">
+                  <Accordion type="single" collapsible className="px-4">
+                    {preauthorizations.map((preauth) => {
+                      const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
+                      return (
+                        <AccordionItem key={preauth.id} value={preauth.id} data-preauth-id={preauth.id}>
+                          <AccordionTrigger className="hover:no-underline">
+                            <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-base font-semibold text-foreground">{preauth.payer_name}</span>
+                                  <span className="text-sm text-muted-foreground">{preauth.service_category || "Other"}</span>
+                                </div>
+                                <div className="text-sm text-muted-foreground">{preauth.requested_service || "Requested service not recorded"}</div>
+                                <div className="text-xs text-muted-foreground">{formatPreauthWindow(preauth)}</div>
+                              </div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>{preauth.status}</Badge>
+                                {preauth.policy_no ? <Badge variant="outline">Policy {preauth.policy_no}</Badge> : null}
+                                {preauth.auth_code ? <Badge variant="secondary">Code {preauth.auth_code}</Badge> : null}
+                              </div>
+                            </div>
+                          </AccordionTrigger>
+                          <AccordionContent className="space-y-4">
+                            <PreauthorizationEditor
+                              form={draft}
+                              onChange={(field, value) => updatePreauthDraft(preauth.id, field, value)}
+                              payerOptions={payers}
+                              policyOptions={policies}
+                              idPrefix={`insurance-preauth-${preauth.id}`}
+                            />
+                            <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+                              <div>Last updated {preauth.updated_at ? new Date(preauth.updated_at).toLocaleString() : "-"}</div>
+                              <div className="flex items-center gap-2">
+                                <Button size="sm" variant="outline" onClick={() => savePreauthorization(preauth.id)} disabled={savingPreauthId === preauth.id}>
+                                  {savingPreauthId === preauth.id ? "Saving..." : "Save changes"}
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => deletePreauthorization(preauth.id)} disabled={deletingPreauthId === preauth.id}>
+                                  {deletingPreauthId === preauth.id ? "Removing..." : "Remove"}
+                                </Button>
+                              </div>
+                            </div>
+                          </AccordionContent>
+                        </AccordionItem>
+                      )
+                    })}
+                  </Accordion>
+                </ScrollArea>
+              )}
+            </div>
+          </div>
         </div>
 
+        {/* Full-width: Policy records */}
         <div className="rounded-lg border">
           <div className="border-b px-4 py-3">
             <h3 className="text-sm font-semibold text-foreground">Policy records</h3>
@@ -1657,80 +1745,7 @@ export function InsurancePolicies({
           )}
         </div>
 
-        {!hideAuthorizations ? (
-          <div className="space-y-4">
-            <div className="rounded-lg border p-4">
-              <div className="mb-4 flex items-center justify-between gap-3">
-                <div>
-                  <h3 className="text-sm font-semibold text-foreground">Authorization tracker</h3>
-                  <p className="text-xs text-muted-foreground">
-                    Log payer approvals for admission, scans, surgery, maternity, and other services that cannot proceed without clearance.
-                  </p>
-                </div>
-                <Button onClick={addPreauthorization} disabled={creatingPreauth || !payers.length}>
-                  {creatingPreauth ? "Adding..." : "Add Authorization"}
-                </Button>
-              </div>
-              <PreauthorizationEditor form={preauthForm} onChange={updatePreauthForm} payerOptions={payers} policyOptions={policies} idPrefix="insurance-preauth-create" />
-            </div>
-
-            <div className="rounded-lg border">
-              <div className="border-b px-4 py-3">
-                <h3 className="text-sm font-semibold text-foreground">Pre-authorization records</h3>
-                <p className="text-xs text-muted-foreground">Track pending, approved, denied, and expired authorizations against the patient and payer.</p>
-              </div>
-              {loading ? (
-                <div className="p-4 text-sm text-muted-foreground">Loading authorization records...</div>
-              ) : preauthorizations.length === 0 ? (
-                <div className="p-4 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
-              ) : (
-                <ScrollArea className="h-[22rem]">
-                  <Accordion type="single" collapsible className="px-4">
-                    {preauthorizations.map((preauth) => {
-                      const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
-                      return (
-                        <AccordionItem key={preauth.id} value={preauth.id} data-preauth-id={preauth.id}>
-                          <AccordionTrigger className="hover:no-underline">
-                            <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
-                              <div className="space-y-1">
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <span className="text-base font-semibold text-foreground">{preauth.payer_name}</span>
-                                  <span className="text-sm text-muted-foreground">{preauth.service_category || "Other"}</span>
-                                </div>
-                                <div className="text-sm text-muted-foreground">{preauth.requested_service || "Requested service not recorded"}</div>
-                                <div className="text-xs text-muted-foreground">{formatPreauthWindow(preauth)}</div>
-                              </div>
-                              <div className="flex flex-wrap items-center gap-2">
-                                <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>{preauth.status}</Badge>
-                                {preauth.policy_no ? <Badge variant="outline">Policy {preauth.policy_no}</Badge> : null}
-                                {preauth.auth_code ? <Badge variant="secondary">Code {preauth.auth_code}</Badge> : null}
-                              </div>
-                            </div>
-                          </AccordionTrigger>
-                          <AccordionContent className="space-y-4">
-                            <PreauthorizationEditor form={draft} onChange={(field, value) => updatePreauthDraft(preauth.id, field, value)} payerOptions={payers} policyOptions={policies} idPrefix={`insurance-preauth-${preauth.id}`} />
-                            <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-                              <div>Last updated {preauth.updated_at ? new Date(preauth.updated_at).toLocaleString() : "-"}</div>
-                              <div className="flex items-center gap-2">
-                                <Button size="sm" variant="outline" onClick={() => savePreauthorization(preauth.id)} disabled={savingPreauthId === preauth.id}>
-                                  {savingPreauthId === preauth.id ? "Saving..." : "Save changes"}
-                                </Button>
-                                <Button size="sm" variant="destructive" onClick={() => deletePreauthorization(preauth.id)} disabled={deletingPreauthId === preauth.id}>
-                                  {deletingPreauthId === preauth.id ? "Removing..." : "Remove"}
-                                </Button>
-                              </div>
-                            </div>
-                          </AccordionContent>
-                        </AccordionItem>
-                      )
-                    })}
-                  </Accordion>
-                </ScrollArea>
-              )}
-            </div>
-          </div>
-        ) : null}
-
+        {/* Full-width: Add new payer */}
         <div className="rounded-lg border p-4">
           <div className="mb-3">
             <h3 className="text-sm font-semibold text-foreground">Add new payer</h3>
