@@ -359,12 +359,18 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
 
       {/* Full-width: detach authorizations from left column */}
       <div className="mt-4 min-w-0">
-        <InsuranceAuthorizations patientId={patientId} />
+        <InsuranceAuthorizations patientId={patientId} hideRecords />
       </div>
 
       {/* Full-width: detach policy records + payer management */}
       <div className="mt-4 min-w-0">
-        <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake compact />
+        <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake hideRecords compact />
+      </div>
+
+      {/* Last row: two columns (preauth records + policy records) */}
+      <div className="mt-4 grid min-w-0 gap-4 xl:grid-cols-2">
+        <InsuranceAuthorizations patientId={patientId} hideTracker />
+        <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake hideAddPayer compact />
       </div>
 
       <Dialog open={triageOpen} onOpenChange={setTriageOpen}>
