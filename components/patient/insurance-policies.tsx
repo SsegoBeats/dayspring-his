@@ -1378,82 +1378,78 @@ export function InsurancePolicies({
               <CardDescription>Expand a policy to update it, refine verification notes, or change authorization flags.</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 pt-0">
-              <div className="h-[32rem]">
-                {loading ? (
-                  <div className="grid h-full place-items-center text-sm text-muted-foreground">Loading coverage records...</div>
-                ) : policies.length === 0 ? (
-                  <div className="grid h-full place-items-center text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
-                ) : (
-                  <ScrollArea className="h-full">
-                    <Accordion type="single" collapsible className="px-4">
-                      {policies.map((policy) => {
-                        const draft = policyDrafts[policy.id] || toPolicyForm(policy)
-                        const verificationStatus = isExpired(policy) ? "Expired" : policy.verification_status || "Unverified"
-                        return (
-                          <AccordionItem key={policy.id} value={policy.id} data-payer-name={policy.payer_name} data-policy-number={policy.policy_no}>
-                            <AccordionTrigger className="hover:no-underline">
-                              <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
-                                <div className="space-y-1">
-                                  <div className="flex flex-wrap items-center gap-2">
-                                    <span className="text-base font-semibold text-foreground">{policy.payer_name}</span>
-                                    <InsuranceHoverNote
-                                      title="Payer type"
-                                      description={getInsurancePayerTypeDescription((policy.payer_type || "INSURER") as InsurancePayerType)}
-                                    >
-                                      <Badge variant="outline">{getInsurancePayerTypeLabel(policy.payer_type || "INSURER")}</Badge>
-                                    </InsuranceHoverNote>
-                                    {policy.plan_name ? <span className="text-sm text-muted-foreground">{policy.plan_name}</span> : null}
-                                    {policy.scheme_name ? <span className="text-sm text-muted-foreground">| {policy.scheme_name}</span> : null}
-                                  </div>
-                                  <div className="text-sm text-muted-foreground">
-                                    Policy {policy.policy_no}
-                                    {policy.member_id ? ` | Member ${policy.member_id}` : ""}
-                                    {policy.staff_number ? ` | Staff ${policy.staff_number}` : ""}
-                                  </div>
-                                  <div className="text-xs text-muted-foreground">{formatCoverageWindow(policy)}</div>
-                                </div>
-                                <div className="flex flex-wrap items-center gap-2">
-                                  <Badge variant={policy.active ? "default" : "secondary"}>{policy.active ? "Active" : "Inactive"}</Badge>
-                                  <Badge variant="outline">{formatCoverageOrder(policy.coordination_order || 1)}</Badge>
-                                  <InsuranceHoverNote title="Eligibility verification" description={getVerificationStatusDescription(verificationStatus as any)}>
-                                    <Badge variant="outline" className={verificationBadgeClass(verificationStatus)}>{verificationStatus}</Badge>
-                                  </InsuranceHoverNote>
-                                  <InsuranceHoverNote title="Provider panel status" description={getPanelStatusDescription((policy.panel_status || "Unknown") as any)}>
-                                    <Badge variant="outline">{policy.panel_status || "Unknown panel"}</Badge>
-                                  </InsuranceHoverNote>
-                                  {policy.authorization_required ? <Badge variant="secondary">Authorization required</Badge> : null}
-                                </div>
+              {loading ? (
+                <div className="grid min-h-[10rem] place-items-center text-sm text-muted-foreground">Loading coverage records...</div>
+              ) : policies.length === 0 ? (
+                <div className="grid min-h-[10rem] place-items-center text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
+              ) : (
+                <Accordion type="single" collapsible className="px-4">
+                  {policies.map((policy) => {
+                    const draft = policyDrafts[policy.id] || toPolicyForm(policy)
+                    const verificationStatus = isExpired(policy) ? "Expired" : policy.verification_status || "Unverified"
+                    return (
+                      <AccordionItem key={policy.id} value={policy.id} data-payer-name={policy.payer_name} data-policy-number={policy.policy_no}>
+                        <AccordionTrigger className="hover:no-underline">
+                          <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
+                            <div className="space-y-1">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <span className="text-base font-semibold text-foreground">{policy.payer_name}</span>
+                                <InsuranceHoverNote
+                                  title="Payer type"
+                                  description={getInsurancePayerTypeDescription((policy.payer_type || "INSURER") as InsurancePayerType)}
+                                >
+                                  <Badge variant="outline">{getInsurancePayerTypeLabel(policy.payer_type || "INSURER")}</Badge>
+                                </InsuranceHoverNote>
+                                {policy.plan_name ? <span className="text-sm text-muted-foreground">{policy.plan_name}</span> : null}
+                                {policy.scheme_name ? <span className="text-sm text-muted-foreground">| {policy.scheme_name}</span> : null}
                               </div>
-                            </AccordionTrigger>
-                            <AccordionContent className="space-y-4">
-                              <PolicyEditor
-                                form={draft}
-                                onChange={(field, value) => updatePolicyDraft(policy.id, field, value)}
-                                payerOptions={payers}
-                                idPrefix={`insurance-policy-${policy.id}`}
-                              />
-                              <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-                                <div>
-                                  Last updated {policy.updated_at ? new Date(policy.updated_at).toLocaleString() : "-"}
-                                  {policy.verified_at ? ` | Verified ${new Date(policy.verified_at).toLocaleString()}` : ""}
-                                </div>
-                                <div className="flex items-center gap-2">
-                                  <Button size="sm" variant="outline" onClick={() => savePolicy(policy.id)} disabled={savingPolicyId === policy.id}>
-                                    {savingPolicyId === policy.id ? "Saving..." : "Save changes"}
-                                  </Button>
-                                  <Button size="sm" variant="destructive" onClick={() => deletePolicy(policy.id)} disabled={deletingPolicyId === policy.id}>
-                                    {deletingPolicyId === policy.id ? "Removing..." : "Remove"}
-                                  </Button>
-                                </div>
+                              <div className="text-sm text-muted-foreground">
+                                Policy {policy.policy_no}
+                                {policy.member_id ? ` | Member ${policy.member_id}` : ""}
+                                {policy.staff_number ? ` | Staff ${policy.staff_number}` : ""}
                               </div>
-                            </AccordionContent>
-                          </AccordionItem>
-                        )
-                      })}
-                    </Accordion>
-                  </ScrollArea>
-                )}
-              </div>
+                              <div className="text-xs text-muted-foreground">{formatCoverageWindow(policy)}</div>
+                            </div>
+                            <div className="flex flex-wrap items-center gap-2">
+                              <Badge variant={policy.active ? "default" : "secondary"}>{policy.active ? "Active" : "Inactive"}</Badge>
+                              <Badge variant="outline">{formatCoverageOrder(policy.coordination_order || 1)}</Badge>
+                              <InsuranceHoverNote title="Eligibility verification" description={getVerificationStatusDescription(verificationStatus as any)}>
+                                <Badge variant="outline" className={verificationBadgeClass(verificationStatus)}>{verificationStatus}</Badge>
+                              </InsuranceHoverNote>
+                              <InsuranceHoverNote title="Provider panel status" description={getPanelStatusDescription((policy.panel_status || "Unknown") as any)}>
+                                <Badge variant="outline">{policy.panel_status || "Unknown panel"}</Badge>
+                              </InsuranceHoverNote>
+                              {policy.authorization_required ? <Badge variant="secondary">Authorization required</Badge> : null}
+                            </div>
+                          </div>
+                        </AccordionTrigger>
+                        <AccordionContent className="space-y-4">
+                          <PolicyEditor
+                            form={draft}
+                            onChange={(field, value) => updatePolicyDraft(policy.id, field, value)}
+                            payerOptions={payers}
+                            idPrefix={`insurance-policy-${policy.id}`}
+                          />
+                          <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+                            <div>
+                              Last updated {policy.updated_at ? new Date(policy.updated_at).toLocaleString() : "-"}
+                              {policy.verified_at ? ` | Verified ${new Date(policy.verified_at).toLocaleString()}` : ""}
+                            </div>
+                            <div className="flex items-center gap-2">
+                              <Button size="sm" variant="outline" onClick={() => savePolicy(policy.id)} disabled={savingPolicyId === policy.id}>
+                                {savingPolicyId === policy.id ? "Saving..." : "Save changes"}
+                              </Button>
+                              <Button size="sm" variant="destructive" onClick={() => deletePolicy(policy.id)} disabled={deletingPolicyId === policy.id}>
+                                {deletingPolicyId === policy.id ? "Removing..." : "Remove"}
+                              </Button>
+                            </div>
+                          </div>
+                        </AccordionContent>
+                      </AccordionItem>
+                    )
+                  })}
+                </Accordion>
+              )}
             </CardContent>
           </Card>
         ) : null}
@@ -1837,64 +1833,60 @@ export function InsuranceAuthorizations({
             <CardDescription>Track pending, approved, denied, and expired authorizations against the patient and payer.</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 pt-0">
-            <div className="h-[32rem]">
-              {loading ? (
-                <div className="grid h-full place-items-center text-sm text-muted-foreground">Loading authorization records...</div>
-              ) : preauthorizations.length === 0 ? (
-                <div className="grid h-full place-items-center text-sm text-muted-foreground">No authorization records for this patient yet.</div>
-              ) : (
-                <ScrollArea className="h-full">
-                  <Accordion type="single" collapsible className="px-4">
-                    {preauthorizations.map((preauth) => {
-                      const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
-                      return (
-                      <AccordionItem key={preauth.id} value={preauth.id} data-preauth-id={preauth.id}>
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-base font-semibold text-foreground">{preauth.payer_name}</span>
-                                <span className="text-sm text-muted-foreground">{preauth.service_category || "Other"}</span>
-                              </div>
-                              <div className="text-sm text-muted-foreground">{preauth.requested_service || "Requested service not recorded"}</div>
-                              <div className="text-xs text-muted-foreground">{formatPreauthWindow(preauth)}</div>
-                            </div>
+            {loading ? (
+              <div className="grid min-h-[10rem] place-items-center text-sm text-muted-foreground">Loading authorization records...</div>
+            ) : preauthorizations.length === 0 ? (
+              <div className="grid min-h-[10rem] place-items-center text-sm text-muted-foreground">No authorization records for this patient yet.</div>
+            ) : (
+              <Accordion type="single" collapsible className="px-4">
+                {preauthorizations.map((preauth) => {
+                  const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
+                  return (
+                    <AccordionItem key={preauth.id} value={preauth.id} data-preauth-id={preauth.id}>
+                      <AccordionTrigger className="hover:no-underline">
+                        <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
+                          <div className="space-y-1">
                             <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>
-                                {preauth.status}
-                              </Badge>
-                              {preauth.policy_no ? <Badge variant="outline">Policy {preauth.policy_no}</Badge> : null}
-                              {preauth.auth_code ? <Badge variant="secondary">Code {preauth.auth_code}</Badge> : null}
+                              <span className="text-base font-semibold text-foreground">{preauth.payer_name}</span>
+                              <span className="text-sm text-muted-foreground">{preauth.service_category || "Other"}</span>
                             </div>
+                            <div className="text-sm text-muted-foreground">{preauth.requested_service || "Requested service not recorded"}</div>
+                            <div className="text-xs text-muted-foreground">{formatPreauthWindow(preauth)}</div>
                           </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-4">
-                          <PreauthorizationEditor
-                            form={draft}
-                            onChange={(field, value) => updatePreauthDraft(preauth.id, field, value)}
-                            payerOptions={payers}
-                            policyOptions={policies}
-                            idPrefix={`insurance-preauth-${preauth.id}`}
-                          />
-                          <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-                            <div>Last updated {preauth.updated_at ? new Date(preauth.updated_at).toLocaleString() : "-"}</div>
-                            <div className="flex items-center gap-2">
-                              <Button size="sm" variant="outline" onClick={() => savePreauthorization(preauth.id)} disabled={savingPreauthId === preauth.id}>
-                                {savingPreauthId === preauth.id ? "Saving..." : "Save changes"}
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={() => deletePreauthorization(preauth.id)} disabled={deletingPreauthId === preauth.id}>
-                                {deletingPreauthId === preauth.id ? "Removing..." : "Remove"}
-                              </Button>
-                            </div>
+                          <div className="flex flex-wrap items-center gap-2">
+                            <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>
+                              {preauth.status}
+                            </Badge>
+                            {preauth.policy_no ? <Badge variant="outline">Policy {preauth.policy_no}</Badge> : null}
+                            {preauth.auth_code ? <Badge variant="secondary">Code {preauth.auth_code}</Badge> : null}
                           </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                      )
-                    })}
-                  </Accordion>
-                </ScrollArea>
-              )}
-            </div>
+                        </div>
+                      </AccordionTrigger>
+                      <AccordionContent className="space-y-4">
+                        <PreauthorizationEditor
+                          form={draft}
+                          onChange={(field, value) => updatePreauthDraft(preauth.id, field, value)}
+                          payerOptions={payers}
+                          policyOptions={policies}
+                          idPrefix={`insurance-preauth-${preauth.id}`}
+                        />
+                        <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+                          <div>Last updated {preauth.updated_at ? new Date(preauth.updated_at).toLocaleString() : "-"}</div>
+                          <div className="flex items-center gap-2">
+                            <Button size="sm" variant="outline" onClick={() => savePreauthorization(preauth.id)} disabled={savingPreauthId === preauth.id}>
+                              {savingPreauthId === preauth.id ? "Saving..." : "Save changes"}
+                            </Button>
+                            <Button size="sm" variant="destructive" onClick={() => deletePreauthorization(preauth.id)} disabled={deletingPreauthId === preauth.id}>
+                              {deletingPreauthId === preauth.id ? "Removing..." : "Remove"}
+                            </Button>
+                          </div>
+                        </div>
+                      </AccordionContent>
+                    </AccordionItem>
+                  )
+                })}
+              </Accordion>
+            )}
           </CardContent>
         </Card>
       ) : null}
