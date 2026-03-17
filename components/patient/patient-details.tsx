@@ -5,7 +5,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, Phone, MapPin, Droplet, AlertCircle, Activity } from "lucide-react"
-import { InsurancePolicies } from "@/components/patient/insurance-policies"
+import { InsuranceAuthorizations, InsurancePolicies } from "@/components/patient/insurance-policies"
 import { DocumentsList } from "@/components/patient/documents-list"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { TriageForm } from "@/components/patient/triage-form"
@@ -346,7 +346,7 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
       <div id="patient-insurance-docs" className="grid min-w-0 gap-4 xl:grid-cols-2">
         <Card id="patient-insurance" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
           <CardContent className="p-4">
-            <InsurancePolicies patientId={patientId} />
+            <InsurancePolicies patientId={patientId} hideAuthorizations />
           </CardContent>
         </Card>
 
@@ -355,6 +355,11 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
             <DocumentsList patientId={patientId} />
           </CardContent>
         </Card>
+      </div>
+
+      {/* Full-width: detach authorizations from left column */}
+      <div className="mt-4 min-w-0">
+        <InsuranceAuthorizations patientId={patientId} />
       </div>
 
       <Dialog open={triageOpen} onOpenChange={setTriageOpen}>
