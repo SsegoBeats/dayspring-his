@@ -870,7 +870,239 @@ function PreauthorizationEditor({
   )
 }
 
-export function InsurancePolicies({ patientId }: { patientId: string }) {
+export function InsuranceAuthorizations({ patientId }: { patientId: string }) {
+  const [payers, setPayers] = useState<Payer[]>([])
+  const [policies, setPolicies] = useState<Policy[]>([])
+  const [preauthorizations, setPreauthorizations] = useState<Preauthorization[]>([])
+  const [preauthForm, setPreauthForm] = useState<PreauthFormState>(emptyPreauthForm())
+  const [preauthDrafts, setPreauthDrafts] = useState<Record<string, PreauthFormState>>({})
+  const [loading, setLoading] = useState(true)
+  const [creatingPreauth, setCreatingPreauth] = useState(false)
+  const [savingPreauthId, setSavingPreauthId] = useState<string | null>(null)
+  const [deletingPreauthId, setDeletingPreauthId] = useState<string | null>(null)
+
+  useEffect(() => {
+    let cancelled = false
+    setLoading(true)
+    void (async () => {
+      try {
+        const [payersRes, policiesRes, preauthRes] = await Promise.all([
+          fetch("/api/insurance/payers", { credentials: "include" }),
+          fetch(`/api/insurance/policies?patientId=${encodeURIComponent(patientId)}`, { credentials: "include" }),
+          fetch(`/api/insurance/preauthorizations?patientId=${encodeURIComponent(patientId)}`, { credentials: "include" }),
+        ])
+        if (cancelled) return
+
+        if (payersRes.ok) setPayers(((await payersRes.json()).payers || []) as Payer[])
+        if (policiesRes.ok) setPolicies(((await policiesRes.json()).policies || []) as Policy[])
+        if (preauthRes.ok) {
+          const next = ((await preauthRes.json()).preauthorizations || []) as Preauthorization[]
+          setPreauthorizations(next)
+          const nextDrafts: Record<string, PreauthFormState> = {}
+          next.forEach((p) => {
+            nextDrafts[p.id] = toPreauthForm(p)
+          })
+          setPreauthDrafts(nextDrafts)
+        }
+      } catch {
+        if (!cancelled) {
+          setPayers([])
+          setPolicies([])
+          setPreauthorizations([])
+          setPreauthDrafts({})
+        }
+      } finally {
+        if (!cancelled) setLoading(false)
+      }
+    })()
+
+    return () => {
+      cancelled = true
+    }
+  }, [patientId])
+
+  const updatePreauthForm = (field: keyof PreauthFormState, value: string) => {
+    setPreauthForm((current) => ({
+      ...current,
+      [field]: value,
+    }))
+  }
+
+  const updatePreauthDraft = (preauthId: string, field: keyof PreauthFormState, value: string) => {
+    setPreauthDrafts((current) => ({
+      ...current,
+      [preauthId]: {
+        ...(current[preauthId] || emptyPreauthForm()),
+        [field]: value,
+      },
+    }))
+  }
+
+  const addPreauthorization = async () => {
+    const payload = normalizePreauthPayload(preauthForm)
+    setCreatingPreauth(true)
+    try {
+      const res = await fetch("/api/insurance/preauthorizations", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ patientId, ...payload }),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to add authorization")
+        return
+      }
+      toast.success("Authorization created")
+      setPreauthForm(emptyPreauthForm())
+      const refreshed = await fetch(`/api/insurance/preauthorizations?patientId=${encodeURIComponent(patientId)}`, { credentials: "include" })
+      if (refreshed.ok) {
+        const next = ((await refreshed.json()).preauthorizations || []) as Preauthorization[]
+        setPreauthorizations(next)
+        const nextDrafts: Record<string, PreauthFormState> = {}
+        next.forEach((p) => (nextDrafts[p.id] = toPreauthForm(p)))
+        setPreauthDrafts(nextDrafts)
+      }
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to add authorization")
+    } finally {
+      setCreatingPreauth(false)
+    }
+  }
+
+  const savePreauthorization = async (preauthId: string) => {
+    const draft = preauthDrafts[preauthId]
+    if (!draft) return
+    const payload = normalizePreauthPayload(draft)
+    setSavingPreauthId(preauthId)
+    try {
+      const res = await fetch(`/api/insurance/preauthorizations?id=${encodeURIComponent(preauthId)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to save authorization")
+        return
+      }
+      toast.success("Authorization updated")
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to save authorization")
+    } finally {
+      setSavingPreauthId(null)
+    }
+  }
+
+  const deletePreauthorization = async (preauthId: string) => {
+    setDeletingPreauthId(preauthId)
+    try {
+      const res = await fetch(`/api/insurance/preauthorizations?id=${encodeURIComponent(preauthId)}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to remove authorization")
+        return
+      }
+      toast.success("Authorization removed")
+      setPreauthorizations((prev) => prev.filter((p) => p.id !== preauthId))
+      setPreauthDrafts((prev) => {
+        const next = { ...prev }
+        delete next[preauthId]
+        return next
+      })
+    } catch (e: any) {
+      toast.error(e?.message || "Failed to remove authorization")
+    } finally {
+      setDeletingPreauthId(null)
+    }
+  }
+
+  return (
+    <div className="space-y-4">
+      <div className="rounded-lg border p-4">
+        <div className="mb-4 flex items-center justify-between gap-3">
+          <div>
+            <h3 className="text-sm font-semibold text-foreground">Authorization tracker</h3>
+            <p className="text-xs text-muted-foreground">
+              Log payer approvals for admission, scans, surgery, maternity, and other services that cannot proceed without clearance.
+            </p>
+          </div>
+          <Button onClick={addPreauthorization} disabled={creatingPreauth || !payers.length}>
+            {creatingPreauth ? "Adding..." : "Add Authorization"}
+          </Button>
+        </div>
+        <PreauthorizationEditor form={preauthForm} onChange={updatePreauthForm} payerOptions={payers} policyOptions={policies} idPrefix="insurance-preauth-create" />
+      </div>
+
+      <div className="rounded-lg border">
+        <div className="border-b px-4 py-3">
+          <h3 className="text-sm font-semibold text-foreground">Pre-authorization records</h3>
+          <p className="text-xs text-muted-foreground">Track pending, approved, denied, and expired authorizations against the patient and payer.</p>
+        </div>
+        {loading ? (
+          <div className="p-4 text-sm text-muted-foreground">Loading authorization records...</div>
+        ) : preauthorizations.length === 0 ? (
+          <div className="p-4 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
+        ) : (
+          <ScrollArea className="h-[22rem]">
+            <Accordion type="single" collapsible className="px-4">
+              {preauthorizations.map((preauth) => {
+                const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
+                return (
+                  <AccordionItem key={preauth.id} value={preauth.id} data-preauth-id={preauth.id}>
+                    <AccordionTrigger className="hover:no-underline">
+                      <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
+                        <div className="space-y-1">
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span className="text-base font-semibold text-foreground">{preauth.payer_name}</span>
+                            <span className="text-sm text-muted-foreground">{preauth.service_category || "Other"}</span>
+                          </div>
+                          <div className="text-sm text-muted-foreground">{preauth.requested_service || "Requested service not recorded"}</div>
+                          <div className="text-xs text-muted-foreground">{formatPreauthWindow(preauth)}</div>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2">
+                          <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>{preauth.status}</Badge>
+                          {preauth.policy_no ? <Badge variant="outline">Policy {preauth.policy_no}</Badge> : null}
+                          {preauth.auth_code ? <Badge variant="secondary">Code {preauth.auth_code}</Badge> : null}
+                        </div>
+                      </div>
+                    </AccordionTrigger>
+                    <AccordionContent className="space-y-4">
+                      <PreauthorizationEditor form={draft} onChange={(field, value) => updatePreauthDraft(preauth.id, field, value)} payerOptions={payers} policyOptions={policies} idPrefix={`insurance-preauth-${preauth.id}`} />
+                      <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+                        <div>Last updated {preauth.updated_at ? new Date(preauth.updated_at).toLocaleString() : "-"}</div>
+                        <div className="flex items-center gap-2">
+                          <Button size="sm" variant="outline" onClick={() => savePreauthorization(preauth.id)} disabled={savingPreauthId === preauth.id}>
+                            {savingPreauthId === preauth.id ? "Saving..." : "Save changes"}
+                          </Button>
+                          <Button size="sm" variant="destructive" onClick={() => deletePreauthorization(preauth.id)} disabled={deletingPreauthId === preauth.id}>
+                            {deletingPreauthId === preauth.id ? "Removing..." : "Remove"}
+                          </Button>
+                        </div>
+                      </div>
+                    </AccordionContent>
+                  </AccordionItem>
+                )
+              })}
+            </Accordion>
+          </ScrollArea>
+        )}
+      </div>
+    </div>
+  )
+}
+
+export function InsurancePolicies({
+  patientId,
+  hideAuthorizations = false,
+}: {
+  patientId: string
+  hideAuthorizations?: boolean
+}) {
   const [payers, setPayers] = useState<Payer[]>([])
   const [policies, setPolicies] = useState<Policy[]>([])
   const [preauthorizations, setPreauthorizations] = useState<Preauthorization[]>([])
@@ -1425,77 +1657,79 @@ export function InsurancePolicies({ patientId }: { patientId: string }) {
           )}
         </div>
 
-        <div className="space-y-4">
-          <div className="rounded-lg border p-4">
-            <div className="mb-4 flex items-center justify-between gap-3">
-              <div>
-                <h3 className="text-sm font-semibold text-foreground">Authorization tracker</h3>
-                <p className="text-xs text-muted-foreground">
-                  Log payer approvals for admission, scans, surgery, maternity, and other services that cannot proceed without clearance.
-                </p>
+        {!hideAuthorizations ? (
+          <div className="space-y-4">
+            <div className="rounded-lg border p-4">
+              <div className="mb-4 flex items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-sm font-semibold text-foreground">Authorization tracker</h3>
+                  <p className="text-xs text-muted-foreground">
+                    Log payer approvals for admission, scans, surgery, maternity, and other services that cannot proceed without clearance.
+                  </p>
+                </div>
+                <Button onClick={addPreauthorization} disabled={creatingPreauth || !payers.length}>
+                  {creatingPreauth ? "Adding..." : "Add Authorization"}
+                </Button>
               </div>
-              <Button onClick={addPreauthorization} disabled={creatingPreauth || !payers.length}>
-                {creatingPreauth ? "Adding..." : "Add Authorization"}
-              </Button>
+              <PreauthorizationEditor form={preauthForm} onChange={updatePreauthForm} payerOptions={payers} policyOptions={policies} idPrefix="insurance-preauth-create" />
             </div>
-            <PreauthorizationEditor form={preauthForm} onChange={updatePreauthForm} payerOptions={payers} policyOptions={policies} idPrefix="insurance-preauth-create" />
-          </div>
 
-          <div className="rounded-lg border">
-            <div className="border-b px-4 py-3">
-              <h3 className="text-sm font-semibold text-foreground">Pre-authorization records</h3>
-              <p className="text-xs text-muted-foreground">Track pending, approved, denied, and expired authorizations against the patient and payer.</p>
-            </div>
-            {loading ? (
-              <div className="p-4 text-sm text-muted-foreground">Loading authorization records...</div>
-            ) : preauthorizations.length === 0 ? (
-              <div className="p-4 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
-            ) : (
-              <ScrollArea className="h-[22rem]">
-                <Accordion type="single" collapsible className="px-4">
-                  {preauthorizations.map((preauth) => {
-                    const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
-                    return (
-                      <AccordionItem key={preauth.id} value={preauth.id} data-preauth-id={preauth.id}>
-                        <AccordionTrigger className="hover:no-underline">
-                          <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
-                            <div className="space-y-1">
-                              <div className="flex flex-wrap items-center gap-2">
-                                <span className="text-base font-semibold text-foreground">{preauth.payer_name}</span>
-                                <span className="text-sm text-muted-foreground">{preauth.service_category || "Other"}</span>
+            <div className="rounded-lg border">
+              <div className="border-b px-4 py-3">
+                <h3 className="text-sm font-semibold text-foreground">Pre-authorization records</h3>
+                <p className="text-xs text-muted-foreground">Track pending, approved, denied, and expired authorizations against the patient and payer.</p>
+              </div>
+              {loading ? (
+                <div className="p-4 text-sm text-muted-foreground">Loading authorization records...</div>
+              ) : preauthorizations.length === 0 ? (
+                <div className="p-4 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
+              ) : (
+                <ScrollArea className="h-[22rem]">
+                  <Accordion type="single" collapsible className="px-4">
+                    {preauthorizations.map((preauth) => {
+                      const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
+                      return (
+                        <AccordionItem key={preauth.id} value={preauth.id} data-preauth-id={preauth.id}>
+                          <AccordionTrigger className="hover:no-underline">
+                            <div className="flex w-full flex-col gap-3 text-left md:flex-row md:items-start md:justify-between">
+                              <div className="space-y-1">
+                                <div className="flex flex-wrap items-center gap-2">
+                                  <span className="text-base font-semibold text-foreground">{preauth.payer_name}</span>
+                                  <span className="text-sm text-muted-foreground">{preauth.service_category || "Other"}</span>
+                                </div>
+                                <div className="text-sm text-muted-foreground">{preauth.requested_service || "Requested service not recorded"}</div>
+                                <div className="text-xs text-muted-foreground">{formatPreauthWindow(preauth)}</div>
                               </div>
-                              <div className="text-sm text-muted-foreground">{preauth.requested_service || "Requested service not recorded"}</div>
-                              <div className="text-xs text-muted-foreground">{formatPreauthWindow(preauth)}</div>
+                              <div className="flex flex-wrap items-center gap-2">
+                                <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>{preauth.status}</Badge>
+                                {preauth.policy_no ? <Badge variant="outline">Policy {preauth.policy_no}</Badge> : null}
+                                {preauth.auth_code ? <Badge variant="secondary">Code {preauth.auth_code}</Badge> : null}
+                              </div>
                             </div>
-                            <div className="flex flex-wrap items-center gap-2">
-                              <Badge variant="outline" className={preauthBadgeClass(preauth.status)}>{preauth.status}</Badge>
-                              {preauth.policy_no ? <Badge variant="outline">Policy {preauth.policy_no}</Badge> : null}
-                              {preauth.auth_code ? <Badge variant="secondary">Code {preauth.auth_code}</Badge> : null}
+                          </AccordionTrigger>
+                          <AccordionContent className="space-y-4">
+                            <PreauthorizationEditor form={draft} onChange={(field, value) => updatePreauthDraft(preauth.id, field, value)} payerOptions={payers} policyOptions={policies} idPrefix={`insurance-preauth-${preauth.id}`} />
+                            <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
+                              <div>Last updated {preauth.updated_at ? new Date(preauth.updated_at).toLocaleString() : "-"}</div>
+                              <div className="flex items-center gap-2">
+                                <Button size="sm" variant="outline" onClick={() => savePreauthorization(preauth.id)} disabled={savingPreauthId === preauth.id}>
+                                  {savingPreauthId === preauth.id ? "Saving..." : "Save changes"}
+                                </Button>
+                                <Button size="sm" variant="destructive" onClick={() => deletePreauthorization(preauth.id)} disabled={deletingPreauthId === preauth.id}>
+                                  {deletingPreauthId === preauth.id ? "Removing..." : "Remove"}
+                                </Button>
+                              </div>
                             </div>
-                          </div>
-                        </AccordionTrigger>
-                        <AccordionContent className="space-y-4">
-                          <PreauthorizationEditor form={draft} onChange={(field, value) => updatePreauthDraft(preauth.id, field, value)} payerOptions={payers} policyOptions={policies} idPrefix={`insurance-preauth-${preauth.id}`} />
-                          <div className="flex flex-col gap-2 rounded-lg border bg-muted/20 p-3 text-xs text-muted-foreground lg:flex-row lg:items-center lg:justify-between">
-                            <div>Last updated {preauth.updated_at ? new Date(preauth.updated_at).toLocaleString() : "-"}</div>
-                            <div className="flex items-center gap-2">
-                              <Button size="sm" variant="outline" onClick={() => savePreauthorization(preauth.id)} disabled={savingPreauthId === preauth.id}>
-                                {savingPreauthId === preauth.id ? "Saving..." : "Save changes"}
-                              </Button>
-                              <Button size="sm" variant="destructive" onClick={() => deletePreauthorization(preauth.id)} disabled={deletingPreauthId === preauth.id}>
-                                {deletingPreauthId === preauth.id ? "Removing..." : "Remove"}
-                              </Button>
-                            </div>
-                          </div>
-                        </AccordionContent>
-                      </AccordionItem>
-                    )
-                  })}
-                </Accordion>
-              </ScrollArea>
-            )}
+                          </AccordionContent>
+                        </AccordionItem>
+                      )
+                    })}
+                  </Accordion>
+                </ScrollArea>
+              )}
+            </div>
           </div>
-        </div>
+        ) : null}
 
         <div className="rounded-lg border p-4">
           <div className="mb-3">
