@@ -9,7 +9,7 @@ import { InsurancePolicies } from "@/components/patient/insurance-policies"
 import { DocumentsList } from "@/components/patient/documents-list"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { TriageForm } from "@/components/patient/triage-form"
-import { useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Separator } from "@/components/ui/separator"
 import { EditPatientDialog } from "@/components/patient/edit-patient-dialog"
 import { formatPatientNumber } from "@/lib/patients"
@@ -21,9 +21,51 @@ interface PatientDetailsProps {
 export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
   const [triageOpen, setTriageOpen] = useState(false)
   const [editOpen, setEditOpen] = useState(false)
+  const [coverage, setCoverage] = useState<any | null>(null)
+  const [coverageLoading, setCoverageLoading] = useState(false)
   const { getPatient, getPatientAppointments, refreshPatients } = usePatients()
   const patient = getPatient(patientId)
   const appointments = getPatientAppointments(patientId)
+
+  const coverageBadges = useMemo(() => {
+    const readiness = coverage?.summary?.readiness
+    if (!readiness) return null
+    return {
+      hasActivePolicy: !!readiness.hasActivePolicy,
+      readyForRestricted: readiness.readyForRestrictedServices !== false,
+      missingVerification: readiness.missingVerification === true,
+      missingPreauth: readiness.missingPreauth === true,
+      missingDocuments: readiness.missingDocuments === true,
+      missingTypes: Array.isArray(coverage?.summary?.documents?.missingRequiredTypes)
+        ? coverage.summary.documents.missingRequiredTypes
+        : [],
+    }
+  }, [coverage])
+
+  useEffect(() => {
+    let cancelled = false
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        setCoverageLoading(true)
+        const res = await fetch(`/api/insurance/coverage-summary?patientId=${encodeURIComponent(patientId)}`, {
+          credentials: "include",
+          signal: controller.signal,
+        })
+        if (!res.ok) throw new Error("Failed to load coverage summary")
+        const data = await res.json()
+        if (!cancelled) setCoverage(data)
+      } catch {
+        if (!cancelled) setCoverage(null)
+      } finally {
+        if (!cancelled) setCoverageLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [patientId])
 
   if (!patient) {
     return (
@@ -39,32 +81,34 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
   }
 
   return (
-    <div className="space-y-4">
-      <Button variant="outline" onClick={onBack} aria-label="Back to patient list">
-        <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
-        Back to List
-      </Button>
+    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+      <div className="space-y-4">
+        <Button variant="outline" onClick={onBack} aria-label="Back to patient list">
+          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
+          Back to List
+        </Button>
 
-      <Card>
-      <CardHeader>
-  <div className="flex items-center justify-between">
-    <div>
-      <CardTitle>
-        {patient.firstName} {patient.lastName}
-      </CardTitle>
-      <CardDescription>
-        {(() => {
-          return `P.ID: ${formatPatientNumber(patient.patientNumber)}`
-        })()}
-      </CardDescription>
-    </div>
-    <div className="flex items-center gap-2">
-      <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>Edit Patient</Button>
-      <Button size="sm" variant="outline" onClick={() => setTriageOpen(true)}>Record Triage</Button>
-      <Badge variant={patient.status === "active" ? "default" : "secondary"}>{patient.status}</Badge>
-    </div>
-  </div>
-</CardHeader><CardContent className="space-y-6">
+        <Card>
+          <CardHeader>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>
+                  {patient.firstName} {patient.lastName}
+                </CardTitle>
+                <CardDescription>
+                  {(() => {
+                    return `P.ID: ${formatPatientNumber(patient.patientNumber)}`
+                  })()}
+                </CardDescription>
+              </div>
+              <div className="flex items-center gap-2">
+                <Button size="sm" variant="outline" onClick={() => setEditOpen(true)}>Edit Patient</Button>
+                <Button size="sm" variant="outline" onClick={() => setTriageOpen(true)}>Record Triage</Button>
+                <Badge variant={patient.status === "active" ? "default" : "secondary"}>{patient.status}</Badge>
+              </div>
+            </div>
+          </CardHeader>
+          <CardContent className="space-y-6">
           {/* Three columns: 1) Personal + Contact, 2) Emergency + NOK, 3) Appointments */}
           <div className="grid gap-4 md:grid-cols-3">
             {/* Column 1: Personal + Contact together */}
@@ -207,16 +251,104 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
 
           <Separator />
           {/* Insurance and Documents side by side */}
-          <div className="grid min-w-0 gap-4 md:grid-cols-[1.6fr_1fr]">
-            <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
+          <div id="patient-insurance-docs" className="grid min-w-0 gap-4 md:grid-cols-[1.6fr_1fr]">
+            <div id="patient-insurance" className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
               <InsurancePolicies patientId={patientId} />
             </div>
-            <div className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
+            <div id="patient-documents" className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
               <DocumentsList patientId={patientId} />
             </div>
           </div>
-        </CardContent>
-      </Card>
+          </CardContent>
+        </Card>
+      </div>
+
+      {/* Wide-screen sidebar to utilize empty space */}
+      <div className="hidden xl:block">
+        <div className="sticky top-24 space-y-4">
+          <Card className="border-slate-200 bg-white/95 shadow-sm">
+            <CardHeader className="pb-3">
+              <CardTitle className="text-base">Coverage & billing readiness</CardTitle>
+              <CardDescription>
+                Quick view for insurance completeness. Cash/self-pay patients can proceed without these checks.
+              </CardDescription>
+            </CardHeader>
+            <CardContent className="space-y-3">
+              <div className="rounded-lg border bg-muted/20 p-3 text-sm">
+                <div className="font-semibold text-foreground">
+                  {coverage?.primaryPolicy?.payer_name ? coverage.primaryPolicy.payer_name : "No insurance on file"}
+                </div>
+                <div className="text-xs text-muted-foreground">
+                  {coverage?.primaryPolicy?.policy_no ? `Policy ${coverage.primaryPolicy.policy_no}` : "Proceed as cash/self-pay unless cover is added."}
+                </div>
+              </div>
+
+              {coverageBadges ? (
+                <div className="space-y-2">
+                  <div className="flex flex-wrap gap-2">
+                    <Badge variant={coverageBadges.hasActivePolicy ? "default" : "secondary"}>
+                      {coverageBadges.hasActivePolicy ? "Has active policy" : "Cash/self-pay"}
+                    </Badge>
+                    <Badge variant={coverageBadges.readyForRestricted ? "outline" : "destructive"}>
+                      {coverageBadges.readyForRestricted ? "Restricted services OK" : "Restricted services blocked"}
+                    </Badge>
+                  </div>
+                  {(coverageBadges.missingVerification || coverageBadges.missingPreauth || coverageBadges.missingDocuments) ? (
+                    <div className="rounded-lg border border-amber-200 bg-amber-50 p-3 text-xs text-amber-900">
+                      <div className="font-semibold">Missing items</div>
+                      <div className="mt-1 space-y-1">
+                        {coverageBadges.missingVerification ? <div>- Verification missing</div> : null}
+                        {coverageBadges.missingPreauth ? <div>- Authorization (preauth) missing</div> : null}
+                        {coverageBadges.missingDocuments ? (
+                          <div>- Documents missing{coverageBadges.missingTypes.length ? `: ${coverageBadges.missingTypes.join(", ")}` : ""}</div>
+                        ) : null}
+                      </div>
+                    </div>
+                  ) : null}
+                </div>
+              ) : (
+                <div className="text-sm text-muted-foreground">{coverageLoading ? "Loading coverage..." : "Coverage summary unavailable."}</div>
+              )}
+
+              <div className="flex flex-col gap-2">
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    document.getElementById("patient-insurance")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }}
+                >
+                  Open insurance
+                </Button>
+                <Button
+                  variant="outline"
+                  onClick={() => {
+                    document.getElementById("patient-documents")?.scrollIntoView({ behavior: "smooth", block: "start" })
+                  }}
+                >
+                  Open documents
+                </Button>
+                <Button
+                  onClick={async () => {
+                    try {
+                      setCoverageLoading(true)
+                      const res = await fetch(`/api/insurance/coverage-summary?patientId=${encodeURIComponent(patientId)}`, { credentials: "include" })
+                      if (!res.ok) throw new Error("Failed")
+                      setCoverage(await res.json())
+                    } catch {
+                      setCoverage(null)
+                    } finally {
+                      setCoverageLoading(false)
+                    }
+                  }}
+                  disabled={coverageLoading}
+                >
+                  {coverageLoading ? "Refreshing..." : "Refresh coverage"}
+                </Button>
+              </div>
+            </CardContent>
+          </Card>
+        </div>
+      </div>
 
       <Dialog open={triageOpen} onOpenChange={setTriageOpen}>
         <DialogContent size="xl" className="max-h-[88vh] overflow-y-auto">
