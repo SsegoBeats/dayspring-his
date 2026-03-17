@@ -1425,7 +1425,7 @@ export function InsurancePolicies({ patientId }: { patientId: string }) {
           )}
         </div>
 
-        <div className="grid gap-4 xl:grid-cols-[1.15fr_0.85fr]">
+        <div className="space-y-4">
           <div className="rounded-lg border p-4">
             <div className="mb-4 flex items-center justify-between gap-3">
               <div>
@@ -1451,7 +1451,7 @@ export function InsurancePolicies({ patientId }: { patientId: string }) {
             ) : preauthorizations.length === 0 ? (
               <div className="p-4 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
             ) : (
-              <ScrollArea className="h-[32rem]">
+              <ScrollArea className="h-[22rem]">
                 <Accordion type="single" collapsible className="px-4">
                   {preauthorizations.map((preauth) => {
                     const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
