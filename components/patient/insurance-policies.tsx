@@ -1372,7 +1372,7 @@ export function InsurancePolicies({
         ) : null}
 
         {!hideRecords ? (
-          <Card className="flex h-full flex-col border-border/80 bg-transparent shadow-none">
+          <Card className="flex h-full flex-col border-border/80 bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Policy records</CardTitle>
               <CardDescription>Expand a policy to update it, refine verification notes, or change authorization flags.</CardDescription>
@@ -1383,7 +1383,7 @@ export function InsurancePolicies({
               ) : policies.length === 0 ? (
                 <div className="text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
               ) : (
-                <ScrollArea className="h-[30rem]">
+                <ScrollArea className="h-[32rem]">
                   <Accordion type="single" collapsible className="px-4">
                     {policies.map((policy) => {
                       const draft = policyDrafts[policy.id] || toPolicyForm(policy)
@@ -1551,7 +1551,7 @@ export function InsurancePolicies({
         ) : null}
 
         {!hideAddPayer ? (
-          <Card className="border-border/80 bg-transparent shadow-none">
+          <Card className="border-border/80 bg-card shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Add new payer</CardTitle>
               <CardDescription>Only add a payer when the master list does not already cover the insurer, HMO, or sponsor handling the patient.</CardDescription>
@@ -1802,7 +1802,7 @@ export function InsuranceAuthorizations({
   return (
     <div className="space-y-4">
       {!hideTracker ? (
-        <Card className="border-border/80 bg-transparent shadow-none">
+        <Card className="border-border/80 bg-card shadow-sm">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1829,7 +1829,7 @@ export function InsuranceAuthorizations({
       ) : null}
 
       {!hideRecords ? (
-        <Card className="flex h-full flex-col border-border/80 bg-transparent shadow-none">
+        <Card className="flex h-full flex-col border-border/80 bg-card shadow-sm">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Pre-authorization records</CardTitle>
             <CardDescription>Track pending, approved, denied, and expired authorizations against the patient and payer.</CardDescription>
