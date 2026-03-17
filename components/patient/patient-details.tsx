@@ -81,14 +81,15 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
   }
 
   return (
-    <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
-      <div className="space-y-4">
-        <Button variant="outline" onClick={onBack} aria-label="Back to patient list">
-          <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
-          Back to List
-        </Button>
+    <div className="space-y-4">
+      <Button variant="outline" onClick={onBack} aria-label="Back to patient list">
+        <ArrowLeft className="mr-2 h-4 w-4" aria-hidden />
+        Back to List
+      </Button>
 
-        <Card>
+      <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_380px] xl:items-start">
+        <div className="space-y-4">
+          <Card>
           <CardHeader>
             <div className="flex items-center justify-between">
               <div>
@@ -248,29 +249,29 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
               </div>
             )
           })()}
+          </CardContent>
+          </Card>
 
-          <Separator />
-          {/* Insurance and Documents: separate cards (two columns) */}
+          {/* Insurance + Documents in their own cards (two columns) */}
           <div id="patient-insurance-docs" className="grid min-w-0 gap-4 md:grid-cols-2">
             <Card id="patient-insurance" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
               <CardContent className="p-4">
                 <InsurancePolicies patientId={patientId} />
               </CardContent>
             </Card>
+
             <Card id="patient-documents" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
               <CardContent className="p-4">
                 <DocumentsList patientId={patientId} />
               </CardContent>
             </Card>
           </div>
-          </CardContent>
-        </Card>
-      </div>
+        </div>
 
-      {/* Wide-screen sidebar to utilize empty space */}
-      <div className="hidden xl:block">
-        <div className="sticky top-24 space-y-4">
-          <Card className="border-slate-200 bg-white/95 shadow-sm">
+        {/* Wide-screen sidebar */}
+        <div className="hidden xl:block">
+          <div className="sticky top-24 space-y-4">
+            <Card className="border-slate-200 bg-white/95 shadow-sm">
             <CardHeader className="pb-3">
               <CardTitle className="text-base">Coverage & billing readiness</CardTitle>
               <CardDescription>
@@ -350,7 +351,8 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
                 </Button>
               </div>
             </CardContent>
-          </Card>
+            </Card>
+          </div>
         </div>
       </div>
 
