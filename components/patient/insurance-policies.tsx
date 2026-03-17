@@ -1373,11 +1373,11 @@ export function InsurancePolicies({
 
         {!hideRecords ? (
           <Card className="flex h-full flex-col border-border/80 bg-card shadow-sm">
-            <CardHeader className="pb-3">
+            <CardHeader className="min-h-[4.75rem] pb-3">
               <CardTitle className="text-sm">Policy records</CardTitle>
               <CardDescription>Expand a policy to update it, refine verification notes, or change authorization flags.</CardDescription>
             </CardHeader>
-            <CardContent className="flex-1 pt-0">
+            <CardContent className="flex-1 p-4 pt-0">
               {loading ? (
                 <div className="grid min-h-[4rem] place-items-center text-sm text-muted-foreground">Loading coverage records...</div>
               ) : policies.length === 0 ? (
@@ -1828,11 +1828,11 @@ export function InsuranceAuthorizations({
 
       {!hideRecords ? (
         <Card className="flex h-full flex-col border-border/80 bg-card shadow-sm">
-          <CardHeader className="pb-3">
+          <CardHeader className="min-h-[4.75rem] pb-3">
             <CardTitle className="text-sm">Pre-authorization records</CardTitle>
             <CardDescription>Track pending, approved, denied, and expired authorizations against the patient and payer.</CardDescription>
           </CardHeader>
-          <CardContent className="flex-1 pt-0">
+          <CardContent className="flex-1 p-4 pt-0">
             {loading ? (
               <div className="grid min-h-[4rem] place-items-center text-sm text-muted-foreground">Loading authorization records...</div>
             ) : preauthorizations.length === 0 ? (
