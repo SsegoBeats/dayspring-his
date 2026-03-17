@@ -341,36 +341,38 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
         </div>
       </div>
 
-      {/* Below patient details: full-width insurance/documents section */}
+      {/* Below patient details: insurance + documents + detached sections */}
       <Separator />
-      <div id="patient-insurance-docs" className="grid min-w-0 gap-4 xl:grid-cols-2">
-        <Card id="patient-insurance" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
-          <CardContent className="p-4">
-            <InsurancePolicies patientId={patientId} hideAuthorizations hideRecords hideAddPayer />
-          </CardContent>
-        </Card>
+      <div className="rounded-lg bg-muted/20 p-2">
+        <div id="patient-insurance-docs" className="grid min-w-0 gap-4 xl:grid-cols-2">
+          <Card id="patient-insurance" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
+            <CardContent className="p-4">
+              <InsurancePolicies patientId={patientId} hideAuthorizations hideRecords hideAddPayer />
+            </CardContent>
+          </Card>
 
-        <Card id="patient-documents" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
-          <CardContent className="p-4">
-            <DocumentsList patientId={patientId} />
-          </CardContent>
-        </Card>
-      </div>
+          <Card id="patient-documents" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
+            <CardContent className="p-4">
+              <DocumentsList patientId={patientId} />
+            </CardContent>
+          </Card>
+        </div>
 
-      {/* Full-width: detach authorizations from left column */}
-      <div className="mt-4 min-w-0">
-        <InsuranceAuthorizations patientId={patientId} hideRecords />
-      </div>
+        {/* Full-width: detach authorizations from left column */}
+        <div className="mt-4 min-w-0">
+          <InsuranceAuthorizations patientId={patientId} hideRecords />
+        </div>
 
-      {/* Full-width: detach policy records + payer management */}
-      <div className="mt-4 min-w-0">
-        <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake hideRecords compact />
-      </div>
+        {/* Full-width: detach policy records + payer management */}
+        <div className="mt-4 min-w-0">
+          <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake hideRecords compact />
+        </div>
 
-      {/* Last row: two columns (preauth records + policy records) */}
-      <div className="mt-4 grid min-w-0 items-stretch gap-4 xl:grid-cols-2">
-        <InsuranceAuthorizations patientId={patientId} hideTracker />
-        <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake hideAddPayer compact />
+        {/* Last row: two columns (preauth records + policy records) */}
+        <div className="mt-4 grid min-w-0 items-stretch gap-4 xl:grid-cols-2">
+          <InsuranceAuthorizations patientId={patientId} hideTracker />
+          <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake hideAddPayer compact />
+        </div>
       </div>
 
       <Dialog open={triageOpen} onOpenChange={setTriageOpen}>
