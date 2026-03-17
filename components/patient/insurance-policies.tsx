@@ -371,6 +371,9 @@ function PolicyEditor({
   idPrefix: string
 }) {
   const selectedPayer = payerOptions.find((payer) => payer.id === form.payerId)
+  const selectedPayerType = (selectedPayer?.payer_type || "INSURER") as InsurancePayerType
+  const needsCorporateOwner = selectedPayerType === "CORPORATE"
+  const verificationNeedsReference = form.verificationStatus === "Verified"
 
   return (
     <div className="space-y-4">
@@ -419,6 +422,11 @@ function PolicyEditor({
             onChange={(event) => onChange("schemeName", event.target.value)}
             placeholder="Employer or sponsored scheme"
           />
+          {needsCorporateOwner && (
+            <p className="text-xs text-muted-foreground">
+              For corporate guarantees, capture either a scheme name or employer/sponsor.
+            </p>
+          )}
         </div>
 
         <div className="space-y-2">
@@ -463,7 +471,11 @@ function PolicyEditor({
         </div>
 
         <div className="space-y-2">
-          <InsuranceFieldLabel htmlFor={`${idPrefix}-employer-name`} help="Employer, school, NGO, church, or sponsor attached to the scheme.">
+          <InsuranceFieldLabel
+            htmlFor={`${idPrefix}-employer-name`}
+            help="Employer, school, NGO, church, or sponsor attached to the scheme."
+            required={needsCorporateOwner && !form.schemeName.trim()}
+          >
             Employer / sponsor
           </InsuranceFieldLabel>
           <Input
@@ -598,7 +610,11 @@ function PolicyEditor({
         </div>
 
         <div className="space-y-2">
-          <InsuranceFieldLabel htmlFor={`${idPrefix}-verification-reference`} help="Call reference, portal trace, email trail, or ticket proving the verification.">
+          <InsuranceFieldLabel
+            htmlFor={`${idPrefix}-verification-reference`}
+            help="Call reference, portal trace, email trail, or ticket proving the verification."
+            required={verificationNeedsReference}
+          >
             Verification reference
           </InsuranceFieldLabel>
           <Input
@@ -608,6 +624,11 @@ function PolicyEditor({
             onChange={(event) => onChange("verificationReference", event.target.value)}
             placeholder="Call ref, portal trace, email"
           />
+          {verificationNeedsReference && !form.verificationReference.trim() ? (
+            <p className="text-xs text-amber-700">
+              Verified cover must have a traceable reference.
+            </p>
+          ) : null}
         </div>
       </div>
 
@@ -1218,6 +1239,59 @@ export function InsurancePolicies({ patientId }: { patientId: string }) {
         </CardDescription>
       </CardHeader>
       <CardContent className="space-y-4 px-0 pb-0">
+        {(missingVerificationCount > 0 || missingPreauthCount > 0) && (
+          <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-sm">
+            <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
+              <div>
+                <div className="font-semibold text-foreground">Reception checklist</div>
+                <div className="text-xs text-muted-foreground">
+                  Resolve these before billing or restricted services so teams do not chase paperwork mid-visit.
+                </div>
+              </div>
+              <div className="flex flex-wrap gap-2">
+                {missingVerificationCount > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      try {
+                        const el = document.querySelector('[data-payer-name]') as HTMLElement | null
+                        el?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      } catch {}
+                    }}
+                  >
+                    Fix verification ({missingVerificationCount})
+                  </Button>
+                ) : null}
+                {missingPreauthCount > 0 ? (
+                  <Button
+                    size="sm"
+                    variant="outline"
+                    onClick={() => {
+                      try {
+                        const el = document.querySelector('[data-preauth-id]') as HTMLElement | null
+                        el?.scrollIntoView({ behavior: "smooth", block: "start" })
+                      } catch {}
+                    }}
+                  >
+                    Track authorizations ({missingPreauthCount})
+                  </Button>
+                ) : null}
+                <Button
+                  size="sm"
+                  onClick={() => {
+                    try {
+                      window.dispatchEvent(new CustomEvent("insuranceJumpToDocuments", { detail: { patientId } }))
+                    } catch {}
+                  }}
+                >
+                  Open documents checklist
+                </Button>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="grid gap-3 md:grid-cols-4">
           <InsuranceHoverNote title="Active cover" description="Policies available for the current visit. Inactive records stay as history only.">
             <div className="rounded-lg border bg-slate-50/80 p-3">
@@ -1297,7 +1371,12 @@ export function InsurancePolicies({ patientId }: { patientId: string }) {
                           <div className="space-y-1">
                             <div className="flex flex-wrap items-center gap-2">
                               <span className="text-base font-semibold text-foreground">{policy.payer_name}</span>
-                              <Badge variant="outline">{getInsurancePayerTypeLabel(policy.payer_type || "INSURER")}</Badge>
+                              <InsuranceHoverNote
+                                title="Payer type"
+                                description={getInsurancePayerTypeDescription((policy.payer_type || "INSURER") as InsurancePayerType)}
+                              >
+                                <Badge variant="outline">{getInsurancePayerTypeLabel(policy.payer_type || "INSURER")}</Badge>
+                              </InsuranceHoverNote>
                               {policy.plan_name ? <span className="text-sm text-muted-foreground">{policy.plan_name}</span> : null}
                               {policy.scheme_name ? <span className="text-sm text-muted-foreground">| {policy.scheme_name}</span> : null}
                             </div>
@@ -1311,8 +1390,12 @@ export function InsurancePolicies({ patientId }: { patientId: string }) {
                           <div className="flex flex-wrap items-center gap-2">
                             <Badge variant={policy.active ? "default" : "secondary"}>{policy.active ? "Active" : "Inactive"}</Badge>
                             <Badge variant="outline">{formatCoverageOrder(policy.coordination_order || 1)}</Badge>
-                            <Badge variant="outline" className={verificationBadgeClass(verificationStatus)}>{verificationStatus}</Badge>
-                            <Badge variant="outline">{policy.panel_status || "Unknown panel"}</Badge>
+                            <InsuranceHoverNote title="Eligibility verification" description={getVerificationStatusDescription(verificationStatus as any)}>
+                              <Badge variant="outline" className={verificationBadgeClass(verificationStatus)}>{verificationStatus}</Badge>
+                            </InsuranceHoverNote>
+                            <InsuranceHoverNote title="Provider panel status" description={getPanelStatusDescription((policy.panel_status || "Unknown") as any)}>
+                              <Badge variant="outline">{policy.panel_status || "Unknown panel"}</Badge>
+                            </InsuranceHoverNote>
                             {policy.authorization_required ? <Badge variant="secondary">Authorization required</Badge> : null}
                           </div>
                         </div>

@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useState } from "react"
+import { useEffect, useState } from "react"
 import { type BillItem } from "@/lib/billing-context"
 import { usePatients } from "@/lib/patient-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -16,6 +16,7 @@ import { Checkbox } from "@/components/ui/checkbox"
 import { useBilling } from "@/lib/billing-context"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { formatPatientNumber } from "@/lib/patients"
+import { useAuth } from "@/lib/auth-context"
 import {
   SERVICE_CATEGORIES,
   SERVICE_CATEGORY_OPTIONS,
@@ -32,6 +33,8 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
   const { patients } = usePatients()
   const { refreshBills } = useBilling()
   const formatCurrency = useFormatCurrency()
+  const { user } = useAuth()
+  const userRole = user?.role || ""
 
   const [patientId, setPatientId] = useState("")
   const [patientQuery, setPatientQuery] = useState("")
@@ -42,6 +45,9 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
   const [taxRate, setTaxRate] = useState(10)
   const [discountAmount, setDiscountAmount] = useState(0)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [coverage, setCoverage] = useState<any | null>(null)
+  const [coverageLoading, setCoverageLoading] = useState(false)
+  const [adminOverride, setAdminOverride] = useState(false)
 
   const filteredPatients = patients.filter((patient) => {
     const query = patientQuery.trim().toLowerCase()
@@ -142,6 +148,25 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
       return
     }
 
+    // Insurance readiness gate for restricted services.
+    // We only block when the bill contains restricted service categories AND coverage is not ready.
+    try {
+      const restricted = new Set(["Admission", "Imaging", "Surgery", "Maternity"])
+      const hasRestrictedService = validItems.some(
+        (it) => it.itemType === "service" && it.serviceCategory && restricted.has(String(it.serviceCategory)),
+      )
+      const notReady = coverage?.summary?.readiness?.readyForRestrictedServices === false
+      const isAdmin = userRole === "Hospital Admin"
+      if (hasRestrictedService && notReady && !(isAdmin && adminOverride)) {
+        toast.error(
+          isAdmin
+            ? "Insurance/documents not ready for restricted services. Enable admin override to proceed."
+            : "Insurance/documents not ready for restricted services. Please complete verification/preauth/documents first.",
+        )
+        return
+      }
+    } catch {}
+
     for (const item of validItems) {
       if (!item.description.trim()) {
         toast.error("All items must have a description")
@@ -222,6 +247,35 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
     }
   }
 
+  useEffect(() => {
+    if (!patientId) {
+      setCoverage(null)
+      return
+    }
+    let cancelled = false
+    const controller = new AbortController()
+    void (async () => {
+      try {
+        setCoverageLoading(true)
+        const res = await fetch(`/api/insurance/coverage-summary?patientId=${patientId}`, {
+          credentials: "include",
+          signal: controller.signal,
+        })
+        if (!res.ok) throw new Error("Failed to load insurance summary")
+        const data = await res.json()
+        if (!cancelled) setCoverage(data)
+      } catch {
+        if (!cancelled) setCoverage(null)
+      } finally {
+        if (!cancelled) setCoverageLoading(false)
+      }
+    })()
+    return () => {
+      cancelled = true
+      controller.abort()
+    }
+  }, [patientId])
+
   return (
     <div className="space-y-4">
       {mode === "page" && (
@@ -253,7 +307,13 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
 
             <div className="space-y-2">
               <Label htmlFor="patient">Select Patient *</Label>
-              <Select value={patientId} onValueChange={setPatientId}>
+              <Select
+                value={patientId}
+                onValueChange={(next) => {
+                  setPatientId(next)
+                  setAdminOverride(false)
+                }}
+              >
                 <SelectTrigger id="patient">
                   <SelectValue placeholder="Choose a patient" />
                 </SelectTrigger>
@@ -269,6 +329,101 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
                 <p className="text-xs text-amber-700">No patients match that search yet.</p>
               )}
             </div>
+
+            {patientId ? (
+              <div className="rounded-lg border bg-muted/20 p-4">
+                <div className="flex items-start justify-between gap-3">
+                  <div>
+                    <div className="text-sm font-semibold text-foreground">Insurance readiness</div>
+                    <div className="text-xs text-muted-foreground">
+                      Helps Cashier know whether restricted services should proceed under cover.
+                    </div>
+                  </div>
+                  <Button
+                    type="button"
+                    size="sm"
+                    variant="outline"
+                    disabled={coverageLoading}
+                    onClick={async () => {
+                      try {
+                        setCoverageLoading(true)
+                        const res = await fetch(`/api/insurance/coverage-summary?patientId=${patientId}`, { credentials: "include" })
+                        if (!res.ok) throw new Error("Failed to load insurance summary")
+                        setCoverage(await res.json())
+                      } catch {
+                        setCoverage(null)
+                      } finally {
+                        setCoverageLoading(false)
+                      }
+                    }}
+                  >
+                    {coverageLoading ? "Loading..." : "Refresh"}
+                  </Button>
+                </div>
+
+                <div className="mt-3 grid gap-3 md:grid-cols-3">
+                  <div className="rounded-md border bg-white p-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Primary cover</div>
+                    <div className="mt-2 text-sm font-semibold text-foreground">
+                      {coverage?.primaryPolicy?.payer_name ? coverage.primaryPolicy.payer_name : "—"}
+                    </div>
+                    <div className="text-xs text-muted-foreground">
+                      {coverage?.primaryPolicy?.policy_no ? `Policy ${coverage.primaryPolicy.policy_no}` : "No policy on file"}
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-white p-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Verification</div>
+                    <div className="mt-2">
+                      <Badge variant={coverage?.summary?.readiness?.missingVerification ? "destructive" : "default"}>
+                        {coverage?.summary?.readiness?.missingVerification ? "Missing" : "OK"}
+                      </Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {coverage?.summary?.policies?.needsVerificationCount != null
+                        ? `${coverage.summary.policies.needsVerificationCount} policy(ies) need verification`
+                        : "—"}
+                    </div>
+                  </div>
+                  <div className="rounded-md border bg-white p-3">
+                    <div className="text-xs font-semibold uppercase tracking-[0.18em] text-muted-foreground">Docs / preauth</div>
+                    <div className="mt-2 flex flex-wrap gap-2">
+                      <Badge variant={coverage?.summary?.readiness?.missingDocuments ? "destructive" : "outline"}>
+                        Docs {coverage?.summary?.documents?.missingRequiredTypes?.length ? "Missing" : "OK"}
+                      </Badge>
+                      <Badge variant={coverage?.summary?.readiness?.missingPreauth ? "destructive" : "outline"}>
+                        Preauth {coverage?.summary?.readiness?.missingPreauth ? "Missing" : "OK"}
+                      </Badge>
+                    </div>
+                    <div className="mt-1 text-xs text-muted-foreground">
+                      {Array.isArray(coverage?.summary?.documents?.missingRequiredTypes) && coverage.summary.documents.missingRequiredTypes.length
+                        ? `Missing: ${coverage.summary.documents.missingRequiredTypes.join(", ")}`
+                        : "—"}
+                    </div>
+                  </div>
+                </div>
+
+                {userRole === "Hospital Admin" && coverage?.summary?.readiness?.readyForRestrictedServices === false ? (
+                  <div className="mt-3 flex items-center justify-between gap-3 rounded-md border border-amber-200 bg-amber-50 p-3 text-sm">
+                    <div>
+                      <div className="font-semibold text-amber-900">Admin override</div>
+                      <div className="text-xs text-amber-800/80">
+                        Enable only if you approve proceeding despite missing verification/preauth/documents.
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <Checkbox
+                        id="adminOverride"
+                        checked={adminOverride}
+                        onCheckedChange={(v) => setAdminOverride(v === true)}
+                      />
+                      <Label htmlFor="adminOverride" className="cursor-pointer text-amber-900">
+                        Proceed anyway
+                      </Label>
+                    </div>
+                  </div>
+                ) : null}
+              </div>
+            ) : null}
 
             <div className="space-y-3">
               <div className="flex items-center justify-between">

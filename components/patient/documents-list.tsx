@@ -47,6 +47,7 @@ type ChecklistItem = {
   description: string
   required: boolean
   complete: boolean
+  suggestedType?: PatientDocumentType
 }
 
 export function DocumentsList({ patientId }: { patientId: string }) {
@@ -59,6 +60,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
   const [adding, setAdding] = useState(false)
   const [file, setFile] = useState<File | null>(null)
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [highlightChecklist, setHighlightChecklist] = useState(false)
 
   const load = useCallback(async () => {
     try {
@@ -101,6 +103,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
         description: "Keep a patient or principal-member identity document on file for payer verification and billing disputes.",
         required: activePolicies.length > 0,
         complete: typePresent("ID"),
+        suggestedType: "ID",
       },
       {
         id: "insurance",
@@ -108,6 +111,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
         description: "Upload the current front or digital card showing the payer, membership number, and scheme details.",
         required: hasInsuranceCover,
         complete: typePresent("INSURANCE"),
+        suggestedType: "INSURANCE",
       },
       {
         id: "guarantee",
@@ -115,6 +119,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
         description: "Corporate or sponsor-backed visits should carry an employer, school, NGO, or guarantor letter.",
         required: needsGuarantee,
         complete: typePresent("GUARANTEE"),
+        suggestedType: "GUARANTEE",
       },
       {
         id: "referral",
@@ -122,6 +127,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
         description: "HMOs and managed-care schemes often need a referral or gatekeeper note before specialist or panel service.",
         required: false,
         complete: typePresent("REFERRAL"),
+        suggestedType: "REFERRAL",
       },
       {
         id: "preauth",
@@ -129,6 +135,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
         description: "When the payer requests approval for admission, surgery, scans, maternity, or other services, keep the approval record here.",
         required: needsPreauthPaper,
         complete: typePresent("PREAUTH"),
+        suggestedType: "PREAUTH",
       },
       {
         id: "claim-form",
@@ -136,6 +143,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
         description: "Use this for payer reimbursement forms, signed claim packs, or billing documents prepared for submission.",
         required: false,
         complete: typePresent("CLAIM_FORM"),
+        suggestedType: "CLAIM_FORM",
       },
       {
         id: "consent",
@@ -143,12 +151,42 @@ export function DocumentsList({ patientId }: { patientId: string }) {
         description: "Signed financial undertaking or insurer-communication consent protects the facility when payer responses are delayed.",
         required: false,
         complete: typePresent("CONSENT"),
+        suggestedType: "CONSENT",
       },
     ].filter((item) => item.required || item.complete || item.id === "referral" || item.id === "claim-form" || item.id === "consent")
   }, [activePolicies, docs, preauthorizations])
 
   const missingRequiredCount = requiredChecklist.filter((item) => item.required && !item.complete).length
   const selectedTypeDescription = getPatientDocumentTypeDescription(type)
+
+  const jumpToAddForm = (nextType?: PatientDocumentType) => {
+    try {
+      if (nextType) setType(nextType)
+      setHighlightChecklist(false)
+      const el = document.getElementById(`patient-documents-add-${patientId}`)
+      el?.scrollIntoView({ behavior: "smooth", block: "start" })
+      // Nudge attention to file picker
+      setTimeout(() => {
+        const fileLabel = document.getElementById(`patient-document-file-label-${patientId}`)
+        fileLabel?.focus?.()
+      }, 300)
+    } catch {}
+  }
+
+  useEffect(() => {
+    const handler = ((ev: Event) => {
+      const e = ev as CustomEvent
+      if (e?.detail?.patientId && e.detail.patientId !== patientId) return
+      setHighlightChecklist(true)
+      try {
+        const el = document.getElementById(`patient-documents-checklist-${patientId}`)
+        el?.scrollIntoView({ behavior: "smooth", block: "start" })
+      } catch {}
+      setTimeout(() => setHighlightChecklist(false), 2500)
+    }) as EventListener
+    window.addEventListener("insuranceJumpToDocuments", handler)
+    return () => window.removeEventListener("insuranceJumpToDocuments", handler)
+  }, [patientId])
 
   const add = async () => {
     if (!file) {
@@ -262,7 +300,10 @@ export function DocumentsList({ patientId }: { patientId: string }) {
           </InsuranceHoverNote>
         </div>
 
-        <div className="rounded-lg border p-4">
+        <div
+          id={`patient-documents-checklist-${patientId}`}
+          className={`rounded-lg border p-4 transition ${highlightChecklist ? "ring-2 ring-amber-300" : ""}`}
+        >
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-foreground">Insurance document checklist</h3>
             <p className="text-xs text-muted-foreground">Hover each item to understand why it matters for Ugandan insurer, HMO, or corporate-guarantee workflows.</p>
@@ -277,16 +318,27 @@ export function DocumentsList({ patientId }: { patientId: string }) {
                       {item.required ? "Required for the current cover" : "Recommended where applicable"}
                     </div>
                   </div>
-                  <Badge variant={item.complete ? "default" : item.required ? "destructive" : "secondary"}>
-                    {item.complete ? "On file" : item.required ? "Missing" : "Optional"}
-                  </Badge>
+                  <div className="flex items-center gap-2">
+                    {!item.complete && item.suggestedType ? (
+                      <Button
+                        size="sm"
+                        variant={item.required ? "default" : "outline"}
+                        onClick={() => jumpToAddForm(item.suggestedType)}
+                      >
+                        Upload
+                      </Button>
+                    ) : null}
+                    <Badge variant={item.complete ? "default" : item.required ? "destructive" : "secondary"}>
+                      {item.complete ? "On file" : item.required ? "Missing" : "Optional"}
+                    </Badge>
+                  </div>
                 </div>
               </InsuranceHoverNote>
             ))}
           </div>
         </div>
 
-        <div className="rounded-lg border p-4">
+        <div id={`patient-documents-add-${patientId}`} className="rounded-lg border p-4">
           <div className="mb-4">
             <h3 className="text-sm font-semibold text-foreground">Add document</h3>
             <p className="text-xs text-muted-foreground">
@@ -320,6 +372,8 @@ export function DocumentsList({ patientId }: { patientId: string }) {
               </InsuranceFieldLabel>
               <label
                 htmlFor="patient-document-file"
+                id={`patient-document-file-label-${patientId}`}
+                tabIndex={0}
                 className="flex min-h-10 cursor-pointer items-center rounded-md border border-input bg-background px-4 py-2 text-sm text-muted-foreground shadow-xs transition hover:bg-muted"
               >
                 {file ? file.name : "Choose a PDF or image"}

@@ -4,6 +4,7 @@ import { verifyToken, can } from "@/lib/security"
 import { promises as fs } from "fs"
 import path from "path"
 import { RADIOLOGY_UPLOAD_EXTENSIONS, RADIOLOGY_UPLOAD_MIME_TYPES } from "@/lib/radiology"
+import { put } from "@vercel/blob"
 
 export const runtime = "nodejs"
 
@@ -30,6 +31,15 @@ const LAB_UPLOAD_EXTENSIONS = [
 ] as const
 
 const INSURANCE_UPLOAD_KINDS = new Set(["insurance", "lab"])
+
+function toSafeBase(name: string, ext: string) {
+  return (
+    path
+      .basename(name, ext)
+      .replace(/[^a-zA-Z0-9_-]/g, "-")
+      .slice(0, 50) || "upload"
+  )
+}
 
 export async function POST(req: Request) {
   const cookieStore = await cookies()
@@ -70,22 +80,46 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "File too large (max 25MB)" }, { status: 413 })
     }
 
-    const buffer = Buffer.from(await file.arrayBuffer())
     const safeExt = ext || ""
-    const safeBase = path
-      .basename(file.name, safeExt)
-      .replace(/[^a-zA-Z0-9_-]/g, "-")
-      .slice(0, 50)
-      || "upload"
+    const safeBase = toSafeBase(file.name || "upload", safeExt)
     const filename = `${Date.now()}-${Math.random().toString(36).slice(2, 8)}-${safeBase}${safeExt}`
+
+    // In production, prefer Vercel Blob for durability.
+    // Requires BLOB_READ_WRITE_TOKEN (or Vercel project Blob integration).
+    const shouldUseBlob = INSURANCE_UPLOAD_KINDS.has(kind) && process.env.NODE_ENV === "production"
+    if (shouldUseBlob) {
+      try {
+        const blob = await put(
+          `insurance/${filename}`,
+          file,
+          {
+            access: "public",
+            contentType: ct || undefined,
+            addRandomSuffix: false,
+          },
+        )
+        return NextResponse.json({
+          url: blob.url,
+          mimeType: ct || null,
+          originalName: file.name || filename,
+          storage: "blob",
+        })
+      } catch (err: any) {
+        // If blob is not configured, fall back to local for non-production/dev-like setups.
+        // Keep error opaque in production.
+        const msg = process.env.NODE_ENV === "production" ? "Upload failed" : (err?.message || "Upload failed")
+        return NextResponse.json({ error: msg }, { status: 500 })
+      }
+    }
+
+    // Local filesystem fallback (dev/self-host). Not durable on Vercel serverless.
+    const buffer = Buffer.from(await file.arrayBuffer())
     const uploadDir = path.join(process.cwd(), "public", "uploads")
     await fs.mkdir(uploadDir, { recursive: true })
     const dest = path.join(uploadDir, filename)
     await fs.writeFile(dest, buffer)
-
-    // Public URL path
     const url = `/uploads/${filename}`
-    return NextResponse.json({ url, mimeType: ct || null, originalName: file.name || filename })
+    return NextResponse.json({ url, mimeType: ct || null, originalName: file.name || filename, storage: "local" })
   } catch (err: any) {
     // Some runtimes throw TypeError for non-multipart bodies
     return NextResponse.json({ error: err?.message || "Upload failed" }, { status: 500 })

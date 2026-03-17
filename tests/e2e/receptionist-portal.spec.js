@@ -598,6 +598,12 @@ test.describe("Receptionist portal smoke", () => {
       await page.getByRole("button", { name: "Save changes" }).click()
       await expect(page.getByText("Pending")).toBeVisible()
 
+      // New guided CTA should jump the user straight to the documents checklist area.
+      await page.getByRole("button", { name: "Open documents checklist" }).click()
+      const checklist = page.locator(`#patient-documents-checklist-${patientFixture.id}`)
+      await expect(checklist).toBeVisible({ timeout: 60000 })
+      await expect(checklist).toBeInViewport()
+
       await page.locator("#insurance-preauth-create-payer").click()
       await page.getByRole("option", { name: payerName }).click()
       await page.locator("#insurance-preauth-create-policy").click()
@@ -617,8 +623,12 @@ test.describe("Receptionist portal smoke", () => {
       await expect(preauthRecord).toContainText("Approved", { timeout: 60000 })
       await expect(page.getByText("Authorization trail")).toBeVisible()
 
-      await page.locator("#patient-document-type").click()
-      await page.getByRole("option", { name: "Pre-authorization letter", exact: true }).click()
+      // Use the checklist shortcut to pre-select the correct type.
+      await page
+        .locator("div")
+        .filter({ hasText: /^Pre-authorization approval/ })
+        .getByRole("button", { name: "Upload", exact: true })
+        .click()
       await page.locator("#patient-document-file").setInputFiles({
         name: fileName,
         mimeType: "application/pdf",
