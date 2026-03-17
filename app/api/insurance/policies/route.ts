@@ -5,6 +5,7 @@ import { verifyToken, can } from "@/lib/security"
 import { query, queryWithSession } from "@/lib/db"
 import { writeAuditLog } from "@/lib/audit"
 import {
+  INSURANCE_PANEL_STATUSES,
   INSURANCE_SUBSCRIBER_RELATIONSHIPS,
   INSURANCE_VERIFICATION_STATUSES,
 } from "@/lib/insurance"
@@ -29,9 +30,13 @@ const Create = z.object({
   memberId: nullableTrimmedString(100),
   groupNo: nullableTrimmedString(100),
   planName: nullableTrimmedString(150),
+  schemeName: nullableTrimmedString(150),
+  employerName: nullableTrimmedString(150),
+  staffNumber: nullableTrimmedString(100),
   subscriberName: nullableTrimmedString(150),
   subscriberRelationship: z.enum(INSURANCE_SUBSCRIBER_RELATIONSHIPS).nullable().optional(),
   coordinationOrder: z.number().int().min(1).max(9).default(1),
+  panelStatus: z.enum(INSURANCE_PANEL_STATUSES).default("Unknown"),
   effectiveDate: nullableDate,
   expiryDate: nullableDate,
   verificationStatus: z.enum(INSURANCE_VERIFICATION_STATUSES).default("Unverified"),
@@ -49,9 +54,13 @@ const Update = z.object({
   memberId: nullableTrimmedString(100),
   groupNo: nullableTrimmedString(100),
   planName: nullableTrimmedString(150),
+  schemeName: nullableTrimmedString(150),
+  employerName: nullableTrimmedString(150),
+  staffNumber: nullableTrimmedString(100),
   subscriberName: nullableTrimmedString(150),
   subscriberRelationship: z.enum(INSURANCE_SUBSCRIBER_RELATIONSHIPS).nullable().optional(),
   coordinationOrder: z.number().int().min(1).max(9).optional(),
+  panelStatus: z.enum(INSURANCE_PANEL_STATUSES).optional(),
   effectiveDate: nullableDate,
   expiryDate: nullableDate,
   verificationStatus: z.enum(INSURANCE_VERIFICATION_STATUSES).optional(),
@@ -74,9 +83,13 @@ async function ensureInsuranceColumns() {
         `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS member_id VARCHAR(100)`,
         `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS group_no VARCHAR(100)`,
         `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS plan_name VARCHAR(150)`,
+        `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS scheme_name VARCHAR(150)`,
+        `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS employer_name VARCHAR(150)`,
+        `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS staff_number VARCHAR(100)`,
         `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS subscriber_name VARCHAR(150)`,
         `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS subscriber_relationship VARCHAR(30)`,
         `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS coordination_order INTEGER DEFAULT 1`,
+        `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS panel_status VARCHAR(30) DEFAULT 'Unknown'`,
         `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS effective_date DATE`,
         `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS expiry_date DATE`,
         `ALTER TABLE insurance_policies ADD COLUMN IF NOT EXISTS verification_status VARCHAR(30) DEFAULT 'Unverified'`,
@@ -91,9 +104,20 @@ async function ensureInsuranceColumns() {
         try {
           await query(statement)
         } catch {
-          // Non-fatal. Subsequent queries will surface actual schema issues.
+          // Non-fatal. Main queries surface actual issues.
         }
       }
+
+      try {
+        await query(`ALTER TABLE insurance_policies DROP CONSTRAINT IF EXISTS insurance_policies_panel_status_check`)
+      } catch {}
+      try {
+        await query(
+          `ALTER TABLE insurance_policies
+             ADD CONSTRAINT insurance_policies_panel_status_check
+             CHECK (panel_status IN ('Unknown','Confirmed','Limited Panel','Out of Panel'))`
+        )
+      } catch {}
     })().catch((error) => {
       globalThis.__dayspringInsuranceColumnsPromise = null
       throw error
@@ -107,10 +131,56 @@ function hasOwnProperty<T extends object, K extends PropertyKey>(value: T, key: 
   return Object.prototype.hasOwnProperty.call(value, key)
 }
 
-export async function GET(req: Request) {
+function validateCoverageDates(effectiveDate?: string | null, expiryDate?: string | null) {
+  if (!effectiveDate || !expiryDate) return null
+  if (new Date(expiryDate).getTime() < new Date(effectiveDate).getTime()) {
+    return "Expiry date cannot be earlier than effective date"
+  }
+  return null
+}
+
+function validateVerification(status?: string, reference?: string | null) {
+  if (status === "Verified" && !reference) {
+    return "Verification reference is required when cover is marked verified"
+  }
+  return null
+}
+
+async function resolvePayerType(
+  auth: NonNullable<Awaited<ReturnType<typeof requireAuth>>>,
+  payerId: string,
+) {
+  const { rows } = await queryWithSession<{ payer_type: string | null }>(
+    { role: auth.role, userId: auth.userId },
+    `SELECT payer_type FROM insurance_payers WHERE id = $1`,
+    [payerId],
+  )
+  return rows[0]?.payer_type || null
+}
+
+async function validatePolicyWorkflow(
+  auth: NonNullable<Awaited<ReturnType<typeof requireAuth>>>,
+  payload: {
+    payerId: string
+    schemeName?: string | null
+    employerName?: string | null
+  },
+) {
+  const payerType = await resolvePayerType(auth, payload.payerId)
+  if (payerType === "CORPORATE" && !payload.schemeName && !payload.employerName) {
+    return "Corporate or sponsor cover should include an employer or scheme name"
+  }
+  return null
+}
+
+async function requireAuth() {
   const cookieStore = await cookies()
   const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
-  const auth = token ? verifyToken(token) : null
+  return token ? verifyToken(token) : null
+}
+
+export async function GET(req: Request) {
+  const auth = await requireAuth()
   if (!auth || !can(auth.role, "insurance", "read")) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -127,9 +197,13 @@ export async function GET(req: Request) {
             pol.member_id,
             pol.group_no,
             pol.plan_name,
+            pol.scheme_name,
+            pol.employer_name,
+            pol.staff_number,
             pol.subscriber_name,
             pol.subscriber_relationship,
             pol.coordination_order,
+            pol.panel_status,
             pol.effective_date,
             pol.expiry_date,
             pol.coverage_notes,
@@ -143,26 +217,39 @@ export async function GET(req: Request) {
             pol.updated_at,
             pay.id AS payer_id,
             pay.name AS payer_name,
-            pay.payer_code
+            pay.payer_code,
+            pay.payer_type,
+            pay.requires_preauth_default,
+            pay.scheme_stamp_required,
+            pay.panel_driven,
+            pay.contact_phone,
+            pay.contact_email,
+            pay.notes AS payer_notes
        FROM insurance_policies pol
        JOIN insurance_payers pay ON pay.id = pol.payer_id
       WHERE ($1::uuid IS NULL OR pol.patient_id = $1)
       ORDER BY COALESCE(pol.coordination_order, 1) ASC, pol.active DESC, pay.name ASC`,
-    [patientId]
+    [patientId],
   )
+
   return NextResponse.json({ policies: rows })
 }
 
 export async function POST(req: Request) {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
-  const auth = token ? verifyToken(token) : null
+  const auth = await requireAuth()
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "insurance", "create")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   await ensureInsuranceColumns()
 
   const data = Create.parse(await req.json())
+  const dateError = validateCoverageDates(data.effectiveDate, data.expiryDate)
+  if (dateError) return NextResponse.json({ error: dateError }, { status: 400 })
+  const verificationError = validateVerification(data.verificationStatus, data.verificationReference ?? null)
+  if (verificationError) return NextResponse.json({ error: verificationError }, { status: 400 })
+  const workflowError = await validatePolicyWorkflow(auth, data)
+  if (workflowError) return NextResponse.json({ error: workflowError }, { status: 400 })
+
   const { rows } = await queryWithSession(
     { role: auth.role, userId: auth.userId },
     `INSERT INTO insurance_policies (
@@ -172,9 +259,13 @@ export async function POST(req: Request) {
         member_id,
         group_no,
         plan_name,
+        scheme_name,
+        employer_name,
+        staff_number,
         subscriber_name,
         subscriber_relationship,
         coordination_order,
+        panel_status,
         effective_date,
         expiry_date,
         coverage_notes,
@@ -186,7 +277,7 @@ export async function POST(req: Request) {
         authorization_reference,
         active
       )
-      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19)
+      VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16,$17,$18,$19,$20,$21,$22,$23)
       RETURNING id`,
     [
       data.patientId,
@@ -195,9 +286,13 @@ export async function POST(req: Request) {
       data.memberId ?? null,
       data.groupNo ?? null,
       data.planName ?? null,
+      data.schemeName ?? null,
+      data.employerName ?? null,
+      data.staffNumber ?? null,
       data.subscriberName ?? null,
       data.subscriberRelationship ?? null,
       data.coordinationOrder,
+      data.panelStatus,
       data.effectiveDate ?? null,
       data.expiryDate ?? null,
       data.coverageNotes ?? null,
@@ -208,8 +303,9 @@ export async function POST(req: Request) {
       data.authorizationRequired,
       data.authorizationReference ?? null,
       data.active,
-    ]
+    ],
   )
+
   await writeAuditLog({
     userId: auth.userId,
     action: "INSURANCE_POLICY_CREATE",
@@ -217,13 +313,12 @@ export async function POST(req: Request) {
     entityId: rows[0].id,
     details: data,
   })
+
   return NextResponse.json({ id: rows[0].id })
 }
 
 export async function PATCH(req: Request) {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
-  const auth = token ? verifyToken(token) : null
+  const auth = await requireAuth()
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "insurance", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -234,6 +329,47 @@ export async function PATCH(req: Request) {
   if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
 
   const data = Update.parse(await req.json())
+  const {
+    rows: existingRows,
+  } = await queryWithSession<{
+    payer_id: string
+    effective_date: string | null
+    expiry_date: string | null
+    verification_status: string | null
+    verification_reference: string | null
+    scheme_name: string | null
+    employer_name: string | null
+  }>(
+    { role: auth.role, userId: auth.userId },
+    `SELECT payer_id, effective_date, expiry_date, verification_status, verification_reference, scheme_name, employer_name
+       FROM insurance_policies
+      WHERE id = $1`,
+    [id],
+  )
+  const existing = existingRows[0]
+  if (!existing) return NextResponse.json({ error: "Not found" }, { status: 404 })
+
+  const nextEffectiveDate = hasOwnProperty(data, "effectiveDate") ? data.effectiveDate ?? null : existing.effective_date
+  const nextExpiryDate = hasOwnProperty(data, "expiryDate") ? data.expiryDate ?? null : existing.expiry_date
+  const nextVerificationStatus = data.verificationStatus ?? existing.verification_status ?? "Unverified"
+  const nextVerificationReference = hasOwnProperty(data, "verificationReference")
+    ? data.verificationReference ?? null
+    : existing.verification_reference
+  const nextPayerId = data.payerId ?? existing.payer_id
+  const nextSchemeName = hasOwnProperty(data, "schemeName") ? data.schemeName ?? null : existing.scheme_name
+  const nextEmployerName = hasOwnProperty(data, "employerName") ? data.employerName ?? null : existing.employer_name
+
+  const dateError = validateCoverageDates(nextEffectiveDate, nextExpiryDate)
+  if (dateError) return NextResponse.json({ error: dateError }, { status: 400 })
+  const verificationError = validateVerification(nextVerificationStatus, nextVerificationReference)
+  if (verificationError) return NextResponse.json({ error: verificationError }, { status: 400 })
+  const workflowError = await validatePolicyWorkflow(auth, {
+    payerId: nextPayerId,
+    schemeName: nextSchemeName,
+    employerName: nextEmployerName,
+  })
+  if (workflowError) return NextResponse.json({ error: workflowError }, { status: 400 })
+
   const fields: string[] = []
   const values: unknown[] = []
 
@@ -247,11 +383,15 @@ export async function PATCH(req: Request) {
   if (hasOwnProperty(data, "memberId")) pushField("member_id", data.memberId ?? null)
   if (hasOwnProperty(data, "groupNo")) pushField("group_no", data.groupNo ?? null)
   if (hasOwnProperty(data, "planName")) pushField("plan_name", data.planName ?? null)
+  if (hasOwnProperty(data, "schemeName")) pushField("scheme_name", data.schemeName ?? null)
+  if (hasOwnProperty(data, "employerName")) pushField("employer_name", data.employerName ?? null)
+  if (hasOwnProperty(data, "staffNumber")) pushField("staff_number", data.staffNumber ?? null)
   if (hasOwnProperty(data, "subscriberName")) pushField("subscriber_name", data.subscriberName ?? null)
   if (hasOwnProperty(data, "subscriberRelationship")) {
     pushField("subscriber_relationship", data.subscriberRelationship ?? null)
   }
   if (data.coordinationOrder !== undefined) pushField("coordination_order", data.coordinationOrder)
+  if (data.panelStatus !== undefined) pushField("panel_status", data.panelStatus)
   if (hasOwnProperty(data, "effectiveDate")) pushField("effective_date", data.effectiveDate ?? null)
   if (hasOwnProperty(data, "expiryDate")) pushField("expiry_date", data.expiryDate ?? null)
   if (hasOwnProperty(data, "coverageNotes")) pushField("coverage_notes", data.coverageNotes ?? null)
@@ -259,9 +399,7 @@ export async function PATCH(req: Request) {
     pushField("verification_reference", data.verificationReference ?? null)
   }
   if (hasOwnProperty(data, "verificationNotes")) pushField("verification_notes", data.verificationNotes ?? null)
-  if (data.authorizationRequired !== undefined) {
-    pushField("authorization_required", data.authorizationRequired)
-  }
+  if (data.authorizationRequired !== undefined) pushField("authorization_required", data.authorizationRequired)
   if (hasOwnProperty(data, "authorizationReference")) {
     pushField("authorization_reference", data.authorizationReference ?? null)
   }
@@ -271,9 +409,7 @@ export async function PATCH(req: Request) {
     values.push(data.verificationStatus)
     const statusPosition = values.length
     fields.push(`verification_status = $${statusPosition}`)
-    fields.push(
-      `verified_at = CASE WHEN $${statusPosition} = 'Verified' THEN COALESCE(verified_at, NOW()) ELSE NULL END`
-    )
+    fields.push(`verified_at = CASE WHEN $${statusPosition} = 'Verified' THEN COALESCE(verified_at, NOW()) ELSE NULL END`)
   }
 
   if (!fields.length) {
@@ -288,8 +424,9 @@ export async function PATCH(req: Request) {
     `UPDATE insurance_policies
         SET ${fields.join(", ")}
       WHERE id = $${values.length}`,
-    values
+    values,
   )
+
   await writeAuditLog({
     userId: auth.userId,
     action: "INSURANCE_POLICY_UPDATE",
@@ -297,13 +434,12 @@ export async function PATCH(req: Request) {
     entityId: id,
     details: data,
   })
+
   return NextResponse.json({ success: true })
 }
 
 export async function DELETE(req: Request) {
-  const cookieStore = await cookies()
-  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
-  const auth = token ? verifyToken(token) : null
+  const auth = await requireAuth()
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "insurance", "delete")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
@@ -314,7 +450,7 @@ export async function DELETE(req: Request) {
   const { rows } = await queryWithSession<{ id: string; patient_id: string; payer_id: string; policy_no: string }>(
     { role: auth.role, userId: auth.userId },
     `DELETE FROM insurance_policies WHERE id = $1 RETURNING id, patient_id, payer_id, policy_no`,
-    [id]
+    [id],
   )
   if (!rows.length) return NextResponse.json({ error: "Not found" }, { status: 404 })
 
@@ -325,5 +461,6 @@ export async function DELETE(req: Request) {
     entityId: id,
     details: rows[0],
   })
+
   return NextResponse.json({ success: true })
 }

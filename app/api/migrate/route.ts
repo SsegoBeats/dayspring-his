@@ -685,9 +685,18 @@ CREATE TABLE IF NOT EXISTS insurance_payers (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(150) NOT NULL UNIQUE,
     payer_code VARCHAR(50) UNIQUE,
+    payer_type VARCHAR(20) NOT NULL DEFAULT 'INSURER' CHECK (payer_type IN ('INSURER','HMO','CORPORATE','GOVERNMENT','BROKER')),
+    requires_preauth_default BOOLEAN NOT NULL DEFAULT false,
+    scheme_stamp_required BOOLEAN NOT NULL DEFAULT false,
+    panel_driven BOOLEAN NOT NULL DEFAULT false,
+    contact_phone VARCHAR(30),
+    contact_email VARCHAR(150),
+    notes TEXT,
+    active BOOLEAN NOT NULL DEFAULT true,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
+CREATE INDEX IF NOT EXISTS idx_insurance_payers_type_active ON insurance_payers(payer_type, active);
 DROP TRIGGER IF EXISTS update_insurance_payers_updated_at ON insurance_payers;
 CREATE TRIGGER update_insurance_payers_updated_at BEFORE UPDATE ON insurance_payers FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -699,9 +708,13 @@ CREATE TABLE IF NOT EXISTS insurance_policies (
     member_id VARCHAR(100),
     group_no VARCHAR(100),
     plan_name VARCHAR(150),
+    scheme_name VARCHAR(150),
+    employer_name VARCHAR(150),
+    staff_number VARCHAR(100),
     subscriber_name VARCHAR(150),
     subscriber_relationship VARCHAR(30),
     coordination_order INTEGER NOT NULL DEFAULT 1 CHECK (coordination_order BETWEEN 1 AND 9),
+    panel_status VARCHAR(30) NOT NULL DEFAULT 'Unknown' CHECK (panel_status IN ('Unknown','Confirmed','Limited Panel','Out of Panel')),
     effective_date DATE,
     expiry_date DATE,
     coverage_notes TEXT,
@@ -729,8 +742,14 @@ CREATE TABLE IF NOT EXISTS preauthorizations (
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
     appointment_id UUID REFERENCES appointments(id) ON DELETE SET NULL,
     payer_id UUID NOT NULL REFERENCES insurance_payers(id) ON DELETE RESTRICT,
+    policy_id UUID REFERENCES insurance_policies(id) ON DELETE SET NULL,
     status VARCHAR(30) NOT NULL DEFAULT 'Pending' CHECK (status IN ('Pending','Approved','Denied','Expired')),
     auth_code VARCHAR(100),
+    request_reference VARCHAR(100),
+    service_category VARCHAR(50) NOT NULL DEFAULT 'Other',
+    requested_service TEXT,
+    response_due_at DATE,
+    valid_until DATE,
     notes TEXT,
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
     updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -738,6 +757,7 @@ CREATE TABLE IF NOT EXISTS preauthorizations (
 CREATE INDEX IF NOT EXISTS idx_preauth_patient ON preauthorizations(patient_id);
 CREATE INDEX IF NOT EXISTS idx_preauth_payer ON preauthorizations(payer_id);
 CREATE INDEX IF NOT EXISTS idx_preauth_status ON preauthorizations(status);
+CREATE INDEX IF NOT EXISTS idx_preauth_policy ON preauthorizations(policy_id);
 DROP TRIGGER IF EXISTS update_preauthorizations_updated_at ON preauthorizations;
 CREATE TRIGGER update_preauthorizations_updated_at BEFORE UPDATE ON preauthorizations FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
 
@@ -863,7 +883,7 @@ CREATE INDEX IF NOT EXISTS idx_notifications_role ON notifications(role, created
 CREATE TABLE IF NOT EXISTS documents (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     patient_id UUID NOT NULL REFERENCES patients(id) ON DELETE CASCADE,
-    type VARCHAR(20) NOT NULL CHECK (type IN ('ID','INSURANCE','CONSENT','OTHER')),
+    type VARCHAR(20) NOT NULL CHECK (type IN ('ID','INSURANCE','GUARANTEE','REFERRAL','PREAUTH','CLAIM_FORM','CONSENT','OTHER')),
     file_url TEXT NOT NULL,
     uploaded_by UUID REFERENCES users(id),
     uploaded_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP

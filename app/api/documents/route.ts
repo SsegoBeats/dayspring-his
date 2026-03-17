@@ -4,11 +4,12 @@ import { z } from "zod"
 import { verifyToken, can } from "@/lib/security"
 import { query, queryWithSession } from "@/lib/db"
 import { writeAuditLog } from "@/lib/audit"
+import { PATIENT_DOCUMENT_TYPES } from "@/lib/insurance"
 
 // Accept absolute URLs (https://...) or app-relative paths like /uploads/...
 const Create = z.object({
   patientId: z.string().uuid(),
-  type: z.enum(['ID','INSURANCE','CONSENT','OTHER']),
+  type: z.enum(PATIENT_DOCUMENT_TYPES),
   fileUrl: z.string().min(1),
   notes: z.string().optional(),
   fileName: z.string().max(255).optional(),
@@ -36,6 +37,20 @@ async function ensureDocumentColumns() {
         await query(`ALTER TABLE documents ADD COLUMN IF NOT EXISTS mime_type TEXT`)
       } catch {
         // Non-fatal; main queries will surface genuine schema issues.
+      }
+      try {
+        await query(`ALTER TABLE documents DROP CONSTRAINT IF EXISTS documents_type_check`)
+      } catch {
+        // Non-fatal; best effort only.
+      }
+      try {
+        await query(
+          `ALTER TABLE documents
+             ADD CONSTRAINT documents_type_check
+             CHECK (type IN ('ID','INSURANCE','GUARANTEE','REFERRAL','PREAUTH','CLAIM_FORM','CONSENT','OTHER'))`
+        )
+      } catch {
+        // Non-fatal; compatible schema may already exist.
       }
     })().catch((error) => {
       globalThis.__dayspringDocumentColumnsPromise = null

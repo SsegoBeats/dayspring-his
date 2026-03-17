@@ -29,6 +29,8 @@ const LAB_UPLOAD_EXTENSIONS = [
   ".xlsx",
 ] as const
 
+const INSURANCE_UPLOAD_KINDS = new Set(["insurance", "lab"])
+
 export async function POST(req: Request) {
   const cookieStore = await cookies()
   const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
@@ -44,13 +46,20 @@ export async function POST(req: Request) {
     const ct = String((file as any).type || "").toLowerCase()
     const ext = path.extname(file.name || "").toLowerCase()
     const isImage = ct.startsWith("image/")
-    const allowedMimeTypes = kind === "lab" ? LAB_UPLOAD_MIME_TYPES : RADIOLOGY_UPLOAD_MIME_TYPES
-    const allowedExtensions = kind === "lab" ? LAB_UPLOAD_EXTENSIONS : RADIOLOGY_UPLOAD_EXTENSIONS
+    const documentUpload = INSURANCE_UPLOAD_KINDS.has(kind)
+    const allowedMimeTypes = documentUpload ? LAB_UPLOAD_MIME_TYPES : RADIOLOGY_UPLOAD_MIME_TYPES
+    const allowedExtensions = documentUpload ? LAB_UPLOAD_EXTENSIONS : RADIOLOGY_UPLOAD_EXTENSIONS
     const hasAllowedMime = isImage || allowedMimeTypes.includes(ct as (typeof allowedMimeTypes)[number])
     const hasAllowedExtension = allowedExtensions.includes(ext as (typeof allowedExtensions)[number])
     if (!(hasAllowedMime || hasAllowedExtension)) {
+      const kindError =
+        kind === "insurance"
+          ? "Only insurance-safe uploads are allowed (images, PDF, TXT, CSV, or Excel)."
+          : kind === "lab"
+            ? "Only lab-safe uploads are allowed (images, PDF, TXT, CSV, or Excel)."
+            : "Only imaging-related uploads are allowed (images, PDF, DICOM, or ZIP)."
       return NextResponse.json(
-        { error: kind === "lab" ? "Only lab-safe uploads are allowed (images, PDF, TXT, CSV, or Excel)." : "Only imaging-related uploads are allowed (images, PDF, DICOM, or ZIP)." },
+        { error: kindError },
         { status: 415 },
       )
     }

@@ -73,6 +73,18 @@ async function cleanupInsuranceArtifacts(patientId, runId) {
 
     await client.query(
       `
+        DELETE FROM preauthorizations
+        WHERE patient_id = $1
+          AND (
+            request_reference = $2
+            OR auth_code = $3
+          )
+      `,
+      [patientId, `REQ-${runId}`, `AUTH-${runId}`],
+    )
+
+    await client.query(
+      `
         DELETE FROM insurance_policies
         WHERE patient_id = $1
           AND policy_no = $2
@@ -518,6 +530,7 @@ test.describe("Receptionist portal smoke", () => {
     const groupNo = `GRP-${runId}`
     const planName = "Executive Inpatient"
     const verificationReference = `VR-${runId}`
+    const requestReference = `REQ-${runId}`
     const authorizationReference = `AUTH-${runId}`
     const documentNotes = `E2E insurance doc ${runId}`
     const fileName = `insurance-card-${runId}.pdf`
@@ -537,13 +550,24 @@ test.describe("Receptionist portal smoke", () => {
       await expect(insuranceHeading).toBeVisible({ timeout: 60000 })
       await insuranceHeading.scrollIntoViewIfNeeded()
 
+      await page.locator('label[for="insurance-payer-name"]').hover()
+      await expect(page.getByText("Official payer, HMO, employer, or sponsor name as it appears on the card or letter.")).toBeVisible()
+
       await page.locator("#insurance-payer-name").fill(payerName)
       await page.locator("#insurance-payer-code").fill(payerCode)
+      await page.locator("#insurance-payer-type").click()
+      await page.getByRole("option", { name: "HMO", exact: true }).click()
+      await page
+        .locator("div")
+        .filter({ hasText: /^Panel-driven coverUse this for HMOs and managed-care payers where facility network status matters\.$/ })
+        .getByRole("switch")
+        .click()
       await page.getByRole("button", { name: "Add Payer" }).click()
 
       await page.locator("#insurance-create-payer").click()
       await page.getByRole("option", { name: payerName }).click()
       await page.locator("#insurance-create-plan-name").fill(planName)
+      await page.locator("#insurance-create-scheme-name").fill("Dayspring staff scheme")
       await page.locator("#insurance-create-policy-number").fill(policyNo)
       await page.locator("#insurance-create-member-id").fill(memberId)
       await page.locator("#insurance-create-group-number").fill(groupNo)
@@ -574,8 +598,27 @@ test.describe("Receptionist portal smoke", () => {
       await page.getByRole("button", { name: "Save changes" }).click()
       await expect(page.getByText("Pending")).toBeVisible()
 
+      await page.locator("#insurance-preauth-create-payer").click()
+      await page.getByRole("option", { name: payerName }).click()
+      await page.locator("#insurance-preauth-create-policy").click()
+      await page.getByRole("option", { name: new RegExp(policyNo) }).click()
+      await page.locator("#insurance-preauth-create-service-category").click()
+      await page.getByRole("option", { name: "Imaging", exact: true }).click()
+      await page.locator("#insurance-preauth-create-requested-service").fill("CT abdomen with contrast")
+      await page.locator("#insurance-preauth-create-request-reference").fill(requestReference)
+      await page.locator("#insurance-preauth-create-status").click()
+      await page.getByRole("option", { name: "Approved", exact: true }).click()
+      await page.locator("#insurance-preauth-create-auth-code").fill(authorizationReference)
+      await page.locator("#insurance-preauth-create-valid-until").fill("2026-12-31")
+      await page.locator("#insurance-preauth-create-notes").fill("Approved by payer desk for imaging package.")
+      await page.getByRole("button", { name: "Add Authorization" }).click()
+
+      const preauthRecord = page.locator('[data-preauth-id]').first()
+      await expect(preauthRecord).toContainText("Approved", { timeout: 60000 })
+      await expect(page.getByText("Authorization trail")).toBeVisible()
+
       await page.locator("#patient-document-type").click()
-      await page.getByRole("option", { name: "Insurance card", exact: true }).click()
+      await page.getByRole("option", { name: "Pre-authorization letter", exact: true }).click()
       await page.locator("#patient-document-file").setInputFiles({
         name: fileName,
         mimeType: "application/pdf",
@@ -585,6 +628,7 @@ test.describe("Receptionist portal smoke", () => {
       await page.getByRole("button", { name: "Add Document" }).click()
       const documentRow = page.locator(`[data-document-name="${fileName}"]`)
       await expect(documentRow).toBeVisible({ timeout: 60000 })
+      await expect(page.getByText("On file")).toBeVisible()
 
       page.once("dialog", (dialog) => dialog.accept())
       await documentRow.getByRole("button", { name: "Remove" }).click()
