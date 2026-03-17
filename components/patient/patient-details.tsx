@@ -250,14 +250,18 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
           })()}
 
           <Separator />
-          {/* Insurance and Documents side by side */}
-          <div id="patient-insurance-docs" className="grid min-w-0 gap-4 md:grid-cols-[1.6fr_1fr]">
-            <div id="patient-insurance" className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
-              <InsurancePolicies patientId={patientId} />
-            </div>
-            <div id="patient-documents" className="min-w-0 overflow-hidden rounded-lg border bg-card p-4">
-              <DocumentsList patientId={patientId} />
-            </div>
+          {/* Insurance and Documents: separate cards (two columns) */}
+          <div id="patient-insurance-docs" className="grid min-w-0 gap-4 md:grid-cols-2">
+            <Card id="patient-insurance" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
+              <CardContent className="p-4">
+                <InsurancePolicies patientId={patientId} />
+              </CardContent>
+            </Card>
+            <Card id="patient-documents" className="min-w-0 overflow-hidden border-border/80 shadow-sm">
+              <CardContent className="p-4">
+                <DocumentsList patientId={patientId} />
+              </CardContent>
+            </Card>
           </div>
           </CardContent>
         </Card>
