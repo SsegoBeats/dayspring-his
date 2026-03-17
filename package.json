@@ -6,14 +6,6 @@
         "build": "next build",
         "dev": "next dev",
         "lint": "eslint .",
-        "test:e2e:admin": "npx playwright test tests/e2e/admin-portal.spec.js",
-        "test:e2e:admin:headed": "npx playwright test tests/e2e/admin-portal.spec.js --headed",
-        "test:e2e:lab": "npx playwright test tests/e2e/lab-portal.spec.js",
-        "test:e2e:lab:headed": "npx playwright test tests/e2e/lab-portal.spec.js --headed",
-        "test:e2e:receptionist": "npx playwright test tests/e2e/receptionist-portal.spec.js",
-        "test:e2e:receptionist:headed": "npx playwright test tests/e2e/receptionist-portal.spec.js --headed",
-        "test:e2e:radiology": "npx playwright test tests/e2e/radiology-portal.spec.js",
-        "test:e2e:radiology:headed": "npx playwright test tests/e2e/radiology-portal.spec.js --headed",
         "start": "next start",
         "migrate:create": "node-pg-migrate create -m ./migrations",
         "migrate:up": "node-pg-migrate up -m ./migrations",
@@ -90,7 +82,6 @@
         "zod": "3.25.76"
     },
     "devDependencies": {
-        "@playwright/test": "^1.58.2",
         "@tailwindcss/postcss": "^4.1.9",
         "@types/node": "^22",
         "@types/nodemailer": "^7.0.3",
