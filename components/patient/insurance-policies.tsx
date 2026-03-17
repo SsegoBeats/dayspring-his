@@ -1245,7 +1245,7 @@ export function InsurancePolicies({
   }
 
   return (
-    <Card className="border-0 shadow-none">
+    <Card className="border-0 bg-transparent shadow-none">
       {!compact ? (
         <CardHeader className="px-0 pt-0">
           <CardTitle>Insurance</CardTitle>
@@ -1372,12 +1372,12 @@ export function InsurancePolicies({
         ) : null}
 
         {!hideRecords ? (
-          <Card className="border-border/80 shadow-sm">
+          <Card className="flex h-full flex-col border-border/80 bg-transparent shadow-none">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Policy records</CardTitle>
               <CardDescription>Expand a policy to update it, refine verification notes, or change authorization flags.</CardDescription>
             </CardHeader>
-            <CardContent className="pt-0">
+            <CardContent className="flex-1 pt-0">
               {loading ? (
                 <div className="text-sm text-muted-foreground">Loading coverage records...</div>
               ) : policies.length === 0 ? (
@@ -1551,7 +1551,7 @@ export function InsurancePolicies({
         ) : null}
 
         {!hideAddPayer ? (
-          <Card className="border-border/80 shadow-sm">
+          <Card className="border-border/80 bg-transparent shadow-none">
             <CardHeader className="pb-3">
               <CardTitle className="text-sm">Add new payer</CardTitle>
               <CardDescription>Only add a payer when the master list does not already cover the insurer, HMO, or sponsor handling the patient.</CardDescription>
@@ -1802,7 +1802,7 @@ export function InsuranceAuthorizations({
   return (
     <div className="space-y-4">
       {!hideTracker ? (
-        <Card className="border-border/80 shadow-sm">
+        <Card className="border-border/80 bg-transparent shadow-none">
           <CardHeader className="pb-3">
             <div className="flex items-start justify-between gap-3">
               <div>
@@ -1829,12 +1829,12 @@ export function InsuranceAuthorizations({
       ) : null}
 
       {!hideRecords ? (
-        <Card className="border-border/80 shadow-sm">
+        <Card className="flex h-full flex-col border-border/80 bg-transparent shadow-none">
           <CardHeader className="pb-3">
             <CardTitle className="text-sm">Pre-authorization records</CardTitle>
             <CardDescription>Track pending, approved, denied, and expired authorizations against the patient and payer.</CardDescription>
           </CardHeader>
-          <CardContent className="pt-0">
+          <CardContent className="flex-1 pt-0">
             {loading ? (
               <div className="text-sm text-muted-foreground">Loading authorization records...</div>
             ) : preauthorizations.length === 0 ? (
