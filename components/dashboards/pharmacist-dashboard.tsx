@@ -50,7 +50,7 @@ export function PharmacistDashboard() {
     items: { description: string; quantity: number }[]
     billStatus: string
   } | null>(null)
-  const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc" | "adjustments">("prescriptions")
+  const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc" | "adjustments" | "suppliers">("prescriptions")
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const scanInputRef = useRef<HTMLInputElement>(null)
 
