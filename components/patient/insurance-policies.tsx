@@ -1379,10 +1379,11 @@ export function InsurancePolicies({
             </CardHeader>
             <CardContent className="flex-1 p-4 pt-0">
               {loading ? (
-                <div className="grid min-h-[4rem] place-items-center text-sm text-muted-foreground">Loading coverage records...</div>
+                <div className="grid min-h-[2rem] place-items-center py-2 text-sm text-muted-foreground">Loading coverage records...</div>
               ) : policies.length === 0 ? (
-                <div className="grid min-h-[4rem] place-items-center text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
+                <div className="grid min-h-[2rem] place-items-center py-2 text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
               ) : (
+                <div className={policies.length >= 5 ? "max-h-[22rem] overflow-y-auto" : undefined}>
                 <Accordion type="single" collapsible className="px-4">
                   {policies.map((policy) => {
                     const draft = policyDrafts[policy.id] || toPolicyForm(policy)
@@ -1449,6 +1450,7 @@ export function InsurancePolicies({
                     )
                   })}
                 </Accordion>
+                </div>
               )}
             </CardContent>
           </Card>
@@ -1834,10 +1836,11 @@ export function InsuranceAuthorizations({
           </CardHeader>
           <CardContent className="flex-1 p-4 pt-0">
             {loading ? (
-              <div className="grid min-h-[4rem] place-items-center text-sm text-muted-foreground">Loading authorization records...</div>
+              <div className="grid min-h-[2rem] place-items-center py-2 text-sm text-muted-foreground">Loading authorization records...</div>
             ) : preauthorizations.length === 0 ? (
-              <div className="grid min-h-[4rem] place-items-center text-sm text-muted-foreground">No authorization records for this patient yet.</div>
+              <div className="grid min-h-[2rem] place-items-center py-2 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
             ) : (
+              <div className={preauthorizations.length >= 5 ? "max-h-[22rem] overflow-y-auto" : undefined}>
               <Accordion type="single" collapsible className="px-4">
                 {preauthorizations.map((preauth) => {
                   const draft = preauthDrafts[preauth.id] || toPreauthForm(preauth)
@@ -1886,6 +1889,7 @@ export function InsuranceAuthorizations({
                   )
                 })}
               </Accordion>
+              </div>
             )}
           </CardContent>
         </Card>
