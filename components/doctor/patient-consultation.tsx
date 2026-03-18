@@ -1351,12 +1351,18 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
                             ) : null}
                             <Button size="sm" variant="outline" onClick={() => setSelectedLabId(lab.id)}>View</Button>
                             {(() => { const role = (user?.role || '').toLowerCase(); return (role === 'clinician' || role === 'dentist') && (lab.status || '').toLowerCase() === 'completed' && !lab.reviewedAt })() && (
-                              <Button size="sm" onClick={async () => {
+                              <Button size="sm" onClick={async (e) => {
+                                const btn = e.currentTarget
+                                btn.disabled = true
                                 try {
                                   const res = await fetch(`/api/lab-tests/${lab.id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ reviewed: true }) })
-                                  if (!res.ok) throw new Error('Failed')
+                                  if (!res.ok) throw new Error((await res.json().catch(() => ({}))).error || 'Failed to mark reviewed')
                                   await refreshLab({ patientId })
-                                } catch {}
+                                  toast.success('Lab result marked as reviewed')
+                                } catch (err: any) {
+                                  toast.error(err?.message || 'Failed to mark reviewed')
+                                  btn.disabled = false
+                                }
                               }}>Mark Reviewed</Button>
                             )}
                           </div>
