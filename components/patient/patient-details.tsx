@@ -369,9 +369,13 @@ export function PatientDetails({ patientId, onBack }: PatientDetailsProps) {
         </div>
 
         {/* Last row: two columns (preauth records + policy records) */}
-        <div className="mt-4 grid min-w-0 items-stretch gap-4 xl:grid-cols-2">
-          <InsuranceAuthorizations patientId={patientId} hideTracker />
-          <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake hideAddPayer compact />
+        <div className="mt-4 flex min-w-0 flex-col gap-4 xl:flex-row">
+          <div className="min-w-0 flex-1">
+            <InsuranceAuthorizations patientId={patientId} hideTracker />
+          </div>
+          <div className="min-w-0 flex-1">
+            <InsurancePolicies patientId={patientId} hideAuthorizations hideIntake hideAddPayer compact />
+          </div>
         </div>
       </div>
 
