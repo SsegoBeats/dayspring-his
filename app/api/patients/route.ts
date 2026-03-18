@@ -118,7 +118,8 @@ export async function POST(req: Request) {
   const colsSql = insertCols.join(', ')
   const valsSql = (present.has('patient_number') ? `${pnExpr}${placeholders.length ? ', ' : ''}` : '') + placeholders.join(', ')
   if (!colsSql) return NextResponse.json({ error: 'Patients table has no expected columns' }, { status: 500 })
-  const { rows } = await query<{ id: string }>(
+  const { rows } = await queryWithSession<{ id: string }>(
+    { role: auth.role, userId: auth.userId },
     `INSERT INTO patients (${colsSql}) VALUES (${valsSql}) RETURNING id`,
     values,
   )
@@ -379,11 +380,12 @@ export async function DELETE(req: Request) {
     if (!patientId) return NextResponse.json({ error: "Patient ID is required" }, { status: 400 })
 
     // Get patient info before deletion for audit log
-    const { rows: patientRows } = await query(
+    const { rows: patientRows } = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
       `SELECT id, patient_number, first_name, last_name FROM patients WHERE id = $1`,
       [patientId]
     )
-    
+
     if (patientRows.length === 0) {
       return NextResponse.json({ error: "Patient not found" }, { status: 404 })
     }
@@ -393,7 +395,7 @@ export async function DELETE(req: Request) {
     // Delete patient. Some installations may have legacy/restricting FKs; if so, we attempt
     // best-effort cleanup of dependent rows and retry once.
     try {
-      await query(`DELETE FROM patients WHERE id = $1`, [patientId])
+      await queryWithSession({ role: auth.role, userId: auth.userId }, `DELETE FROM patients WHERE id = $1`, [patientId])
     } catch (e: any) {
       if (String(e?.code || "") !== "23503") throw e
 
@@ -427,7 +429,7 @@ export async function DELETE(req: Request) {
       }
 
       try {
-        await query(`DELETE FROM patients WHERE id = $1`, [patientId])
+        await queryWithSession({ role: auth.role, userId: auth.userId }, `DELETE FROM patients WHERE id = $1`, [patientId])
       } catch (retryErr: any) {
         if (String((retryErr as any)?.code || "") === "23503") {
           return NextResponse.json(
