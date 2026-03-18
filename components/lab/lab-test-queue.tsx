@@ -54,7 +54,9 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
           setLabTechs(data.labTechs)
         }
       })
-      .catch(() => {})
+      .catch(() => {
+        toast.error("Failed to load lab technician list. Assignment dropdown may be empty.")
+      })
   }, [])
 
   // Get unique test types
