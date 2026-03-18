@@ -59,8 +59,8 @@ export async function POST(req: Request) {
     const documentUpload = INSURANCE_UPLOAD_KINDS.has(kind)
     const allowedMimeTypes = documentUpload ? LAB_UPLOAD_MIME_TYPES : RADIOLOGY_UPLOAD_MIME_TYPES
     const allowedExtensions = documentUpload ? LAB_UPLOAD_EXTENSIONS : RADIOLOGY_UPLOAD_EXTENSIONS
-    const hasAllowedMime = isImage || allowedMimeTypes.includes(ct as (typeof allowedMimeTypes)[number])
-    const hasAllowedExtension = allowedExtensions.includes(ext as (typeof allowedExtensions)[number])
+    const hasAllowedMime = isImage || (allowedMimeTypes as unknown as string[]).includes(ct)
+    const hasAllowedExtension = (allowedExtensions as unknown as string[]).includes(ext)
     if (!(hasAllowedMime || hasAllowedExtension)) {
       const kindError =
         kind === "insurance"

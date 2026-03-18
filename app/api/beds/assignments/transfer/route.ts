@@ -81,7 +81,7 @@ export async function POST(request: Request) {
           `INSERT INTO bed_assignments (bed_id, patient_id, assigned_by, notes)
            VALUES ($1, $2, $3, $4)
            RETURNING *`,
-          [targetBedId, patientId, authResult.user.id, notes ? `Transfer: ${notes}` : "Bed transfer"]
+          [targetBedId, patientId, authResult.user!.id, notes ? `Transfer: ${notes}` : "Bed transfer"]
         )
 
         await client.query(
@@ -99,7 +99,7 @@ export async function POST(request: Request) {
 
     try {
       await writeAuditLog({
-        userId: authResult.user.id,
+        userId: authResult.user!.id,
         action: "TRANSFER",
         entityType: "BedAssignment",
         entityId: newAssignment.id,

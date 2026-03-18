@@ -70,12 +70,12 @@ function ChartContainer({
             {React.cloneElement(children as React.ReactElement, {
               width: typeof width === 'number' ? width : undefined,
               height: typeof height === 'number' ? height : undefined
-            })}
+            } as any)}
           </div>
         ) : (
-          <RechartsPrimitive.ResponsiveContainer 
-            width={width || "100%"} 
-            height={height || "100%"}
+          <RechartsPrimitive.ResponsiveContainer
+            width={(width || "100%") as any}
+            height={(height || "100%") as any}
             minHeight={typeof height === 'string' ? parseInt(height) : height || 300}
           >
             {children}
@@ -142,6 +142,8 @@ function ChartTooltipContent({
     indicator?: 'line' | 'dot' | 'dashed'
     nameKey?: string
     labelKey?: string
+    payload?: any[]
+    label?: any
   }) {
   const { config } = useChart()
 
@@ -196,7 +198,7 @@ function ChartTooltipContent({
     >
       {!nestLabel ? tooltipLabel : null}
       <div className="grid gap-1.5">
-        {payload.map((item, index) => {
+        {payload.map((item: any, index: number) => {
           const key = `${nameKey || item.name || item.dataKey || 'value'}`
           const itemConfig = getPayloadConfigFromPayload(config, item, key)
           const indicatorColor = color || item.payload.fill || item.color
@@ -273,8 +275,9 @@ function ChartLegendContent({
   payload,
   verticalAlign = 'bottom',
   nameKey,
-}: React.ComponentProps<'div'> &
-  Pick<RechartsPrimitive.LegendProps, 'payload' | 'verticalAlign'> & {
+}: React.ComponentProps<'div'> & {
+    payload?: any[]
+    verticalAlign?: string
     hideIcon?: boolean
     nameKey?: string
   }) {
@@ -292,7 +295,7 @@ function ChartLegendContent({
         className,
       )}
     >
-      {payload.map((item) => {
+      {payload.map((item: any) => {
         const key = `${nameKey || item.dataKey || 'value'}`
         const itemConfig = getPayloadConfigFromPayload(config, item, key)
 

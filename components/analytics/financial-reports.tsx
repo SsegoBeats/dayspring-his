@@ -68,7 +68,7 @@ const FixedChartContainer = ({
         {React.cloneElement(children as React.ReactElement, {
           width: typeof width === 'number' ? width : undefined,
           height: height
-        })}
+        } as any)}
       </div>
     </div>
   )
@@ -693,7 +693,7 @@ export function FinancialReports() {
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
-                        label={({ department, revenue }) => 
+                        label={({ department, revenue }: any) =>
                           `${department}: ${formatCurrency(revenue)}`
                         }
                       >
@@ -757,7 +757,7 @@ export function FinancialReports() {
                         cx="50%"
                         cy="50%"
                         outerRadius={100}
-                        label={({ paymentMethod, revenue }) => 
+                        label={({ paymentMethod, revenue }: any) =>
                           `${paymentMethod}: ${formatCurrency(revenue)}`
                         }
                       >

@@ -166,8 +166,8 @@ export async function toXLSX(
       const raw = base64 ? Buffer.from(base64, 'base64') : Buffer.from([])
       const inputBuffer = base64 ? raw : Buffer.isBuffer(opts.logoDataUrl) ? (opts.logoDataUrl as any as Buffer) : undefined
       if (inputBuffer && inputBuffer.length > 0) {
-        const transparent = await sharp(inputBuffer).removeAlpha().ensureAlpha(0.08).png().toBuffer()
-        const imgId = wb.addImage({ buffer: transparent, extension: 'png' })
+        const transparent = await sharp(inputBuffer).removeAlpha().ensureAlpha(0.08).png().toBuffer() as Buffer
+        const imgId = wb.addImage({ buffer: transparent as any, extension: 'png' })
         // Background image (Excel displays but does not print). We keep this for
         // visual context when editing.
         try { ws.addBackgroundImage(imgId) } catch {}
@@ -179,8 +179,8 @@ export async function toXLSX(
           const brRow = 38
           const brCol = Math.max(2, lastCol)
           ws.addImage(imgId, {
-            tl: { col: tlCol - 0.5, row: tlRow - 0.5 },
-            br: { col: brCol - 0.5, row: brRow - 0.5 },
+            tl: { col: tlCol - 0.5, row: tlRow - 0.5 } as any,
+            br: { col: brCol - 0.5, row: brRow - 0.5 } as any,
             editAs: 'oneCell' as any,
           })
         } catch {}
@@ -194,6 +194,7 @@ export async function toXLSX(
       const name = (sheet.name || 'Sheet').toString().slice(0, 31)
       const ws2 = wb.addWorksheet(name)
       const keys2 = sheet.rows.length ? Object.keys(sheet.rows[0]) : []
+      let lastCol2 = Math.max(1, keys2.length)
       if (keys2.length) {
         const headerMap2 = opts?.headerMap || {}
         ws2.columns = keys2.map((k) => ({
@@ -208,7 +209,7 @@ export async function toXLSX(
           }
         })
         // Branded header
-        const lastCol2 = Math.max(1, keys2.length)
+        lastCol2 = Math.max(1, keys2.length)
         ws2.spliceRows(1, 0, [opts?.headerTitle || ORG_NAME], [opts?.headerSubtitle || `${ORG_NAME} - ${ORG_SUBTITLE}`])
         const headerRow2 = ws2.getRow(3)
         headerRow2.font = { bold: true, color: { argb: 'FFFFFFFF' } }
@@ -255,8 +256,8 @@ export async function toXLSX(
           const raw = base64 ? Buffer.from(base64, 'base64') : Buffer.from([])
           const inputBuffer = base64 ? raw : Buffer.isBuffer(opts.logoDataUrl) ? (opts.logoDataUrl as any as Buffer) : undefined
           if (inputBuffer && inputBuffer.length > 0) {
-            const transparent = await sharp(inputBuffer).removeAlpha().ensureAlpha(0.08).png().toBuffer()
-            const imgId = wb.addImage({ buffer: transparent, extension: 'png' })
+            const transparent = await sharp(inputBuffer).removeAlpha().ensureAlpha(0.08).png().toBuffer() as Buffer
+            const imgId = wb.addImage({ buffer: transparent as any, extension: 'png' })
             try { ws2.addBackgroundImage(imgId) } catch {}
             try {
               const tlRow = 6
@@ -264,8 +265,8 @@ export async function toXLSX(
               const brRow = 38
               const brCol = Math.max(2, lastCol2)
               ws2.addImage(imgId, {
-                tl: { col: tlCol - 0.5, row: tlRow - 0.5 },
-                br: { col: brCol - 0.5, row: brRow - 0.5 },
+                tl: { col: tlCol - 0.5, row: tlRow - 0.5 } as any,
+                br: { col: brCol - 0.5, row: brRow - 0.5 } as any,
                 editAs: 'oneCell' as any,
               })
             } catch {}

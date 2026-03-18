@@ -171,7 +171,7 @@ export async function POST(request: Request) {
           `INSERT INTO bed_assignments (bed_id, patient_id, assigned_by, notes)
            VALUES ($1, $2, $3, $4)
            RETURNING *`,
-          [bedId, patientId, assignedBy || authResult.user.id, notes || null]
+          [bedId, patientId, assignedBy || authResult.user!.id, notes || null]
         )
 
         await client.query(
@@ -188,7 +188,7 @@ export async function POST(request: Request) {
     })
 
     // Audit
-    try { await writeAuditLog({ userId: authResult.user.id, action: 'ASSIGN', entityType: 'BedAssignment', entityId: newAssignment.id, details: { bedId, patientId, notes } }) } catch {}
+    try { await writeAuditLog({ userId: authResult.user!.id, action: 'ASSIGN', entityType: 'BedAssignment', entityId: newAssignment.id, details: { bedId, patientId, notes } }) } catch {}
 
     return NextResponse.json({
       success: true,
@@ -257,7 +257,7 @@ export async function PATCH(request: Request) {
     })
 
     // Audit
-    try { await writeAuditLog({ userId: authResult.user.id, action: 'DISCHARGE', entityType: 'BedAssignment', entityId: assignmentId, details: { bedId, status: newStatus, notes } }) } catch {}
+    try { await writeAuditLog({ userId: authResult.user!.id, action: 'DISCHARGE', entityType: 'BedAssignment', entityId: assignmentId, details: { bedId, status: newStatus, notes } }) } catch {}
     return NextResponse.json({ success: true })
   } catch (error: any) {
     console.error('[Bed Assignments API] Update assignment error:', error)

@@ -89,7 +89,7 @@ export async function query<T = any>(text: string, params?: any[]): Promise<{ ro
   const p = getPool()
   const start = nowMs()
   try {
-    return await p.query(text, params)
+    return await p.query(text, params) as unknown as { rows: T[] }
   } finally {
     logSlowQuery(text, nowMs() - start)
   }
@@ -118,6 +118,6 @@ export async function withSession<T>(session: DbSession, fn: (client: PoolClient
 }
 
 export async function queryWithSession<T = any>(session: DbSession, text: string, params?: any[]): Promise<{ rows: T[] }> {
-  return withSession(session, (client) => client.query(text, params))
+  return withSession(session, (client) => client.query(text, params)) as unknown as Promise<{ rows: T[] }>
 }
 

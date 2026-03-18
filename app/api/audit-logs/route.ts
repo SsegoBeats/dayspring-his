@@ -203,7 +203,7 @@ export async function POST(req: NextRequest) {
         VALUES ($1, $2, $3, $4, $5, $6)
         RETURNING id, created_at
       `, [
-        auth.user.id,
+        auth.user!.id,
         action,
         entityType,
         entityId || null,

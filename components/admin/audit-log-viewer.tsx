@@ -216,7 +216,7 @@ export function AuditLogViewer() {
       const filterParams = {
         search: search || undefined,
         category: categoryFilter !== "ALL" ? categoryFilter : undefined,
-        action: actionFilter !== "ALL" ? actionFilter : undefined,
+        action: actionFilter !== "ALL" ? (actionFilter as any) : undefined,
         ...getDateFilter(),
         page,
         limit,
@@ -237,7 +237,7 @@ export function AuditLogViewer() {
       const filters = {
         search: search || undefined,
         category: categoryFilter !== "ALL" ? categoryFilter : undefined,
-        action: actionFilter !== "ALL" ? actionFilter : undefined,
+        action: actionFilter !== "ALL" ? (actionFilter as any) : undefined,
         ...getDateFilter(),
       }
       

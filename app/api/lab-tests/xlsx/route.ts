@@ -125,7 +125,7 @@ export async function GET(req: Request) {
     const buf = await toXLSX(
       tableRows.map(r => ({
         Patient: r.Patient || '',
-        'P.ID': r.PID || r['P.ID'] || '',
+        'P.ID': r.PID || '',
         Test: r.Test || '',
         Parameter: r.Parameter || '',
         Value: r.Value || '',

@@ -113,7 +113,7 @@ export default function PrintLabTestPage() {
     const idx = test.results.indexOf('Interpretation:')
     if (idx === -1) return []
     const block = test.results.slice(idx)
-    return block.split(/\r?\n/).slice(1).map((l)=> l.replace(/^[-\s]+/, '').trim()).filter(Boolean)
+    return block.split(/\r?\n/).slice(1).map((l: string) => l.replace(/^[-\s]+/, '').trim()).filter(Boolean)
   }, [test?.results])
 
   const flagsSummary = useMemo(() => {
@@ -190,7 +190,7 @@ export default function PrintLabTestPage() {
         <div className="mb-4">
           <div className="font-medium">Interpretation</div>
           <ul className="list-disc pl-5 text-sm">
-            {interpretations.map((line, i)=> (<li key={i}>{line}</li>))}
+            {interpretations.map((line: string, i: number)=> (<li key={i}>{line}</li>))}
           </ul>
         </div>
       )}

@@ -110,7 +110,7 @@ export function FinancialReportPdf({ payload }: { payload: FinancialReportPayloa
             <Text style={styles.th}>Revenue</Text>
             <Text style={styles.th}>Transactions</Text>
           </View>
-          {data.revenueByDepartment.map((row, idx) => (
+          {data.revenueByDepartment.map((row: any, idx: number) => (
             <View style={styles.tr} key={`dept-${idx}`} wrap={false}>
               <Text style={styles.td}>{row.department}</Text>
               <Text style={styles.td}>{formatUGX(row.revenue)}</Text>
@@ -126,7 +126,7 @@ export function FinancialReportPdf({ payload }: { payload: FinancialReportPayloa
             <Text style={styles.th}>Revenue</Text>
             <Text style={styles.th}>Transactions</Text>
           </View>
-          {data.revenueByPaymentMethod.map((row, idx) => (
+          {data.revenueByPaymentMethod.map((row: any, idx: number) => (
             <View style={styles.tr} key={`pm-${idx}`} wrap={false}>
               <Text style={styles.td}>{row.paymentMethod}</Text>
               <Text style={styles.td}>{formatUGX(row.revenue)}</Text>
@@ -142,7 +142,7 @@ export function FinancialReportPdf({ payload }: { payload: FinancialReportPayloa
             <Text style={styles.th}>Revenue</Text>
             <Text style={styles.th}>Count</Text>
           </View>
-          {data.topServices.map((row, idx) => (
+          {data.topServices.map((row: any, idx: number) => (
             <View style={styles.tr} key={`svc-${idx}`} wrap={false}>
               <Text style={styles.td}>{row.service}</Text>
               <Text style={styles.td}>{formatUGX(row.revenue)}</Text>
@@ -157,7 +157,7 @@ export function FinancialReportPdf({ payload }: { payload: FinancialReportPayloa
             <Text style={styles.th}>Date</Text>
             <Text style={styles.th}>Visits</Text>
           </View>
-          {data.patientVisits.map((row, idx) => (
+          {data.patientVisits.map((row: any, idx: number) => (
             <View style={styles.tr} key={`pv-${idx}`} wrap={false}>
               <Text style={styles.td}>{row.date}</Text>
               <Text style={styles.td}>{row.visits}</Text>

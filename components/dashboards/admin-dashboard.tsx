@@ -333,7 +333,7 @@ export function AdminDashboard() {
                   return (
                     <Link
                       key={action.label}
-                      href={action.href}
+                      href={action.href!}
                       className="group rounded-2xl border border-white/70 bg-white/80 p-4 transition hover:-translate-y-0.5 hover:border-sky-200 hover:shadow-md"
                     >
                       <div className="mb-3 flex items-center justify-between">

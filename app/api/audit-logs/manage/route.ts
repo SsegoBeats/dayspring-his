@@ -62,7 +62,7 @@ export async function DELETE(req: NextRequest) {
     let rowCount = 0
     try {
       const result = await query(deleteQuery, params)
-      rowCount = result.rowCount || 0
+      rowCount = (result as any).rowCount || 0
     } catch (dbError) {
       console.error("Database error:", dbError)
       return NextResponse.json({ 
@@ -76,10 +76,10 @@ export async function DELETE(req: NextRequest) {
     if (!deleteAll) {
       try {
         await writeAuditLog({
-          userId: auth.user.id,
+          userId: auth.user!.id,
           action: "DELETE",
           entityType: "AuditLog",
-          entityId: null, // Use null instead of "bulk-delete" since it's not a specific entity
+          entityId: undefined,
           details: {
             category: "SYSTEM",
             description: `${description} - ${rowCount} records removed`,

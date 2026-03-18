@@ -328,7 +328,7 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
                     <div>
                       <span className="text-muted-foreground">Age:</span>{" "}
                       <span className="text-foreground">
-                        {new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear()}
+                        {patient.dateOfBirth ? new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear() : "N/A"}
                       </span>
                     </div>
                     {patient.allergies && (

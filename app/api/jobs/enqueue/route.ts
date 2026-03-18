@@ -7,7 +7,8 @@ import { query } from "@/lib/db"
 const Schema = z.object({ queue: z.string().min(1), payload: z.record(z.any()), runAt: z.string().datetime().optional() })
 
 export async function POST(req: Request) {
-  const token = cookies().get("session")?.value
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
   const auth = token ? verifyToken(token) : null
   if (!auth || !can(auth.role, "appointments", "update")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

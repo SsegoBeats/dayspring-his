@@ -215,7 +215,7 @@ export function EmailSettings() {
           {!showOtpInput ? (
             <Button 
               onClick={sendOtp}
-              disabled={sending || !email || (verified && email === originalEmail)}
+              disabled={sending || !email || (!!verified && email === originalEmail)}
               className="w-full rounded-2xl sm:flex-1"
             >
               {sending ? "Sending..." : "Send Verification Code"}

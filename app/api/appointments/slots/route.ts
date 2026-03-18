@@ -8,7 +8,8 @@ const Q = z.object({ doctorId: z.string().uuid(), date: z.string().regex(/^\d{4}
 
 export async function GET(req: Request) {
   try {
-    const token = cookies().get("session")?.value
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth || !can(auth.role, "appointments", "read")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 

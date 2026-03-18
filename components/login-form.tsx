@@ -114,7 +114,7 @@ export function LoginForm() {
           <div className="space-y-2">
             <Label htmlFor="role">Role</Label>
             <Select name="role" value={role} onValueChange={(value) => setRole(value as UserRole)}>
-              <SelectTrigger id="role" aria-label="Role" autoComplete="off">
+              <SelectTrigger id="role" aria-label="Role">
                 <SelectValue />
               </SelectTrigger>
               <SelectContent>

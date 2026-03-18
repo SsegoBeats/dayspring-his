@@ -153,7 +153,7 @@ export function DocumentsList({ patientId }: { patientId: string }) {
         complete: typePresent("CONSENT"),
         suggestedType: "CONSENT",
       },
-    ].filter((item) => item.required || item.complete || item.id === "referral" || item.id === "claim-form" || item.id === "consent")
+    ].filter((item) => item.required || item.complete || item.id === "referral" || item.id === "claim-form" || item.id === "consent") as ChecklistItem[]
   }, [activePolicies, docs, preauthorizations])
 
   const missingRequiredCount = requiredChecklist.filter((item) => item.required && !item.complete).length

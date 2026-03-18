@@ -65,7 +65,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
 
   // Get unique assigned techs
   const assignedTechs = useMemo(() => {
-    const techs = new Set(tests.map(t => t.labTechName).filter(Boolean))
+    const techs = new Set(tests.map(t => t.labTechName).filter((x): x is string => Boolean(x)))
     return Array.from(techs).sort()
   }, [tests])
 
@@ -540,7 +540,7 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                             >
                               <div className="flex items-center gap-1">
                                 <span className="font-medium">{test.patientName}</span>
-                                {flags.critical ? <AlertCircle className="h-3 w-3 text-red-600" title="Critical results" /> : null}
+                                {flags.critical ? <AlertCircle className="h-3 w-3 text-red-600" aria-label="Critical results" /> : null}
                               </div>
                               {test.patientNumber ? (
                                 <div className="text-xs text-muted-foreground">{test.patientNumber}</div>
