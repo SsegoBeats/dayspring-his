@@ -29,7 +29,7 @@ export async function GET(req: Request) {
     let patientFilter = ''
     let params: any[] = []
     try { const u = new URL(req.url); const pid = u.searchParams.get('patientId'); if (pid) { patientFilter = 'WHERE lt.patient_id = $1'; params.push(pid) } } catch {}
-    const { rows } = await queryWithSession({ role: auth.role, userId: auth.userId },
+    const { rows } = await queryWithSession({ role: auth!.role, userId: auth!.userId },
       `SELECT lt.id, lt.patient_id, p.first_name, p.last_name, p.gender, p.date_of_birth, lt.doctor_id, d.name AS doctor_name,
               lt.test_name, lt.test_type, lt.status, lt.results, lt.notes, lt.lab_tech_id, t.name AS lab_tech_name,
               lt.ordered_at, lt.completed_at, lt.priority, lt.specimen_type, lt.accession_number, lt.collected_at, lt.collected_by,

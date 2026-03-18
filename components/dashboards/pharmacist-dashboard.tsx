@@ -71,6 +71,31 @@ export function PharmacistDashboard() {
     }
   }, [tab, selectedPrescriptionId])
 
+  // Handle notification deep-links into the prescription queue
+  useEffect(() => {
+    const handler = async (event: Event) => {
+      const detail = (event as CustomEvent).detail || {}
+      // Mark notification as read
+      if (detail.notificationId) {
+        try {
+          await fetch("/api/notifications", {
+            method: "PATCH",
+            credentials: "include",
+            headers: { "Content-Type": "application/json" },
+            body: JSON.stringify({ ids: [detail.notificationId] }),
+          })
+        } catch {}
+      }
+      // Navigate to prescriptions tab and open the specific prescription if given
+      setTab("prescriptions")
+      if (detail.prescriptionId) {
+        setSelectedPrescriptionId(detail.prescriptionId)
+      }
+    }
+    window.addEventListener("openPharmacistDesk", handler as EventListener)
+    return () => window.removeEventListener("openPharmacistDesk", handler as EventListener)
+  }, [])
+
   const activePrescriptions = prescriptions.filter((p) => p.status === "active")
   const completedPrescriptions = prescriptions.filter((p) => p.status === "completed")
   const lowStockMeds = getLowStockMedications()

@@ -283,6 +283,19 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
                           } catch {}
                         },
                       }
+                  : normalizedRole === 'pharmacist' && (payload?.prescriptionId || patientId)
+                    ? {
+                        label: 'Open',
+                        onClick: () => {
+                          try {
+                            window.dispatchEvent(
+                              new CustomEvent('openPharmacistDesk', {
+                                detail: { prescriptionId: payload?.prescriptionId, patientId, notificationId: firstVisible.id },
+                              }),
+                            )
+                          } catch {}
+                        },
+                      }
                   : patientId
                     ? {
                         label: 'Open',
@@ -404,6 +417,12 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       }))
       return
     }
+    if (normalizedRole === 'pharmacist') {
+      const prescriptionId = payload?.prescriptionId
+      if (!prescriptionId && !patientId) return
+      window.dispatchEvent(new CustomEvent('openPharmacistDesk', { detail: { prescriptionId, patientId, notificationId: notification.id } }))
+      return
+    }
     if (!patientId) return
     if (normalizedRole === 'nurse') {
       const initialTab = /new patient registered/i.test(notification.title || '') ? 'triage' : 'vitals'
@@ -431,6 +450,11 @@ function NotificationsBell({ userRole }: { userRole?: string }) {
       if (payload?.billId) return 'Click to open invoice payment'
       if (payload?.paymentId) return 'Click to open the collections queue'
       return patientId ? 'Click to open the cashier portal' : null
+    }
+    if (normalizedRole === 'pharmacist') {
+      const prescriptionId = payload?.prescriptionId
+      if (prescriptionId || patientId) return 'Click to open prescription queue'
+      return null
     }
     if (!patientId) return null
     if (normalizedRole === 'nurse') {

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
-import { queryWithSession } from "@/lib/db"
+import { query, queryWithSession } from "@/lib/db"
 
 // Validation logic (shared with validation endpoint)
 async function validatePrescription(
@@ -296,6 +296,30 @@ export async function POST(req: Request) {
       }
 
       created.push(rows[0])
+    }
+
+    // Notify all pharmacists of the new prescription(s)
+    try {
+      const ptRow = await query(`SELECT first_name, last_name FROM patients WHERE id = $1`, [patientId])
+      const patientName = ptRow.rows[0]
+        ? `${ptRow.rows[0].first_name || ""} ${ptRow.rows[0].last_name || ""}`.trim()
+        : "a patient"
+      const isStat = priority === "Stat"
+      const medList = cleaned.map((m) => m.name).join(", ")
+      await query(
+        `INSERT INTO notifications (role, title, message, type, priority, payload)
+         VALUES ($1, $2, $3, $4, $5, $6::jsonb)`,
+        [
+          "Pharmacist",
+          isStat ? "STAT Prescription" : "New Prescription",
+          `${cleaned.length} medication${cleaned.length > 1 ? "s" : ""} for ${patientName}: ${medList}${isStat ? " — dispense immediately" : ""}`,
+          "Prescription",
+          isStat ? "High" : "Normal",
+          JSON.stringify({ prescriptionId: created[0]?.id, patientId, medicationCount: cleaned.length }),
+        ],
+      )
+    } catch {
+      // Non-fatal — prescription already saved
     }
 
     return NextResponse.json({
