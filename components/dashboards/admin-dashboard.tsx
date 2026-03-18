@@ -384,16 +384,37 @@ export function AdminDashboard() {
                 </div>
                 <div className="space-y-3 text-sm text-slate-600">
                   <div className="rounded-2xl border border-sky-100 bg-sky-50/70 p-3">
-                    Admin home preference:
+                    Default section:
                     <span className="ml-2 font-medium text-slate-900">
                       {settings?.defaultDashboard || "overview"}
                     </span>
                   </div>
                   <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-3">
-                    User settings stay per-account, while organization currency remains admin-only and system-wide.
+                    {summary ? (
+                      <>
+                        <span className="font-medium text-slate-900">{activeUsers}</span> active
+                        {" · "}
+                        <span className="font-medium text-slate-900">{inactiveUsers}</span> inactive
+                        {" · "}
+                        <span className="font-medium text-slate-900">{coveredRoles}</span> role{coveredRoles !== 1 ? "s" : ""} covered
+                      </>
+                    ) : (
+                      "Loading staff summary…"
+                    )}
                   </div>
                   <div className="rounded-2xl border border-violet-100 bg-violet-50/70 p-3">
-                    Notifications and deletion approvals continue to flow back into Admin without spilling into other portals.
+                    {summary ? (
+                      <>
+                        <span className="font-medium text-slate-900">{totalUsers}</span> total account{totalUsers !== 1 ? "s" : ""} in system
+                        {Object.keys(summary.byRole).length > 0 && (
+                          <span className="ml-1 text-xs text-slate-500">
+                            ({Object.entries(summary.byRole).filter(([, c]) => Number(c) > 0).map(([r, c]) => `${c} ${r}`).join(", ")})
+                          </span>
+                        )}
+                      </>
+                    ) : (
+                      "Loading account data…"
+                    )}
                   </div>
                 </div>
               </CardContent>

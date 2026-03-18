@@ -180,10 +180,14 @@ export function SystemOverview() {
       tone: "info" as const,
     },
     {
-      title: "Active Consultations",
-      value: medicalRecords.length,
+      title: "Today's Consultations",
+      value: medicalRecords.filter((r) => {
+        const d = new Date(r.date)
+        const today = new Date()
+        return d.toDateString() === today.toDateString()
+      }).length,
       icon: Activity,
-      description: "In progress",
+      description: "Medical visits today",
       tone: "info" as const,
     },
     {
@@ -246,37 +250,36 @@ export function SystemOverview() {
 
   return (
     <div className="space-y-4">
-      {/* Alert strip for critical admin signals */}
-      <Alert className="border-amber-200 bg-amber-50/60">
-        <AlertTriangle className="text-amber-600" />
-        <AlertTitle className="text-xs font-semibold text-amber-800 tracking-wide">
-          Attention needed
-        </AlertTitle>
-        <AlertDescription className="text-[11px] text-amber-900/80 flex flex-wrap gap-2">
-          {pendingBills.length > 0 ? (
-            <button type="button" onClick={() => jumpToSection("financial", { financialPeriod: "30days", financialTab: "revenue" })}>
-              <Badge variant="outline" className="border-amber-300 bg-amber-100/70 text-amber-900 h-5 text-[11px] hover:bg-amber-200/80">
-                {pendingBills.length} unpaid bill{pendingBills.length > 1 ? 's' : ''}
+      {/* Alert strip — only shown when there is something that needs attention */}
+      {(pendingBills.length > 0 || pendingLabTests.length > 0 || inactiveStaff > 0) && (
+        <Alert className="border-amber-200 bg-amber-50/60">
+          <AlertTriangle className="text-amber-600" />
+          <AlertTitle className="text-xs font-semibold text-amber-800 tracking-wide">
+            Attention needed
+          </AlertTitle>
+          <AlertDescription className="text-[11px] text-amber-900/80 flex flex-wrap gap-2">
+            {pendingBills.length > 0 ? (
+              <button type="button" onClick={() => jumpToSection("financial", { financialPeriod: "30days", financialTab: "revenue" })}>
+                <Badge variant="outline" className="border-amber-300 bg-amber-100/70 text-amber-900 h-5 text-[11px] hover:bg-amber-200/80">
+                  {pendingBills.length} unpaid bill{pendingBills.length > 1 ? 's' : ''}
+                </Badge>
+              </button>
+            ) : null}
+            {pendingLabTests.length > 0 ? (
+              <Badge variant="outline" className="border-red-200 bg-red-50 text-red-800 h-5 text-[11px]">
+                {pendingLabTests.length} lab test{pendingLabTests.length > 1 ? 's' : ''} awaiting results
               </Badge>
-            </button>
-          ) : null}
-          {pendingLabTests.length > 0 ? (
-            <Badge variant="outline" className="border-red-200 bg-red-50 text-red-800 h-5 text-[11px]">
-              {pendingLabTests.length} lab test{pendingLabTests.length > 1 ? 's' : ''} awaiting results
-            </Badge>
-          ) : null}
-          {inactiveStaff > 0 ? (
-            <button type="button" onClick={() => jumpToSection("users", { userStatus: "inactive" })}>
-              <Badge variant="outline" className="border-border bg-muted text-foreground h-5 text-[11px] hover:bg-slate-200/80">
-                {inactiveStaff} staff inactive in system
-              </Badge>
-            </button>
-          ) : null}
-          {pendingBills.length === 0 && pendingLabTests.length === 0 && inactiveStaff === 0 ? (
-            <span>All key systems look healthy. No urgent issues detected.</span>
-          ) : null}
-        </AlertDescription>
-      </Alert>
+            ) : null}
+            {inactiveStaff > 0 ? (
+              <button type="button" onClick={() => jumpToSection("users", { userStatus: "inactive" })}>
+                <Badge variant="outline" className="border-border bg-muted text-foreground h-5 text-[11px] hover:bg-slate-200/80">
+                  {inactiveStaff} staff inactive in system
+                </Badge>
+              </button>
+            ) : null}
+          </AlertDescription>
+        </Alert>
+      )}
 
       <div className="grid gap-4 md:grid-cols-2 lg:grid-cols-4">
         {stats.map((stat) => {
