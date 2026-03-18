@@ -1245,7 +1245,7 @@ export function InsurancePolicies({
   }
 
   return (
-    <Card className="border-0 bg-transparent shadow-none">
+    <Card className="h-full flex flex-col border-0 bg-transparent shadow-none">
       {!compact ? (
         <CardHeader className="px-0 pt-0">
           <CardTitle>Insurance</CardTitle>
@@ -1254,7 +1254,7 @@ export function InsurancePolicies({
           </CardDescription>
         </CardHeader>
       ) : null}
-      <CardContent className="space-y-4 px-0 pt-0 pb-0">
+      <CardContent className="flex-1 space-y-4 px-0 pt-0 pb-0">
         {!compact && (missingVerificationCount > 0 || missingPreauthCount > 0) ? (
           <div className="rounded-lg border border-amber-200 bg-amber-50/70 p-4 text-sm">
             <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
@@ -1373,15 +1373,15 @@ export function InsurancePolicies({
 
         {!hideRecords ? (
           <Card className="flex h-full flex-col border-border/80 bg-card shadow-sm">
-            <CardHeader className="min-h-[4.75rem] pb-3">
+            <CardHeader className="pb-3">
               <CardTitle className="text-sm">Policy records</CardTitle>
               <CardDescription>Expand a policy to update it, refine verification notes, or change authorization flags.</CardDescription>
             </CardHeader>
             <CardContent className="flex-1 p-4 pt-0">
               {loading ? (
-                <div className="grid min-h-[2rem] place-items-center py-2 text-sm text-muted-foreground">Loading coverage records...</div>
+                <div className="py-1 text-sm text-muted-foreground">Loading coverage records...</div>
               ) : policies.length === 0 ? (
-                <div className="grid min-h-[2rem] place-items-center py-2 text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
+                <div className="py-1 text-sm text-muted-foreground">No policies recorded for this patient yet.</div>
               ) : (
                 <div className={policies.length >= 5 ? "max-h-[22rem] overflow-y-auto" : undefined}>
                 <Accordion type="single" collapsible className="px-4">
@@ -1800,7 +1800,7 @@ export function InsuranceAuthorizations({
   }
 
   return (
-    <div className="space-y-4">
+    <div className="h-full space-y-4">
       {!hideTracker ? (
         <Card className="border-border/80 bg-card shadow-sm">
           <CardHeader className="pb-3">
@@ -1830,15 +1830,15 @@ export function InsuranceAuthorizations({
 
       {!hideRecords ? (
         <Card className="flex h-full flex-col border-border/80 bg-card shadow-sm">
-          <CardHeader className="min-h-[4.75rem] pb-3">
+          <CardHeader className="pb-3">
             <CardTitle className="text-sm">Pre-authorization records</CardTitle>
             <CardDescription>Track pending, approved, denied, and expired authorizations against the patient and payer.</CardDescription>
           </CardHeader>
           <CardContent className="flex-1 p-4 pt-0">
             {loading ? (
-              <div className="grid min-h-[2rem] place-items-center py-2 text-sm text-muted-foreground">Loading authorization records...</div>
+              <div className="py-1 text-sm text-muted-foreground">Loading authorization records...</div>
             ) : preauthorizations.length === 0 ? (
-              <div className="grid min-h-[2rem] place-items-center py-2 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
+              <div className="py-1 text-sm text-muted-foreground">No authorization records for this patient yet.</div>
             ) : (
               <div className={preauthorizations.length >= 5 ? "max-h-[22rem] overflow-y-auto" : undefined}>
               <Accordion type="single" collapsible className="px-4">
