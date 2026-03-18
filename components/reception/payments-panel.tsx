@@ -63,6 +63,7 @@ export function PaymentsPanel() {
   const [errorMsg, setErrorMsg] = useState("")
 
   useEffect(() => {
+    const controller = new AbortController()
     const h = setTimeout(() => {
       if (!q || q.length < 2) {
         setPatients([])
@@ -71,16 +72,22 @@ export function PaymentsPanel() {
       void (async () => {
         try {
           setSearching(true)
-          const res = await fetch(`/api/patients?q=${encodeURIComponent(q)}&limit=25&compact=1`, { credentials: "include" })
+          const res = await fetch(`/api/patients?q=${encodeURIComponent(q)}&limit=25&compact=1`, {
+            credentials: "include",
+            signal: controller.signal,
+          })
           if (res.ok) setPatients((await res.json()).patients || [])
         } catch {
-          setPatients([])
+          if (!controller.signal.aborted) setPatients([])
         } finally {
-          setSearching(false)
+          if (!controller.signal.aborted) setSearching(false)
         }
       })()
     }, 250)
-    return () => clearTimeout(h)
+    return () => {
+      clearTimeout(h)
+      controller.abort()
+    }
   }, [q])
 
   const loadRecent = useCallback(async (pid?: string) => {
@@ -219,7 +226,7 @@ export function PaymentsPanel() {
           </div>
           <div className="rounded-2xl border border-emerald-100 bg-emerald-50/70 p-4">
             <div className="text-xs font-medium uppercase tracking-[0.18em] text-emerald-700">Total Value</div>
-            <div className="mt-2 text-2xl font-semibold text-slate-950">{totalAmount.toLocaleString()}</div>
+            <div className="mt-2 text-2xl font-semibold text-slate-950">UGX {totalAmount.toLocaleString()}</div>
             <div className="mt-1 text-sm text-slate-600">Across the payments loaded into this panel.</div>
           </div>
           <div className="rounded-2xl border border-slate-200 bg-slate-50/90 p-4">

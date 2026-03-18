@@ -149,13 +149,14 @@ export async function POST(req: Request) {
 
     const billNumber = generateReceiptNumber()
 
-    const billInsert = await query(
+    const billInsert = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
       `INSERT INTO bills (
          bill_number, patient_id, total_amount, tax_amount, discount_amount,
          final_amount, status, payment_method, paid_amount, barcode, cashier_id
-       ) VALUES ($1,$2,$3,$4,$5,$6,'Pending',NULL,0,NULL,NULL)
+       ) VALUES ($1,$2,$3,$4,$5,$6,'Pending',NULL,0,NULL,$7)
        RETURNING id`,
-      [billNumber, patientId, subtotal, taxAmount, discountAmount, finalAmount],
+      [billNumber, patientId, subtotal, taxAmount, discountAmount, finalAmount, auth.userId],
     )
 
     const billId = billInsert.rows[0].id as string
@@ -175,10 +176,15 @@ export async function POST(req: Request) {
         : undefined,
     })
 
-    await query(`UPDATE bills SET barcode = $1 WHERE id = $2`, [barcodePayload, billId])
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `UPDATE bills SET barcode = $1 WHERE id = $2`,
+      [barcodePayload, billId],
+    )
 
     for (const item of items) {
-      await query(
+      await queryWithSession(
+        { role: auth.role, userId: auth.userId },
         `INSERT INTO bill_items (bill_id, description, quantity, unit_price, total_price)
          VALUES ($1,$2,$3,$4,$5)`,
         [billId, item.description, item.quantity, item.unitPrice, item.totalPrice],

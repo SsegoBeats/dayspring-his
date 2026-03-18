@@ -78,7 +78,7 @@ export async function PATCH(req: Request) {
     if (!id) return NextResponse.json({ error: "id required" }, { status: 400 })
     const body = await req.json()
     const Update = z.object({
-      action: z.enum(['advance','cancel','start','done','waiting','reorder','top']),
+      action: z.enum(['advance','cancel','start','done','waiting','reorder','top','set_priority']),
       priority: z.number().int().min(0).optional(),
       targetId: z.string().uuid().optional(),
       place: z.enum(['before','after']).optional(),

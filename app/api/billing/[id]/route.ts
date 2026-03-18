@@ -340,11 +340,16 @@ export async function PUT(
     )
 
     // Delete existing items
-    await query(`DELETE FROM bill_items WHERE bill_id = $1`, [billId])
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `DELETE FROM bill_items WHERE bill_id = $1`,
+      [billId],
+    )
 
     // Insert new items
     for (const item of items) {
-      await query(
+      await queryWithSession(
+        { role: auth.role, userId: auth.userId },
         `INSERT INTO bill_items (bill_id, description, quantity, unit_price, total_price)
          VALUES ($1,$2,$3,$4,$5)`,
         [billId, item.description, item.quantity, item.unitPrice, item.totalPrice],
@@ -388,8 +393,16 @@ export async function DELETE(
       )
     }
 
-    await query(`DELETE FROM bill_items WHERE bill_id = $1`, [billId])
-    await query(`DELETE FROM bills WHERE id = $1`, [billId])
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `DELETE FROM bill_items WHERE bill_id = $1`,
+      [billId],
+    )
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `DELETE FROM bills WHERE id = $1`,
+      [billId],
+    )
 
     return NextResponse.json({ ok: true })
   } catch (err: any) {

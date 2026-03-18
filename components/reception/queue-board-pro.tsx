@@ -110,7 +110,7 @@ export function QueueBoardPro() {
 
   const setPriority = async (id: string, priority: number) => {
     try {
-      const res = await fetch(`/api/queues?id=${id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'advance', priority }) })
+      const res = await fetch(`/api/queues?id=${id}`, { method: 'PATCH', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify({ action: 'set_priority', priority }) })
       if (!res.ok) { toast.error('Failed to update priority') } else { load() }
     } catch { toast.error('Failed to update priority') }
   }
@@ -384,7 +384,7 @@ export function QueueBoardPro() {
                     return (
                       <div
                         key={r.id}
-                        className={`p-3 flex items-center justify-between border-t transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 ${cls}`}
+                        className={`p-3 border-t transition-colors focus:outline-none focus:ring-2 focus:ring-sky-500 ${cls}`}
                         draggable
                         onDragStart={(e)=>{
                           e.dataTransfer.setData('text/plain', JSON.stringify({ id: r.id, status: lane.status }))
@@ -414,34 +414,42 @@ export function QueueBoardPro() {
                           if (e.key === 'c' || e.key === 'C') { update(r.id, 'cancel') }
                         }}
                       >
-                        <div className="text-sm">
-                          <div className="font-medium">{formatPatientNumber(r.patient_number)} - {r.first_name} {r.last_name}</div>
-                          <div className="text-muted-foreground">{r.department} | Priority {r.priority} | Position {r.position}</div>
+                        {/* Patient info row */}
+                        <div className="mb-2">
+                          <div className="text-sm font-semibold text-foreground leading-snug">
+                            {formatPatientNumber(r.patient_number)} — {r.first_name} {r.last_name}
+                          </div>
+                          <div className="text-xs text-muted-foreground mt-0.5">
+                            {r.department} | Priority {r.priority} | #{r.position}
+                          </div>
                           {lane.status === 'waiting' && typeof r.waiting_minutes === 'number' && (
-                            <div className="text-xs text-amber-600">Waiting: {Math.max(0, Math.round(r.waiting_minutes))} min</div>
+                            <div className="text-xs font-medium mt-0.5 text-amber-700">
+                              Waiting {Math.max(0, Math.round(r.waiting_minutes))} min
+                            </div>
                           )}
                           {lane.status === 'in_service' && typeof r.in_service_minutes === 'number' && (
-                            <div className="text-xs text-emerald-600">In Service: {Math.max(0, Math.round(r.in_service_minutes))} min</div>
+                            <div className="text-xs font-medium mt-0.5 text-emerald-700">
+                              In service {Math.max(0, Math.round(r.in_service_minutes))} min
+                            </div>
                           )}
                         </div>
-                        <div className="flex gap-2 items-center">
-                          <div className="flex items-center gap-1">
-                            <Button size="sm" variant="outline" onClick={() => setPriority(r.id, Math.max(0, r.priority - 1))}>-</Button>
-                            <Button size="sm" variant="outline" onClick={() => setPriority(r.id, r.priority + 1)}>+</Button>
-                          </div>
-                          <Button size="sm" variant="outline" onClick={() => fetch(`/api/queues?id=${r.id}`, { method:'PATCH', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'top', department: department || undefined, statusCtx: lane.status }) }).then(()=>load())}>Top</Button>
+                        {/* Action buttons row */}
+                        <div className="flex flex-wrap items-center gap-1.5">
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Lower priority" onClick={() => setPriority(r.id, Math.max(0, r.priority - 1))}>-</Button>
+                          <Button size="sm" variant="outline" className="h-7 w-7 p-0" title="Raise priority" onClick={() => setPriority(r.id, r.priority + 1)}>+</Button>
+                          <Button size="sm" variant="outline" className="h-7 px-2" title="Move to top of lane" onClick={() => fetch(`/api/queues?id=${r.id}`, { method:'PATCH', credentials:'include', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ action:'top', department: department || undefined, statusCtx: lane.status }) }).then(()=>load())}>Top</Button>
                           {lane.status === 'waiting' && (
                             <>
-                              <Button size="sm" onClick={() => update(r.id, 'start')}>Start</Button>
-                              <Button size="sm" variant="secondary" onClick={() => update(r.id, 'advance')}>Advance</Button>
-                              <Button size="sm" variant="destructive" onClick={() => update(r.id, 'cancel')}>Cancel</Button>
+                              <Button size="sm" className="h-7 px-2" onClick={() => update(r.id, 'start')}>Start</Button>
+                              <Button size="sm" variant="secondary" className="h-7 px-2" onClick={() => update(r.id, 'advance')}>Advance</Button>
+                              <Button size="sm" variant="destructive" className="h-7 px-2" onClick={() => update(r.id, 'cancel')}>Cancel</Button>
                             </>
                           )}
                           {lane.status === 'in_service' && (
-                            <Button size="sm" onClick={() => update(r.id, 'done')}>Mark Done</Button>
+                            <Button size="sm" className="h-7 px-2" onClick={() => update(r.id, 'done')}>Mark Done</Button>
                           )}
                           {lane.status === 'done' && (
-                            <Button size="sm" variant="destructive" onClick={() => handleDeleteDone(r.id)}>Remove</Button>
+                            <Button size="sm" variant="destructive" className="h-7 px-2" onClick={() => handleDeleteDone(r.id)}>Remove</Button>
                           )}
                         </div>
                       </div>
