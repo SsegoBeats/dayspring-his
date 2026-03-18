@@ -1,6 +1,31 @@
 import { query } from "@/lib/db"
 import { RADIOLOGY_MODALITIES } from "@/lib/radiology"
 
+// Idempotent: adds last_active_at to users table if absent.
+let _lastActiveEnsured = false
+async function ensureLastActiveAt() {
+  if (_lastActiveEnsured) return
+  try {
+    await query(`ALTER TABLE users ADD COLUMN IF NOT EXISTS last_active_at TIMESTAMPTZ`)
+    _lastActiveEnsured = true
+  } catch {
+    // column already exists or DDL not permitted — queries fall back gracefully
+  }
+}
+
+// Returns the most-recent of last_login and last_active_at for a set of roles.
+// Using GREATEST with COALESCE to a sentinel so NULLs don't discard real values.
+function lastSeenExpr(roleFilter: string) {
+  return `
+    SELECT GREATEST(
+      COALESCE(last_login,      '1900-01-01'::timestamptz),
+      COALESCE(last_active_at,  '1900-01-01'::timestamptz)
+    ) AS activity_at
+    FROM users
+    WHERE ${roleFilter}
+  `
+}
+
 // Treat "Active" as a very recent signal, then degrade quickly for operational monitoring.
 export const DEPARTMENT_ACTIVE_THRESHOLD_MINUTES = 5
 export const DEPARTMENT_STANDBY_THRESHOLD_MINUTES = 15
@@ -57,7 +82,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
       UNION ALL
       SELECT created_at AS activity_at FROM users WHERE role = 'Hospital Admin'
       UNION ALL
-      SELECT last_login AS activity_at FROM users WHERE role = 'Hospital Admin' AND last_login IS NOT NULL
+      ${lastSeenExpr("role = 'Hospital Admin'")}
     `,
   },
   {
@@ -72,7 +97,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
       UNION ALL
       SELECT created_at AS activity_at FROM queue_events
       UNION ALL
-      SELECT last_login AS activity_at FROM users WHERE role = 'Receptionist' AND last_login IS NOT NULL
+      ${lastSeenExpr("role = 'Receptionist'")}
     `,
   },
   {
@@ -87,7 +112,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
       UNION ALL
       SELECT created_at AS activity_at FROM obstetric_assessments
       UNION ALL
-      SELECT last_login AS activity_at FROM users WHERE role IN ('Clinician', 'Midwife', 'Dentist') AND last_login IS NOT NULL
+      ${lastSeenExpr("role IN ('Clinician', 'Midwife', 'Dentist')")}
     `,
   },
   {
@@ -100,7 +125,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
       UNION ALL
       SELECT updated_at AS activity_at FROM checkins
       UNION ALL
-      SELECT last_login AS activity_at FROM users WHERE role = 'Nurse' AND last_login IS NOT NULL
+      ${lastSeenExpr("role = 'Nurse'")}
     `,
   },
   {
@@ -109,7 +134,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
     activitySql: `
       SELECT ordered_at AS activity_at FROM lab_tests
       UNION ALL
-      SELECT last_login AS activity_at FROM users WHERE role = 'Lab Tech' AND last_login IS NOT NULL
+      ${lastSeenExpr("role = 'Lab Tech'")}
     `,
   },
   {
@@ -120,7 +145,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
       FROM lab_tests
       WHERE COALESCE(NULLIF(test_name, ''), test_type) IN (${radiologyModalitiesSql})
       UNION ALL
-      SELECT last_login AS activity_at FROM users WHERE role = 'Radiologist' AND last_login IS NOT NULL
+      ${lastSeenExpr("role = 'Radiologist'")}
     `,
   },
   {
@@ -131,7 +156,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
       UNION ALL
       SELECT created_at AS activity_at FROM medication_stock_movements
       UNION ALL
-      SELECT last_login AS activity_at FROM users WHERE role = 'Pharmacist' AND last_login IS NOT NULL
+      ${lastSeenExpr("role = 'Pharmacist'")}
     `,
   },
   {
@@ -142,7 +167,7 @@ const DEPARTMENTS: DepartmentConfig[] = [
       UNION ALL
       SELECT created_at AS activity_at FROM payments
       UNION ALL
-      SELECT last_login AS activity_at FROM users WHERE role = 'Cashier' AND last_login IS NOT NULL
+      ${lastSeenExpr("role = 'Cashier'")}
     `,
   },
 ]
@@ -235,6 +260,7 @@ export async function getDepartmentStatuses(): Promise<AdminDepartmentStatus[]> 
 }
 
 export async function getAdminOverviewSnapshot(): Promise<AdminOverviewSnapshot> {
+  await ensureLastActiveAt()
   const [departments, bedSummary, patientFeedback, waitStats, staffActivity] = await Promise.all([
     getDepartmentStatuses(),
     query<{ total_beds: number; occupied_beds: number }>(`
@@ -264,7 +290,10 @@ export async function getAdminOverviewSnapshot(): Promise<AdminOverviewSnapshot>
         COUNT(*) FILTER (WHERE is_active = true)::int AS active_accounts,
         COUNT(*) FILTER (
           WHERE is_active = true
-            AND last_login >= NOW() - INTERVAL '${STAFF_ACTIVITY_WINDOW_HOURS} hours'
+            AND GREATEST(
+                  COALESCE(last_login,     '1900-01-01'::timestamptz),
+                  COALESCE(last_active_at, '1900-01-01'::timestamptz)
+                ) >= NOW() - INTERVAL '${STAFF_ACTIVITY_WINDOW_HOURS} hours'
         )::int AS active_recent
       FROM users
     `).catch(() => ({ rows: [{ active_accounts: 0, active_recent: 0 }] })),

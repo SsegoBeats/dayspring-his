@@ -20,6 +20,17 @@ interface DashboardLayoutProps {
 export function DashboardLayout({ children }: DashboardLayoutProps) {
   const { user, logout } = useAuth()
 
+  // Presence heartbeat — keeps last_active_at current so that the admin
+  // department-status board reflects live sessions, not just login time.
+  useEffect(() => {
+    if (!user) return
+    const ping = () =>
+      fetch("/api/heartbeat", { method: "POST", credentials: "include" }).catch(() => {})
+    ping()
+    const id = setInterval(ping, 3 * 60 * 1000) // every 3 minutes
+    return () => clearInterval(id)
+  }, [user])
+
   const getRoleLabel = (role: string) => {
     const roleMap: Record<string, string> = {
       receptionist: "Receptionist",
