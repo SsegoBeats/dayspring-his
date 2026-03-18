@@ -7,15 +7,41 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Switch } from "@/components/ui/switch"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { User, Bell, Palette } from "lucide-react"
+import { User, Bell, Palette, RotateCcw } from "lucide-react"
 import { toast } from "sonner"
 import { useAuth } from "@/lib/auth-context"
 import { useTheme } from "next-themes"
 import { useSettings } from "@/lib/settings-context"
 
+const DEFAULT_NOTIFICATIONS = {
+  emailReminders: true,
+  appointmentAlerts: true,
+  labResults: true,
+  systemUpdates: false,
+  emergencyAlerts: true,
+}
+
+const DEFAULT_PREFERENCES = {
+  theme: "system",
+  locale: "en-GB",
+  timezone: "Africa/Kampala",
+  dateFormat: "DD/MM/YYYY",
+  defaultDashboard: "overview",
+  queue_wait_warn: 30,
+  queue_wait_crit: 60,
+  service_warn: 30,
+  service_crit: 60,
+}
+
 export function ProfileSettings() {
   const { refreshUser } = useAuth()
   const [profile, setProfile] = useState({
+    name: "",
+    phone: "",
+    department: "",
+    signature: ""
+  })
+  const [originalProfile, setOriginalProfile] = useState({
     name: "",
     phone: "",
     department: "",
@@ -30,12 +56,14 @@ export function ProfileSettings() {
         if (res.ok) {
           const data = await res.json()
           if (data.profile) {
-            setProfile({
+            const fetched = {
               name: data.profile.name || "",
               phone: data.profile.phone || "",
               department: data.profile.department || "",
               signature: data.profile.signature || ""
-            })
+            }
+            setProfile(fetched)
+            setOriginalProfile(fetched)
           }
         }
       } catch (error) {
@@ -57,6 +85,7 @@ export function ProfileSettings() {
       
       if (res.ok) {
         await refreshUser()
+        setOriginalProfile({ ...profile })
         toast.success("Profile updated successfully")
       } else {
         const data = await res.json()
@@ -146,9 +175,16 @@ export function ProfileSettings() {
           </div>
         </div>
 
-        {/* Queue thresholds belong in preferences; moved to PreferenceSettings */}
-
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-4 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setProfile(originalProfile)}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Discard Changes
+          </Button>
           <Button onClick={saveProfile} disabled={saving} className="min-w-[150px] rounded-2xl">
             {saving ? "Saving..." : "Save Profile"}
           </Button>
@@ -287,7 +323,16 @@ export function NotificationSettings() {
           </div>
         </div>
 
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-4 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setNotifications(DEFAULT_NOTIFICATIONS)}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restore Defaults
+          </Button>
           <Button onClick={saveNotifications} disabled={saving} className="min-w-[170px] rounded-2xl">
             {saving ? "Saving..." : "Save Preferences"}
           </Button>
@@ -381,6 +426,21 @@ export function PreferenceSettings() {
         { value: "cashier-overdue", label: "Overdue Bills" },
         { value: "cashier-reports", label: "Financial Reports" },
         { value: "cashier-exports", label: "Exports" },
+      ]
+    }
+    if (normalizedRole === "pharmacist") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "prescriptions", label: "Prescriptions Queue" },
+        { value: "inventory", label: "Inventory" },
+        { value: "analytics", label: "Analytics" },
+      ]
+    }
+    if (normalizedRole === "doctor" || normalizedRole === "clinician" || normalizedRole === "dentist" || normalizedRole === "midwife") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "consult", label: "Patient Consultation" },
+        { value: "prescriptions", label: "Prescriptions" },
       ]
     }
     return [{ value: "overview", label: "Overview" }]
@@ -697,7 +757,20 @@ export function PreferenceSettings() {
           </p>
         )}
         
-        <div className="flex justify-end">
+        <div className="flex items-center justify-between gap-4 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setPreferences(prev => ({ ...prev, ...DEFAULT_PREFERENCES }))
+              previewedRef.current = true
+              setTheme(DEFAULT_PREFERENCES.theme)
+            }}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restore Defaults
+          </Button>
           <Button onClick={savePreferences} disabled={saving || loading} className="min-w-[170px] rounded-2xl">
             {loading ? "Loading..." : saving ? "Saving..." : "Save Preferences"}
           </Button>
