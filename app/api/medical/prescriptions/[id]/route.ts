@@ -5,7 +5,7 @@ import { queryWithSession } from "@/lib/db"
 
 export async function PATCH(
   req: Request,
-  { params }: { params: { id: string } },
+  { params }: { params: Promise<{ id: string }> },
 ) {
   try {
     const cookieStore = await cookies()
@@ -14,7 +14,7 @@ export async function PATCH(
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "medical", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-    const id = params.id
+    const { id } = await params
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
 
     const body = (await req.json().catch(() => ({}))) as {

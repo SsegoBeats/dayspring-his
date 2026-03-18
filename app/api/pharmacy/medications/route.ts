@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
-import { query } from "@/lib/db"
+import { query, queryWithSession } from "@/lib/db"
 
 export async function GET() {
   try {
@@ -86,7 +86,8 @@ export async function POST(req: Request) {
 
     const unitType = "Other"
 
-    const { rows } = await query(
+    const { rows } = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
       `INSERT INTO medications (
          name,
          generic_name,

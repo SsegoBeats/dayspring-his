@@ -112,7 +112,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     if (reviewed === false) {
       // Unreview - allowed for Admin only
       if (role !== 'Hospital Admin') return NextResponse.json({ error: 'Only admin can unreview' }, { status: 403 })
-      await query("UPDATE lab_tests SET reviewed_by = NULL, reviewed_at = NULL WHERE id = $1", [id])
+      await queryWithSession({ role, userId: auth.userId }, "UPDATE lab_tests SET reviewed_by = NULL, reviewed_at = NULL WHERE id = $1", [id])
       return NextResponse.json({ success: true })
     }
     // Status/results/specimen update

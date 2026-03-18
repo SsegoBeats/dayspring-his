@@ -17,14 +17,14 @@ export async function GET(req: Request) {
 
     // Get patients with their latest triage assessment
     const { rows } = await query(`
-      SELECT 
+      SELECT
         t.id,
         t.patient_id,
         p.patient_number,
         CONCAT(p.first_name, ' ', p.last_name) as patient_name,
         t.category as triage_category,
         t.chief_complaint,
-        t.recorded_at,
+        t.created_at as recorded_at,
         t.avpu,
         t.temperature,
         t.heart_rate,
@@ -32,16 +32,16 @@ export async function GET(req: Request) {
         t.blood_pressure_diastolic as diastolic,
         t.oxygen_saturation as spo2,
         COALESCE((t.metadata->>'painLevel')::int, 0) as pain_level,
-        COALESCE(p.current_status, 'triage') as status
+        COALESCE(p.triage_category, 'triage') as status
       FROM triage_assessments t
       JOIN patients p ON p.id = t.patient_id
-      WHERE t.recorded_at >= CURRENT_DATE - INTERVAL '7 days'
+      WHERE t.created_at >= CURRENT_DATE - INTERVAL '7 days'
         AND NOT EXISTS (
-          SELECT 1 FROM triage_assessments t2 
-          WHERE t2.patient_id = t.patient_id 
-          AND t2.recorded_at > t.recorded_at
+          SELECT 1 FROM triage_assessments t2
+          WHERE t2.patient_id = t.patient_id
+          AND t2.created_at > t.created_at
         )
-      ORDER BY 
+      ORDER BY
         CASE t.category
           WHEN 'Emergency' THEN 1
           WHEN 'Very Urgent' THEN 2
@@ -49,7 +49,7 @@ export async function GET(req: Request) {
           WHEN 'Routine' THEN 4
           ELSE 5
         END,
-        t.recorded_at ASC
+        t.created_at ASC
     `)
 
     return NextResponse.json({ patients: rows })
