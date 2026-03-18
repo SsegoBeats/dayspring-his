@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
-import { query } from "@/lib/db"
+import { query, queryWithSession } from "@/lib/db"
 import { z } from "zod"
 
 const StatusSchema = z.object({
@@ -37,16 +37,18 @@ export async function PATCH(req: Request) {
     const patientId = patientRows[0].patient_id
 
     // Update patient status
-    await query(
-      `UPDATE patients 
-       SET current_status = $1, updated_at = CURRENT_TIMESTAMP 
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `UPDATE patients
+       SET current_status = $1, updated_at = CURRENT_TIMESTAMP
        WHERE id = $2`,
       [status, patientId]
     )
 
     // Log status change
-    await query(
-      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details) 
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details)
        VALUES ($1, $2, $3, $4, $5)`,
       [
         auth.userId,

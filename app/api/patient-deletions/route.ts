@@ -130,14 +130,19 @@ export async function PATCH(req: Request) {
     }
 
     // Approve: mark request Approved first (audit), then delete patient and dependents.
-    await query(
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
       `UPDATE patient_deletion_requests SET status = 'Approved', approved_by = $1, approved_at = CURRENT_TIMESTAMP WHERE id = $2`,
       [auth.userId, requestId]
     )
 
     const patientId = reqRow.patient_id
     try {
-      await query(`DELETE FROM patients WHERE id = $1`, [patientId])
+      await queryWithSession(
+        { role: auth.role, userId: auth.userId },
+        `DELETE FROM patients WHERE id = $1`,
+        [patientId]
+      )
     } catch (e: any) {
       if (String(e?.code || "") !== "23503") throw e
 
@@ -162,11 +167,19 @@ export async function PATCH(req: Request) {
       ]
       for (const [tbl, col] of deletes) {
         try {
-          await query(`DELETE FROM ${tbl} WHERE ${col} = $1`, [patientId])
+          await queryWithSession(
+            { role: auth.role, userId: auth.userId },
+            `DELETE FROM ${tbl} WHERE ${col} = $1`,
+            [patientId]
+          )
         } catch {}
       }
       try {
-        await query(`DELETE FROM patients WHERE id = $1`, [patientId])
+        await queryWithSession(
+          { role: auth.role, userId: auth.userId },
+          `DELETE FROM patients WHERE id = $1`,
+          [patientId]
+        )
       } catch (retryErr: any) {
         if (String((retryErr as any)?.code || "") === "23503") {
           return NextResponse.json(
