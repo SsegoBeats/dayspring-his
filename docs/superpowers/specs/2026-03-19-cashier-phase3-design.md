@@ -218,7 +218,7 @@ interface CreateBillAccordionProps {
   // Items section
   items: BillItem[]
   onItemsChange: (items: BillItem[]) => void
-  onDeliverySubChange: (index: number, deliveryType: string) => void  // mutates description field; must stay in parent because it doesn't go through onItemsChange
+  onDeliverySubChange: (index: number, deliveryType: string) => void  // targeted description mutation for delivery sub-type; kept separate from onItemsChange to avoid routing through the general handleItemChange field dispatch
   // Charges section
   applyTax: boolean
   onApplyTaxChange: (v: boolean) => void
@@ -242,8 +242,10 @@ interface CreateBillAccordionProps {
 The `<form onSubmit={handleSubmit}>` tag **stays in `CreateBill`**, wrapping the entire `<CreateBillAccordion>` component. The floating footer's "Create Bill" button uses `type="submit"` and fires the outer form's `handleSubmit` because the button is a descendant of the outer `<form>`. No `onSubmit` prop exists on `CreateBillAccordion` — the native form submission mechanism is used exclusively.
 
 ### Sticky footer — overflow fix
-The `Card` wrapping `CreateBill` uses shadcn/ui's `Card` which applies `overflow-hidden` by default. To enable `sticky bottom-0` on the footer:
-- Replace the outer `<Card>` wrapper with a plain `<div className="rounded-xl border border-border bg-card shadow-sm relative">` — same visual appearance, no `overflow-hidden`
+The `Card` component in this project does **not** apply `overflow-hidden` in its base classes (base classes are `bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm`). The real problem is the `flex flex-col gap-6` flex formatting context that `Card` creates on its direct children. A `sticky` child inside a flex container will not stick unless the flex container's ancestor is the scroll root — which is not guaranteed inside nested layout components.
+
+To enable `sticky bottom-0` on the footer:
+- Replace the outer `<Card>` wrapper with a plain `<div className="rounded-xl border border-border bg-card shadow-sm relative">` — same visual appearance, removes the flex formatting context
 - The accordion body is `<div className="relative">` and the footer is `sticky bottom-0` within it
 - On mobile this becomes `position: sticky` relative to the page scroll, which is correct
 
@@ -270,7 +272,7 @@ The `Card` wrapping `CreateBill` uses shadcn/ui's `Card` which applies `overflow
 - Chevron: `transition-transform duration-200 rotate-180` when open (via `data-open` attribute + CSS)
 - Section valid: header status dot `bg-emerald-500`, label `text-foreground font-semibold`
 - Section invalid/empty: dot `bg-muted`, label `text-muted-foreground`
-- Open/close: controlled by local `openSections: Set<"patient"|"items"|"charges">` state in `CreateBillAccordion`
+- Open/close: controlled by local `openSections: Set<"patient"|"items"|"charges">` state in `CreateBillAccordion`. Initialise with all three sections open: `useState<Set<"patient" | "items" | "charges">>(new Set(["patient", "items", "charges"]))` — the explicit generic is required to avoid `Set<string>` inference.
 
 ### Floating footer bar
 - `sticky bottom-0 bg-white/95 backdrop-blur-sm border-t border-emerald-100 shadow-[0_-4px_24px_rgba(0,0,0,0.06)] px-6 py-3`
@@ -286,7 +288,7 @@ The `Card` wrapping `CreateBill` uses shadcn/ui's `Card` which applies `overflow
 Add `AlertTriangle` and `Download` to the existing import block. `HandCoins`, `Plus`, `CircleDollarSign`, `CreditCard` are already imported.
 
 ### KPI chip upgrades (CashierPill)
-- Add `icon: ReactNode` prop to `CashierPill`
+- Add `icon: ReactNode` prop to `CashierPill` — `ReactNode` is already imported in `cashier-dashboard.tsx` at line 4; no new import needed
 - Add `alertIcon?: boolean` prop — when true, icon gets `animate-pulse`
 - Render icon before label text
 - Update all 4 call sites with appropriate icons
@@ -332,7 +334,7 @@ interface FormatPreviewCardProps {
 - Inactive: `text-muted-foreground px-4 py-1 text-sm`
 
 ### Recent exports log
-- `localStorage` key scoped by userId: `cashier_recent_exports_{userId}` — requires passing `userId` into `ExportTransactions` or reading it from `useAuth()` inside the component
+- `localStorage` key scoped by userId: `cashier_recent_exports_{userId}` — read from `useAuth()` inside the component. Add `import { useAuth } from "@/lib/auth-context"` and `const { user } = useAuth()` at the top of `ExportTransactions`. Use `user?.id ?? "guest"` as the key suffix. No prop change to `ExportTransactionsProps` is needed.
 - Type: `Array<{ dataset: string; format: string; dateRange: string; timestamp: string }>`, max 5 entries
 - On successful export: `JSON.parse` existing, prepend new entry, `JSON.stringify` back
 - Rendered below Export button, section header `"Recent exports"` in `text-xs uppercase tracking-widest`
