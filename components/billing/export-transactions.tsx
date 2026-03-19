@@ -6,9 +6,11 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, Loader2, FileText, FileSpreadsheet, File, ArrowLeft } from "lucide-react"
+import { Download, Loader2, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import { useFormatDate } from "@/lib/date-utils"
+import { useAuth } from "@/lib/auth-context"
+import { FormatPreviewCard } from "./format-preview-card"
 
 interface ExportTransactionsProps {
   onBack?: () => void
@@ -16,6 +18,7 @@ interface ExportTransactionsProps {
 
 export function ExportTransactions({ onBack }: ExportTransactionsProps) {
   const { formatDate } = useFormatDate()
+  const { user } = useAuth()
   const [dataset, setDataset] = useState<"billing" | "payments">("billing")
   const [format, setFormat] = useState<"csv" | "xlsx" | "pdf">("csv")
   const [dateRange, setDateRange] = useState<"7days" | "30days" | "90days" | "custom">("30days")
@@ -24,6 +27,14 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
   const [status, setStatus] = useState<string>("all")
   const [method, setMethod] = useState<string>("all")
   const [exporting, setExporting] = useState(false)
+
+  // Recent exports
+  const RECENT_KEY = `cashier_recent_exports_${user?.id ?? "guest"}`
+  type RecentExport = { dataset: string; format: string; dateRange: string; timestamp: string }
+  const [recentExports, setRecentExports] = useState<RecentExport[]>(() => {
+    if (typeof window === "undefined") return []
+    try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") } catch { return [] }
+  })
 
   const handleExport = async () => {
     setExporting(true)
@@ -87,7 +98,7 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
       const url = window.URL.createObjectURL(blob)
       const a = document.createElement("a")
       a.href = url
-      
+
       const dateStr = formatDate(new Date(), { year: 'numeric', month: '2-digit', day: '2-digit' })
       a.download = `${dataset === "billing" ? "billing-ledger" : "payment-ledger"}-${dateRange}-${dateStr}.${format}`
       document.body.appendChild(a)
@@ -96,6 +107,16 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
       document.body.removeChild(a)
 
       toast.success(`${dataset === "billing" ? "Billing ledger" : "Payment ledger"} exported successfully as ${format.toUpperCase()}`)
+
+      const newEntry: RecentExport = {
+        dataset: dataset === "billing" ? "Billing Ledger" : "Payment Ledger",
+        format: format.toUpperCase(),
+        dateRange: dateRange === "7days" ? "Last 7 days" : dateRange === "30days" ? "Last 30 days" : dateRange === "90days" ? "Last 90 days" : `${startDate} – ${endDate}`,
+        timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+      }
+      const updated = [newEntry, ...recentExports].slice(0, 5)
+      setRecentExports(updated)
+      localStorage.setItem(RECENT_KEY, JSON.stringify(updated))
     } catch (err: any) {
       toast.error(err.message || "Failed to export transactions")
     } finally {
@@ -119,45 +140,32 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
         </CardHeader>
         <CardContent className="space-y-6">
           <div className="space-y-2">
-            <Label htmlFor="dataset">Export Data</Label>
-            <Select value={dataset} onValueChange={(value: "billing" | "payments") => setDataset(value)}>
-              <SelectTrigger id="dataset">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="billing">Billing Ledger</SelectItem>
-                <SelectItem value="payments">Payment Ledger</SelectItem>
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium leading-none">Export Data</label>
+            <div className="inline-flex rounded-full bg-muted/60 p-1">
+              {(["billing", "payments"] as const).map((d) => (
+                <button
+                  key={d}
+                  type="button"
+                  onClick={() => setDataset(d)}
+                  className={
+                    dataset === d
+                      ? "rounded-full bg-white px-4 py-1 text-sm font-medium text-foreground shadow-sm"
+                      : "px-4 py-1 text-sm text-muted-foreground"
+                  }
+                >
+                  {d === "billing" ? "Billing Ledger" : "Payment Ledger"}
+                </button>
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
-            <Label htmlFor="format">Export Format</Label>
-            <Select value={format} onValueChange={(v: "csv" | "xlsx" | "pdf") => setFormat(v)}>
-              <SelectTrigger id="format">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="csv">
-                  <div className="flex items-center gap-2">
-                    <FileText className="h-4 w-4" />
-                    CSV (Comma Separated Values)
-                  </div>
-                </SelectItem>
-                <SelectItem value="xlsx">
-                  <div className="flex items-center gap-2">
-                    <FileSpreadsheet className="h-4 w-4" />
-                    Excel (XLSX)
-                  </div>
-                </SelectItem>
-                <SelectItem value="pdf">
-                  <div className="flex items-center gap-2">
-                    <File className="h-4 w-4" />
-                    PDF Document
-                  </div>
-                </SelectItem>
-              </SelectContent>
-            </Select>
+            <label className="text-sm font-medium leading-none">Export Format</label>
+            <div className="grid grid-cols-3 gap-3">
+              {(["csv", "xlsx", "pdf"] as const).map((f) => (
+                <FormatPreviewCard key={f} format={f} selected={format === f} onSelect={() => setFormat(f)} />
+              ))}
+            </div>
           </div>
 
           <div className="space-y-2">
@@ -246,6 +254,22 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
               </>
             )}
           </Button>
+
+          <div className="space-y-2">
+            <p className="text-xs font-medium uppercase tracking-widest text-muted-foreground">Recent exports</p>
+            {recentExports.length === 0 ? (
+              <p className="text-xs text-muted-foreground">No exports yet</p>
+            ) : (
+              <div className="space-y-1">
+                {recentExports.map((e, i) => (
+                  <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{e.dataset} · {e.format} · {e.dateRange} · Today {e.timestamp}</span>
+                    <Download className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
         </CardContent>
       </Card>
     </div>
