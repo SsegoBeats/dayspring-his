@@ -11,6 +11,7 @@ import { FileText, Pill, TestTube, Upload, Syringe, AlertTriangle, Activity, Dow
 import { DocumentUploadDialog } from "./document-upload-dialog"
 import { AllergyDialog } from "./allergy-dialog"
 import { ImmunizationDialog } from "./immunization-dialog"
+import { ChronicConditionDialog } from "./chronic-condition-dialog"
 
 type DentalRecord = {
   id: string
@@ -31,6 +32,7 @@ export function PatientTimeline({ patientId }: PatientTimelineProps) {
   const [showUploadDialog, setShowUploadDialog] = useState(false)
   const [showAllergyDialog, setShowAllergyDialog] = useState(false)
   const [showImmunizationDialog, setShowImmunizationDialog] = useState(false)
+  const [showChronicConditionDialog, setShowChronicConditionDialog] = useState(false)
   const [dentalRecords, setDentalRecords] = useState<DentalRecord[]>([])
   const [dentalLoading, setDentalLoading] = useState(true)
 
@@ -348,6 +350,12 @@ export function PatientTimeline({ patientId }: PatientTimelineProps) {
             </TabsContent>
 
             <TabsContent value="chronic" className="space-y-4">
+              <div className="flex justify-end">
+                <Button size="sm" onClick={() => setShowChronicConditionDialog(true)}>
+                  <Activity className="h-4 w-4 mr-2" />
+                  Add Condition
+                </Button>
+              </div>
               {chronicConditions.length === 0 ? (
                 <p className="text-center text-muted-foreground py-8">No chronic conditions recorded</p>
               ) : (
@@ -406,6 +414,12 @@ export function PatientTimeline({ patientId }: PatientTimelineProps) {
       <ImmunizationDialog
         open={showImmunizationDialog}
         onOpenChange={setShowImmunizationDialog}
+        patientId={patientId}
+      />
+
+      <ChronicConditionDialog
+        open={showChronicConditionDialog}
+        onOpenChange={setShowChronicConditionDialog}
         patientId={patientId}
       />
     </div>

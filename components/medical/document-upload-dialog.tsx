@@ -3,7 +3,6 @@
 import type React from "react"
 
 import { useState } from "react"
-import { useMedical } from "@/lib/medical-context"
 import { useAuth } from "@/lib/auth-context"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
@@ -12,6 +11,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Upload } from "lucide-react"
+import { toast } from "sonner"
 
 interface DocumentUploadDialogProps {
   open: boolean
@@ -20,40 +20,70 @@ interface DocumentUploadDialogProps {
   patientName: string
 }
 
+const DOCUMENT_TYPES = [
+  { value: "ID", label: "Identification Document" },
+  { value: "INSURANCE", label: "Insurance Card / Policy" },
+  { value: "GUARANTEE", label: "Guarantee Letter" },
+  { value: "REFERRAL", label: "Referral Letter" },
+  { value: "PREAUTH", label: "Pre-Authorization" },
+  { value: "CLAIM_FORM", label: "Claim Form" },
+  { value: "CONSENT", label: "Consent Form" },
+  { value: "OTHER", label: "Other" },
+]
+
+function fileToDataUrl(file: File): Promise<string> {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader()
+    reader.onload = () => resolve(reader.result as string)
+    reader.onerror = () => reject(new Error("Failed to read file"))
+    reader.readAsDataURL(file)
+  })
+}
+
 export function DocumentUploadDialog({ open, onOpenChange, patientId, patientName }: DocumentUploadDialogProps) {
-  const { addMedicalDocument } = useMedical()
   const { user } = useAuth()
   const [formData, setFormData] = useState({
     documentType: "",
-    fileName: "",
     notes: "",
   })
   const [file, setFile] = useState<File | null>(null)
+  const [uploading, setUploading] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
     if (!file || !formData.documentType) return
 
-    // In this environment we use a temporary object URL.
-    // In production you should upload the file to storage and persist its URL.
-    const fileUrl = URL.createObjectURL(file)
+    setUploading(true)
+    try {
+      const fileUrl = await fileToDataUrl(file)
 
-    addMedicalDocument({
-      patientId,
-      patientName,
-      documentType: formData.documentType as any,
-      fileName: file.name,
-      fileUrl,
-      uploadedBy: user?.name || "Unknown",
-      uploadedDate: new Date().toISOString().split("T")[0],
-      notes: formData.notes,
-    })
+      const res = await fetch("/api/medical/documents", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId,
+          type: formData.documentType,
+          fileName: file.name,
+          fileUrl,
+          notes: formData.notes,
+        }),
+      })
 
-    // Reset form
-    setFormData({ documentType: "", fileName: "", notes: "" })
-    setFile(null)
-    onOpenChange(false)
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error(err.error || "Upload failed")
+      }
+
+      toast.success("Document uploaded successfully")
+      setFormData({ documentType: "", notes: "" })
+      setFile(null)
+      onOpenChange(false)
+    } catch (err) {
+      toast.error(err instanceof Error ? err.message : "Upload failed")
+    } finally {
+      setUploading(false)
+    }
   }
 
   return (
@@ -74,12 +104,11 @@ export function DocumentUploadDialog({ open, onOpenChange, patientId, patientNam
                 <SelectValue placeholder="Select type" />
               </SelectTrigger>
               <SelectContent>
-                <SelectItem value="lab-report">Lab Report</SelectItem>
-                <SelectItem value="xray">X-Ray</SelectItem>
-                <SelectItem value="scan">CT/MRI Scan</SelectItem>
-                <SelectItem value="prescription">Prescription</SelectItem>
-                <SelectItem value="consent-form">Consent Form</SelectItem>
-                <SelectItem value="other">Other</SelectItem>
+                {DOCUMENT_TYPES.map((t) => (
+                  <SelectItem key={t.value} value={t.value}>
+                    {t.label}
+                  </SelectItem>
+                ))}
               </SelectContent>
             </Select>
           </div>
@@ -93,7 +122,7 @@ export function DocumentUploadDialog({ open, onOpenChange, patientId, patientNam
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               required
             />
-            <p className="text-xs text-muted-foreground">Accepted formats: PDF, JPG, PNG, DOC, DOCX</p>
+            <p className="text-xs text-muted-foreground">Accepted formats: PDF, JPG, PNG, DOC, DOCX (max ~5 MB)</p>
           </div>
 
           <div className="space-y-2">
@@ -107,12 +136,12 @@ export function DocumentUploadDialog({ open, onOpenChange, patientId, patientNam
           </div>
 
           <div className="flex justify-end gap-2">
-            <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
+            <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={uploading}>
               Cancel
             </Button>
-            <Button type="submit" disabled={!file || !formData.documentType}>
+            <Button type="submit" disabled={!file || !formData.documentType || uploading}>
               <Upload className="h-4 w-4 mr-2" />
-              Upload
+              {uploading ? "Uploading…" : "Upload"}
             </Button>
           </div>
         </form>
