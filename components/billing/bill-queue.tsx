@@ -15,7 +15,7 @@ import {
   AlertDialogHeader,
   AlertDialogTitle,
 } from "@/components/ui/alert-dialog"
-import { BillRow, getAgingBand } from "./bill-row"
+import { BillRow } from "./bill-row"
 
 interface BillQueueProps {
   bills: Bill[]
