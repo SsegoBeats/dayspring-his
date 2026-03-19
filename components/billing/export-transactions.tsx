@@ -6,11 +6,13 @@ import { Button } from "@/components/ui/button"
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Download, Loader2, ArrowLeft } from "lucide-react"
+import { Clock, Download, Loader2, ArrowLeft } from "lucide-react"
 import { toast } from "sonner"
 import { useFormatDate } from "@/lib/date-utils"
 import { useAuth } from "@/lib/auth-context"
 import { FormatPreviewCard } from "./format-preview-card"
+
+type RecentExport = { dataset: string; format: string; dateRange: string; timestamp: string; date: string }
 
 interface ExportTransactionsProps {
   onBack?: () => void
@@ -30,7 +32,6 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
 
   // Recent exports
   const RECENT_KEY = `cashier_recent_exports_${user?.id ?? "guest"}`
-  type RecentExport = { dataset: string; format: string; dateRange: string; timestamp: string }
   const [recentExports, setRecentExports] = useState<RecentExport[]>(() => {
     if (typeof window === "undefined") return []
     try { return JSON.parse(localStorage.getItem(RECENT_KEY) ?? "[]") } catch { return [] }
@@ -113,6 +114,7 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
         format: format.toUpperCase(),
         dateRange: dateRange === "7days" ? "Last 7 days" : dateRange === "30days" ? "Last 30 days" : dateRange === "90days" ? "Last 90 days" : `${startDate} – ${endDate}`,
         timestamp: new Date().toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }),
+        date: new Date().toLocaleDateString([], { month: "short", day: "numeric" }),
       }
       const updated = [newEntry, ...recentExports].slice(0, 5)
       setRecentExports(updated)
@@ -261,10 +263,10 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
               <p className="text-xs text-muted-foreground">No exports yet</p>
             ) : (
               <div className="space-y-1">
-                {recentExports.map((e, i) => (
-                  <div key={i} className="flex items-center justify-between text-xs text-muted-foreground">
-                    <span>{e.dataset} · {e.format} · {e.dateRange} · Today {e.timestamp}</span>
-                    <Download className="h-3 w-3 shrink-0 text-muted-foreground/50" />
+                {recentExports.map((e) => (
+                  <div key={`${e.timestamp}-${e.dataset}-${e.format}`} className="flex items-center justify-between text-xs text-muted-foreground">
+                    <span>{e.dataset} · {e.format} · {e.dateRange} · {e.date} {e.timestamp}</span>
+                    <Clock className="h-3 w-3 shrink-0 text-muted-foreground/50" />
                   </div>
                 ))}
               </div>
