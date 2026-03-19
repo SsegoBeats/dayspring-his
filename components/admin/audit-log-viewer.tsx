@@ -2,7 +2,7 @@
 
 import { useState, useEffect, useCallback } from "react"
 import { usePathname, useRouter, useSearchParams } from "next/navigation"
-import { useAudit, type AuditCategory } from "@/lib/audit-context"
+import { useAudit, type AuditAction, type AuditCategory } from "@/lib/audit-context"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
@@ -10,7 +10,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { Download, Search, RefreshCw, AlertCircle, Loader2, Trash2, Settings, BarChart3, Eye, CheckCircle2, LogOut, AlertTriangle, ShieldCheck, X } from "lucide-react"
+import { Download, Search, RefreshCw, AlertCircle, Loader2, Trash2, Settings, Eye, CheckCircle2, LogOut, AlertTriangle, ShieldCheck, X } from "lucide-react"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { format } from "date-fns"
 import { toast } from "sonner"
@@ -82,6 +82,7 @@ export function AuditLogViewer() {
   const [showManagement, setShowManagement] = useState(false)
   const [cleanupDays, setCleanupDays] = useState(30)
   const [managementLoading, setManagementLoading] = useState(false)
+  const [deleteAllConfirm, setDeleteAllConfirm] = useState("")
   const [currentPage, setCurrentPage] = useState(1)
   const [totalPages, setTotalPages] = useState(1)
   const [totalLogs, setTotalLogs] = useState(0)
@@ -153,12 +154,14 @@ export function AuditLogViewer() {
   }
 
   const handleDeleteAll = async () => {
-    if (!confirm('Are you sure you want to delete ALL audit logs? This action cannot be undone.')) {
+    if (deleteAllConfirm !== "DELETE ALL") {
+      toast.error('Type "DELETE ALL" in the confirmation field to proceed')
       return
     }
 
     try {
       setManagementLoading(true)
+      setDeleteAllConfirm("")
       const response = await fetch('/api/audit-logs/manage?deleteAll=true', {
         method: 'DELETE',
         credentials: 'include'
@@ -216,12 +219,12 @@ export function AuditLogViewer() {
       const filterParams = {
         search: search || undefined,
         category: categoryFilter !== "ALL" ? categoryFilter : undefined,
-        action: actionFilter !== "ALL" ? (actionFilter as any) : undefined,
+        action: actionFilter !== "ALL" ? (actionFilter as AuditAction) : undefined,
         ...getDateFilter(),
         page,
         limit,
       }
-      
+
       const result = await getLogs(filterParams)
       setTotalLogs(result.total)
       setTotalPages(result.totalPages)
@@ -237,10 +240,10 @@ export function AuditLogViewer() {
       const filters = {
         search: search || undefined,
         category: categoryFilter !== "ALL" ? categoryFilter : undefined,
-        action: actionFilter !== "ALL" ? (actionFilter as any) : undefined,
+        action: actionFilter !== "ALL" ? (actionFilter as AuditAction) : undefined,
         ...getDateFilter(),
       }
-      
+
       await exportLogs(filters)
       toast.success("Audit logs exported successfully")
     } catch (err) {
@@ -460,17 +463,30 @@ export function AuditLogViewer() {
                   {managementLoading ? "Cleaning..." : "Cleanup"}
                 </Button>
               </div>
-              <div className="flex items-center gap-2">
-                <Button
-                  variant="destructive"
-                  size="sm"
-                  onClick={handleDeleteAll}
-                  disabled={managementLoading}
-                >
-                  <Trash2 className="h-4 w-4 mr-2" />
-                  {managementLoading ? "Deleting..." : "Delete All Logs"}
-                </Button>
-                <span className="text-sm text-muted-foreground">This will permanently delete all audit logs</span>
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-destructive">Danger Zone — Permanent deletion</p>
+                <p className="text-xs text-muted-foreground">
+                  Type <span className="font-mono font-semibold">DELETE ALL</span> to enable the button.
+                </p>
+                <div className="flex items-center gap-2">
+                  <Input
+                    value={deleteAllConfirm}
+                    onChange={(e) => setDeleteAllConfirm(e.target.value)}
+                    placeholder='Type "DELETE ALL" to confirm'
+                    className="max-w-[220px] font-mono text-sm"
+                    disabled={managementLoading}
+                  />
+                  <Button
+                    variant="destructive"
+                    size="sm"
+                    onClick={handleDeleteAll}
+                    disabled={managementLoading || deleteAllConfirm !== "DELETE ALL"}
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    {managementLoading ? "Deleting..." : "Delete All Logs"}
+                  </Button>
+                </div>
+                <p className="text-xs text-muted-foreground">This will permanently delete all audit logs and cannot be undone.</p>
               </div>
             </div>
           </div>

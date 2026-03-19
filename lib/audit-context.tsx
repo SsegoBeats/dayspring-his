@@ -17,6 +17,18 @@ export type AuditAction =
   | "REJECT"
   | "DISPENSE"
   | "CANCEL"
+  | "ASSIGN"
+  | "DISCHARGE"
+  | "TRANSFER"
+  | "PAYMENT_CREATE"
+  | "CHECKIN_CREATE"
+  | "CHECKIN_UPDATE"
+  | "QUEUE_ADD"
+  | "QUEUE_UPDATE"
+  | "QUEUE_DELETE"
+  | "bulk_activate"
+  | "bulk_deactivate"
+  | "bulk_change_role"
 
 export type AuditCategory =
   | "AUTHENTICATION"

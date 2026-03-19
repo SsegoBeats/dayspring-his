@@ -159,11 +159,10 @@ export function AdminProvider({ children }: { children: React.ReactNode }) {
   }
 
   const updateUser = async (id: string, updates: Partial<SystemUser>) => {
-    const payload: any = { 
-      // Don't allow changing name, email, or password through admin panel
-      role: updates.role, 
-      status: updates.status === "active" 
-    }
+    const payload: Record<string, unknown> = {}
+    // Don't allow changing name, email, or password through admin panel
+    if (updates.role !== undefined) payload.role = updates.role
+    if (updates.status !== undefined) payload.status = updates.status === "active"
     
     const res = await fetch(`/api/admin/users/${id}`, { 
       method: "PUT", 

@@ -123,19 +123,28 @@ export async function POST(req: NextRequest) {
     const filename = `audit-logs-${new Date().toISOString().split('T')[0]}.${format}`
 
     if (format === 'csv') {
+      const escapeCSV = (value: any): string => {
+        const str = value == null ? '' : String(value)
+        // Escape double-quotes by doubling them, then wrap in double-quotes
+        return `"${str.replace(/"/g, '""')}"`
+      }
+
       const csv = [
         "Timestamp,User,Role,Action,Category,Entity Type,Entity ID,Description,IP Address",
-        ...exportData.map(log => 
-          `"${log.timestamp}","${log.userName}","${log.userRole}","${log.action}","${log.category}","${log.entityType}","${log.entityId}","${log.description}","${log.ipAddress}"`
+        ...exportData.map(log =>
+          [log.timestamp, log.userName, log.userRole, log.action, log.category, log.entityType, log.entityId, log.description, log.ipAddress]
+            .map(escapeCSV)
+            .join(",")
         )
       ].join("\n")
 
-      const response = new NextResponse(csv, {
+      const csvBytes = Buffer.from(csv, 'utf-8')
+      const response = new NextResponse(csvBytes, {
         status: 200,
         headers: {
-          "Content-Type": "text/csv",
-          "Content-Disposition": `attachment; filename=${filename}`,
-          "Content-Length": csv.length.toString()
+          "Content-Type": "text/csv; charset=utf-8",
+          "Content-Disposition": `attachment; filename="${filename}"`,
+          "Content-Length": csvBytes.length.toString()
         }
       })
       return response

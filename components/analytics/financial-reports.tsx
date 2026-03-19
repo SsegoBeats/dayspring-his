@@ -283,7 +283,8 @@ export function FinancialReports() {
       })
 
       if (!response.ok) {
-        throw new Error('Export failed')
+        const errData = await response.json().catch(() => ({}))
+        throw new Error(errData.error || 'Export failed')
       }
 
       const blob = await response.blob()

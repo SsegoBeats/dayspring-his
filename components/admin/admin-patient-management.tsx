@@ -6,6 +6,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import Link from "next/link"
 import { Search, Download, Trash2, AlertCircle, Loader2, Eye, FileSpreadsheet, RefreshCw, Filter, X, ChevronDown, ChevronUp, FileHeart } from "lucide-react"
@@ -481,21 +482,21 @@ export function AdminPatientManagement() {
           {/* Analytics strip */}
           <div className="grid gap-3 md:grid-cols-2 lg:grid-cols-4">
             <div className="rounded-md border border-sky-100 bg-sky-50/40 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Loaded patients</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Total patients</p>
               <p className="text-lg font-semibold text-foreground">{totalPatients}</p>
             </div>
             <div className="rounded-md border border-emerald-100 bg-emerald-50/40 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">Loaded today</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-emerald-700">Registered today</p>
               <p className="text-lg font-semibold text-emerald-800">{newlyRegisteredToday}</p>
             </div>
             <div className="rounded-md border border-amber-100 bg-amber-50/40 px-3 py-2">
-              <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700">Loaded not triaged</p>
+              <p className="text-[11px] font-medium uppercase tracking-wide text-amber-700">Not triaged</p>
               <p className="text-lg font-semibold text-amber-800">{notTriaged}</p>
             </div>
             <div className="rounded-md border border-border bg-muted px-3 py-2 flex items-center justify-between">
               <div>
-                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Loaded gender mix</p>
-                <p className="text-xs text-muted-foreground">M:{maleCount} - F:{femaleCount}</p>
+                <p className="text-[11px] font-medium uppercase tracking-wide text-muted-foreground">Gender mix</p>
+                <p className="text-xs text-muted-foreground">M:{maleCount} · F:{femaleCount}</p>
               </div>
               {avgAge && (
                 <div className="text-right">
@@ -541,30 +542,48 @@ export function AdminPatientManagement() {
             <div className="grid grid-cols-1 md:grid-cols-3 lg:grid-cols-6 gap-3 p-4 bg-muted/50 rounded-md">
               <div>
                 <Label htmlFor="gender-filter">Gender</Label>
-                <Input
-                  id="gender-filter"
-                  placeholder="male / female"
-                  value={filters.gender}
-                  onChange={(e) => setFilters({ ...filters, gender: e.target.value })}
-                />
+                <Select value={filters.gender || "__all__"} onValueChange={(v) => setFilters({ ...filters, gender: v === "__all__" ? "" : v })}>
+                  <SelectTrigger id="gender-filter">
+                    <SelectValue placeholder="All genders" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All genders</SelectItem>
+                    <SelectItem value="male">Male</SelectItem>
+                    <SelectItem value="female">Female</SelectItem>
+                    <SelectItem value="other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="status-filter">Status</Label>
-                <Input
-                  id="status-filter"
-                  placeholder="registered, discharged..."
-                  value={filters.status}
-                  onChange={(e) => setFilters({ ...filters, status: e.target.value })}
-                />
+                <Select value={filters.status || "__all__"} onValueChange={(v) => setFilters({ ...filters, status: v === "__all__" ? "" : v })}>
+                  <SelectTrigger id="status-filter">
+                    <SelectValue placeholder="All statuses" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All statuses</SelectItem>
+                    <SelectItem value="registered">Registered</SelectItem>
+                    <SelectItem value="admitted">Admitted</SelectItem>
+                    <SelectItem value="discharged">Discharged</SelectItem>
+                    <SelectItem value="transferred">Transferred</SelectItem>
+                    <SelectItem value="deceased">Deceased</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="triage-filter">Triage</Label>
-                <Input
-                  id="triage-filter"
-                  placeholder="Emergency, Urgent..."
-                  value={filters.triage}
-                  onChange={(e) => setFilters({ ...filters, triage: e.target.value })}
-                />
+                <Select value={filters.triage || "__all__"} onValueChange={(v) => setFilters({ ...filters, triage: v === "__all__" ? "" : v })}>
+                  <SelectTrigger id="triage-filter">
+                    <SelectValue placeholder="All triage levels" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="__all__">All triage levels</SelectItem>
+                    <SelectItem value="Emergency">Emergency</SelectItem>
+                    <SelectItem value="Urgent">Urgent</SelectItem>
+                    <SelectItem value="Semi-urgent">Semi-urgent</SelectItem>
+                    <SelectItem value="Non-urgent">Non-urgent</SelectItem>
+                  </SelectContent>
+                </Select>
               </div>
               <div>
                 <Label htmlFor="min-age">Min age</Label>
@@ -620,7 +639,7 @@ export function AdminPatientManagement() {
               <TableBody>
                 {filteredPatients.length === 0 ? (
                   <TableRow>
-                    <TableCell colSpan={9} className="text-center text-muted-foreground py-8">
+                    <TableCell colSpan={7} className="text-center text-muted-foreground py-8">
                       {searchQuery ? "No patients found matching your search" : "No patients found"}
                     </TableCell>
                   </TableRow>
@@ -712,17 +731,12 @@ export function AdminPatientManagement() {
 
           <div className="flex items-center justify-between text-sm text-muted-foreground">
             <span>
-              Loaded <strong>{filteredPatients.length}</strong> patient{filteredPatients.length !== 1 ? 's' : ''}
+              Showing <strong>{filteredPatients.length}</strong> patient{filteredPatients.length !== 1 ? 's' : ''}
               {searchQuery && (
                 <span> matching &quot;{searchQuery}&quot;</span>
               )}
-              {hasMore && <span>; more results available</span>}
+              {hasMore && <span> · more results available</span>}
             </span>
-            {patients.length > 0 && (
-              <Badge variant="outline" className="ml-2">
-                Loaded: {patients.length}
-              </Badge>
-            )}
           </div>
         </CardContent>
       </Card>

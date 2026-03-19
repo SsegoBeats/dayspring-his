@@ -367,12 +367,16 @@ export function BedManagement() {
         if (res.ok) {
           const data = await res.json()
           setHistory(data.assignments || [])
+        } else {
+          toast.error("Failed to load assignment history")
         }
+      } catch {
+        toast.error("Failed to load assignment history")
       } finally {
         setHistoryLoading(false)
       }
     }
-    run()
+    void run()
   }, [detailsOpen, detailsBed])
 
   const handleTransfer = async () => {
@@ -1589,46 +1593,61 @@ function DischargeButton({ assignmentId, onConfirm }: { assignmentId?: string; o
 }
 
 function ExportAssignmentsMenu({ filters }: { filters: { status: string; ward: string; bedType: string; equipment: string; hasPatient: string } }) {
+  const [exporting, setExporting] = useState<string | null>(null)
+
   const exportData = async (format: "csv" | "xlsx" | "pdf") => {
-    const to = new Date().toISOString()
-    const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
-    const payload: any = {
-      dataset: "bed_assignments",
-      format,
-      filters: {
-        from,
-        to,
-        status: filters.status || "All",
-        ward: filters.ward || undefined,
-      },
+    try {
+      setExporting(format)
+      const to = new Date().toISOString()
+      const from = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString()
+      const payload: any = {
+        dataset: "bed_assignments",
+        format,
+        filters: {
+          from,
+          to,
+          status: filters.status || "All",
+          ward: filters.ward || undefined,
+        },
+      }
+      const res = await fetch('/api/exports/direct', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload)
+      })
+      if (!res.ok) {
+        const errData = await res.json().catch(() => ({}))
+        throw new Error(errData.error || 'Export failed')
+      }
+      const blob = await res.blob()
+      const url = window.URL.createObjectURL(blob)
+      const a = document.createElement('a')
+      a.href = url
+      a.download = `bed-assignments-${new Date().toISOString().split('T')[0]}.${format}`
+      document.body.appendChild(a)
+      a.click()
+      window.URL.revokeObjectURL(url)
+      document.body.removeChild(a)
+      toast.success(`Bed assignments exported as ${format.toUpperCase()}`)
+    } catch (e) {
+      toast.error(e instanceof Error ? e.message : 'Export failed')
+    } finally {
+      setExporting(null)
     }
-    const res = await fetch('/api/exports/direct', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      credentials: 'include',
-      body: JSON.stringify(payload)
-    })
-    if (!res.ok) throw new Error('Export failed')
-    const blob = await res.blob()
-    const url = window.URL.createObjectURL(blob)
-    const a = document.createElement('a')
-    a.href = url
-    a.download = `bed-assignments-${new Date().toISOString().split('T')[0]}.${format}`
-    document.body.appendChild(a)
-    a.click()
-    window.URL.revokeObjectURL(url)
-    document.body.removeChild(a)
   }
 
   return (
     <DropdownMenu>
       <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="sm">Export</Button>
+        <Button variant="outline" size="sm" disabled={Boolean(exporting)}>
+          {exporting ? 'Exporting...' : 'Export'}
+        </Button>
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => exportData('csv')}>Export Assignments as CSV</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => exportData('xlsx')}>Export Assignments as Excel</DropdownMenuItem>
-        <DropdownMenuItem onClick={() => exportData('pdf')}>Export Assignments as PDF</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void exportData('csv')} disabled={Boolean(exporting)}>Export Assignments as CSV</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void exportData('xlsx')} disabled={Boolean(exporting)}>Export Assignments as Excel</DropdownMenuItem>
+        <DropdownMenuItem onClick={() => void exportData('pdf')} disabled={Boolean(exporting)}>Export Assignments as PDF</DropdownMenuItem>
       </DropdownMenuContent>
     </DropdownMenu>
   )
