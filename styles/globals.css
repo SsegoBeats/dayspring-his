@@ -123,3 +123,34 @@
     @apply bg-background text-foreground;
   }
 }
+
+/* ── Payment success screen animations ── */
+@keyframes fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+
+@keyframes circle-pop {
+  0%   { transform: scale(0);    opacity: 0; }
+  60%  { transform: scale(1.15); opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
+}
+
+@keyframes checkmark-draw {
+  to { stroke-dashoffset: 0; }
+}
+
+@keyframes slide-up {
+  from { opacity: 0; transform: translateY(12px); }
+  to   { opacity: 1; transform: translateY(0);    }
+}
+
+@keyframes ring-pulse {
+  0%   { box-shadow: 0 0 0 0 rgba(16, 185, 129, 0.5); opacity: 1; }
+  100% { box-shadow: 0 0 0 32px rgba(16, 185, 129, 0); opacity: 0; }
+}
+
+@keyframes confetti-fly {
+  0%   { opacity: 1; transform: translate(0, 0) rotate(0deg); }
+  100% { opacity: 0; transform: translate(var(--dx, 60px), var(--dy, 120px)) rotate(var(--dr, 180deg)); }
+}

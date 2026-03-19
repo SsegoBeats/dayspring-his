@@ -15,6 +15,7 @@ import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { formatPatientNumber } from "@/lib/patients"
 import { ReceiptPrinter } from "@/components/receipt-printer"
+import { PaymentSuccessScreen } from "./payment-success-screen"
 import { toast } from "sonner"
 import {
   AlertDialog,
@@ -66,6 +67,8 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const [splitMethod2, setSplitMethod2] = useState("")
   const [splitAmount1, setSplitAmount1] = useState<number>(0)
   const [splitAmount2, setSplitAmount2] = useState<number>(0)
+  const [showSuccessScreen, setShowSuccessScreen] = useState(false)
+  const [pendingReceiptState, setPendingReceiptState] = useState<ReceiptState | null>(null)
 
   if (!bill) {
     return (
@@ -260,7 +263,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
       toast.success(paymentType === "cancel" ? "Bill cancelled successfully" : "Payment processed successfully")
       
       if (paymentType !== "cancel") {
-        setReceiptState({
+        setPendingReceiptState({
           receiptNumber: data.payment?.receiptNo || bill.billNumber || bill.id,
           amount: transactionAmount,
           method: formatPaymentMethodLabel(data.payment?.method || paymentMethod),
@@ -269,6 +272,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           remainingBalance: Math.max(0, bill.total - newPaidAmount),
           paymentId: data.payment?.id || null,
         })
+        setShowSuccessScreen(true)
       } else {
         onBack()
       }
@@ -279,6 +283,20 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
     } finally {
       setProcessing(false)
     }
+  }
+
+  if (showSuccessScreen && pendingReceiptState) {
+    return (
+      <PaymentSuccessScreen
+        amount={pendingReceiptState.amount}
+        method={pendingReceiptState.method}
+        paymentType={isSplit ? "split" : (paymentType as "full" | "partial")}
+        onComplete={() => {
+          setReceiptState(pendingReceiptState)
+          setShowSuccessScreen(false)
+        }}
+      />
+    )
   }
 
   if (receiptState) {
@@ -387,7 +405,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
       })
       await refreshBills()
       toast.success("Split payment processed successfully")
-      setReceiptState({
+      setPendingReceiptState({
         receiptNumber: data2.payment?.receiptNo || bill.billNumber || bill.id,
         amount: bill.total,
         method: `${splitMethod1} + ${splitMethod2}`,
@@ -396,6 +414,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
         remainingBalance: 0,
         paymentId: data2.payment?.id || null,
       })
+      setShowSuccessScreen(true)
     } catch (err: unknown) {
       const msg = err instanceof Error ? err.message : ""
       toast.error(/fetch|network/i.test(msg) ? "Network error. Please check your connection." : "Failed to process split payment")
