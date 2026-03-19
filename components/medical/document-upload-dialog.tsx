@@ -49,9 +49,16 @@ export function DocumentUploadDialog({ open, onOpenChange, patientId, patientNam
   const [file, setFile] = useState<File | null>(null)
   const [uploading, setUploading] = useState(false)
 
+  const MAX_FILE_BYTES = 3 * 1024 * 1024 // 3 MB — base64 overhead keeps us under Vercel's 4.5 MB body limit
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     if (!file || !formData.documentType) return
+
+    if (file.size > MAX_FILE_BYTES) {
+      toast.error(`File is too large (${(file.size / 1024 / 1024).toFixed(1)} MB). Maximum allowed is 3 MB.`)
+      return
+    }
 
     setUploading(true)
     try {
@@ -122,7 +129,7 @@ export function DocumentUploadDialog({ open, onOpenChange, patientId, patientNam
               onChange={(e) => setFile(e.target.files?.[0] || null)}
               required
             />
-            <p className="text-xs text-muted-foreground">Accepted formats: PDF, JPG, PNG, DOC, DOCX (max ~5 MB)</p>
+            <p className="text-xs text-muted-foreground">Accepted formats: PDF, JPG, PNG, DOC, DOCX (max 3 MB)</p>
           </div>
 
           <div className="space-y-2">
