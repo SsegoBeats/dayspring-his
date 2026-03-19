@@ -41,6 +41,7 @@ export function BillQueue({
   showAging = false,
 }: BillQueueProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [confirmDeleteId, setConfirmDeleteId] = useState<string | null>(null)
   const [reprintLoadingId, setReprintLoadingId] = useState<string | null>(null)
 
   return (
@@ -104,12 +105,12 @@ export function BillQueue({
                         setReprintLoadingId(null)
                       }
                     }}
-                    onDelete={canDelete && onDeleteBill ? () => setDeletingId(bill.id) : undefined}
+                    onDelete={canDelete && onDeleteBill ? () => setConfirmDeleteId(bill.id) : undefined}
                     deletingId={deletingId}
                     reprintLoadingId={reprintLoadingId}
                   />
                   {canDelete && onDeleteBill && (
-                    <AlertDialog open={deletingId === bill.id} onOpenChange={(open) => { if (!open) setDeletingId(null) }}>
+                    <AlertDialog open={confirmDeleteId === bill.id} onOpenChange={(open) => { if (!open) setConfirmDeleteId(null) }}>
                       <AlertDialogContent>
                         <AlertDialogHeader>
                           <AlertDialogTitle>Delete this bill?</AlertDialogTitle>
@@ -123,6 +124,8 @@ export function BillQueue({
                             variant="destructive"
                             disabled={deletingId === bill.id}
                             onClick={async () => {
+                              setConfirmDeleteId(null)
+                              setDeletingId(bill.id)
                               try {
                                 const res = await fetch(`/api/billing/${bill.id}`, { method: "DELETE", credentials: "include" })
                                 if (!res.ok) {

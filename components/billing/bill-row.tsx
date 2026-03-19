@@ -194,7 +194,7 @@ export function BillRow({
           className="rounded-full"
           onClick={() => onSelect(bill.id)}
         >
-          {bill.status === "paid" ? "View" : "Process"}
+          {bill.status === "paid" || bill.status === "cancelled" ? "View" : "Process"}
         </Button>
       </div>
     </div>
