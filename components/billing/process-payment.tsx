@@ -428,8 +428,9 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   }
 
   return (
-    <div className="mx-auto max-w-2xl space-y-4">
-      <div className="flex flex-wrap items-center gap-2 print:hidden">
+    <div className="space-y-4">
+      <div className="sticky top-0 z-10 rounded-2xl border bg-white/80 backdrop-blur-sm px-4 py-2 print:hidden">
+      <div className="flex flex-wrap items-center gap-2">
         <Button variant="ghost" size="sm" onClick={onBack} className="gap-2 -ml-1">
           <ArrowLeft className="h-4 w-4" />
           Back to Queue
@@ -470,9 +471,13 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
           </AlertDialog>
         )}
       </div>
+      </div>
 
-      <Card className="overflow-hidden border-border/80 shadow-lg shadow-black/5 print:shadow-none print:border">
-        <CardHeader className="border-b border-border/60 bg-gradient-to-b from-muted/30 to-transparent pb-6">
+      <div className="grid gap-6 xl:grid-cols-[1fr_420px] xl:items-start">
+        {/* Left panel — invoice (sticky) */}
+        <div className="xl:sticky xl:top-16 xl:max-h-[calc(100vh-5rem)] xl:overflow-y-auto">
+      <Card className="border-border/80 shadow-lg shadow-black/5 print:shadow-none print:border">
+        <CardHeader className="border-b border-border/60 bg-gradient-to-b from-emerald-50/60 to-transparent pb-6">
           <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
             <div>
               <CardTitle className="text-xl tracking-tight">Invoice Details</CardTitle>
@@ -575,7 +580,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                 </thead>
                 <tbody>
                   {bill.items.map((item, index) => (
-                    <tr key={index} className="border-b border-border/40 last:border-0 transition-colors hover:bg-muted/20">
+                    <tr key={index} className="border-b border-border/40 last:border-0 transition-colors hover:bg-muted/20 odd:bg-muted/20">
                       <td className="px-4 py-3 text-sm font-medium text-foreground">{item.description}</td>
                       <td className="px-4 py-3 text-right text-sm text-muted-foreground">{item.quantity}</td>
                       <td className="px-4 py-3 text-right text-sm text-muted-foreground">{formatCurrency(item.unitPrice)}</td>
@@ -624,9 +629,24 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
             </div>
           </div>
 
+          {bill.notes && (
+            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
+              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Notes</h3>
+              <p className="text-sm text-foreground">{bill.notes}</p>
+            </div>
+          )}
+        </CardContent>
+      </Card>
+        </div>
+
+        {/* Right panel — payment form */}
+        <div>
           {(bill.status === "pending" || bill.status === "partially paid") && (
-            <div className="space-y-5 rounded-xl border border-border/60 bg-muted/10 p-5 print:hidden">
-              <h3 className="text-sm font-semibold uppercase tracking-wider text-muted-foreground">Payment</h3>
+          <Card className="border-emerald-100 shadow-sm print:hidden">
+            <CardContent className="space-y-5 pt-6">
+              <span className="rounded-full bg-emerald-50 border border-emerald-200 text-emerald-800 text-xs px-3 py-1">
+                Payment
+              </span>
               <div className="grid gap-4 sm:grid-cols-2">
                 <div className="space-y-2">
                   <Label className="text-sm font-medium">Payment Type</Label>
@@ -999,17 +1019,11 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                   Cancel
                 </Button>
               </div>
-            </div>
+            </CardContent>
+          </Card>
           )}
-
-          {bill.notes && (
-            <div className="rounded-xl border border-border/60 bg-muted/20 p-4">
-              <h3 className="mb-2 text-sm font-semibold uppercase tracking-wider text-muted-foreground">Notes</h3>
-              <p className="text-sm text-foreground">{bill.notes}</p>
-            </div>
-          )}
-        </CardContent>
-      </Card>
+        </div>
+      </div>
     </div>
   )
 }
