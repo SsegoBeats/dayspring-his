@@ -37,42 +37,20 @@ import {
   YAxis,
   CartesianGrid,
   Tooltip,
+  ResponsiveContainer,
 } from "recharts"
 import { ChartTooltipContent } from "@/components/ui/chart"
 import { ExportPdfButton } from "@/components/reports/ExportPdfButton"
 import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
 import { buildSearchParamsString } from "@/lib/search-params"
 
-// Custom chart container that bypasses ResponsiveContainer issues
-const FixedChartContainer = ({ 
-  children, 
-  height = 400, 
-  width = '100%',
-  config 
-}: { 
-  children: React.ReactNode, 
-  height?: number, 
-  width?: string | number,
-  config: any
-}) => {
-  const containerStyle = {
-    width: typeof width === 'number' ? `${width}px` : width,
-    height: `${height}px`,
-    minHeight: `${height}px`,
-    minWidth: typeof width === 'number' ? `${width}px` : '100%'
-  }
-
-  return (
-    <div style={containerStyle}>
-      <div style={{ width: '100%', height: '100%' }}>
-        {React.cloneElement(children as React.ReactElement, {
-          width: typeof width === 'number' ? width : undefined,
-          height: height
-        } as any)}
-      </div>
-    </div>
-  )
-}
+const ChartWrapper = ({ children, height = 400 }: { children: React.ReactNode; height?: number }) => (
+  <div style={{ width: "100%", height }}>
+    <ResponsiveContainer width="100%" height="100%">
+      {children as React.ReactElement}
+    </ResponsiveContainer>
+  </div>
+)
 import { toast } from "@/hooks/use-toast"
 
 const COLORS = [
@@ -628,19 +606,7 @@ export function FinancialReports() {
                   <p>Revenue data will appear here once billing transactions are recorded for this period.</p>
                 </div>
               ) : (
-                <FixedChartContainer 
-                  height={400}
-                  config={{
-                    revenue: {
-                      label: "Revenue",
-                      color: "hsl(var(--chart-1))",
-                    },
-                    transactions: {
-                      label: "Transactions",
-                      color: "hsl(var(--chart-2))",
-                    },
-                  }}
-                >
+                <ChartWrapper height={400}>
                   <BarChart data={data.dailyRevenue}>
                     <CartesianGrid strokeDasharray="3 3" />
                     <XAxis 
@@ -658,7 +624,7 @@ export function FinancialReports() {
                     />
                     <Bar dataKey="revenue" fill="hsl(var(--chart-1))" radius={4} />
                   </BarChart>
-                </FixedChartContainer>
+                </ChartWrapper>
               )}
             </CardContent>
           </Card>
@@ -678,14 +644,7 @@ export function FinancialReports() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <FixedChartContainer 
-                  height={300}
-                  config={{
-                    revenue: {
-                      label: "Revenue",
-                    },
-                  }}
-                >
+                <ChartWrapper height={300}>
                     <RePieChart>
                       <Pie
                         data={data.revenueByDepartment}
@@ -704,7 +663,7 @@ export function FinancialReports() {
                       </Pie>
                       <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                     </RePieChart>
-                  </FixedChartContainer>
+                </ChartWrapper>
                 <div className="space-y-2">
                   {data.revenueByDepartment.map((dept, index) => (
                       <div key={dept.department} className="flex items-center justify-between p-2 border rounded">
@@ -742,14 +701,7 @@ export function FinancialReports() {
               </div>
             ) : (
               <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-                <FixedChartContainer 
-                  height={300}
-                  config={{
-                    revenue: {
-                      label: "Revenue",
-                    },
-                  }}
-                >
+                <ChartWrapper height={300}>
                     <RePieChart>
                       <Pie
                         data={data.revenueByPaymentMethod}
@@ -768,7 +720,7 @@ export function FinancialReports() {
                       </Pie>
                       <Tooltip formatter={(value) => formatCurrency(Number(value))} />
                     </RePieChart>
-                  </FixedChartContainer>
+                </ChartWrapper>
                 <div className="space-y-2">
                   {data.revenueByPaymentMethod.map((method, index) => (
                       <div key={method.paymentMethod} className="flex items-center justify-between p-2 border rounded">
@@ -844,36 +796,28 @@ export function FinancialReports() {
                 <p>Patient visit data will appear once check-ins are recorded for this period.</p>
               </div>
             ) : (
-            <FixedChartContainer 
-              height={400}
-              config={{
-                visits: {
-                  label: "Visits",
-                  color: "hsl(var(--chart-3))",
-                },
-              }}
-            >
+            <ChartWrapper height={400}>
                 <LineChart data={data.patientVisits}>
                   <CartesianGrid strokeDasharray="3 3" />
-                  <XAxis 
-                    dataKey="date" 
+                  <XAxis
+                    dataKey="date"
                     tickFormatter={(v) => formatDate(v)}
                     tick={{ fontSize: 12 }}
                   />
                   <YAxis tick={{ fontSize: 12 }} />
-                  <Tooltip 
+                  <Tooltip
                     content={<ChartTooltipContent />}
-                    formatter={(value) => [value, 'Visits']}
+                    formatter={(value) => [value, "Visits"]}
                   />
-                  <Line 
-                    type="monotone" 
-                    dataKey="visits" 
-                    stroke="hsl(var(--chart-3))" 
+                  <Line
+                    type="monotone"
+                    dataKey="visits"
+                    stroke="hsl(var(--chart-3))"
                     strokeWidth={2}
                     dot={{ fill: "hsl(var(--chart-3))", strokeWidth: 2, r: 4 }}
                   />
                 </LineChart>
-              </FixedChartContainer>
+            </ChartWrapper>
             )}
           </CardContent>
           </Card>

@@ -543,6 +543,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                         <SelectItem value="Cash">Cash</SelectItem>
                         <SelectItem value="Mobile Money">Mobile Money (MTN, Airtel)</SelectItem>
                         <SelectItem value="Card">Card</SelectItem>
+                        <SelectItem value="Bank">Bank Transfer</SelectItem>
                       </SelectContent>
                     </Select>
                   </div>

@@ -8,7 +8,6 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
-import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
 import { useBilling } from "@/lib/billing-context"
 import { BillQueue } from "@/components/billing/bill-queue"
 import { CashierAuditLookup } from "@/components/billing/cashier-audit-lookup"
@@ -408,13 +407,6 @@ export function CashierDashboard() {
         <CashierAuditLookup onOpenBill={(billId) => openBill(billId, "process", "queue")} />
       </div>
 
-      <Alert className="border-amber-200 bg-amber-50/80 text-amber-950">
-        <AlertTitle>Cashier improvement shipped</AlertTitle>
-        <AlertDescription>
-          Payment capture now writes real payment records behind every cashier settlement, so receipts, exports, and financial analytics no longer drift away from invoice status.
-        </AlertDescription>
-      </Alert>
-
       <ErrorBoundary
         fallbackTitle="Cashier portal error"
         fallbackDescription="Something went wrong in the cashier portal. Try again or refresh the page."
@@ -432,14 +424,30 @@ export function CashierDashboard() {
           <TabsContent value="overview" className="space-y-4">
             <Card className="border-emerald-100 bg-white/95 shadow-sm">
               <CardHeader>
-                <CardTitle>Cashier Home</CardTitle>
-                <CardDescription>Move straight into collection, billing, arrears review, finance reporting, or exports from here.</CardDescription>
+                <CardTitle>At a Glance</CardTitle>
+                <CardDescription>Live billing status. Use the tabs above to jump into any section.</CardDescription>
               </CardHeader>
               <CardContent className="grid gap-3 md:grid-cols-2 xl:grid-cols-4">
-                <ActionCard title="Queue" description="Open pending and partially paid invoices." onClick={() => syncSection("queue")} />
-                <ActionCard title="Create" description="Generate a fresh manual invoice." onClick={() => syncSection("create")} />
-                <ActionCard title="Overdue" description="Review aged balances and unpaid follow-up." onClick={() => syncSection("overdue")} />
-                <ActionCard title="Exports" description="Download branded invoice and payment ledgers." onClick={() => syncSection("exports")} />
+                <div className="rounded-xl border border-slate-200 bg-slate-50/60 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-widest text-muted-foreground">Awaiting Collection</div>
+                  <div className="mt-2 text-2xl font-semibold text-foreground">{pendingBills.length + partiallyPaidBills.length}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">{pendingBills.length} pending · {partiallyPaidBills.length} partially paid</div>
+                </div>
+                <div className="rounded-xl border border-red-100 bg-red-50/40 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-widest text-red-700">Overdue</div>
+                  <div className="mt-2 text-2xl font-semibold text-foreground">{overdueBills.length}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Invoices past due date</div>
+                </div>
+                <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-widest text-emerald-700">Collected Today</div>
+                  <div className="mt-2 text-2xl font-semibold text-foreground">{formatCurrency(todayRevenue)}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Calendar day collections</div>
+                </div>
+                <div className="rounded-xl border border-sky-100 bg-sky-50/40 p-4">
+                  <div className="text-xs font-semibold uppercase tracking-widest text-sky-700">This Week</div>
+                  <div className="mt-2 text-2xl font-semibold text-foreground">{formatCurrency(weekRevenue)}</div>
+                  <div className="mt-1 text-xs text-muted-foreground">Monday to Sunday</div>
+                </div>
               </CardContent>
             </Card>
           </TabsContent>
@@ -693,26 +701,4 @@ function AttentionListCard({
   )
 }
 
-function ActionCard({
-  title,
-  description,
-  onClick,
-}: {
-  title: string
-  description: string
-  onClick: () => void
-}) {
-  return (
-    <button
-      type="button"
-      onClick={onClick}
-      className="rounded-3xl border border-slate-200 bg-slate-50/70 p-4 text-left transition hover:border-emerald-300 hover:bg-white hover:shadow-sm"
-    >
-      <div className="flex items-center justify-between">
-        <div className="text-base font-semibold text-foreground">{title}</div>
-        <ArrowUpRight className="h-4 w-4 text-muted-foreground" />
-      </div>
-      <p className="mt-2 text-sm leading-6 text-muted-foreground">{description}</p>
-    </button>
-  )
-}
+

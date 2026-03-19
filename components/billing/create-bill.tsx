@@ -635,23 +635,23 @@ export function CreateBill({ onBack, mode = "page" }: CreateBillProps) {
               <div className="space-y-2 pt-2 border-t border-border">
                 <div className="flex justify-between text-sm">
                   <span className="text-muted-foreground">Subtotal:</span>
-                  <span className="text-foreground">${calculateSubtotal().toFixed(2)}</span>
+                  <span className="text-foreground">{formatCurrency(calculateSubtotal())}</span>
                 </div>
                 {applyTax && calculateTax() > 0 && (
                   <div className="flex justify-between text-sm">
                     <span className="text-muted-foreground">Tax ({taxRate}%):</span>
-                    <span className="text-foreground">${calculateTax().toFixed(2)}</span>
+                    <span className="text-foreground">{formatCurrency(calculateTax())}</span>
                   </div>
                 )}
                 {discountAmount > 0 && (
                   <div className="flex justify-between text-sm text-green-600">
                     <span className="text-muted-foreground">Discount:</span>
-                    <span className="text-foreground">-${discountAmount.toFixed(2)}</span>
+                    <span className="text-foreground">-{formatCurrency(discountAmount)}</span>
                   </div>
                 )}
                 <div className="flex justify-between border-t border-border pt-2 text-base font-semibold">
                   <span className="text-foreground">Total:</span>
-                  <span className="text-foreground">${calculateTotal().toFixed(2)}</span>
+                  <span className="text-foreground">{formatCurrency(calculateTotal())}</span>
                 </div>
               </div>
             </div>

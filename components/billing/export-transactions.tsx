@@ -96,9 +96,6 @@ export function ExportTransactions({ onBack }: ExportTransactionsProps) {
       document.body.removeChild(a)
 
       toast.success(`${dataset === "billing" ? "Billing ledger" : "Payment ledger"} exported successfully as ${format.toUpperCase()}`)
-      if (onBack) {
-        onBack()
-      }
     } catch (err: any) {
       toast.error(err.message || "Failed to export transactions")
     } finally {
