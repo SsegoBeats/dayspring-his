@@ -124,6 +124,12 @@ export function CashierDashboard() {
 
   const recentCompletedBills = useMemo(() => paidBills.slice(0, 5), [paidBills])
 
+  const shiftStartTime = (() => {
+    const stored = typeof window !== "undefined" ? sessionStorage.getItem("cashier_shift_start") : null
+    return stored ? new Date(stored).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" }) : "—"
+  })()
+  const shiftBillCount = paidBills.filter((b) => b.paymentDate === todayLocal).length
+
   const detailMode = detailModeParam === "edit" ? "edit" : detailModeParam === "process" ? "process" : null
 
   const replaceParams = useCallback(
@@ -309,20 +315,9 @@ export function CashierDashboard() {
               <CashierPill label="Today collected" value={formatCurrency(todayRevenue)} icon={<CreditCard className="h-3 w-3" />} />
             </div>
             <div className="mt-2 border-t border-emerald-100/60 pt-2 text-xs text-emerald-900/70">
-              {(() => {
-                const stored = typeof window !== "undefined" ? sessionStorage.getItem("cashier_shift_start") : null
-                const shiftStartTime = stored
-                  ? new Date(stored).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
-                  : "—"
-                const shiftBillCount = paidBills.filter(
-                  (b: any) => b.paymentDate === todayLocal
-                ).length
-                return (
-                  <span>
-                    Shift since {shiftStartTime} · {shiftBillCount} bill(s) collected · {formatCurrency(todayRevenue)}
-                  </span>
-                )
-              })()}
+              <span>
+                Shift since {shiftStartTime} · {shiftBillCount} bill(s) collected · {formatCurrency(todayRevenue)}
+              </span>
             </div>
           </div>
           <div className="rounded-[1.5rem] border border-white/70 bg-white/88 p-5 shadow-sm">
