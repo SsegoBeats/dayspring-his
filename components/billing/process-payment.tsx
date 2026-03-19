@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useCallback, useState } from "react"
 import { useBilling } from "@/lib/billing-context"
 import { usePatients } from "@/lib/patient-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
@@ -285,16 +285,20 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
     }
   }
 
+  const handleSuccessComplete = useCallback(() => {
+    if (pendingReceiptState) {
+      setReceiptState(pendingReceiptState)
+    }
+    setShowSuccessScreen(false)
+  }, [pendingReceiptState])
+
   if (showSuccessScreen && pendingReceiptState) {
     return (
       <PaymentSuccessScreen
         amount={pendingReceiptState.amount}
         method={pendingReceiptState.method}
         paymentType={isSplit ? "split" : (paymentType as "full" | "partial")}
-        onComplete={() => {
-          setReceiptState(pendingReceiptState)
-          setShowSuccessScreen(false)
-        }}
+        onComplete={handleSuccessComplete}
       />
     )
   }

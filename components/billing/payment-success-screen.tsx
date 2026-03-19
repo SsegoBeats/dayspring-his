@@ -69,7 +69,7 @@ export function PaymentSuccessScreen({ amount, method, paymentType, onComplete }
       <div className="relative flex items-center justify-center">
         {/* Partial ring pulse */}
         {paymentType === "partial" && (
-          <div className="absolute h-24 w-24 rounded-full motion-safe:animate-[ring-pulse_600ms_200ms_ease-out]" />
+          <div className="absolute inset-0 m-auto h-24 w-24 rounded-full motion-safe:animate-[ring-pulse_600ms_200ms_ease-out]" />
         )}
         <div className="flex h-24 w-24 items-center justify-center rounded-full bg-emerald-500 shadow-xl motion-safe:animate-[circle-pop_600ms_ease-out]">
           <svg viewBox="0 0 52 52" className="h-12 w-12" fill="none" stroke="white" strokeWidth="3.5" strokeLinecap="round" strokeLinejoin="round">
