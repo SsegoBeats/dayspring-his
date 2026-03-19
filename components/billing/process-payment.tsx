@@ -9,7 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Textarea } from "@/components/ui/textarea"
 import { Badge } from "@/components/ui/badge"
-import { ArrowLeft, CreditCard, Loader2, XCircle, AlertTriangle, Printer, Trash } from "lucide-react"
+import { ArrowLeft, Coins, CreditCard, Loader2, XCircle, AlertTriangle, Printer, Trash } from "lucide-react"
 import { Input } from "@/components/ui/input"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useFormatCurrency } from "@/lib/settings-context"
@@ -60,6 +60,12 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const [mobileMoneyPhone, setMobileMoneyPhone] = useState("")
   const [awaitingMobileMoney, setAwaitingMobileMoney] = useState(false)
   const [isDeleting, setIsDeleting] = useState(false)
+  const [cashReceived, setCashReceived] = useState<number>(0)
+  const [isSplit, setIsSplit] = useState(false)
+  const [splitMethod1, setSplitMethod1] = useState("")
+  const [splitMethod2, setSplitMethod2] = useState("")
+  const [splitAmount1, setSplitAmount1] = useState<number>(0)
+  const [splitAmount2, setSplitAmount2] = useState<number>(0)
 
   if (!bill) {
     return (
@@ -77,6 +83,7 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const isOnlinePayment = paymentMethod === "Mobile Money" || paymentMethod === "Card"
   const currentPaidAmount = bill?.paidAmount || 0
   const currentBalance = Math.max(0, (bill?.total || 0) - currentPaidAmount)
+  const amountDue = paymentType === "partial" ? partialAmount : currentBalance
 
   const formatPaymentMethodLabel = (value?: string | null) => {
     const normalized = String(value || "").toLowerCase()
@@ -315,6 +322,85 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
       toast.error("Failed to delete bill")
     } finally {
       setIsDeleting(false)
+    }
+  }
+
+  const handleSplitPayment = async () => {
+    if (!splitMethod1 || !splitMethod2) {
+      toast.error("Please select both payment methods")
+      return
+    }
+    if (splitAmount1 <= 0 || splitAmount2 <= 0) {
+      toast.error("Both payment amounts must be greater than 0")
+      return
+    }
+    if (Math.abs(splitAmount1 + splitAmount2 - currentBalance) > 0.01) {
+      toast.error(`Split amounts must equal the balance due (${formatCurrency(currentBalance)})`)
+      return
+    }
+    setProcessing(true)
+    try {
+      // Step 1: partial payment with first method
+      const res1 = await fetch(`/api/billing/${bill.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "Partially Paid",
+          paymentMethod: splitMethod1,
+          paidAmount: (bill.paidAmount || 0) + splitAmount1,
+          notes: notes || `Split payment 1/2: ${splitMethod1} — ${formatCurrency(splitAmount1)}`,
+        }),
+      })
+      if (!res1.ok) {
+        const err = await res1.json().catch(() => ({})) as { error?: string }
+        toast.error(err.error || "First payment failed")
+        return
+      }
+      // Step 2: settle remaining with second method
+      const res2 = await fetch(`/api/billing/${bill.id}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          status: "Paid",
+          paymentMethod: splitMethod2,
+          paidAmount: bill.total,
+          notes: notes || `Split payment 2/2: ${splitMethod2} — ${formatCurrency(splitAmount2)}`,
+        }),
+      })
+      const data2 = await res2.json().catch(() => ({})) as {
+        error?: string
+        payment?: { id: string; receiptNo: string; method: string }
+        bill?: { status: string; paid_amount: string | number; paid_at: string | null; payment_method: string | null }
+      }
+      if (!res2.ok) {
+        toast.error(data2.error || "Second payment failed")
+        return
+      }
+      updateBill(bill.id, {
+        status: "paid",
+        paidAmount: bill.total,
+        paymentMethod: `${splitMethod1} + ${splitMethod2}`,
+        paymentDate: new Date().toISOString().split("T")[0],
+        notes,
+      })
+      await refreshBills()
+      toast.success("Split payment processed successfully")
+      setReceiptState({
+        receiptNumber: data2.payment?.receiptNo || bill.billNumber || bill.id,
+        amount: bill.total,
+        method: `${splitMethod1} + ${splitMethod2}`,
+        items: bill.items,
+        originalTotal: bill.total,
+        remainingBalance: 0,
+        paymentId: data2.payment?.id || null,
+      })
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : ""
+      toast.error(/fetch|network/i.test(msg) ? "Network error. Please check your connection." : "Failed to process split payment")
+    } finally {
+      setProcessing(false)
     }
   }
 
@@ -559,7 +645,109 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                 </Alert>
               )}
 
-              {paymentType !== "cancel" && (
+              {paymentType !== "cancel" && !isSplit && (
+                <div className="flex items-center justify-end">
+                  <button
+                    type="button"
+                    onClick={() => { setIsSplit(true); setPaymentMethod("") }}
+                    className="text-xs font-medium text-emerald-700 underline-offset-2 hover:underline"
+                  >
+                    + Split payment (two methods)
+                  </button>
+                </div>
+              )}
+
+              {paymentType !== "cancel" && isSplit && (
+                <div className="space-y-3 rounded-xl border border-emerald-200 bg-emerald-50/40 p-4">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-foreground">Split Payment</div>
+                    <button
+                      type="button"
+                      onClick={() => { setIsSplit(false); setSplitMethod1(""); setSplitMethod2(""); setSplitAmount1(0); setSplitAmount2(0) }}
+                      className="text-xs text-muted-foreground underline-offset-2 hover:underline"
+                    >
+                      Cancel split
+                    </button>
+                  </div>
+                  <p className="text-xs text-muted-foreground">
+                    Total to split: <span className="font-semibold text-foreground">{formatCurrency(currentBalance)}</span>
+                    {splitAmount1 > 0 && splitAmount2 > 0 && Math.abs(splitAmount1 + splitAmount2 - currentBalance) > 0.01 && (
+                      <span className="ml-2 text-destructive">· Amounts don&apos;t add up</span>
+                    )}
+                  </p>
+                  <div className="grid gap-3 sm:grid-cols-2">
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Method 1</Label>
+                      <Select value={splitMethod1} onValueChange={setSplitMethod1}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Cash">Cash</SelectItem>
+                          <SelectItem value="Bank">Bank Transfer</SelectItem>
+                          <SelectItem value="Mobile Money">Mobile Money</SelectItem>
+                          <SelectItem value="Card">Card</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Amount 1</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        max={currentBalance}
+                        value={splitAmount1 || ""}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value) || 0
+                          setSplitAmount1(v)
+                          setSplitAmount2(Math.max(0, parseFloat((currentBalance - v).toFixed(2))))
+                        }}
+                        placeholder="Amount"
+                        className="h-9"
+                      />
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Method 2</Label>
+                      <Select value={splitMethod2} onValueChange={setSplitMethod2}>
+                        <SelectTrigger className="h-9">
+                          <SelectValue placeholder="Select method" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Cash">Cash</SelectItem>
+                          <SelectItem value="Bank">Bank Transfer</SelectItem>
+                          <SelectItem value="Mobile Money">Mobile Money</SelectItem>
+                          <SelectItem value="Card">Card</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                    <div className="space-y-2">
+                      <Label className="text-xs text-muted-foreground">Amount 2</Label>
+                      <Input
+                        type="number"
+                        step="0.01"
+                        min="0.01"
+                        max={currentBalance}
+                        value={splitAmount2 || ""}
+                        onChange={(e) => {
+                          const v = parseFloat(e.target.value) || 0
+                          setSplitAmount2(v)
+                          setSplitAmount1(Math.max(0, parseFloat((currentBalance - v).toFixed(2))))
+                        }}
+                        placeholder="Auto-filled"
+                        className="h-9"
+                      />
+                    </div>
+                  </div>
+                  {(splitMethod1 === "Mobile Money" || splitMethod1 === "Card" || splitMethod2 === "Mobile Money" || splitMethod2 === "Card") && (
+                    <p className="text-xs text-amber-700">
+                      Mobile Money and Card use Pesapal online checkout — split payments for these methods must be handled separately.
+                    </p>
+                  )}
+                </div>
+              )}
+
+              {paymentType !== "cancel" && !isSplit && (
                 <>
                   {paymentMethod === "Mobile Money" && (
                     <div className="space-y-2 rounded-lg border border-emerald-200 bg-emerald-50/50 p-4">
@@ -581,6 +769,47 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                       <p className="text-sm text-muted-foreground">
                         Patient&apos;s name, email, and phone will be pre-filled on Pesapal. They will enter card details on the secure payment page (card numbers cannot be pre-filled for security).
                       </p>
+                    </div>
+                  )}
+
+                  {paymentMethod === "Cash" && (
+                    <div className="space-y-3 rounded-lg border border-slate-200 bg-slate-50/50 p-4">
+                      <div className="flex items-center gap-2">
+                        <Coins className="h-4 w-4 text-slate-500" />
+                        <Label className="text-sm font-medium">Cash Calculator</Label>
+                      </div>
+                      <div className="grid gap-3 sm:grid-cols-2">
+                        <div className="space-y-1.5">
+                          <Label htmlFor="cashReceived" className="text-xs text-muted-foreground">Cash Received</Label>
+                          <Input
+                            id="cashReceived"
+                            type="number"
+                            step="0.01"
+                            min="0"
+                            value={cashReceived || ""}
+                            onChange={(e) => setCashReceived(parseFloat(e.target.value) || 0)}
+                            placeholder={`e.g. ${formatCurrency(amountDue)}`}
+                            className="h-9"
+                          />
+                        </div>
+                        <div className="space-y-1.5">
+                          <Label className="text-xs text-muted-foreground">Change to Give</Label>
+                          <div className={`flex h-9 items-center rounded-md border px-3 text-sm font-semibold ${
+                            cashReceived > 0 && cashReceived >= amountDue
+                              ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+                              : "border-border bg-muted/30 text-muted-foreground"
+                          }`}>
+                            {cashReceived > 0 && cashReceived >= amountDue
+                              ? formatCurrency(cashReceived - amountDue)
+                              : "—"}
+                          </div>
+                        </div>
+                      </div>
+                      {cashReceived > 0 && cashReceived < amountDue && (
+                        <p className="text-xs text-destructive">
+                          Cash received is {formatCurrency(amountDue - cashReceived)} short of the amount due.
+                        </p>
+                      )}
                     </div>
                   )}
 
@@ -617,8 +846,47 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                 </>
               )}
 
+              {isSplit && (
+                <div className="space-y-2">
+                  <Label htmlFor="notes" className="text-sm font-medium">Payment Notes</Label>
+                  <Textarea
+                    id="notes"
+                    placeholder="Any additional notes about the split payment..."
+                    value={notes}
+                    onChange={(e) => setNotes(e.target.value)}
+                    rows={2}
+                    className="resize-none"
+                  />
+                </div>
+              )}
+
               <div className="flex flex-wrap gap-2 pt-2">
-                {isOnlinePayment ? (
+                {isSplit ? (
+                  <Button
+                    onClick={handleSplitPayment}
+                    className="flex-1"
+                    disabled={
+                      processing ||
+                      !splitMethod1 ||
+                      !splitMethod2 ||
+                      splitAmount1 <= 0 ||
+                      splitAmount2 <= 0 ||
+                      Math.abs(splitAmount1 + splitAmount2 - currentBalance) > 0.01
+                    }
+                  >
+                    {processing ? (
+                      <>
+                        <Loader2 className="mr-2 h-4 w-4 animate-spin" />
+                        Processing...
+                      </>
+                    ) : (
+                      <>
+                        <CreditCard className="mr-2 h-4 w-4" />
+                        Process Split Payment — {formatCurrency(currentBalance)}
+                      </>
+                    )}
+                  </Button>
+                ) : isOnlinePayment ? (
                   <Button
                     onClick={handleInitiatePesapal}
                     className="flex-1"
@@ -654,8 +922,8 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                       <>
                         <CreditCard className="mr-2 h-4 w-4" />
                         {paymentType === "partial"
-                          ? `Process Partial Payment - ${formatCurrency(partialAmount)}`
-                          : `Process Full Payment - ${formatCurrency(bill.total - (bill.paidAmount || 0))}`}
+                          ? `Process Partial Payment — ${formatCurrency(partialAmount)}`
+                          : `Process Full Payment — ${formatCurrency(bill.total - (bill.paidAmount || 0))}`}
                       </>
                     )}
                   </Button>

@@ -17,6 +17,7 @@ import { EditBill } from "@/components/billing/edit-bill"
 import { FinancialReports } from "@/components/analytics/financial-reports"
 import { OverdueBills } from "@/components/billing/overdue-bills"
 import { ExportTransactions } from "@/components/billing/export-transactions"
+import { ShiftSummary } from "@/components/billing/shift-summary"
 import { buildSearchParamsString } from "@/lib/search-params"
 import { useFormatCurrency, useSettings } from "@/lib/settings-context"
 import { ErrorBoundary } from "@/components/error-boundary"
@@ -450,6 +451,7 @@ export function CashierDashboard() {
                 </div>
               </CardContent>
             </Card>
+            <ShiftSummary />
           </TabsContent>
 
           <TabsContent value="queue" className="space-y-4">

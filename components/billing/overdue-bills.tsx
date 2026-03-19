@@ -108,6 +108,7 @@ export function OverdueBills({ onBack, onSelectBill, onEditBill }: OverdueBillsP
           onEditBill={onEditBill}
           emptyMessage="No overdue bills found."
           showCreateButton={false}
+          showAging
         />
       )}
     </div>
