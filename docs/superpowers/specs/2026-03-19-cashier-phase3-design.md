@@ -117,7 +117,12 @@ Mobile/tablet:  single column, invoice first, form below (no regression)
 - All existing payment fields (type, method, split, cash calc, partial amount, notes) stay in this panel
 
 ### Toolbar
-- Back/Print/Delete buttons move into a slim `rounded-2xl border bg-white/80 backdrop-blur-sm px-4 py-2 sticky top-0 z-10` bar above both columns
+- All four existing toolbar controls move into a slim `rounded-2xl border bg-white/80 backdrop-blur-sm px-4 py-2 sticky top-0 z-10` bar above both columns:
+  1. Back to Queue (ghost Button)
+  2. Open Official Invoice (`<Button asChild><a href={invoicePdfUrl} target="_blank">`)
+  3. Print Screen Copy (outline Button, `window.print()`)
+  4. Delete bill (AlertDialog trigger, gated by `bill.status === "pending" && currentPaidAmount <= 0`)
+- All four are retained; no controls are removed
 
 ---
 
@@ -140,6 +145,10 @@ interface PaymentSuccessScreenProps {
 paymentType={isSplit ? "split" : (paymentType as "full" | "partial")}
 ```
 The cast is safe because `"cancel"` is excluded by the guard in `handleProcessPayment`.
+
+**`method` prop for split payments:** Pass `` `${splitMethod1} + ${splitMethod2}` `` — this mirrors the existing `handleSplitPayment` receipt logic at line 393.
+
+**Pesapal "Check Payment Status" path:** The online payment confirmation flow (lines 943–949) calls `setReceiptState(...)` directly, bypassing `PaymentSuccessScreen`. This is intentional — the user has already been waiting through a spinner, so the success animation is skipped. Do **not** insert `setShowSuccessScreen(true)` into this path.
 
 ### State management in `process-payment.tsx`
 A new `showSuccessScreen` state is added:
@@ -245,7 +254,7 @@ The `<form onSubmit={handleSubmit}>` tag **stays in `CreateBill`**, wrapping the
 The `Card` component in this project does **not** apply `overflow-hidden` in its base classes (base classes are `bg-card text-card-foreground flex flex-col gap-6 rounded-xl border py-6 shadow-sm`). The real problem is the `flex flex-col gap-6` flex formatting context that `Card` creates on its direct children. A `sticky` child inside a flex container will not stick unless the flex container's ancestor is the scroll root — which is not guaranteed inside nested layout components.
 
 To enable `sticky bottom-0` on the footer:
-- Replace the outer `<Card>` wrapper with a plain `<div className="rounded-xl border border-border bg-card shadow-sm relative">` — same visual appearance, removes the flex formatting context
+- Replace the `<Card>` at line 288 (the one wrapping `<CardHeader>` and `<CardContent>`) with a plain `<div className="rounded-xl border border-border bg-card shadow-sm relative">` — same visual appearance, removes the flex formatting context. The outer `<div className="space-y-4">` at line 280 is **not** replaced.
 - The accordion body is `<div className="relative">` and the footer is `sticky bottom-0` within it
 - On mobile this becomes `position: sticky` relative to the page scroll, which is correct
 
@@ -289,7 +298,7 @@ Add `AlertTriangle` and `Download` to the existing import block. `HandCoins`, `P
 
 ### KPI chip upgrades (CashierPill)
 - Add `icon: ReactNode` prop to `CashierPill` — `ReactNode` is already imported in `cashier-dashboard.tsx` at line 4; no new import needed
-- Add `alertIcon?: boolean` prop — when true, icon gets `animate-pulse`
+- Remove the separate `alertIcon?: boolean` — the existing `alert?: boolean` prop is extended to also drive `animate-pulse` on the icon. When `alert=true`, the amber color styling fires **and** the icon gets `animate-pulse`. No new prop needed.
 - Render icon before label text
 - Update all 4 call sites with appropriate icons
 
@@ -334,7 +343,7 @@ interface FormatPreviewCardProps {
 - Inactive: `text-muted-foreground px-4 py-1 text-sm`
 
 ### Recent exports log
-- `localStorage` key scoped by userId: `cashier_recent_exports_{userId}` — read from `useAuth()` inside the component. Add `import { useAuth } from "@/lib/auth-context"` and `const { user } = useAuth()` at the top of `ExportTransactions`. Use `user?.id ?? "guest"` as the key suffix. No prop change to `ExportTransactionsProps` is needed.
+- `localStorage` key scoped by userId: `cashier_recent_exports_{userId}` — read from `useAuth()` inside the component. Add `import { useAuth } from "@/lib/auth-context"` and `const { user } = useAuth()` at the top of `ExportTransactions`. Use `user?.id ?? "guest"` as the key suffix. No prop change to `ExportTransactionsProps` is needed. **Preserve the existing `useFormatDate` import** from `@/lib/date-utils` when adding the new import.
 - Type: `Array<{ dataset: string; format: string; dateRange: string; timestamp: string }>`, max 5 entries
 - On successful export: `JSON.parse` existing, prepend new entry, `JSON.stringify` back
 - Rendered below Export button, section header `"Recent exports"` in `text-xs uppercase tracking-widest`
