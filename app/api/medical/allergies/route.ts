@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
+import { ensureMedicalTables } from "@/lib/medical-tables"
 
 async function getAuth() {
   const cookieStore = await cookies()
@@ -15,6 +16,8 @@ export async function GET(req: Request) {
     const auth = await getAuth()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "medical", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+    await ensureMedicalTables()
 
     const { searchParams } = new URL(req.url)
     const patientId = searchParams.get("patientId")
@@ -33,7 +36,9 @@ export async function GET(req: Request) {
     )
 
     return NextResponse.json({ allergies: rows })
-  } catch (err) {
+  } catch (err: any) {
+    // 42P01 = undefined_table — tables not yet created, return empty
+    if (err?.code === "42P01") return NextResponse.json({ allergies: [] })
     console.error("Error fetching allergies:", err)
     return NextResponse.json({ error: "Failed to fetch allergies" }, { status: 500 })
   }
@@ -44,6 +49,8 @@ export async function POST(req: Request) {
     const auth = await getAuth()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "medical", "create")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+    await ensureMedicalTables()
 
     const body = (await req.json().catch(() => ({}))) as {
       patientId?: string
