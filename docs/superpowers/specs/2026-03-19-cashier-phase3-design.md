@@ -47,18 +47,16 @@ interface BillRowProps {
   showAging?: boolean
   onSelect: (billId: string) => void
   onEdit?: (billId: string) => void
-  onDelete?: (billId: string) => void  // parent (BillQueue) owns deletingId state and confirmation dialog
+  onDelete?: (billId: string) => void    // parent (BillQueue) owns deletingId state and confirmation dialog
+  onReprint?: (billId: string) => void  // parent (BillQueue) owns reprintLoadingId state and fetch logic
+  deletingId?: string | null            // row with this id shows delete button in loading state
+  reprintLoadingId?: string | null      // row with this id shows reprint button in loading state
 }
 ```
 
 `BillRow` calls `useFormatCurrency()` internally. It does **not** receive `formatCurrency` as a prop.
 
-The AlertDialog confirmation for delete and the receipt reprint fetch logic both stay in `BillQueue`. `BillRow` calls the `onDelete` / receipt callbacks provided; `BillQueue` passes them as inline handlers (as it does today). `BillQueue` retains `deletingId` and `reprintLoadingId` state and passes `disabled` + loading state via a new optional prop:
-
-```ts
-  deletingId?: string | null      // highlights this row's delete button as loading
-  reprintLoadingId?: string | null
-```
+The AlertDialog confirmation for delete and the receipt reprint fetch logic both stay in `BillQueue`. `BillRow` calls the `onDelete` / `onReprint` callbacks provided; `BillQueue` passes them as inline handlers (as it does today).
 
 **Layout:** Three horizontal zones inside a `rounded-xl border` card.
 
@@ -95,8 +93,10 @@ The AlertDialog confirmation for delete and the receipt reprint fetch logic both
 
 ## Section 2 — Process Payment 2-col layout (`components/billing/process-payment.tsx`)
 
-### Key change: remove `max-w-2xl`
+### Key change: remove `max-w-2xl` and `overflow-hidden`
 The existing outer `<div className="mx-auto max-w-2xl space-y-4">` wrapper is replaced with `<div className="space-y-4">`. The `max-w-2xl` constraint is incompatible with a two-column layout requiring 1fr + 420px.
+
+Additionally, `process-payment.tsx` has a `<Card className="overflow-hidden border-border/80 ...">` wrapper. The `overflow-hidden` is applied explicitly via `className` (not by the base `Card` component). **This `overflow-hidden` must be removed** when applying the 2-col layout — it will block the `xl:sticky` positioning of the left invoice panel. Remove it from the `className` string at that call site.
 
 ### Layout
 ```
@@ -133,7 +133,13 @@ interface PaymentSuccessScreenProps {
 }
 ```
 
-`isFullPayment` is replaced by `paymentType: "full" | "partial" | "split"`. Split is detected in the caller by checking `isSplit` state. Partial is the existing `"partial"` paymentType. Confetti fires only for `paymentType === "full"`.
+`isFullPayment` is replaced by `paymentType: "full" | "partial" | "split"`. Confetti fires only for `paymentType === "full"`.
+
+**Caller mapping note:** `process-payment.tsx` already has `const [paymentType, setPaymentType] = useState<"full" | "partial" | "cancel">("full")` — the `"cancel"` variant never reaches `PaymentSuccessScreen` (cancel paths do not trigger the success screen). Use this explicit mapping when passing the prop:
+```tsx
+paymentType={isSplit ? "split" : (paymentType as "full" | "partial")}
+```
+The cast is safe because `"cancel"` is excluded by the guard in `handleProcessPayment`.
 
 ### State management in `process-payment.tsx`
 A new `showSuccessScreen` state is added:
@@ -155,7 +161,7 @@ Flow:
 |------|-------|
 | 0ms | `fixed inset-0` backdrop: radial gradient emerald→sky, `animate-[fade-in_300ms]` |
 | 0–600ms | 72px circle: `motion-safe:animate-[circle-pop_600ms_ease-out]` |
-| 100–600ms | SVG checkmark: `stroke-dashoffset` animation via `motion-safe:animate-[checkmark-draw_500ms_100ms_ease-out_forwards]` |
+| 100–600ms | SVG checkmark: `stroke-dashoffset` animation via `motion-safe:animate-[checkmark-draw_500ms_100ms_ease-out_forwards]`. **The `<path>` element must have `strokeDasharray={100}` set** — `stroke-dashoffset` has no visible effect without it. Match the value to the keyframe range (`0 → 100`). |
 | 200–900ms | `paymentType === "full"`: 18 confetti divs, `motion-safe:animate-[confetti-fly_700ms_200ms_ease-out_forwards]` |
 | 200–900ms | `paymentType === "partial"`: amber `motion-safe:animate-[ring-pulse_600ms_200ms_ease-out]` ring around circle |
 | 500ms | "Payment received" / "Partial payment recorded" / "Split payment recorded": `motion-safe:animate-[slide-up_300ms_500ms_ease-out_forwards] opacity-0` |
@@ -177,7 +183,7 @@ Flow:
 @media (prefers-reduced-motion: no-preference) {
   @keyframes checkmark-draw  { from { stroke-dashoffset: 100 } to { stroke-dashoffset: 0 } }
   @keyframes circle-pop      { 0% { transform: scale(0) } 80% { transform: scale(1.1) } 100% { transform: scale(1) } }
-  @keyframes confetti-fly    { to { transform: translate(var(--dx), var(--dy)) rotate(var(--dr)); opacity: 0 } }
+  @keyframes confetti-fly    { from { transform: translate(0,0) rotate(0deg); opacity: 1 } to { transform: translate(var(--dx), var(--dy)) rotate(var(--dr)); opacity: 0 } }
   @keyframes slide-up        { from { transform: translateY(1.5rem); opacity: 0 } to { transform: translateY(0); opacity: 1 } }
   @keyframes ring-pulse      { 0%,100% { box-shadow: 0 0 0 0 rgba(251,191,36,0) } 50% { box-shadow: 0 0 0 8px rgba(251,191,36,0.4) } }
   @keyframes highlight-pulse { 0%,100% { box-shadow: 0 0 0 0 rgba(56,189,248,0) } 50% { box-shadow: 0 0 0 6px rgba(56,189,248,0.35) } }
@@ -212,6 +218,7 @@ interface CreateBillAccordionProps {
   // Items section
   items: BillItem[]
   onItemsChange: (items: BillItem[]) => void
+  onDeliverySubChange: (index: number, deliveryType: string) => void  // mutates description field; must stay in parent because it doesn't go through onItemsChange
   // Charges section
   applyTax: boolean
   onApplyTaxChange: (v: boolean) => void
@@ -225,13 +232,14 @@ interface CreateBillAccordionProps {
   calculateTotal: () => number
   // Submission (footer)
   isSubmitting: boolean
-  onSubmit: () => void
+  // Note: NO onSubmit prop. The footer button uses type="submit" and relies on the outer
+  // <form onSubmit={handleSubmit}> in CreateBill. No synthetic dispatch needed.
   formatCurrency: (n: number) => string
 }
 ```
 
 ### Form boundary
-The `<form onSubmit={handleSubmit}>` tag **stays in `CreateBill`**, wrapping the entire `<CreateBillAccordion>` component. The accordion's `onSubmit` prop is called by the floating footer's "Create Bill" button via `type="submit"` on a `<button>` inside the form — this works because the button is a descendant of the outer `<form>`. No synthetic submit dispatch needed.
+The `<form onSubmit={handleSubmit}>` tag **stays in `CreateBill`**, wrapping the entire `<CreateBillAccordion>` component. The floating footer's "Create Bill" button uses `type="submit"` and fires the outer form's `handleSubmit` because the button is a descendant of the outer `<form>`. No `onSubmit` prop exists on `CreateBillAccordion` — the native form submission mechanism is used exclusively.
 
 ### Sticky footer — overflow fix
 The `Card` wrapping `CreateBill` uses shadcn/ui's `Card` which applies `overflow-hidden` by default. To enable `sticky bottom-0` on the footer:
