@@ -57,7 +57,6 @@ interface CreateBillAccordionProps {
 // ---------------------------------------------------------------------------
 
 interface AccordionSectionProps {
-  id: string
   open: boolean
   onToggle: () => void
   label: string
@@ -109,13 +108,13 @@ export function CreateBillAccordion(props: CreateBillAccordionProps) {
     new Set<SectionKey>(["patient", "items", "charges"])
   )
   const [totalPop, setTotalPop] = useState(false)
-  const prevTotal = props.calculateTotal()
+  const total = props.calculateTotal()
 
   useEffect(() => {
     setTotalPop(true)
     const t = setTimeout(() => setTotalPop(false), 150)
     return () => clearTimeout(t)
-  }, [prevTotal])
+  }, [total])
 
   function toggle(key: SectionKey) {
     setOpenSections((prev) => {
@@ -193,7 +192,6 @@ export function CreateBillAccordion(props: CreateBillAccordionProps) {
       {/* Section 1: Patient                                                   */}
       {/* ------------------------------------------------------------------ */}
       <AccordionSection
-        id="patient"
         open={openSections.has("patient")}
         onToggle={() => toggle("patient")}
         label="Patient"
@@ -337,7 +335,6 @@ export function CreateBillAccordion(props: CreateBillAccordionProps) {
       {/* Section 2: Bill Items                                                */}
       {/* ------------------------------------------------------------------ */}
       <AccordionSection
-        id="items"
         open={openSections.has("items")}
         onToggle={() => toggle("items")}
         label="Bill Items"
@@ -519,7 +516,6 @@ export function CreateBillAccordion(props: CreateBillAccordionProps) {
       {/* Section 3: Charges                                                   */}
       {/* ------------------------------------------------------------------ */}
       <AccordionSection
-        id="charges"
         open={openSections.has("charges")}
         onToggle={() => toggle("charges")}
         label="Charges"
@@ -594,7 +590,7 @@ export function CreateBillAccordion(props: CreateBillAccordionProps) {
       {/* ------------------------------------------------------------------ */}
       {/* Floating footer                                                      */}
       {/* ------------------------------------------------------------------ */}
-      <div className="sticky bottom-0 border-t border-emerald-100 bg-white/95 px-6 py-3 backdrop-blur-sm shadow-[0_-4px_24px_rgba(0,0,0,0.06)]">
+      <div className="sticky bottom-0 border-t border-emerald-100 bg-background/95 px-6 py-3 backdrop-blur-sm shadow-[0_-4px_24px_rgba(0,0,0,0.06)]">
         <div className="flex items-center justify-between gap-4">
           <span className="text-sm text-muted-foreground">{props.items.length} item(s)</span>
           <span
