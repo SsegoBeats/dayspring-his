@@ -22,6 +22,7 @@ import { buildSearchParamsString } from "@/lib/search-params"
 import { useFormatCurrency, useSettings } from "@/lib/settings-context"
 import { ErrorBoundary } from "@/components/error-boundary"
 import {
+  AlertTriangle,
   ArrowUpRight,
   BellRing,
   CircleDollarSign,
@@ -302,10 +303,26 @@ export function CashierDashboard() {
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs text-slate-700">
-              <CashierPill label="Pending bills" value={String(pendingBills.length)} alert={pendingBills.length > 10} />
-              <CashierPill label="Overdue" value={String(overdueBills.length)} alert={overdueBills.length > 0} />
-              <CashierPill label="Outstanding" value={formatCurrency(totalOutstanding)} alert={totalOutstanding > 0} />
-              <CashierPill label="Today collected" value={formatCurrency(todayRevenue)} />
+              <CashierPill label="Pending bills" value={String(pendingBills.length)} alert={pendingBills.length > 10} icon={<HandCoins className="h-3 w-3" />} />
+              <CashierPill label="Overdue" value={String(overdueBills.length)} alert={overdueBills.length > 0} icon={<AlertTriangle className="h-3 w-3" />} />
+              <CashierPill label="Outstanding" value={formatCurrency(totalOutstanding)} alert={totalOutstanding > 0} icon={<CircleDollarSign className="h-3 w-3" />} />
+              <CashierPill label="Today collected" value={formatCurrency(todayRevenue)} icon={<CreditCard className="h-3 w-3" />} />
+            </div>
+            <div className="mt-2 border-t border-emerald-100/60 pt-2 text-xs text-emerald-900/70">
+              {(() => {
+                const stored = typeof window !== "undefined" ? sessionStorage.getItem("cashier_shift_start") : null
+                const shiftStartTime = stored
+                  ? new Date(stored).toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" })
+                  : "—"
+                const shiftBillCount = paidBills.filter(
+                  (b: any) => b.paymentDate === todayLocal
+                ).length
+                return (
+                  <span>
+                    Shift since {shiftStartTime} · {shiftBillCount} bill(s) collected · {formatCurrency(todayRevenue)}
+                  </span>
+                )
+              })()}
             </div>
           </div>
           <div className="rounded-[1.5rem] border border-white/70 bg-white/88 p-5 shadow-sm">
@@ -315,21 +332,25 @@ export function CashierDashboard() {
                 label="Open collections queue"
                 description="Review pending and partially paid invoices in the payment lane."
                 onClick={() => syncSection("queue")}
+                icon={<HandCoins className="h-4 w-4 text-emerald-600" />}
               />
               <QuickActionButton
                 label="Create a new bill"
                 description="Generate a manual invoice for services or medication right from cashier."
                 onClick={() => syncSection("create")}
+                icon={<Plus className="h-4 w-4 text-emerald-600" />}
               />
               <QuickActionButton
                 label="Review overdue balances"
                 description="Jump straight into invoices that have aged past the normal collection window."
                 onClick={() => syncSection("overdue")}
+                icon={<AlertTriangle className="h-4 w-4 text-amber-500" />}
               />
               <QuickActionButton
                 label="Open exports"
                 description="Download the invoice ledger or the payment ledger in CSV, XLSX, or PDF."
                 onClick={() => syncSection("exports")}
+                icon={<Receipt className="h-4 w-4 text-sky-600" />}
               />
               <Button asChild variant="outline">
                 <Link href="/cashier/settings">
@@ -577,9 +598,24 @@ export function CashierDashboard() {
   )
 }
 
-function CashierPill({ label, value, alert = false }: { label: string; value: string; alert?: boolean }) {
+function CashierPill({
+  label,
+  value,
+  alert = false,
+  icon,
+}: {
+  label: string
+  value: string
+  alert?: boolean
+  icon?: ReactNode
+}) {
   return (
-    <div className={`rounded-full border px-3 py-1 ${alert ? "border-amber-200 bg-amber-50 text-amber-900" : "border-white/70 bg-white/82"}`}>
+    <div className={`rounded-full border px-3 py-1 flex items-center gap-1.5 ${
+      alert ? "border-amber-200 bg-amber-50 text-amber-900" : "border-white/70 bg-white/80"
+    }`}>
+      {icon && (
+        <span className={alert ? "animate-pulse" : ""}>{icon}</span>
+      )}
       <span className="font-medium">{label}:</span> {value}
     </div>
   )
@@ -589,18 +625,29 @@ function QuickActionButton({
   label,
   description,
   onClick,
+  icon,
+  variant = "default",
 }: {
   label: string
   description: string
   onClick: () => void
+  icon?: ReactNode
+  variant?: "default" | "ghost"
 }) {
   return (
     <button
       type="button"
       onClick={onClick}
-      className="rounded-2xl border border-slate-200 bg-slate-50/80 px-4 py-3 text-left transition hover:border-emerald-300 hover:bg-white hover:shadow-sm"
+      className={`rounded-2xl border px-4 py-3 text-left transition active:ring-2 active:ring-emerald-400 active:ring-offset-1 hover:border-emerald-300 hover:bg-white hover:shadow-sm ${
+        variant === "ghost"
+          ? "border-transparent bg-transparent hover:bg-emerald-50"
+          : "border-slate-200 bg-slate-50/80"
+      }`}
     >
-      <div className="font-medium text-foreground">{label}</div>
+      <div className="flex items-center gap-2 font-medium text-foreground">
+        {icon}
+        {label}
+      </div>
       <div className="mt-1 text-sm text-muted-foreground">{description}</div>
     </button>
   )
