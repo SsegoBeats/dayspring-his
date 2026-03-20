@@ -64,6 +64,7 @@ export async function PATCH(req: Request) {
       `UPDATE pharmacy_settings SET ${fields.join(", ")} WHERE user_id = $${idx} RETURNING *`,
       values
     )
+    if (rows.length === 0) return NextResponse.json({ error: "Settings not found" }, { status: 404 })
     return NextResponse.json({ settings: rows[0] })
   } catch (err: any) {
     console.error("Error updating pharmacy settings:", err)
