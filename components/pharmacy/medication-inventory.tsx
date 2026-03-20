@@ -10,7 +10,10 @@ import { Badge } from "@/components/ui/badge"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from "@/components/ui/dialog"
-import { Search, AlertTriangle, Plus, Info, Barcode, Filter, Trash2 } from "lucide-react"
+import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Label } from "@/components/ui/label"
+import { Search, AlertTriangle, Plus, Info, Barcode, Filter, Trash2, PackageX } from "lucide-react"
 import { useFormatCurrency } from "@/lib/settings-context"
 import { useToast } from "@/hooks/use-toast"
 import { AddMedicationDialog } from "./add-medication-dialog"
@@ -71,6 +74,8 @@ export function MedicationInventory() {
     costPrice: string
     expiryDate: string
     barcode: string
+    is_controlled: boolean
+    schedule_class: string
   } | null>(null)
 
   const lowStockMeds = getLowStockMedications()
@@ -268,6 +273,8 @@ export function MedicationInventory() {
       costPrice: selectedMedication.costPrice ? String(selectedMedication.costPrice) : "",
       expiryDate: selectedMedication.expiryDate || "",
       barcode: selectedMedication.barcode || "",
+      is_controlled: selectedMedication.is_controlled ?? false,
+      schedule_class: selectedMedication.schedule_class ?? "",
     })
   }
 
@@ -286,6 +293,8 @@ export function MedicationInventory() {
       costPrice: editForm.costPrice ? Number.parseFloat(editForm.costPrice) : undefined,
       expiryDate: editForm.expiryDate,
       barcode: editForm.barcode || undefined,
+      is_controlled: editForm.is_controlled,
+      schedule_class: editForm.schedule_class || null,
     }
     updateMedication(selectedMedication.id, updated)
     setSelectedMedication({ ...selectedMedication, ...updated })
@@ -674,7 +683,12 @@ export function MedicationInventory() {
           </div>
 
           {pagedMedications.length === 0 ? (
-            <p className="text-center text-muted-foreground">No medications match the current filters</p>
+            <div className="flex flex-col items-center justify-center gap-2 py-10 text-center text-muted-foreground">
+              <PackageX className="h-8 w-8 text-muted-foreground/60 mx-auto" />
+              <p className="text-sm font-medium">
+                {medications.length === 0 ? "No medications found." : "No medications match the current filters."}
+              </p>
+            </div>
           ) : (
             <div className="rounded-md border">
               <Table>
@@ -709,6 +723,11 @@ export function MedicationInventory() {
                         <TableCell>
                           <div className="flex items-center gap-2">
                             <span className="font-medium text-foreground">{med.name}</span>
+                            {med.is_controlled && (
+                              <Badge variant="destructive" className="ml-1 px-1.5 py-0 text-[10px]">
+                                {med.schedule_class ?? "Controlled"}
+                              </Badge>
+                            )}
                             {isLowStock && (
                               <Badge variant="destructive">
                                 <AlertTriangle className="mr-1 h-3 w-3" />
@@ -966,6 +985,37 @@ export function MedicationInventory() {
                       placeholder="Scan or enter barcode"
                     />
                   </div>
+                  <div className="sm:col-span-2 flex items-center justify-between rounded-md border p-3">
+                    <Label htmlFor="edit-is-controlled" className="flex flex-col gap-0.5 cursor-pointer">
+                      <span className="text-sm font-medium">Controlled Substance</span>
+                      <span className="text-xs text-muted-foreground">Schedule drug requiring register entry</span>
+                    </Label>
+                    <Switch
+                      id="edit-is-controlled"
+                      checked={editForm.is_controlled}
+                      onCheckedChange={(checked) =>
+                        setEditForm({ ...editForm, is_controlled: checked, schedule_class: checked ? editForm.schedule_class : "" })
+                      }
+                    />
+                  </div>
+                  {editForm.is_controlled && (
+                    <div className="sm:col-span-2">
+                      <p className="text-muted-foreground">Schedule Class</p>
+                      <Select
+                        value={editForm.schedule_class || ""}
+                        onValueChange={(value) => setEditForm({ ...editForm, schedule_class: value })}
+                      >
+                        <SelectTrigger>
+                          <SelectValue placeholder="Select schedule class" />
+                        </SelectTrigger>
+                        <SelectContent>
+                          <SelectItem value="Schedule I">Schedule I</SelectItem>
+                          <SelectItem value="Schedule II">Schedule II</SelectItem>
+                          <SelectItem value="Schedule III">Schedule III</SelectItem>
+                        </SelectContent>
+                      </Select>
+                    </div>
+                  )}
                   <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
                     <Button variant="outline" size="sm" onClick={() => setIsEditing(false)}>
                       Cancel
@@ -1012,6 +1062,21 @@ export function MedicationInventory() {
                     <p className="font-medium">
                       {selectedMedication.barcode || <span className="text-muted-foreground">—</span>}
                     </p>
+                  </div>
+                  <div className="sm:col-span-2">
+                    <p className="text-muted-foreground">Controlled Substance</p>
+                    <div className="flex items-center gap-2 mt-0.5">
+                      {selectedMedication.is_controlled ? (
+                        <>
+                          <Badge variant="destructive" className="px-1.5 py-0 text-[10px]">Controlled</Badge>
+                          {selectedMedication.schedule_class && (
+                            <span className="text-sm font-medium">{selectedMedication.schedule_class}</span>
+                          )}
+                        </>
+                      ) : (
+                        <span className="text-sm text-muted-foreground">No</span>
+                      )}
+                    </div>
                   </div>
                   <div className="sm:col-span-2 flex justify-end gap-2 pt-2">
                     <Button size="sm" variant="outline" onClick={startEditing}>

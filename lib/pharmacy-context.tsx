@@ -20,6 +20,8 @@ export interface Medication {
   maxStockLevel?: number
   lastRestockedAt?: string
   barcode?: string
+  is_controlled: boolean
+  schedule_class: string | null
 }
 
 export interface Supplier {
@@ -184,6 +186,8 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
           maxStockLevel: m.max_stock_level ? Number(m.max_stock_level) : undefined,
           lastRestockedAt: m.last_restocked_at || undefined,
           barcode: m.barcode || undefined,
+          is_controlled: m.is_controlled === true,
+          schedule_class: m.schedule_class ?? null,
         }))
         setMedications(meds)
       } else if (res.status === 401 || res.status === 403) {
@@ -354,6 +358,8 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
           minStockLevel: medication.minStockLevel,
           maxStockLevel: medication.maxStockLevel,
           barcode: medication.barcode,
+          is_controlled: medication.is_controlled,
+          schedule_class: medication.schedule_class,
         }),
       })
       if (res.ok) {

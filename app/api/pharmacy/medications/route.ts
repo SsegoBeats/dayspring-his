@@ -26,7 +26,9 @@ export async function GET() {
               min_stock_level,
               max_stock_level,
               last_restocked_at,
-              barcode
+              barcode,
+              is_controlled,
+              schedule_class
          FROM medications
         ORDER BY name ASC
         LIMIT 1000`,
@@ -60,6 +62,8 @@ export async function POST(req: Request) {
       minStockLevel?: number
       maxStockLevel?: number
       barcode?: string
+      is_controlled?: boolean
+      schedule_class?: string
     }
 
     const name = (body.name || "").trim()
@@ -79,6 +83,8 @@ export async function POST(req: Request) {
       ? Math.max(0, Math.trunc(body.maxStockLevel as number))
       : null
     const barcode = body.barcode ? String(body.barcode).trim() || null : null
+    const isControlled = body.is_controlled === true
+    const scheduleClass = body.schedule_class ? String(body.schedule_class).trim() || null : null
 
     if (!name || !category) {
       return NextResponse.json({ error: "name and category are required" }, { status: 400 })
@@ -102,8 +108,10 @@ export async function POST(req: Request) {
          expiry_date,
          manufacturer,
          barcode,
-         last_restocked_at
-       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14)
+         last_restocked_at,
+         is_controlled,
+         schedule_class
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,$11,$12,$13,$14,$15,$16)
        RETURNING id,
                  name,
                  generic_name,
@@ -118,8 +126,10 @@ export async function POST(req: Request) {
                  min_stock_level,
                  max_stock_level,
                  last_restocked_at,
-                 barcode`,
-      [name, null, category, unitType, stockQuantity, unitPrice, costPrice, reorderLevel, minStockLevel, maxStockLevel, expiryDate, manufacturer, barcode, stockQuantity > 0 ? new Date().toISOString() : null],
+                 barcode,
+                 is_controlled,
+                 schedule_class`,
+      [name, null, category, unitType, stockQuantity, unitPrice, costPrice, reorderLevel, minStockLevel, maxStockLevel, expiryDate, manufacturer, barcode, stockQuantity > 0 ? new Date().toISOString() : null, isControlled, scheduleClass],
     )
 
     return NextResponse.json({ medication: rows[0] }, { status: 201 })

@@ -17,6 +17,7 @@ import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Switch } from "@/components/ui/switch"
 
 interface AddMedicationDialogProps {
   open: boolean
@@ -43,6 +44,8 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
     minStockLevel: "",
     maxStockLevel: "",
     barcode: "",
+    is_controlled: false,
+    schedule_class: "",
   })
 
   // Auto-focus barcode input when dialog opens for easy scanning
@@ -73,6 +76,8 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
         minStockLevel: formData.minStockLevel ? Number.parseInt(formData.minStockLevel) : undefined,
         maxStockLevel: formData.maxStockLevel ? Number.parseInt(formData.maxStockLevel) : undefined,
         barcode: formData.barcode || undefined,
+        is_controlled: formData.is_controlled,
+        schedule_class: formData.schedule_class || null,
       })
 
       toast({
@@ -95,6 +100,8 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
         minStockLevel: "",
         maxStockLevel: "",
         barcode: "",
+        is_controlled: false,
+        schedule_class: "",
       })
 
       onOpenChange(false)
@@ -286,6 +293,37 @@ export function AddMedicationDialog({ open, onOpenChange }: AddMedicationDialogP
                 placeholder="Focus here and scan the medication barcode"
               />
             </div>
+            <div className="md:col-span-2 flex items-center justify-between rounded-md border p-3">
+              <Label htmlFor="is-controlled" className="flex flex-col gap-0.5 cursor-pointer">
+                <span className="text-sm font-medium">Controlled Substance (Schedule Drug)</span>
+                <span className="text-xs text-muted-foreground">Requires controlled drug register entry on dispense</span>
+              </Label>
+              <Switch
+                id="is-controlled"
+                checked={formData.is_controlled}
+                onCheckedChange={(checked) =>
+                  setFormData((prev) => ({ ...prev, is_controlled: checked, schedule_class: checked ? prev.schedule_class : "" }))
+                }
+              />
+            </div>
+            {formData.is_controlled && (
+              <div className="space-y-2 md:col-span-2">
+                <Label htmlFor="schedule-class">Schedule Class</Label>
+                <Select
+                  value={formData.schedule_class}
+                  onValueChange={(value) => setFormData((prev) => ({ ...prev, schedule_class: value }))}
+                >
+                  <SelectTrigger id="schedule-class">
+                    <SelectValue placeholder="Select schedule class" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Schedule I">Schedule I</SelectItem>
+                    <SelectItem value="Schedule II">Schedule II</SelectItem>
+                    <SelectItem value="Schedule III">Schedule III</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>
