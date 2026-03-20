@@ -4,6 +4,7 @@ import { SettingsColumns, SettingsLayout } from "@/components/settings/settings-
 import { EmailSettings } from "@/components/settings/email-settings"
 import { PasswordSettings } from "@/components/settings/password-settings"
 import { ProfileSettings, NotificationSettings, PreferenceSettings } from "@/components/settings/preference-settings"
+import { PharmacyPreferencesSettings } from "@/components/pharmacy/pharmacy-preferences-settings"
 import { Pill } from "lucide-react"
 
 export default function PharmacistSettingsPage() {
@@ -18,6 +19,7 @@ export default function PharmacistSettingsPage() {
           <>
             <ProfileSettings />
             <PreferenceSettings />
+            <PharmacyPreferencesSettings />
           </>
         }
         secondary={
