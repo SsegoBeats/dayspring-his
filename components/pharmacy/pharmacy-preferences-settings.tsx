@@ -1,7 +1,6 @@
 "use client"
 
 import { useState, useEffect } from "react"
-import { usePharmacy } from "@/lib/pharmacy-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -39,55 +38,58 @@ const DEFAULT_FORM: FormState = {
 }
 
 export function PharmacyPreferencesSettings() {
-  const { pharmacySettings, refreshPharmacySettings, updatePharmacySettings } = usePharmacy()
   const [form, setForm] = useState<FormState>(DEFAULT_FORM)
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
   useEffect(() => {
-    if (!pharmacySettings) {
-      refreshPharmacySettings()
-    }
-  }, [pharmacySettings, refreshPharmacySettings])
-
-  useEffect(() => {
-    if (!pharmacySettings) return
-    setForm({
-      low_stock_threshold_override:
-        pharmacySettings.low_stock_threshold_override != null
-          ? String(pharmacySettings.low_stock_threshold_override)
-          : "",
-      expiry_warning_days: String(pharmacySettings.expiry_warning_days ?? 90),
-      expiry_critical_days: String(pharmacySettings.expiry_critical_days ?? 30),
-      default_dispensing_notes: pharmacySettings.default_dispensing_notes ?? "",
-      preferred_print_format: pharmacySettings.preferred_print_format ?? "a4",
-      print_include_logo: pharmacySettings.print_include_logo ?? true,
-      notify_low_stock: pharmacySettings.notify_low_stock ?? true,
-      notify_expiry: pharmacySettings.notify_expiry ?? true,
-      notify_new_prescriptions: pharmacySettings.notify_new_prescriptions ?? true,
-      notify_po_approved: pharmacySettings.notify_po_approved ?? true,
-    })
-  }, [pharmacySettings])
+    fetch("/api/pharmacy/settings", { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data) => {
+        if (!data) return
+        setForm({
+          low_stock_threshold_override:
+            data.low_stock_threshold_override != null ? String(data.low_stock_threshold_override) : "",
+          expiry_warning_days: String(data.expiry_warning_days ?? 90),
+          expiry_critical_days: String(data.expiry_critical_days ?? 30),
+          default_dispensing_notes: data.default_dispensing_notes ?? "",
+          preferred_print_format: data.preferred_print_format ?? "a4",
+          print_include_logo: data.print_include_logo ?? true,
+          notify_low_stock: data.notify_low_stock ?? true,
+          notify_expiry: data.notify_expiry ?? true,
+          notify_new_prescriptions: data.notify_new_prescriptions ?? true,
+          notify_po_approved: data.notify_po_approved ?? true,
+        })
+      })
+      .catch(() => {})
+  }, [])
 
   const handleSave = async () => {
     setSaving(true)
     setError(null)
     try {
-      await updatePharmacySettings({
-        low_stock_threshold_override:
-          form.low_stock_threshold_override !== ""
-            ? Number(form.low_stock_threshold_override)
-            : undefined,
-        expiry_warning_days: Number(form.expiry_warning_days || 90),
-        expiry_critical_days: Number(form.expiry_critical_days || 30),
-        default_dispensing_notes: form.default_dispensing_notes || undefined,
-        preferred_print_format: form.preferred_print_format,
-        print_include_logo: form.print_include_logo,
-        notify_low_stock: form.notify_low_stock,
-        notify_expiry: form.notify_expiry,
-        notify_new_prescriptions: form.notify_new_prescriptions,
-        notify_po_approved: form.notify_po_approved,
+      const res = await fetch("/api/pharmacy/settings", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          low_stock_threshold_override:
+            form.low_stock_threshold_override !== "" ? Number(form.low_stock_threshold_override) : null,
+          expiry_warning_days: Number(form.expiry_warning_days || 90),
+          expiry_critical_days: Number(form.expiry_critical_days || 30),
+          default_dispensing_notes: form.default_dispensing_notes || null,
+          preferred_print_format: form.preferred_print_format,
+          print_include_logo: form.print_include_logo,
+          notify_low_stock: form.notify_low_stock,
+          notify_expiry: form.notify_expiry,
+          notify_new_prescriptions: form.notify_new_prescriptions,
+          notify_po_approved: form.notify_po_approved,
+        }),
       })
+      if (!res.ok) {
+        const json = await res.json().catch(() => ({}))
+        throw new Error(json.error || "Failed to save preferences")
+      }
       toast.success("Pharmacy preferences saved")
     } catch (err: any) {
       const msg = err?.message || "Failed to save preferences"
