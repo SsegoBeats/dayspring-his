@@ -158,3 +158,72 @@ ALTER TABLE medications ADD COLUMN IF NOT EXISTS schedule_class text;
 
 COMMENT ON COLUMN pharmacy_settings.low_stock_threshold_override IS 'Absolute unit count; overrides medications.reorder_level when set. Not a percentage.';
 COMMENT ON COLUMN medications.schedule_class IS 'Schedule I | Schedule II | Schedule III | null for non-controlled';
+
+-- ============================================================
+-- Code Review Fixes (appended)
+-- ============================================================
+
+-- Fix 1: Indexes for FK joins (Critical)
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_supplier ON purchase_orders(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_orders_created_by ON purchase_orders(created_by);
+CREATE INDEX IF NOT EXISTS idx_purchase_order_items_po ON purchase_order_items(purchase_order_id);
+CREATE INDEX IF NOT EXISTS idx_purchase_order_items_med ON purchase_order_items(medication_id);
+CREATE INDEX IF NOT EXISTS idx_grn_supplier ON goods_received_notes(supplier_id);
+CREATE INDEX IF NOT EXISTS idx_grn_po ON goods_received_notes(purchase_order_id);
+CREATE INDEX IF NOT EXISTS idx_grn_items_grn ON grn_items(grn_id);
+CREATE INDEX IF NOT EXISTS idx_grn_items_med ON grn_items(medication_id);
+CREATE INDEX IF NOT EXISTS idx_grn_items_batch ON grn_items(batch_id);
+CREATE INDEX IF NOT EXISTS idx_cdr_medication ON controlled_drug_register(medication_id);
+CREATE INDEX IF NOT EXISTS idx_cdr_patient ON controlled_drug_register(patient_id);
+CREATE INDEX IF NOT EXISTS idx_cdr_dispensed_at ON controlled_drug_register(dispensed_at DESC);
+CREATE INDEX IF NOT EXISTS idx_cdr_prescription ON controlled_drug_register(prescription_id);
+
+-- Fix 2: purchase_orders.supplier_id must not be null (Critical)
+ALTER TABLE purchase_orders ALTER COLUMN supplier_id SET NOT NULL;
+
+-- Fix 3: Enum-like CHECK constraints (Important)
+ALTER TABLE purchase_orders ADD CONSTRAINT po_status_check
+  CHECK (status IN ('draft', 'pending_approval', 'approved', 'partially_received', 'received', 'cancelled'));
+
+ALTER TABLE controlled_drug_register ADD CONSTRAINT cdr_entry_type_check
+  CHECK (entry_type IN ('dispense', 'receipt', 'adjustment', 'opening_balance'));
+
+-- Fix 4: Restrict poi_delete policy to drafts only (Important)
+DROP POLICY IF EXISTS "poi_delete_pharmacy" ON purchase_order_items;
+
+CREATE POLICY "poi_delete_pharmacy_draft" ON purchase_order_items FOR DELETE
+  USING (
+    current_setting('app.role', true) IN ('Pharmacist', 'Hospital Admin')
+    AND (
+      SELECT status FROM purchase_orders WHERE id = purchase_order_id
+    ) = 'draft'
+  );
+
+-- Fix 5: Auto-update updated_at timestamps (Important)
+CREATE OR REPLACE FUNCTION update_updated_at_column()
+RETURNS TRIGGER AS $$
+BEGIN
+  NEW.updated_at = now();
+  RETURN NEW;
+END;
+$$ LANGUAGE plpgsql;
+
+CREATE TRIGGER suppliers_updated_at
+  BEFORE UPDATE ON suppliers
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER purchase_orders_updated_at
+  BEFORE UPDATE ON purchase_orders
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+CREATE TRIGGER pharmacy_settings_updated_at
+  BEFORE UPDATE ON pharmacy_settings
+  FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+
+-- Fix 6: Tighten suppliers SELECT to pharmacy roles only + clarifying comments (Minor)
+DROP POLICY IF EXISTS "suppliers_select_authenticated" ON suppliers;
+CREATE POLICY "suppliers_select_pharmacy" ON suppliers FOR SELECT
+  USING (current_setting('app.role', true) IN ('Pharmacist', 'Hospital Admin'));
+
+COMMENT ON COLUMN medications.is_controlled IS 'True if this medication is a controlled substance (NDA Schedule I/II/III). Separate from prescriptions.is_controlled_substance which is a per-prescription flag.';
+COMMENT ON COLUMN controlled_drug_register.running_balance IS 'Computed server-side on every INSERT by application logic. DO NOT UPDATE directly. Integrity enforced at application layer in /api/pharmacy/dispense.';
