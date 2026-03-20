@@ -44,11 +44,13 @@ export async function DELETE(_req: Request, { params }: { params: Promise<{ id: 
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (auth.role !== "Hospital Admin") return NextResponse.json({ error: "Forbidden — admin only" }, { status: 403 })
 
-    await queryWithSession({ role: auth.role, userId: auth.userId },
-      `UPDATE suppliers SET is_active = false, updated_at = now() WHERE id = $1`, [id]
+    const { rows } = await queryWithSession({ role: auth.role, userId: auth.userId },
+      `UPDATE suppliers SET is_active = false, updated_at = now() WHERE id = $1 RETURNING id`, [id]
     )
+    if (rows.length === 0) return NextResponse.json({ error: "Supplier not found" }, { status: 404 })
     return NextResponse.json({ success: true })
   } catch (err: any) {
+    console.error("Error deleting supplier:", err)
     return NextResponse.json({ error: "Failed to delete supplier" }, { status: 500 })
   }
 }
