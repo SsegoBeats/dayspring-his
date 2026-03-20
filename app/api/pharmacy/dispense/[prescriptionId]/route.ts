@@ -1,0 +1,160 @@
+import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { verifyToken, can } from "@/lib/security"
+import { withSession } from "@/lib/db"
+
+export async function POST(req: Request, { params }: { params: Promise<{ prescriptionId: string }> }) {
+  try {
+    const { prescriptionId } = await params
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    const auth = token ? verifyToken(token) : null
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, "pharmacy", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+    const body = await req.json().catch(() => ({}))
+    const { witness_name, dispensing_notes } = body
+
+    // ⚠️ HIGHEST-STAKES TRANSACTION: controlled drug audit trail — ALL steps in ONE withSession
+    const result = await withSession({ role: auth.role, userId: auth.userId }, async (client) => {
+      // 1. Fetch and lock prescription
+      // NOTE: prescriptions table has no prescriber_name/prescriber_registration_number columns.
+      //       Those fields live on controlled_drug_register directly.
+      //       We fetch doctor info via users table for the register entry.
+      const { rows: [prescription] } = await client.query(
+        `SELECT p.*, m.name AS medication_name_inv, m.stock_quantity, m.is_controlled,
+                m.schedule_class, m.id AS medication_id,
+                pat.first_name, pat.last_name,
+                u.full_name AS prescriber_name
+           FROM prescriptions p
+      LEFT JOIN medications m ON m.name = p.medication_name
+      LEFT JOIN patients pat ON pat.id = p.patient_id
+      LEFT JOIN users u ON u.id = p.doctor_id
+          WHERE p.id = $1 FOR UPDATE`, [prescriptionId]
+      )
+      if (!prescription) throw Object.assign(new Error("Prescription not found"), { code: "MEDICATION_NOT_FOUND" })
+      // prescriptions.status values are 'Pending', 'Dispensed', 'Cancelled' (capitalized)
+      if (prescription.status !== "Pending") throw Object.assign(new Error("Prescription already dispensed or cancelled"), { code: "PRESCRIPTION_ALREADY_DISPENSED" })
+      // Guard: name-based join may fail if medication name doesn't match exactly
+      if (!prescription.medication_id) throw Object.assign(new Error(`Medication "${prescription.medication_name}" not found in inventory. Ensure the medication name matches exactly.`), { code: "MEDICATION_NOT_FOUND" })
+
+      const qty = Number(prescription.quantity) || 1
+
+      // 2. Verify stock (FEFO — earliest expiry batch first)
+      const { rows: batches } = await client.query(
+        `SELECT * FROM medication_batches
+          WHERE medication_id = $1 AND quantity > 0
+          ORDER BY expiry_date ASC, received_at ASC`,
+        [prescription.medication_id]
+      )
+      const totalAvailable = batches.reduce((sum: number, b: any) => sum + Number(b.quantity), 0)
+      if (totalAvailable < qty) {
+        throw Object.assign(new Error(`Insufficient stock. Available: ${totalAvailable}, Required: ${qty}`), { code: "INSUFFICIENT_STOCK" })
+      }
+
+      // Deduct from batches in FEFO order
+      let remaining = qty
+      const usedBatches: { id: string; batch_number: string; expiry_date: string; qty: number }[] = []
+      for (const batch of batches) {
+        if (remaining <= 0) break
+        const deduct = Math.min(remaining, Number(batch.quantity))
+        await client.query(`UPDATE medication_batches SET quantity = quantity - $1 WHERE id = $2`, [deduct, batch.id])
+        usedBatches.push({ id: batch.id, batch_number: batch.batch_number, expiry_date: batch.expiry_date, qty: deduct })
+        remaining -= deduct
+      }
+      const primaryBatch = usedBatches[0]
+
+      // 3. Update prescription status — 'Dispensed' (capitalized, per CHECK constraint)
+      await client.query(
+        `UPDATE prescriptions SET status = 'Dispensed', dispensed_at = now(), dispensed_by = $1 WHERE id = $2`,
+        [auth.userId, prescriptionId]
+      )
+
+      // 4. Deduct medication stock total
+      await client.query(
+        `UPDATE medications SET stock_quantity = stock_quantity - $1 WHERE id = $2`,
+        [qty, prescription.medication_id]
+      )
+
+      // 5. Insert stock movement — 'Dispense' (capitalized, per CHECK constraint)
+      await client.query(
+        `INSERT INTO medication_stock_movements (medication_id, movement_type, quantity, reference, batch_number, expiry_date, created_by)
+         VALUES ($1, 'Dispense', $2, $3, $4, $5, $6)`,
+        [prescription.medication_id, qty, prescriptionId, primaryBatch?.batch_number, primaryBatch?.expiry_date, auth.userId]
+      )
+
+      // 6. Controlled drug register (if is_controlled)
+      if (prescription.is_controlled) {
+        // Compute running balance from all prior entries (server-side — never trust client)
+        const { rows: [balanceRow] } = await client.query(
+          `SELECT
+             COALESCE(SUM(CASE WHEN entry_type IN ('receipt','opening_balance') THEN quantity_dispensed ELSE -quantity_dispensed END), 0) AS computed_balance,
+             COALESCE((SELECT running_balance FROM controlled_drug_register WHERE medication_id = $1 ORDER BY dispensed_at DESC LIMIT 1), 0) AS last_stored_balance
+           FROM controlled_drug_register WHERE medication_id = $1`,
+          [prescription.medication_id]
+        )
+        // Integrity check: computed must match last stored (NDA compliance requirement)
+        if (balanceRow.last_stored_balance !== 0 && Number(balanceRow.computed_balance) !== Number(balanceRow.last_stored_balance)) {
+          throw Object.assign(
+            new Error("Controlled drug register balance mismatch — dispense blocked for safety. Contact Hospital Admin."),
+            { code: "CONTROLLED_DRUG_BALANCE_MISMATCH" }
+          )
+        }
+        const newBalance = Number(balanceRow.computed_balance) - qty
+        // prescriptions table has no prescriber_name/prescriber_registration_number columns;
+        // use doctor's full_name fetched via users join above, and null for registration number.
+        await client.query(
+          `INSERT INTO controlled_drug_register
+           (medication_id, patient_id, prescription_id, prescriber_name, prescriber_registration_number,
+            quantity_dispensed, batch_number, running_balance, dispensed_by, witness_name, entry_type, notes)
+           VALUES ($1,$2,$3,$4,$5,$6,$7,$8,$9,$10,'dispense',$11)`,
+          [
+            prescription.medication_id, prescription.patient_id, prescriptionId,
+            prescription.prescriber_name || "Unknown", null,
+            qty, primaryBatch?.batch_number, newBalance, auth.userId,
+            witness_name || null, dispensing_notes || null
+          ]
+        )
+      }
+
+      return { prescription, primaryBatch, usedBatches, qty }
+    })
+
+    // 7. Post-transaction: insert low-stock notification directly via DB if needed (no self-fetch)
+    try {
+      const { query } = await import("@/lib/db")
+      const { rows: [med] } = await query(
+        `SELECT stock_quantity, reorder_level, name FROM medications WHERE id = $1`,
+        [result.prescription.medication_id]
+      )
+      if (med && Number(med.stock_quantity) <= Number(med.reorder_level)) {
+        // Insert notification directly — avoids self-HTTP-fetch and cookie forwarding
+        // notifications table has no created_by column; broadcast via department+role
+        await query(
+          `INSERT INTO notifications (department, role, title, message, type, priority, payload)
+           VALUES ($1, $2, $3, $4, 'pharmacy_low_stock', 'High', $5::jsonb)`,
+          [
+            "pharmacy",
+            "Pharmacist",
+            "Low Stock Alert",
+            `${med.name} is below reorder level (${med.stock_quantity} remaining)`,
+            JSON.stringify({ medicationId: result.prescription.medication_id, medicationName: med.name, initialTab: "inventory" })
+          ]
+        )
+      }
+    } catch {} // Never fail the dispense response over a notification insert
+
+    return NextResponse.json({ success: true, prescription_id: prescriptionId })
+  } catch (err: any) {
+    console.error("Dispense transaction failed:", err)
+    const code = err.code || "TRANSACTION_FAILED"
+    const status = code === "PRESCRIPTION_ALREADY_DISPENSED" ? 409
+      : code === "INSUFFICIENT_STOCK" ? 422
+      : code === "MEDICATION_NOT_FOUND" ? 404
+      : 500
+    return NextResponse.json({
+      error: err.message || "Dispensing failed — no changes were made. Please try again or contact support.",
+      code
+    }, { status })
+  }
+}
