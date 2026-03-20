@@ -209,7 +209,7 @@ RLS: Each user can SELECT and UPDATE own row only.
 
 **POST `/api/pharmacy/grn` — Transaction Steps (all-or-nothing) (resolves reviewer I1):**
 
-⚠️ **Implementation mandate:** This endpoint MUST use `withClient()` (the multi-statement transaction helper in `lib/db.ts`) with ALL 7 DML statements inside the single callback. Do NOT use `queryWithSession()` per step — each call to `queryWithSession()` opens its own `BEGIN/COMMIT`, destroying atomicity. Pattern: `await withClient(async (client) => { await client.query(...); await client.query(...); ... })`.
+⚠️ **Implementation mandate:** This endpoint MUST use `withSession()` (the transaction helper in `lib/db.ts` that sets RLS session variables AND wraps in BEGIN/COMMIT/ROLLBACK) with ALL DML statements inside the single callback. Do NOT use `queryWithSession()` per step — each call opens its own `BEGIN/COMMIT`, destroying atomicity. Pattern: `await withSession({ role, userId }, async (client) => { await client.query(...); ... })`.
 
 1. Insert `goods_received_notes` row
 2. For each item: insert `medication_batches` row; capture returned `id` as `batch_id`
@@ -224,7 +224,7 @@ RLS: Each user can SELECT and UPDATE own row only.
 |--------|----------|------|-------------|
 | POST | `/api/pharmacy/dispense/[prescriptionId]` | pharmacist+ | Atomic dispense |
 
-⚠️ **Implementation mandate:** This endpoint MUST use `withClient()` (same as GRN endpoint) with ALL DML statements inside the single callback. Do NOT use `queryWithSession()` per step — each call opens its own `BEGIN/COMMIT`. This is the highest-stakes transaction in the portal (controlled drug audit trail). Any partial success is a regulatory violation.
+⚠️ **Implementation mandate:** This endpoint MUST use `withSession()` (same as GRN endpoint) with ALL DML statements inside the single callback. Do NOT use `queryWithSession()` per step — each call opens its own `BEGIN/COMMIT`. This is the highest-stakes transaction in the portal (controlled drug audit trail). Any partial success is a regulatory violation.
 
 **Transaction Steps:**
 1. Verify prescription is `active` and not already dispensed
