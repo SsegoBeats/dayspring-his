@@ -1,7 +1,7 @@
 # Pharmacy Portal — Production-Ready Design Spec
 **Date:** 2026-03-20
 **Author:** Claude (Architect + System Analyst)
-**Status:** Approved by user
+**Status:** Approved by user — v2 (post spec review, 8 issues resolved)
 **Approach:** Option B — Full Production-Ready Build
 
 ---
@@ -40,6 +40,15 @@ Informed by Uganda NDA regulations, PSU Standards of Practice for Retail Pharmac
 ---
 
 ## 3. Database Schema
+
+### Role & RBAC Decision (resolves reviewer C1)
+
+The existing `lib/security.ts` RBAC contains only two pharmacy-relevant roles: `"Pharmacist"` and `"Hospital Admin"`. There is no `"Pharmacist in Charge"` role. Rather than introduce a new role (which would require updating `lib/security.ts`, all RLS policies, and all role-gated routes), **Option A is adopted**: PO approval authority is folded into the `"Hospital Admin"` role only.
+
+- All references to "Pharmacist-in-Charge" in this spec mean `"Hospital Admin"`.
+- The permissions matrix is two-column: Pharmacist / Admin.
+- A new `"purchase_orders"` resource must be added to the `Resource` union type in `lib/security.ts` and `rolePolicies` must grant admin `approve`.
+- Controlled drug register export is restricted to `"Hospital Admin"` only.
 
 ### Migration: `0028_pharmacy_production_ready.sql`
 
@@ -93,6 +102,14 @@ notes text
 ```
 RLS: Inherits from purchase_orders via join.
 
+#### `medications` — Additions (resolves reviewer C2)
+Migration 0028 must ALTER the existing `medications` table to add:
+```sql
+is_controlled boolean DEFAULT false,
+schedule_class text  -- 'Schedule I' | 'Schedule II' | 'Schedule III' | null
+```
+The dispense endpoint checks `medications.is_controlled` to decide whether to write to `controlled_drug_register`. The prescription flag `prescriptions.is_controlled_substance` is used for the UI badge only.
+
 #### `goods_received_notes`
 ```sql
 id uuid PRIMARY KEY,
@@ -112,12 +129,14 @@ RLS: All pharmacy roles can SELECT and INSERT. No UPDATE/DELETE (immutable recor
 id uuid PRIMARY KEY,
 grn_id uuid REFERENCES goods_received_notes(id) ON DELETE CASCADE,
 medication_id uuid REFERENCES medications(id) NOT NULL,
+batch_id uuid REFERENCES medication_batches(id),  -- populated after batch INSERT in transaction
 batch_number text NOT NULL,
 expiry_date date NOT NULL,
 quantity_ordered integer,
 quantity_received integer NOT NULL,
 unit_cost numeric(10,2)
 ```
+Note: `batch_id` is populated inside the GRN transaction immediately after the `medication_batches` INSERT, enabling full GRN→batch→dispense audit trail (resolves reviewer I3).
 
 #### `controlled_drug_register`
 ```sql
@@ -136,13 +155,13 @@ witness_name text,
 entry_type text DEFAULT 'dispense',  -- dispense | receipt | adjustment | opening_balance
 notes text
 ```
-RLS: All pharmacy roles can SELECT. INSERT via system only (triggered by dispense endpoint). Export restricted to pharmacist-in-charge and admin.
+RLS: All pharmacy roles can SELECT. INSERT via system only (triggered by dispense endpoint). Export restricted to Hospital Admin and admin.
 
 #### `pharmacy_settings`
 ```sql
 id uuid PRIMARY KEY,
 user_id uuid REFERENCES auth.users(id) UNIQUE NOT NULL,
-low_stock_threshold_override integer,   -- null = use system default
+low_stock_threshold_override integer,   -- null = use medications.reorder_level; when set, overrides with absolute unit count (not a percentage)
 expiry_warning_days integer DEFAULT 90,
 expiry_critical_days integer DEFAULT 30,
 default_dispensing_notes text,
@@ -177,9 +196,9 @@ RLS: Each user can SELECT and UPDATE own row only.
 | GET | `/api/pharmacy/purchase-orders/[id]` | pharmacist+ | Single PO with items |
 | PATCH | `/api/pharmacy/purchase-orders/[id]` | pharmacist+ | Update (edit draft, approve, cancel) |
 
-**PO Number Auto-Generation:** Server generates `LPO-YYYY-NNNN` using current year + zero-padded sequence from DB count.
+**PO Number Auto-Generation (resolves reviewer I2):** Migration 0028 creates a dedicated PostgreSQL sequence `lpo_sequence`. The server generates `LPO-YYYY-NNNN` using `to_char(now(), 'YYYY') || '-' || lpad(nextval('lpo_sequence')::text, 4, '0')` inside the INSERT. Never use `COUNT(*)+1` — this is a TOCTOU race condition that will produce duplicate PO numbers under concurrent inserts.
 
-**Approval Gate:** Status transition to `approved` requires `can(role, "purchase_orders", "approve")` — pharmacist-in-charge or admin only.
+**Approval Gate:** Status transition to `approved` requires `can(role, "purchase_orders", "approve")` — Hospital Admin or admin only.
 
 ### Goods Received Notes
 | Method | Endpoint | Auth | Description |
@@ -188,11 +207,14 @@ RLS: Each user can SELECT and UPDATE own row only.
 | POST | `/api/pharmacy/grn` | pharmacist+ | Create GRN (transactional) |
 | GET | `/api/pharmacy/grn/[id]` | pharmacist+ | Single GRN for print |
 
-**POST `/api/pharmacy/grn` — Transaction Steps (all-or-nothing):**
+**POST `/api/pharmacy/grn` — Transaction Steps (all-or-nothing) (resolves reviewer I1):**
+
+⚠️ **Implementation mandate:** This endpoint MUST use `withClient()` (the multi-statement transaction helper in `lib/db.ts`) with ALL 7 DML statements inside the single callback. Do NOT use `queryWithSession()` per step — each call to `queryWithSession()` opens its own `BEGIN/COMMIT`, destroying atomicity. Pattern: `await withClient(async (client) => { await client.query(...); await client.query(...); ... })`.
+
 1. Insert `goods_received_notes` row
-2. Insert `grn_items` rows
-3. For each item: update `medications.stock_quantity += quantity_received`
-4. For each item: insert `medication_batches` row
+2. For each item: insert `medication_batches` row; capture returned `id` as `batch_id`
+3. For each item: insert `grn_items` row with the `batch_id` from step 2
+4. For each item: update `medications.stock_quantity += quantity_received`
 5. For each item: insert `medication_stock_movements` row (type: `receive`)
 6. If `purchase_order_id` provided: update `purchase_order_items.quantity_received`; recalculate PO status (`partially_received` or `received`)
 7. If any step fails → full rollback, return `TRANSACTION_FAILED` error
@@ -217,7 +239,7 @@ RLS: Each user can SELECT and UPDATE own row only.
 | Method | Endpoint | Auth | Description |
 |--------|----------|------|-------------|
 | GET | `/api/pharmacy/controlled-drugs` | pharmacist+ | Paginated register |
-| GET | `/api/pharmacy/controlled-drugs/export` | pharmacist-in-charge, admin | PDF export |
+| GET | `/api/pharmacy/controlled-drugs/export` | Hospital Admin, admin | PDF export |
 
 **Running Balance:** Computed server-side using `SUM(CASE WHEN entry_type='receipt' THEN quantity_dispensed ELSE -quantity_dispensed END) OVER (PARTITION BY medication_id ORDER BY dispensed_at)`. Never trusted from client.
 
@@ -233,24 +255,27 @@ RLS: Each user can SELECT and UPDATE own row only.
 
 ## 5. UI & Component Design
 
-### Dashboard Tab Structure (11 tabs)
+### Dashboard Tab Structure (12 tabs)
+
+Note: `reorder-suggestions.tsx` is retained as its own "Reorder Alerts" tab — it was present in the existing dashboard and is explicitly preserved here (resolves reviewer S3).
 
 | # | Tab Label | Component | Status |
 |---|-----------|-----------|--------|
 | 1 | Prescriptions | `prescription-queue.tsx` | Existing — add controlled drug badge |
 | 2 | Dispense | `prescription-dispense.tsx` | Existing — wire to new dispense endpoint |
-| 3 | Medications | `medication-inventory.tsx` | Existing — polish |
-| 4 | Stock Taking | `stock-taking.tsx` | Existing — polish |
-| 5 | Purchase Orders | `purchase-orders.tsx` | **Rebuilt** — fully persisted |
-| 6 | Receiving (GRN) | `goods-received-note.tsx` | **New** |
-| 7 | Suppliers | `supplier-management.tsx` | Existing — wire to real API |
-| 8 | Analytics | `usage-analytics.tsx` | Existing — polish |
-| 9 | Valuation / ABC | `inventory-valuation.tsx` + `abc-analysis.tsx` | Existing — polish |
-| 10 | Adjustments | `stock-adjustments.tsx` | Existing — verify wiring |
-| 11 | Non-Medication | `non-medication-inventory.tsx` | Existing — view-only for pharmacists |
+| 3 | Medications | `medication-inventory.tsx` | Existing — add is_controlled/schedule_class fields; polish |
+| 4 | Reorder Alerts | `reorder-suggestions.tsx` | Existing — polish |
+| 5 | Stock Taking | `stock-taking.tsx` | Existing — polish |
+| 6 | Purchase Orders | `purchase-orders.tsx` | **Rebuilt** — fully persisted |
+| 7 | Receiving (GRN) | `goods-received-note.tsx` | **New** |
+| 8 | Suppliers | `supplier-management.tsx` | Existing — wire to real API |
+| 9 | Analytics | `usage-analytics.tsx` | Existing — polish |
+| 10 | Valuation / ABC | `inventory-valuation.tsx` + `abc-analysis.tsx` | Existing — polish |
+| 11 | Adjustments | `stock-adjustments.tsx` | Existing — verify wiring |
+| 12 | Non-Medication | `non-medication-inventory.tsx` | Existing — view-only for pharmacists |
 
 ### New Pages
-- `/app/pharmacist/controlled-drugs/page.tsx` — Protected controlled drugs register page. Linked from dashboard header button and sidebar. Access: all pharmacy roles can view; only pharmacist-in-charge/admin can export.
+- `app/pharmacist/controlled-drugs/page.tsx` — Protected controlled drugs register page. Linked from dashboard header button and sidebar. Access: all pharmacy roles can view; only Hospital Admin can export.
 
 ### New Components
 - `components/pharmacy/goods-received-note.tsx` — GRN creation form + printable output
@@ -274,18 +299,18 @@ Status badge colors: grey=draft, yellow=pending_approval, green=approved, blue=p
 Form fields: PO reference (searchable dropdown or "Direct Receipt"), supplier, invoice number, received date, notes. Line items table: medication name, batch number, expiry date (date picker), qty ordered (pre-filled from PO), qty received (editable), unit cost. Submit triggers transactional API call. On success: show printable GRN summary with GRN number, all items, totals, received-by name and timestamp.
 
 ### Controlled Drugs Register Page — New
-Full-width table: Date, Patient, Prescriber (name + reg. no.), Medication, Qty Dispensed, Running Balance, Dispensed By, Witness. Toolbar: date range picker, medication filter, search. Export PDF button (pharmacist-in-charge/admin only). Print layout matches NDA inspection template format: facility name, NDA license number, register title, paginated rows, signature line at page bottom.
+Full-width table: Date, Patient, Prescriber (name + reg. no.), Medication, Qty Dispensed, Running Balance, Dispensed By, Witness. Toolbar: date range picker, medication filter, search. Export PDF button (Hospital Admin/admin only). Print layout matches NDA inspection template format: facility name, NDA license number, register title, paginated rows, signature line at page bottom.
 
 ### Notification Bell — Pharmacy
-Identical pattern to cashier bell. Position: top-right of dashboard header. Unread count badge (red). Dropdown shows last 20 notifications. Types with icons:
-- 🔴 Low Stock — deep-links to Medications tab, highlights affected item
-- 🟡 Expiry Warning — deep-links to Medications tab filtered by expiry
-- 🟢 New Prescription — deep-links to Prescriptions tab
-- 🔵 PO Approved — deep-links to Purchase Orders tab
+Identical pattern to cashier bell. Position: top-right of dashboard header. Unread count badge (red). Dropdown shows last 20 notifications. Uses Lucide React icons (consistent with cashier bell — no emoji, resolves reviewer S2):
+- `AlertTriangle` with `text-red-500` — Low Stock — deep-links to Medications tab
+- `Clock` with `text-yellow-500` — Expiry Warning — deep-links to Medications tab filtered by expiry
+- `FileText` with `text-green-500` — New Prescription — deep-links to Prescriptions tab
+- `CheckCircle` with `text-blue-500` — PO Approved — deep-links to Purchase Orders tab
 
 ### Pharmacy Preferences Settings
 New tab "Pharmacy" in `/app/pharmacist/settings/page.tsx`. Sections:
-1. **Stock Alerts** — Low stock threshold (%), expiry warning days, expiry critical days
+1. **Stock Alerts** — Low stock threshold (absolute unit count, overrides per-medication reorder level), expiry warning days, expiry critical days
 2. **Dispensing Defaults** — Default dispensing notes, FEFO enforcement (always on, toggle display only)
 3. **Print Preferences** — Format (A4 / Thermal 80mm), include facility logo, include NDA license number
 4. **Notification Preferences** — Per-type toggles: low stock, expiry warnings, new prescriptions, PO approvals
@@ -322,7 +347,7 @@ Applied across all pharmacy components:
 - `CONTROLLED_DRUG_BALANCE_MISMATCH` — running balance integrity violation (blocks dispense + fires admin alert)
 - `TRANSACTION_FAILED` — DB transaction rolled back (generic)
 - `PRESCRIPTION_ALREADY_DISPENSED` — duplicate dispense attempt
-- `UNAUTHORIZED_APPROVAL` — non-pharmacist-in-charge attempting PO approval
+- `UNAUTHORIZED_APPROVAL` — non-Hospital Admin attempting PO approval
 
 **Frontend error handling:**
 - Dispense failure: "Dispensing failed — no changes were made. Please try again or contact support." — form stays open
@@ -333,21 +358,23 @@ Applied across all pharmacy components:
 
 ## 8. Permissions Matrix
 
-| Action | Pharmacist | Pharmacist-in-Charge | Admin |
-|--------|-----------|---------------------|-------|
-| View medications | ✅ | ✅ | ✅ |
-| Add/edit medications | ✅ | ✅ | ✅ |
-| Delete medications | ❌ | ❌ | ✅ |
-| Create/edit PO | ✅ | ✅ | ✅ |
-| Approve PO | ❌ | ✅ | ✅ |
-| Receive stock (GRN) | ✅ | ✅ | ✅ |
-| View controlled drugs register | ✅ | ✅ | ✅ |
-| Add to controlled drugs register | ✅ (auto only) | ✅ (auto only) | ✅ |
-| Export controlled drugs register | ❌ | ✅ | ✅ |
-| Manage suppliers | ❌ | ❌ | ✅ |
-| View non-medication inventory | ✅ | ✅ | ✅ |
-| Edit non-medication inventory | ❌ | ❌ | ✅ |
-| Pharmacy settings | ✅ (own) | ✅ (own) | ✅ |
+Note: Two roles only — "Pharmacist-in-Charge" does not exist in RBAC; approval authority is held by Hospital Admin (see Section 3 Role Decision).
+
+| Action | Pharmacist | Hospital Admin |
+|--------|-----------|----------------|
+| View medications | ✅ | ✅ |
+| Add/edit medications | ✅ | ✅ |
+| Delete medications | ❌ | ✅ |
+| Create/edit PO (draft) | ✅ | ✅ |
+| Approve PO | ❌ | ✅ |
+| Receive stock (GRN) | ✅ | ✅ |
+| View controlled drugs register | ✅ | ✅ |
+| Add to controlled drugs register | ✅ (auto only) | ✅ |
+| Export controlled drugs register | ❌ | ✅ |
+| Manage suppliers | ❌ | ✅ |
+| View non-medication inventory | ✅ | ✅ |
+| Edit non-medication inventory | ❌ | ✅ |
+| Pharmacy settings | ✅ (own) | ✅ |
 
 ---
 
