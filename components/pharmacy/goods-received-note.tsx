@@ -309,7 +309,7 @@ export function GoodsReceivedNote() {
 
           {/* Items table */}
           <div className="mb-6 overflow-x-auto">
-            <table className="w-full border-collapse text-sm">
+            <table className="w-full border-collapse text-sm print:text-xs">
               <thead>
                 <tr className="bg-gray-100">
                   <th className="border border-gray-400 px-3 py-2 text-left">Medication</th>
@@ -388,7 +388,7 @@ export function GoodsReceivedNote() {
   // ─── Form mode ────────────────────────────────────────────────────────────
 
   return (
-    <div className="mx-auto max-w-5xl space-y-6">
+    <div className="mx-auto max-w-5xl space-y-6 print:hidden">
       <Card>
         <CardHeader>
           <CardTitle>Receive Stock — New GRN</CardTitle>

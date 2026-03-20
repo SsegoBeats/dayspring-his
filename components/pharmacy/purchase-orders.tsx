@@ -754,7 +754,14 @@ export function PurchaseOrders({ onSwitchToGrnTab, role }: PurchaseOrdersProps) 
     <>
       <Card>
         <CardHeader>
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between">
+          {/* Print-only header */}
+          <div className="hidden print:block mb-4">
+            <h1 className="text-xl font-bold uppercase tracking-wide">Dayspring Community Health Care</h1>
+            <h2 className="text-base font-semibold">Purchase Orders</h2>
+            <p className="text-xs text-gray-600">Printed: {new Date().toLocaleDateString()}</p>
+          </div>
+
+          <div className="flex flex-col gap-4 sm:flex-row sm:items-center sm:justify-between print:hidden">
             <div>
               <CardTitle>Purchase Orders</CardTitle>
               <CardDescription>Manage medication local purchase orders (LPOs)</CardDescription>
@@ -766,7 +773,7 @@ export function PurchaseOrders({ onSwitchToGrnTab, role }: PurchaseOrdersProps) 
           </div>
 
           {/* Status filter tabs */}
-          <div className="mt-2 flex flex-wrap gap-1">
+          <div className="mt-2 flex flex-wrap gap-1 print:hidden">
             {FILTER_TABS.map((tab) => (
               <button
                 key={tab}
@@ -802,7 +809,7 @@ export function PurchaseOrders({ onSwitchToGrnTab, role }: PurchaseOrdersProps) 
             </div>
           ) : (
             <div className="overflow-x-auto">
-              <Table>
+              <Table className="print:text-xs">
                 <TableHeader>
                   <TableRow>
                     <TableHead>PO Number</TableHead>
@@ -812,7 +819,7 @@ export function PurchaseOrders({ onSwitchToGrnTab, role }: PurchaseOrdersProps) 
                     <TableHead className="text-right">Total Value</TableHead>
                     <TableHead>Expected Delivery</TableHead>
                     <TableHead>Created By</TableHead>
-                    <TableHead className="text-right">Actions</TableHead>
+                    <TableHead className="text-right print:hidden">Actions</TableHead>
                   </TableRow>
                 </TableHeader>
                 <TableBody>
@@ -838,7 +845,7 @@ export function PurchaseOrders({ onSwitchToGrnTab, role }: PurchaseOrdersProps) 
                         </TableCell>
                         <TableCell>{formatDate(po.expected_delivery_date)}</TableCell>
                         <TableCell>{po.created_by_name ?? "—"}</TableCell>
-                        <TableCell>
+                        <TableCell className="print:hidden">
                           <div className="flex items-center justify-end gap-1">
                             {/* View Details */}
                             <Button

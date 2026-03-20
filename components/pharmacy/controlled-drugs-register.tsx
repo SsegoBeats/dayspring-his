@@ -137,7 +137,14 @@ export function ControlledDrugsRegister() {
   return (
     <Card className="print:shadow-none print:border-0 rounded-xl border-border/80 shadow-sm">
       <CardHeader>
-        <div className="flex items-center justify-between">
+        {/* Print-only header */}
+        <div className="hidden print:block mb-4">
+          <h1 className="text-xl font-bold uppercase tracking-wide">Dayspring Community Health Care</h1>
+          <h2 className="text-base font-semibold">Controlled Drugs Register</h2>
+          <p className="text-xs text-gray-600">Printed: {new Date().toLocaleDateString()}</p>
+        </div>
+
+        <div className="flex items-center justify-between print:hidden">
           <div className="flex items-center gap-2">
             <Shield className="h-5 w-5 text-destructive" />
             <CardTitle>Register Entries</CardTitle>
@@ -219,7 +226,7 @@ export function ControlledDrugsRegister() {
 
         {/* Table */}
         <div className="overflow-x-auto rounded-md border">
-          <Table>
+          <Table className="print:text-xs">
             <TableHeader>
               <TableRow>
                 <TableHead className="whitespace-nowrap">Date &amp; Time</TableHead>
