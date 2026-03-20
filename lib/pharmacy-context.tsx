@@ -1,6 +1,6 @@
 "use client"
 
-import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
+import { createContext, useContext, useState, useEffect, useCallback, type ReactNode } from "react"
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/security"
 import { ORG_NAME, ORG_EMAIL } from "@/lib/org-constants"
@@ -25,29 +25,78 @@ export interface Medication {
 export interface Supplier {
   id: string
   name: string
-  contactPerson: string
-  email: string
-  phone: string
-  address: string
-  medications: string[]
+  contact_person?: string
+  phone?: string
+  email?: string
+  address?: string
+  nda_license_number?: string
+  payment_terms?: string
+  is_active: boolean
+  created_at: string
+}
+
+export interface PurchaseOrderItem {
+  medication_id: string
+  quantity_ordered: number
+  unit_cost?: number
+  notes?: string
 }
 
 export interface PurchaseOrder {
   id: string
-  supplierId: string
-  orderDate: string
-  expectedDeliveryDate: string
-  status: "pending" | "approved" | "received" | "cancelled"
-  items: {
-    medicationId: string
-    medicationName: string
-    quantity: number
-    unitPrice: number
-    batchNumber?: string
-    expiryDate?: string
-  }[]
-  totalAmount: number
+  po_number: string
+  supplier_id: string
+  supplier_name?: string
+  status: string
   notes?: string
+  expected_delivery_date?: string
+  item_count?: number
+  total_value?: number
+  created_by_name?: string
+  created_at: string
+  updated_at: string
+  approved_at?: string
+  cancelled_at?: string
+}
+
+export interface GRNItem {
+  medication_id: string
+  batch_number: string
+  expiry_date: string
+  quantity_ordered?: number
+  quantity_received: number
+  unit_cost?: number
+}
+
+export interface GRN {
+  id: string
+  grn_number: string
+  supplier_id: string
+  supplier_name?: string
+  purchase_order_id?: string
+  invoice_number?: string
+  notes?: string
+  received_by_name?: string
+  item_count?: number
+  received_at: string
+  created_at: string
+}
+
+export interface PharmacySettings {
+  id: string
+  user_id: string
+  low_stock_threshold_override?: number
+  expiry_warning_days: number
+  expiry_critical_days: number
+  default_dispensing_notes?: string
+  preferred_print_format: string
+  print_include_logo: boolean
+  enable_controlled_drug_alerts: boolean
+  notify_low_stock: boolean
+  notify_expiry: boolean
+  notify_new_prescriptions: boolean
+  notify_po_approved: boolean
+  updated_at: string
 }
 
 export interface StockAdjustment {
@@ -66,17 +115,35 @@ interface PharmacyContextType {
   suppliers: Supplier[]
   purchaseOrders: PurchaseOrder[]
   stockAdjustments: StockAdjustment[]
+  grns: GRN[]
+  pharmacySettings: PharmacySettings | null
   addMedication: (medication: Omit<Medication, "id">) => void
   updateMedication: (id: string, updates: Partial<Medication>) => void
   deleteMedication: (id: string) => Promise<void>
   getMedication: (name: string) => Medication | undefined
   getLowStockMedications: () => Medication[]
   getExpiringMedications: (days: number) => Medication[]
-  addSupplier: (supplier: Omit<Supplier, "id">) => void
-  updateSupplier: (id: string, updates: Partial<Supplier>) => void
-  createPurchaseOrder: (order: Omit<PurchaseOrder, "id">) => void
-  updatePurchaseOrder: (id: string, updates: Partial<PurchaseOrder>) => void
-  receivePurchaseOrder: (orderId: string) => void
+  refreshSuppliers: () => Promise<void>
+  refreshPurchaseOrders: () => Promise<void>
+  createPurchaseOrder: (data: {
+    supplier_id: string
+    items: PurchaseOrderItem[]
+    notes?: string
+    expected_delivery_date?: string
+    submit_for_approval?: boolean
+  }) => Promise<PurchaseOrder>
+  approvePurchaseOrder: (id: string) => Promise<void>
+  cancelPurchaseOrder: (id: string, reason?: string) => Promise<void>
+  refreshGrns: () => Promise<void>
+  createGrn: (data: {
+    supplier_id: string
+    items: GRNItem[]
+    purchase_order_id?: string
+    invoice_number?: string
+    notes?: string
+  }) => Promise<GRN>
+  refreshPharmacySettings: () => Promise<void>
+  updatePharmacySettings: (data: Partial<PharmacySettings>) => Promise<PharmacySettings>
   adjustStock: (adjustment: Omit<StockAdjustment, "id" | "adjustedAt">) => void
   sendLowStockAlerts: () => Promise<void>
   sendExpiryAlerts: () => Promise<void>
@@ -90,6 +157,8 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
   const [suppliers, setSuppliers] = useState<Supplier[]>([])
   const [purchaseOrders, setPurchaseOrders] = useState<PurchaseOrder[]>([])
   const [stockAdjustments, setStockAdjustments] = useState<StockAdjustment[]>([])
+  const [grns, setGrns] = useState<GRN[]>([])
+  const [pharmacySettings, setPharmacySettings] = useState<PharmacySettings | null>(null)
 
   const hasPharmacyAccess = user && can(user.role, "pharmacy", "read")
 
@@ -133,12 +202,133 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  const refreshSuppliers = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pharmacy/suppliers")
+      if (!res.ok) return
+      const data = await res.json()
+      setSuppliers(data.suppliers ?? [])
+    } catch {}
+  }, [])
+
+  const refreshPurchaseOrders = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pharmacy/purchase-orders")
+      if (!res.ok) return
+      const data = await res.json()
+      setPurchaseOrders(data.purchase_orders ?? [])
+    } catch {}
+  }, [])
+
+  const createPurchaseOrder = useCallback(async (data: {
+    supplier_id: string
+    items: PurchaseOrderItem[]
+    notes?: string
+    expected_delivery_date?: string
+    submit_for_approval?: boolean
+  }) => {
+    const res = await fetch("/api/pharmacy/purchase-orders", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error((err as { error?: string }).error || "Failed to create purchase order")
+    }
+    const result = await res.json()
+    await refreshPurchaseOrders()
+    return result.purchase_order
+  }, [refreshPurchaseOrders])
+
+  const approvePurchaseOrder = useCallback(async (id: string) => {
+    const res = await fetch(`/api/pharmacy/purchase-orders/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "approve" }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error((err as { error?: string }).error || "Failed to approve purchase order")
+    }
+    await refreshPurchaseOrders()
+  }, [refreshPurchaseOrders])
+
+  const cancelPurchaseOrder = useCallback(async (id: string, reason?: string) => {
+    const res = await fetch(`/api/pharmacy/purchase-orders/${id}`, {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ action: "cancel", cancellation_reason: reason }),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error((err as { error?: string }).error || "Failed to cancel purchase order")
+    }
+    await refreshPurchaseOrders()
+  }, [refreshPurchaseOrders])
+
+  const refreshGrns = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pharmacy/grn")
+      if (!res.ok) return
+      const data = await res.json()
+      setGrns(data.grns ?? [])
+    } catch {}
+  }, [])
+
+  const createGrn = useCallback(async (data: {
+    supplier_id: string
+    items: GRNItem[]
+    purchase_order_id?: string
+    invoice_number?: string
+    notes?: string
+  }) => {
+    const res = await fetch("/api/pharmacy/grn", {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error((err as { error?: string }).error || "Failed to create GRN")
+    }
+    const result = await res.json()
+    await refreshGrns()
+    return result.grn
+  }, [refreshGrns])
+
+  const refreshPharmacySettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pharmacy/settings")
+      if (!res.ok) return
+      const data = await res.json()
+      setPharmacySettings(data.settings ?? null)
+    } catch {}
+  }, [])
+
+  const updatePharmacySettings = useCallback(async (data: Partial<PharmacySettings>) => {
+    const res = await fetch("/api/pharmacy/settings", {
+      method: "PATCH",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify(data),
+    })
+    if (!res.ok) {
+      const err = await res.json().catch(() => ({}))
+      throw new Error((err as { error?: string }).error || "Failed to update settings")
+    }
+    const result = await res.json()
+    setPharmacySettings(result.settings)
+    return result.settings
+  }, [])
+
   useEffect(() => {
     if (!hasPharmacyAccess) return
     ;(async () => {
       await refreshMedications()
-      // Suppliers are loaded from backend once related APIs are wired
-      setSuppliers([])
+      refreshSuppliers()
+      refreshPurchaseOrders()
+      refreshGrns()
+      refreshPharmacySettings()
     })()
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPharmacyAccess])
@@ -273,50 +463,6 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     })
   }
 
-  const addSupplier = (supplier: Omit<Supplier, "id">) => {
-    const newSupplier: Supplier = {
-      ...supplier,
-      id: `SUP${String(suppliers.length + 1).padStart(3, "0")}`,
-    }
-    setSuppliers([...suppliers, newSupplier])
-  }
-
-  const updateSupplier = (id: string, updates: Partial<Supplier>) => {
-    setSuppliers(suppliers.map((s) => (s.id === id ? { ...s, ...updates } : s)))
-  }
-
-  const createPurchaseOrder = (order: Omit<PurchaseOrder, "id">) => {
-    const newOrder: PurchaseOrder = {
-      ...order,
-      id: `PO${String(purchaseOrders.length + 1).padStart(4, "0")}`,
-    }
-    setPurchaseOrders([...purchaseOrders, newOrder])
-  }
-
-  const updatePurchaseOrder = (id: string, updates: Partial<PurchaseOrder>) => {
-    setPurchaseOrders(purchaseOrders.map((po) => (po.id === id ? { ...po, ...updates } : po)))
-  }
-
-  const receivePurchaseOrder = (orderId: string) => {
-    const order = purchaseOrders.find((po) => po.id === orderId)
-    if (!order) return
-
-    // Update medication stock
-    order.items.forEach((item) => {
-      const medication = medications.find((m) => m.id === item.medicationId)
-      if (medication) {
-        updateMedication(medication.id, {
-          stockQuantity: medication.stockQuantity + item.quantity,
-          batchNumber: item.batchNumber || medication.batchNumber,
-          expiryDate: item.expiryDate || medication.expiryDate,
-        })
-      }
-    })
-
-    // Update order status
-    updatePurchaseOrder(orderId, { status: "received" })
-  }
-
   const adjustStock = (adjustment: Omit<StockAdjustment, "id" | "adjustedAt">) => {
     const newAdjustment: StockAdjustment = {
       ...adjustment,
@@ -446,17 +592,23 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
         suppliers,
         purchaseOrders,
         stockAdjustments,
+        grns,
+        pharmacySettings,
         addMedication,
         updateMedication,
         deleteMedication,
         getMedication,
         getLowStockMedications,
         getExpiringMedications,
-        addSupplier,
-        updateSupplier,
+        refreshSuppliers,
+        refreshPurchaseOrders,
         createPurchaseOrder,
-        updatePurchaseOrder,
-        receivePurchaseOrder,
+        approvePurchaseOrder,
+        cancelPurchaseOrder,
+        refreshGrns,
+        createGrn,
+        refreshPharmacySettings,
+        updatePharmacySettings,
         adjustStock,
         sendLowStockAlerts,
         sendExpiryAlerts,
