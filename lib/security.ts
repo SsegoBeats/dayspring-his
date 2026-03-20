@@ -97,6 +97,7 @@ type Resource =
   | "documents"
   | "insurance"
   | "non_medication_inventory"
+  | "purchase_orders"
 
 const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
   Receptionist: {
@@ -182,6 +183,7 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
     documents: ["read", "create", "update", "delete"],
     insurance: ["read", "create", "update", "delete"],
     non_medication_inventory: ["read", "create", "update", "delete"], // Admin owns non-medication inventory
+    purchase_orders: ["read", "create", "update", "delete"],
   },
   Cashier: {
     billing: ["read", "create", "update"],
@@ -191,9 +193,10 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
     payments: ["read", "create", "update"],
   },
   Pharmacist: {
-    pharmacy: ["read", "update"],
+    pharmacy: ["read", "create", "update"],
     patients: ["read"],
     beds: ["read"], // Can view bed status for medication delivery
+    purchase_orders: ["read", "create", "update"],
   },
 }
 
