@@ -140,6 +140,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
       // Suppliers are loaded from backend once related APIs are wired
       setSuppliers([])
     })()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasPharmacyAccess])
 
   // Removed localStorage persistence in favor of backend as source of truth

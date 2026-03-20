@@ -153,6 +153,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
     }
     // Keep local schedules temporarily (no backend for schedules yet)
     setDoctorSchedules([])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [user?.id, user?.role])
 
   const refreshPatients = async () => {

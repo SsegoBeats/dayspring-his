@@ -118,6 +118,7 @@ export function NursingProvider({ children }: { children: ReactNode }) {
     fetchedVitals.current.delete(patientId)
     fetchedNotes.current.delete(patientId)
     await Promise.all([loadVitals(patientId, true), loadNotes(patientId, true)])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
   const addVitalSigns = async (

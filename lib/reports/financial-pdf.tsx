@@ -56,8 +56,10 @@ export function FinancialReportPdf({ payload }: { payload: FinancialReportPayloa
         {hasLogo && (
           <View style={styles.watermarkWrap} fixed>
             {logoDataUrl ? (
+              // eslint-disable-next-line jsx-a11y/alt-text
               <Image src={logoDataUrl as string} style={styles.watermarkImg} />
             ) : (
+              // eslint-disable-next-line jsx-a11y/alt-text
               <Image src={logoUrl as string} style={styles.watermarkImg} />
             )}
           </View>
@@ -66,8 +68,10 @@ export function FinancialReportPdf({ payload }: { payload: FinancialReportPayloa
           <View style={styles.brand}>
             {hasLogo && (
               logoDataUrl ? (
+                // eslint-disable-next-line jsx-a11y/alt-text
                 <Image src={logoDataUrl as string} style={styles.titleLogo} />
               ) : (
+                // eslint-disable-next-line jsx-a11y/alt-text
                 <Image src={logoUrl as string} style={styles.titleLogo} />
               )
             )}

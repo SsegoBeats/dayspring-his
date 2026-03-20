@@ -331,6 +331,7 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
   useEffect(() => {
     if (!hasMedicalAccess) return
     loadMedicalData()
+    // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMedicalAccess])
 
   const addMedicalRecord = (record: Omit<MedicalRecord, "id">) => {

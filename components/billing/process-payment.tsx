@@ -70,6 +70,13 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
   const [showSuccessScreen, setShowSuccessScreen] = useState(false)
   const [pendingReceiptState, setPendingReceiptState] = useState<ReceiptState | null>(null)
 
+  const handleSuccessComplete = useCallback(() => {
+    if (pendingReceiptState) {
+      setReceiptState(pendingReceiptState)
+    }
+    setShowSuccessScreen(false)
+  }, [pendingReceiptState])
+
   if (!bill) {
     return (
       <Card>
@@ -284,13 +291,6 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
       setProcessing(false)
     }
   }
-
-  const handleSuccessComplete = useCallback(() => {
-    if (pendingReceiptState) {
-      setReceiptState(pendingReceiptState)
-    }
-    setShowSuccessScreen(false)
-  }, [pendingReceiptState])
 
   if (showSuccessScreen && pendingReceiptState) {
     return (
