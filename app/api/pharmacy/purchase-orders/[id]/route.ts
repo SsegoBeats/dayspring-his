@@ -24,6 +24,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     )
     return NextResponse.json({ purchase_order: po, items })
   } catch (err: any) {
+    console.error("Error fetching purchase order:", err)
     return NextResponse.json({ error: "Failed to fetch purchase order" }, { status: 500 })
   }
 }
