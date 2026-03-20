@@ -123,6 +123,7 @@ interface PharmacyContextType {
   getMedication: (name: string) => Medication | undefined
   getLowStockMedications: () => Medication[]
   getExpiringMedications: (days: number) => Medication[]
+  refreshMedications: () => Promise<void>
   refreshSuppliers: () => Promise<void>
   refreshPurchaseOrders: () => Promise<void>
   createPurchaseOrder: (data: {
@@ -600,6 +601,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
         getMedication,
         getLowStockMedications,
         getExpiringMedications,
+        refreshMedications,
         refreshSuppliers,
         refreshPurchaseOrders,
         createPurchaseOrder,

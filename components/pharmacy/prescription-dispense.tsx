@@ -5,10 +5,12 @@ import { useMedical } from "@/lib/medical-context"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { usePatients } from "@/lib/patient-context"
 import { formatPatientNumber } from "@/lib/patients"
-import { useAudit } from "@/lib/audit-context"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Textarea } from "@/components/ui/textarea"
 import { ArrowLeft, CheckCircle, AlertCircle } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
@@ -16,20 +18,23 @@ import { useToast } from "@/hooks/use-toast"
 interface PrescriptionDispenseProps {
   prescriptionId: string
   onBack: () => void
+  onSuccess?: () => void
   billingPaid?: boolean
 }
 
-export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: PrescriptionDispenseProps) {
-  const { prescriptions, updatePrescription } = useMedical()
-  const { medications, updateMedication, getMedication } = usePharmacy()
+export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billingPaid }: PrescriptionDispenseProps) {
+  const { prescriptions, refreshMedicalData } = useMedical()
+  const { medications, getMedication, refreshMedications } = usePharmacy()
   const { getPatient } = usePatients()
-  const { logAction } = useAudit()
   const { toast } = useToast()
   const prescription = prescriptions.find((p) => p.id === prescriptionId)
   const patient = prescription ? getPatient(prescription.patientId) : null
 
   const [dispensing, setDispensing] = useState(false)
   const [stockIssues, setStockIssues] = useState<string[]>([])
+  const [witnessName, setWitnessName] = useState("")
+  const [dispensingNotes, setDispensingNotes] = useState("")
+  const [dispenseError, setDispenseError] = useState<string | null>(null)
 
   if (!prescription) {
     return (
@@ -94,178 +99,36 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
     }
 
     setDispensing(true)
+    setDispenseError(null)
 
-    // Update stock for each medication using FEFO batch selection and track usage analytics
-    const dispensePromises = prescription.medications.map(async (med) => {
-      const medication = getMedication(med.name)
-      if (medication) {
-        const quantityToDispense = Number.parseInt(med.duration) || 1
-
-        // Get FEFO batch suggestions
-        try {
-          const batchesRes = await fetch(
-            `/api/pharmacy/batches?medicationId=${encodeURIComponent(medication.id)}&quantity=${quantityToDispense}`,
-            { credentials: "include" },
-          )
-
-          if (batchesRes.ok) {
-            const batchesData = await batchesRes.json()
-            const suggestedBatches = batchesData.suggestedBatches || []
-
-            if (suggestedBatches.length > 0) {
-              // Dispense from batches using FEFO - properly distribute quantity across batches
-              let remainingQty = quantityToDispense
-              const batchMovements: Array<{ batchId: string; batchNumber: string; expiryDate: string; quantity: number }> = []
-              
-              for (const batch of suggestedBatches) {
-                if (remainingQty <= 0) break
-                
-                const batchQty = Number(batch.quantity) || 0
-                const qtyFromBatch = Math.min(remainingQty, batchQty)
-                
-                if (qtyFromBatch > 0) {
-                  try {
-                    const newBatchQty = batchQty - qtyFromBatch
-                    await fetch("/api/pharmacy/batches", {
-                      method: "PATCH",
-                      credentials: "include",
-                      headers: { "Content-Type": "application/json" },
-                      body: JSON.stringify({
-                        batchId: batch.batchId,
-                        quantity: Math.max(0, newBatchQty),
-                      }),
-                    })
-                    batchMovements.push({
-                      batchId: batch.batchId,
-                      batchNumber: batch.batchNumber || "",
-                      expiryDate: batch.expiryDate || "",
-                      quantity: qtyFromBatch,
-                    })
-                    remainingQty -= qtyFromBatch
-                  } catch (err) {
-                    console.error("Failed to update batch:", err)
-                    toast({
-                      title: "Warning",
-                      description: `Failed to update batch ${batch.batchNumber}. Please verify stock levels.`,
-                      variant: "default",
-                    })
-                  }
-                }
-              }
-
-              // Record dispense in stock movements with batch info
-              for (const movement of batchMovements) {
-                try {
-                  await fetch("/api/pharmacy/stock-movements", {
-                    method: "POST",
-                    credentials: "include",
-                    headers: { "Content-Type": "application/json" },
-                    body: JSON.stringify({
-                      medicationId: medication.id,
-                      movementType: "Dispense",
-                      quantity: movement.quantity,
-                      reference: `Prescription: ${prescription.id}`,
-                      batchNumber: movement.batchNumber,
-                      expiryDate: movement.expiryDate,
-                    }),
-                  })
-                } catch (err) {
-                  console.error("Failed to record stock movement:", err)
-                }
-              }
-              
-              // If we still have remaining quantity after batches, update medication stock
-              if (remainingQty > 0) {
-                updateMedication(medication.id, {
-                  stockQuantity: medication.stockQuantity - remainingQty,
-                })
-              } else {
-                // Update medication stock to reflect batch changes
-                const totalDispensed = quantityToDispense - remainingQty
-                updateMedication(medication.id, {
-                  stockQuantity: medication.stockQuantity - totalDispensed,
-                })
-              }
-            }
-          }
-        } catch (err) {
-          console.error("Failed to get batches, using fallback:", err)
-          // Fallback: update medication stock directly (for backward compatibility)
-          updateMedication(medication.id, {
-            stockQuantity: medication.stockQuantity - quantityToDispense,
-          })
-          
-          // Record stock movement without batch info
-          try {
-            await fetch("/api/pharmacy/stock-movements", {
-              method: "POST",
-              credentials: "include",
-              headers: { "Content-Type": "application/json" },
-              body: JSON.stringify({
-                medicationId: medication.id,
-                movementType: "Dispense",
-                quantity: quantityToDispense,
-                reference: `Prescription: ${prescription.id}`,
-              }),
-            })
-          } catch (movementErr) {
-            console.error("Failed to record stock movement:", movementErr)
-          }
-        }
-
-        // Record usage analytics
-        try {
-          await fetch("/api/pharmacy/usage-analytics", {
-            method: "POST",
-            credentials: "include",
-            headers: { "Content-Type": "application/json" },
-            body: JSON.stringify({
-              medicationId: medication.id,
-              quantity: quantityToDispense,
-              prescriptionId: prescription.id,
-            }),
-          })
-        } catch (err) {
-          console.error("Failed to record usage analytics:", err)
-          // Non-fatal, continue with dispensing
-        }
+    try {
+      const res = await fetch(`/api/pharmacy/dispense/${prescriptionId}`, {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ witness_name: witnessName || undefined, dispensing_notes: dispensingNotes || undefined }),
+      })
+      const data = await res.json()
+      if (!res.ok) {
+        setDispenseError(data.error || "Dispensing failed — no changes were made. Please try again or contact support.")
+        return
       }
-    })
 
-    await Promise.all(dispensePromises)
+      // Refresh contexts post-dispense
+      await Promise.all([refreshMedications(), refreshMedicalData()])
 
-    // Update prescription status
-    updatePrescription(prescription.id, { status: "completed" })
+      toast({
+        title: "Prescription dispensed",
+        description: `Successfully dispensed prescription for ${prescription.patientName}.`,
+        variant: "default",
+      })
 
-    // Fire and forget audit log
-    void logAction(
-      "DISPENSE",
-      "PHARMACY",
-      "Prescription",
-      prescription.id,
-      `Dispensed prescription for patient ${prescription.patientName}`,
-      undefined,
-      {
-        medications: prescription.medications,
-        billingPaid: billingPaid === true,
-        stockSnapshot: medications.map((m) => ({
-          id: m.id,
-          name: m.name,
-          stockQuantity: m.stockQuantity,
-        })),
-      },
-    )
-
-    toast({
-      title: "Prescription dispensed",
-      description: `Successfully dispensed ${prescription.medications.length} medication(s) for ${prescription.patientName}.`,
-      variant: "default",
-    })
-    
-    // Small delay to show toast before navigating back
-    setTimeout(() => {
-      onBack()
-    }, 500)
+      onSuccess?.()
+    } catch {
+      setDispenseError("Network error — dispensing failed. No changes were made. Please try again or contact support.")
+    } finally {
+      setDispensing(false)
+    }
   }
 
   return (
@@ -381,14 +244,14 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
                 const medication = getMedication(med.name)
                 const hasStock = medication && medication.stockQuantity > 0
                 const sufficientStock = medication && medication.stockQuantity >= (Number.parseInt(med.duration) || 1)
-                
+
                 // Check expiry date if available
                 let expiryWarning: string | null = null
                 if (medication?.expiryDate) {
                   const expiryDate = new Date(medication.expiryDate)
                   const today = new Date()
                   const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-                  
+
                   if (expiryDate < today) {
                     expiryWarning = "Expired"
                   } else if (daysUntilExpiry <= 30) {
@@ -473,10 +336,44 @@ export function PrescriptionDispense({ prescriptionId, onBack, billingPaid }: Pr
           </div>
 
           {prescription.status === "active" && (
-            <Button onClick={handleDispense} disabled={dispensing} className="w-full">
-              <CheckCircle className="mr-2 h-4 w-4" />
-              {dispensing ? "Dispensing..." : "Dispense Prescription"}
-            </Button>
+            <div className="space-y-4 rounded-lg border border-border p-4">
+              <h3 className="font-semibold text-foreground">Dispense Details</h3>
+              <div className="space-y-3">
+                <div>
+                  <Label htmlFor="witness-name">Witness Name (for controlled drugs)</Label>
+                  <Input
+                    id="witness-name"
+                    value={witnessName}
+                    onChange={(e) => setWitnessName(e.target.value)}
+                    placeholder="Staff name witnessing dispense"
+                    disabled={dispensing}
+                  />
+                </div>
+                <div>
+                  <Label htmlFor="dispensing-notes">Dispensing Notes</Label>
+                  <Textarea
+                    id="dispensing-notes"
+                    value={dispensingNotes}
+                    onChange={(e) => setDispensingNotes(e.target.value)}
+                    placeholder="Any notes about this dispense..."
+                    disabled={dispensing}
+                    rows={3}
+                  />
+                </div>
+              </div>
+
+              {dispenseError && (
+                <Alert variant="destructive">
+                  <AlertCircle className="h-4 w-4" />
+                  <AlertDescription>{dispenseError}</AlertDescription>
+                </Alert>
+              )}
+
+              <Button onClick={handleDispense} disabled={dispensing} className="w-full">
+                <CheckCircle className="mr-2 h-4 w-4" />
+                {dispensing ? "Dispensing..." : "Dispense Prescription"}
+              </Button>
+            </div>
           )}
         </CardContent>
       </Card>
