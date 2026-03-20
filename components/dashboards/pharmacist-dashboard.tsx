@@ -1,5 +1,6 @@
 "use client"
 
+import Link from "next/link"
 import { useState, useEffect, useRef } from "react"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
@@ -17,14 +18,15 @@ import { UsageAnalytics } from "@/components/pharmacy/usage-analytics"
 import { ABCAnalysis } from "@/components/pharmacy/abc-analysis"
 import { StockAdjustments } from "@/components/pharmacy/stock-adjustments"
 import { SupplierManagement } from "@/components/pharmacy/supplier-management"
+import { PurchaseOrders } from "@/components/pharmacy/purchase-orders"
+import { GoodsReceivedNote } from "@/components/pharmacy/goods-received-note"
+import { PharmacistNotificationBell } from "@/components/pharmacy/pharmacist-notification-bell"
 import {
   Pill,
   Clock,
   CheckCircle,
   AlertTriangle,
   ScanLine,
-  PlusCircle,
-  ClipboardList,
   Boxes,
   DollarSign,
   ShoppingCart,
@@ -33,8 +35,23 @@ import {
   TrendingUp,
   SlidersHorizontal,
   Truck,
+  PackageCheck,
+  FileText,
+  Shield,
 } from "lucide-react"
 import { decodeBarcodeData } from "@/lib/security"
+
+type Tab =
+  | "prescriptions"
+  | "inventory"
+  | "valuation"
+  | "reorder"
+  | "stocktaking"
+  | "analytics"
+  | "adjustments"
+  | "suppliers"
+  | "purchase-orders"
+  | "grn"
 
 export function PharmacistDashboard() {
   const { prescriptions } = useMedical()
@@ -50,7 +67,8 @@ export function PharmacistDashboard() {
     items: { description: string; quantity: number }[]
     billStatus: string
   } | null>(null)
-  const [tab, setTab] = useState<"prescriptions" | "inventory" | "valuation" | "reorder" | "stocktaking" | "analytics" | "abc" | "adjustments" | "suppliers">("prescriptions")
+  const [tab, setTab] = useState<Tab>("prescriptions")
+  const [prefilledPoId, setPrefilledPoId] = useState<string | undefined>(undefined)
   const [lastRefresh, setLastRefresh] = useState<Date>(new Date())
   const scanInputRef = useRef<HTMLInputElement>(null)
 
@@ -86,8 +104,13 @@ export function PharmacistDashboard() {
           })
         } catch {}
       }
-      // Navigate to prescriptions tab and open the specific prescription if given
-      setTab("prescriptions")
+      // Navigate to the specified tab if provided, else fall back to prescriptions
+      if (detail.initialTab) {
+        setTab(detail.initialTab as Tab)
+      } else {
+        setTab("prescriptions")
+      }
+      // Open a specific prescription if given
       if (detail.prescriptionId) {
         setSelectedPrescriptionId(detail.prescriptionId)
       }
@@ -101,7 +124,7 @@ export function PharmacistDashboard() {
   const lowStockMeds = getLowStockMedications()
   const expiringSoon = getExpiringMedications(90)
   const outOfStock = medications.filter((m) => m.stockQuantity <= 0)
-  
+
   // Refresh data when lastRefresh changes
   useEffect(() => {
     // Data will refresh automatically via context updates
@@ -179,8 +202,21 @@ export function PharmacistDashboard() {
   return (
     <div className="space-y-6">
       <div className="pharmacist-animate-in border-b border-border/60 pb-6">
-        <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Pharmacist Dashboard</h2>
-        <p className="mt-1 text-muted-foreground">Manage prescriptions and inventory</p>
+        <div className="flex items-center justify-between gap-3">
+          <div>
+            <h2 className="text-2xl font-bold tracking-tight text-foreground md:text-3xl">Pharmacist Dashboard</h2>
+            <p className="mt-1 text-muted-foreground">Manage prescriptions and inventory</p>
+          </div>
+          <div className="flex items-center gap-2">
+            <Button variant="outline" size="sm" asChild>
+              <Link href="/pharmacist/controlled-drugs">
+                <Shield className="mr-1.5 h-3.5 w-3.5 text-red-600" />
+                Controlled Drugs
+              </Link>
+            </Button>
+            <PharmacistNotificationBell />
+          </div>
+        </div>
       </div>
 
       <div className="grid gap-4 md:grid-cols-4">
@@ -267,7 +303,7 @@ export function PharmacistDashboard() {
         </CardContent>
       </Card>
 
-      <Tabs value={tab} onValueChange={(v) => setTab(v as typeof tab)} className="space-y-4">
+      <Tabs value={tab} onValueChange={(v) => setTab(v as Tab)} className="space-y-4">
         <TabsList className="flex w-full flex-wrap gap-1.5 rounded-xl bg-muted/60 p-1.5 transition-colors">
           <TabsTrigger value="prescriptions">
             Prescriptions ({prescriptions.length})
@@ -275,7 +311,7 @@ export function PharmacistDashboard() {
           <TabsTrigger value="inventory">Inventory ({medications.length})</TabsTrigger>
           <TabsTrigger value="valuation">
             <DollarSign className="mr-1 h-4 w-4" />
-            Valuation
+            Valuation &amp; ABC
           </TabsTrigger>
           <TabsTrigger value="reorder">
             <ShoppingCart className="mr-1 h-4 w-4" />
@@ -289,10 +325,6 @@ export function PharmacistDashboard() {
             <BarChart3 className="mr-1 h-4 w-4" />
             Analytics
           </TabsTrigger>
-          <TabsTrigger value="abc">
-            <TrendingUp className="mr-1 h-4 w-4" />
-            ABC
-          </TabsTrigger>
           <TabsTrigger value="adjustments">
             <SlidersHorizontal className="mr-1 h-4 w-4" />
             Adjustments
@@ -300,6 +332,14 @@ export function PharmacistDashboard() {
           <TabsTrigger value="suppliers">
             <Truck className="mr-1 h-4 w-4" />
             Suppliers
+          </TabsTrigger>
+          <TabsTrigger value="purchase-orders">
+            <FileText className="mr-1 h-4 w-4" />
+            Purchase Orders
+          </TabsTrigger>
+          <TabsTrigger value="grn">
+            <PackageCheck className="mr-1 h-4 w-4" />
+            GRN
           </TabsTrigger>
         </TabsList>
 
@@ -392,8 +432,15 @@ export function PharmacistDashboard() {
           <MedicationInventory />
         </TabsContent>
 
-        <TabsContent value="valuation" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
+        <TabsContent value="valuation" className="space-y-6 animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <InventoryValuation />
+          <div className="border-t border-border/60 pt-6">
+            <div className="mb-4 flex items-center gap-2">
+              <TrendingUp className="h-4 w-4 text-muted-foreground" />
+              <span className="text-sm font-medium">ABC Analysis</span>
+            </div>
+            <ABCAnalysis />
+          </div>
         </TabsContent>
 
         <TabsContent value="reorder" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
@@ -408,14 +455,26 @@ export function PharmacistDashboard() {
           <UsageAnalytics />
         </TabsContent>
 
-        <TabsContent value="abc" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
-          <ABCAnalysis />
-        </TabsContent>
         <TabsContent value="adjustments" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <StockAdjustments />
         </TabsContent>
+
         <TabsContent value="suppliers" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
           <SupplierManagement />
+        </TabsContent>
+
+        <TabsContent value="purchase-orders" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
+          <PurchaseOrders
+            onSwitchToGrnTab={(id) => {
+              setPrefilledPoId(id)
+              setTab("grn")
+            }}
+            role="pharmacist"
+          />
+        </TabsContent>
+
+        <TabsContent value="grn" className="animate-in fade-in-0 duration-200 data-[state=active]:slide-in-from-bottom-2">
+          <GoodsReceivedNote />
         </TabsContent>
       </Tabs>
     </div>
