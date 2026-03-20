@@ -27,19 +27,17 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
   const [submitting, setSubmitting] = useState(false)
   const [items, setItems] = useState<
     {
-      medicationId: string
+      medication_id: string
       medicationName: string
-      quantity: number
-      unitPrice: number
-      batchNumber: string
-      expiryDate: string
+      quantity_ordered: number
+      unit_cost: number
     }[]
   >([])
 
   const handleAddItem = () => {
     setItems([
       ...items,
-      { medicationId: "", medicationName: "", quantity: 0, unitPrice: 0, batchNumber: "", expiryDate: "" },
+      { medication_id: "", medicationName: "", quantity_ordered: 0, unit_cost: 0 },
     ])
   }
 
@@ -49,14 +47,14 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
 
   const handleItemChange = (index: number, field: string, value: string | number) => {
     const newItems = [...items]
-    if (field === "medicationId") {
+    if (field === "medication_id") {
       const med = medications.find((m) => m.id === value)
       if (med) {
         newItems[index] = {
           ...newItems[index],
-          medicationId: med.id,
+          medication_id: med.id,
           medicationName: med.name,
-          unitPrice: med.unitPrice,
+          unit_cost: (med as any).unitPrice || 0,
         }
       }
     } else {
@@ -88,20 +86,16 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
 
     setSubmitting(true)
     try {
-      const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-      createPurchaseOrder({
-        supplierId,
-        orderDate: new Date().toISOString().split("T")[0],
-        expectedDeliveryDate,
-        status: "pending",
-        items,
-        totalAmount,
-        notes,
+      await createPurchaseOrder({
+        supplier_id: supplierId,
+        expected_delivery_date: expectedDeliveryDate || undefined,
+        notes: notes || undefined,
+        items: items.map(i => ({ medication_id: i.medication_id, quantity_ordered: i.quantity_ordered, unit_cost: i.unit_cost })),
       })
       
       toast({
         title: "Purchase order created",
-        description: `Purchase order created with ${items.length} item(s) totaling ${totalAmount.toFixed(2)}.`,
+        description: `Purchase order created with ${items.length} item(s).`,
         variant: "default",
       })
 
@@ -172,8 +166,8 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
                 <div key={index} className="grid gap-2 rounded-lg border border-border p-3 md:grid-cols-6">
                   <div className="md:col-span-2">
                     <Select
-                      value={item.medicationId}
-                      onValueChange={(value) => handleItemChange(index, "medicationId", value)}
+                      value={item.medication_id}
+                      onValueChange={(value) => handleItemChange(index, "medication_id", value)}
                       required
                     >
                       <SelectTrigger>
@@ -191,30 +185,18 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
                   <Input
                     type="number"
                     placeholder="Quantity"
-                    value={item.quantity || ""}
-                    onChange={(e) => handleItemChange(index, "quantity", Number.parseInt(e.target.value))}
+                    value={item.quantity_ordered || ""}
+                    onChange={(e) => handleItemChange(index, "quantity_ordered", Number.parseInt(e.target.value))}
                     required
                   />
                   <Input
                     type="number"
                     step="0.01"
                     placeholder="Unit Price"
-                    value={item.unitPrice || ""}
-                    onChange={(e) => handleItemChange(index, "unitPrice", Number.parseFloat(e.target.value))}
-                    required
-                  />
-                  <Input
-                    placeholder="Batch #"
-                    value={item.batchNumber}
-                    onChange={(e) => handleItemChange(index, "batchNumber", e.target.value)}
+                    value={item.unit_cost || ""}
+                    onChange={(e) => handleItemChange(index, "unit_cost", Number.parseFloat(e.target.value))}
                   />
                   <div className="flex gap-2">
-                    <Input
-                      type="date"
-                      placeholder="Expiry"
-                      value={item.expiryDate}
-                      onChange={(e) => handleItemChange(index, "expiryDate", e.target.value)}
-                    />
                     <Button type="button" size="icon" variant="destructive" onClick={() => handleRemoveItem(index)}>
                       <Trash2 className="h-4 w-4" />
                     </Button>
@@ -236,7 +218,7 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
 
           <DialogFooter className="flex items-center justify-between">
             <div className="text-lg font-semibold text-foreground">
-              Total: ${items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0).toFixed(2)}
+              Total: UGX {items.reduce((sum, item) => sum + item.quantity_ordered * item.unit_cost, 0).toLocaleString()}
             </div>
             <div className="flex gap-2">
               <Button type="button" variant="outline" onClick={() => onOpenChange(false)} disabled={submitting}>

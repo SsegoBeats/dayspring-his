@@ -103,29 +103,18 @@ export function ReorderSuggestions() {
     setShowPurchaseOrderDialog(true)
   }
 
-  const handleCreateOrderFromSuggestions = (expectedDeliveryDate: string, notes?: string) => {
-    const items = suggestions.map((sug) => {
-      const medication = medications.find((m) => m.id === sug.medication_id)
-      return {
-        medicationId: sug.medication_id,
-        medicationName: sug.medication_name,
-        quantity: sug.suggested_order_quantity,
-        unitPrice: medication?.unitPrice || 0,
-        batchNumber: "",
-        expiryDate: "",
-      }
-    })
+  const handleCreateOrderFromSuggestions = async (expectedDeliveryDate: string, notes?: string) => {
+    const items = suggestions.map((sug) => ({
+      medication_id: sug.medication_id,
+      quantity_ordered: sug.suggested_order_quantity,
+      unit_cost: (medications.find((m) => m.id === sug.medication_id) as any)?.unitPrice || 0,
+    }))
 
-    const totalAmount = items.reduce((sum, item) => sum + item.quantity * item.unitPrice, 0)
-
-    createPurchaseOrder({
-      supplierId: "N/A",
-      orderDate: new Date().toISOString().split("T")[0],
-      expectedDeliveryDate,
-      status: "pending",
+    await createPurchaseOrder({
+      supplier_id: "",
+      expected_delivery_date: expectedDeliveryDate || undefined,
+      notes: notes || undefined,
       items,
-      totalAmount,
-      notes,
     })
 
     toast({
