@@ -37,6 +37,7 @@ export interface Prescription {
     instructions?: string
   }[]
   status: "active" | "completed" | "cancelled"
+  is_controlled_substance?: boolean
 }
 
 export interface LabResult {
@@ -213,6 +214,7 @@ async function fetchAndMapMedicalData(): Promise<{
         },
       ],
       status,
+      is_controlled_substance: p.is_controlled_substance === true,
     }
   })
   const labs: LabResult[] = (data.labResults || []).map((l: any) => ({

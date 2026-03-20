@@ -103,6 +103,11 @@ export function PrescriptionQueue({
                     >
                       {prescription.status}
                     </Badge>
+                    {(prescription.is_controlled_substance) && (
+                      <Badge variant="destructive" className="ml-1.5 px-1.5 py-0 text-[10px] uppercase tracking-wide">
+                        Controlled
+                      </Badge>
+                    )}
                   </div>
                   <div className="mt-1 flex gap-4 text-sm text-muted-foreground">
                     <span>ID: {prescription.id}</span>
