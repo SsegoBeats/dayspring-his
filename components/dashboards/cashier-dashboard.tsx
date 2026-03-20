@@ -18,6 +18,7 @@ import { FinancialReports } from "@/components/analytics/financial-reports"
 import { OverdueBills } from "@/components/billing/overdue-bills"
 import { ExportTransactions } from "@/components/billing/export-transactions"
 import { ShiftSummary } from "@/components/billing/shift-summary"
+import { CashierNotificationBell } from "@/components/billing/cashier-notification-bell"
 import { buildSearchParamsString } from "@/lib/search-params"
 import { useFormatCurrency, useSettings } from "@/lib/settings-context"
 import { ErrorBoundary } from "@/components/error-boundary"
@@ -429,14 +430,17 @@ export function CashierDashboard() {
         fallbackDescription="Something went wrong in the cashier portal. Try again or refresh the page."
       >
         <Tabs value={activeSection} onValueChange={(next) => syncSection(next as CashierSection)}>
-          <TabsList className="grid w-full grid-cols-2 gap-2 rounded-2xl bg-emerald-50 p-2 md:grid-cols-3 xl:grid-cols-6">
-            <TabsTrigger value="overview">Overview</TabsTrigger>
-            <TabsTrigger value="queue">Queue</TabsTrigger>
-            <TabsTrigger value="create">Create Bill</TabsTrigger>
-            <TabsTrigger value="reports">Reports</TabsTrigger>
-            <TabsTrigger value="overdue">Overdue</TabsTrigger>
-            <TabsTrigger value="exports">Exports</TabsTrigger>
-          </TabsList>
+          <div className="flex items-center gap-2">
+            <TabsList className="grid flex-1 grid-cols-2 gap-2 rounded-2xl bg-emerald-50 p-2 md:grid-cols-3 xl:grid-cols-6">
+              <TabsTrigger value="overview">Overview</TabsTrigger>
+              <TabsTrigger value="queue">Queue</TabsTrigger>
+              <TabsTrigger value="create">Create Bill</TabsTrigger>
+              <TabsTrigger value="reports">Reports</TabsTrigger>
+              <TabsTrigger value="overdue">Overdue</TabsTrigger>
+              <TabsTrigger value="exports">Exports</TabsTrigger>
+            </TabsList>
+            <CashierNotificationBell />
+          </div>
 
           <TabsContent value="overview" className="space-y-4">
             <Card className="border-emerald-100 bg-white/95 shadow-sm">
