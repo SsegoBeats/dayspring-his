@@ -88,7 +88,7 @@ cancellation_reason text,
 created_at timestamptz DEFAULT now(),
 updated_at timestamptz DEFAULT now()
 ```
-RLS: Pharmacists can SELECT all, INSERT (own), UPDATE own drafts. Pharmacist-in-charge and admin can UPDATE status to approved. Admin can DELETE drafts only.
+RLS: Pharmacists can SELECT all, INSERT (own), UPDATE own drafts. Hospital Admin can UPDATE status to approved. Admin can DELETE drafts only.
 
 #### `purchase_order_items`
 ```sql
@@ -196,7 +196,7 @@ RLS: Each user can SELECT and UPDATE own row only.
 | GET | `/api/pharmacy/purchase-orders/[id]` | pharmacist+ | Single PO with items |
 | PATCH | `/api/pharmacy/purchase-orders/[id]` | pharmacist+ | Update (edit draft, approve, cancel) |
 
-**PO Number Auto-Generation (resolves reviewer I2):** Migration 0028 creates a dedicated PostgreSQL sequence `lpo_sequence`. The server generates `LPO-YYYY-NNNN` using `to_char(now(), 'YYYY') || '-' || lpad(nextval('lpo_sequence')::text, 4, '0')` inside the INSERT. Never use `COUNT(*)+1` — this is a TOCTOU race condition that will produce duplicate PO numbers under concurrent inserts.
+**PO Number Auto-Generation (resolves reviewer I2):** Migration 0028 creates a dedicated PostgreSQL sequence `lpo_sequence`. The server generates `LPO-YYYY-NNNN` using `'LPO-' || to_char(now(), 'YYYY') || '-' || lpad(nextval('lpo_sequence')::text, 4, '0')` inside the INSERT. Never use `COUNT(*)+1` — this is a TOCTOU race condition that will produce duplicate PO numbers under concurrent inserts.
 
 **Approval Gate:** Status transition to `approved` requires `can(role, "purchase_orders", "approve")` — Hospital Admin or admin only.
 
@@ -224,13 +224,15 @@ RLS: Each user can SELECT and UPDATE own row only.
 |--------|----------|------|-------------|
 | POST | `/api/pharmacy/dispense/[prescriptionId]` | pharmacist+ | Atomic dispense |
 
+⚠️ **Implementation mandate:** This endpoint MUST use `withClient()` (same as GRN endpoint) with ALL DML statements inside the single callback. Do NOT use `queryWithSession()` per step — each call opens its own `BEGIN/COMMIT`. This is the highest-stakes transaction in the portal (controlled drug audit trail). Any partial success is a regulatory violation.
+
 **Transaction Steps:**
 1. Verify prescription is `active` and not already dispensed
 2. Verify stock availability (FEFO batch selection)
 3. Update prescription status → `dispensed`
 4. Deduct stock from selected batch(es): `medications.stock_quantity -= qty`
 5. Insert `medication_stock_movements` (type: `dispense`)
-6. If medication is a controlled substance: verify running balance, insert `controlled_drug_register` row
+6. If `medications.is_controlled = true`: verify running balance integrity, insert `controlled_drug_register` row
 7. Insert billing line item (if billing context available)
 8. Fire `pharmacy_low_stock` notification if stock drops below threshold
 9. If any step fails → full rollback
