@@ -11,10 +11,11 @@ import { Textarea } from "@/components/ui/textarea"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
-import { ClipboardCheck, Plus, Check, X, Pill, Box, AlertCircle, Info } from "lucide-react"
+import { ClipboardCheck, Plus, Check, X, Pill, Box, AlertCircle, Info, PackageSearch, RefreshCw } from "lucide-react"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { useToast } from "@/hooks/use-toast"
 import { Alert, AlertDescription, AlertTitle } from "@/components/ui/alert"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type MedicationStockTaking = {
   id: string
@@ -375,9 +376,19 @@ export function StockTaking() {
       <div className="mx-auto max-w-6xl">
         <Card>
           <CardHeader>
-            <CardTitle>Stock Taking (Physical Inventory)</CardTitle>
-            <CardDescription>Loading...</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Stock Taking (Physical Inventory)</CardTitle>
+                <CardDescription>Loading stock takings…</CardDescription>
+              </div>
+            </div>
           </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-3/4" />
+          </CardContent>
         </Card>
       </div>
     )
@@ -397,6 +408,9 @@ export function StockTaking() {
               </CardDescription>
             </div>
             <div className="flex gap-2">
+              <Button onClick={loadStockTakings} variant="ghost" size="icon" title="Refresh">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
               <Button onClick={() => setShowMedicationDialog(true)} variant="outline">
                 <Pill className="mr-2 h-4 w-4" />
                 Medication
@@ -423,9 +437,15 @@ export function StockTaking() {
 
             <TabsContent value="medications" className="mt-4">
               {error && medicationStockTakings.length === 0 ? (
-                <p className="text-destructive">{error}</p>
+                <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                  <PackageSearch className="h-8 w-8" />
+                  <p>{error}</p>
+                </div>
               ) : medicationStockTakings.length === 0 ? (
-                <p className="text-muted-foreground">No medication stock takings recorded yet.</p>
+                <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                  <PackageSearch className="h-8 w-8" />
+                  <p>No medication stock takings recorded yet.</p>
+                </div>
               ) : (
                 <div className="rounded-md border">
                   <Table>
@@ -507,10 +527,16 @@ export function StockTaking() {
 
             <TabsContent value="non-medication" className="mt-4">
               {error && nonMedicationStockTakings.length === 0 ? (
-                <p className="text-destructive">{error}</p>
+                <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                  <PackageSearch className="h-8 w-8" />
+                  <p>{error}</p>
+                </div>
               ) : nonMedicationStockTakings.length === 0 ? (
                 <div className="space-y-4">
-                  <p className="text-muted-foreground">No non-medication stock takings recorded yet.</p>
+                  <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                    <PackageSearch className="h-8 w-8" />
+                    <p>No non-medication stock takings recorded yet.</p>
+                  </div>
                   {nonMedicationItems.length === 0 && (
                     <Alert>
                       <Info className="h-4 w-4" />

@@ -4,9 +4,11 @@ import { useCallback, useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
+import { Button } from "@/components/ui/button"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TrendingUp, TrendingDown, Minus, BarChart3 } from "lucide-react"
+import { TrendingUp, TrendingDown, Minus, BarChart3, RefreshCw } from "lucide-react"
 import { useFormatCurrency } from "@/lib/settings-context"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type UsageData = {
   usage: Array<{
@@ -67,9 +69,22 @@ export function UsageAnalytics() {
       <div className="mx-auto max-w-6xl">
         <Card>
           <CardHeader>
-            <CardTitle>Usage Analytics & Demand Forecasting</CardTitle>
-            <CardDescription>Loading...</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <BarChart3 className="h-5 w-5" />
+                  Usage Analytics & Demand Forecasting
+                </CardTitle>
+                <CardDescription>Loading analytics…</CardDescription>
+              </div>
+            </div>
           </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-3/4" />
+          </CardContent>
         </Card>
       </div>
     )
@@ -101,6 +116,9 @@ export function UsageAnalytics() {
               <CardDescription>Historical usage patterns and predictive demand forecasts</CardDescription>
             </div>
             <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={() => void loadAnalytics()} title="Refresh">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
               <Select value={String(months)} onValueChange={(v) => setMonths(Number(v))}>
                 <SelectTrigger className="w-32">
                   <SelectValue />
@@ -185,7 +203,10 @@ export function UsageAnalytics() {
                 </Table>
               </div>
             ) : (
-              <p className="text-center text-muted-foreground">No forecast data available. Dispense medications to generate usage analytics.</p>
+              <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                <BarChart3 className="h-8 w-8" />
+                <p>No forecast data available. Dispense medications to generate usage analytics.</p>
+              </div>
             )
           ) : (
             data && data.usage.length > 0 ? (
@@ -216,7 +237,10 @@ export function UsageAnalytics() {
                 </Table>
               </div>
             ) : (
-              <p className="text-center text-muted-foreground">No usage history available. Dispense medications to generate analytics.</p>
+              <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                <BarChart3 className="h-8 w-8" />
+                <p>No usage history available. Dispense medications to generate analytics.</p>
+              </div>
             )
           )}
         </CardContent>

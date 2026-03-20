@@ -6,7 +6,7 @@ import { useFormatDate } from "@/lib/date-utils"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
 import { Badge } from "@/components/ui/badge"
-import { Plus } from "lucide-react"
+import { Plus, PackageSearch } from "lucide-react"
 import { StockAdjustmentDialog } from "./stock-adjustment-dialog"
 
 export function StockAdjustments() {
@@ -46,7 +46,10 @@ export function StockAdjustments() {
         <CardContent>
           <div className="space-y-2">
             {stockAdjustments.length === 0 ? (
-              <p className="text-center text-muted-foreground">No stock adjustments yet</p>
+              <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+                <PackageSearch className="h-8 w-8" />
+                <p>No stock adjustments yet.</p>
+              </div>
             ) : (
               stockAdjustments.map((adjustment) => (
                 <div key={adjustment.id} className="rounded-lg border border-border bg-card p-3">

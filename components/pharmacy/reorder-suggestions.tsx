@@ -4,7 +4,8 @@ import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Button } from "@/components/ui/button"
-import { AlertTriangle, ShoppingCart } from "lucide-react"
+import { AlertTriangle, ShoppingCart, PackageSearch } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 import { Badge } from "@/components/ui/badge"
 import { useToast } from "@/hooks/use-toast"
 import { usePharmacy } from "@/lib/pharmacy-context"
@@ -57,9 +58,21 @@ export function ReorderSuggestions() {
       <div className="mx-auto max-w-6xl">
         <Card>
           <CardHeader>
-            <CardTitle>Reorder Suggestions</CardTitle>
-            <CardDescription>Loading...</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <AlertTriangle className="h-5 w-5 text-amber-600" />
+                  Reorder Suggestions
+                </CardTitle>
+                <CardDescription>Checking stock levels…</CardDescription>
+              </div>
+            </div>
           </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-3/4" />
+          </CardContent>
         </Card>
       </div>
     )
@@ -126,12 +139,23 @@ export function ReorderSuggestions() {
 
   if (suggestions.length === 0) {
     return (
-      <Card>
-        <CardHeader>
-          <CardTitle>Reorder Suggestions</CardTitle>
-          <CardDescription>All medications are well stocked. No reorders needed.</CardDescription>
-        </CardHeader>
-      </Card>
+      <div className="mx-auto max-w-6xl">
+        <Card>
+          <CardHeader>
+            <CardTitle className="flex items-center gap-2">
+              <AlertTriangle className="h-5 w-5 text-amber-600" />
+              Reorder Suggestions
+            </CardTitle>
+            <CardDescription>All medications are well stocked. No reorders needed.</CardDescription>
+          </CardHeader>
+          <CardContent>
+            <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+              <PackageSearch className="h-8 w-8" />
+              <p>All medications are well stocked. No reorders needed.</p>
+            </div>
+          </CardContent>
+        </Card>
+      </div>
     )
   }
 

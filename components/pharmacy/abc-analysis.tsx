@@ -5,8 +5,10 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/com
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { TrendingUp, Package, DollarSign } from "lucide-react"
+import { TrendingUp, Package, DollarSign, RefreshCw } from "lucide-react"
 import { useFormatCurrency } from "@/lib/settings-context"
+import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type ABCData = {
   medications: Array<{
@@ -69,9 +71,22 @@ export function ABCAnalysis() {
       <div className="mx-auto max-w-6xl">
         <Card>
           <CardHeader>
-            <CardTitle>ABC Analysis</CardTitle>
-            <CardDescription>Loading...</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle className="flex items-center gap-2">
+                  <TrendingUp className="h-5 w-5" />
+                  ABC Analysis
+                </CardTitle>
+                <CardDescription>Loading analysis data…</CardDescription>
+              </div>
+            </div>
           </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-3/4" />
+          </CardContent>
         </Card>
       </div>
     )
@@ -133,17 +148,22 @@ export function ABCAnalysis() {
                 Medication categorization by annual consumption value (A: High value, B: Medium, C: Low)
               </CardDescription>
             </div>
-            <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as typeof filterCategory)}>
-              <SelectTrigger className="w-32">
-                <SelectValue />
-              </SelectTrigger>
-              <SelectContent>
-                <SelectItem value="all">All Categories</SelectItem>
-                <SelectItem value="A">Category A</SelectItem>
-                <SelectItem value="B">Category B</SelectItem>
-                <SelectItem value="C">Category C</SelectItem>
-              </SelectContent>
-            </Select>
+            <div className="flex items-center gap-2">
+              <Button variant="ghost" size="icon" onClick={loadABCAnalysis} title="Refresh">
+                <RefreshCw className="h-4 w-4" />
+              </Button>
+              <Select value={filterCategory} onValueChange={(v) => setFilterCategory(v as typeof filterCategory)}>
+                <SelectTrigger className="w-32">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="all">All Categories</SelectItem>
+                  <SelectItem value="A">Category A</SelectItem>
+                  <SelectItem value="B">Category B</SelectItem>
+                  <SelectItem value="C">Category C</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
           </div>
         </CardHeader>
         <CardContent>
@@ -218,7 +238,10 @@ export function ABCAnalysis() {
               </Table>
             </div>
           ) : (
-            <p className="text-center text-muted-foreground">No medications found in selected category.</p>
+            <div className="flex flex-col items-center gap-3 py-12 text-center text-muted-foreground">
+              <TrendingUp className="h-8 w-8" />
+              <p>No medications found in selected category.</p>
+            </div>
           )}
         </CardContent>
       </Card>

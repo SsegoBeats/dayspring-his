@@ -3,8 +3,10 @@
 import { useEffect, useState } from "react"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
+import { Button } from "@/components/ui/button"
 import { useFormatCurrency } from "@/lib/settings-context"
-import { TrendingUp, Package, DollarSign } from "lucide-react"
+import { TrendingUp, Package, DollarSign, RefreshCw } from "lucide-react"
+import { Skeleton } from "@/components/ui/skeleton"
 
 type ValuationData = {
   valuation: {
@@ -37,6 +39,7 @@ export function InventoryValuation() {
   const [data, setData] = useState<ValuationData | null>(null)
   const [loading, setLoading] = useState(true)
   const [error, setError] = useState<string | null>(null)
+  const [refreshKey, setRefreshKey] = useState(0)
 
   useEffect(() => {
     let cancelled = false
@@ -60,16 +63,26 @@ export function InventoryValuation() {
     return () => {
       cancelled = true
     }
-  }, [])
+  }, [refreshKey])
 
   if (loading) {
     return (
-      <div className="mx-auto max-w-6xl">
+      <div className="mx-auto max-w-6xl space-y-4">
         <Card>
           <CardHeader>
-            <CardTitle>Inventory Valuation</CardTitle>
-            <CardDescription>Loading...</CardDescription>
+            <div className="flex items-center justify-between">
+              <div>
+                <CardTitle>Inventory Valuation</CardTitle>
+                <CardDescription>Loading valuation data…</CardDescription>
+              </div>
+            </div>
           </CardHeader>
+          <CardContent className="space-y-2">
+            <Skeleton className="h-20 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-full" />
+            <Skeleton className="h-10 w-3/4" />
+          </CardContent>
         </Card>
       </div>
     )
@@ -94,8 +107,15 @@ export function InventoryValuation() {
     <div className="mx-auto max-w-6xl space-y-4">
       <Card>
         <CardHeader>
-          <CardTitle>Inventory Valuation Summary</CardTitle>
-          <CardDescription>Total value and profit analysis</CardDescription>
+          <div className="flex items-center justify-between">
+            <div>
+              <CardTitle>Inventory Valuation Summary</CardTitle>
+              <CardDescription>Total value and profit analysis</CardDescription>
+            </div>
+            <Button variant="ghost" size="icon" onClick={() => setRefreshKey((k) => k + 1)} title="Refresh">
+              <RefreshCw className="h-4 w-4" />
+            </Button>
+          </div>
         </CardHeader>
         <CardContent>
           <div className="grid gap-4 md:grid-cols-4">
@@ -150,7 +170,16 @@ export function InventoryValuation() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {byCategory.map((cat) => {
+                {byCategory.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center gap-3">
+                        <Package className="h-8 w-8" />
+                        <p>No category data found.</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : byCategory.map((cat) => {
                   const profit = Number(cat.total_selling_value) - Number(cat.total_cost_value)
                   return (
                     <TableRow key={cat.category}>
@@ -188,7 +217,16 @@ export function InventoryValuation() {
                 </TableRow>
               </TableHeader>
               <TableBody>
-                {topMedications.map((med) => (
+                {topMedications.length === 0 ? (
+                  <TableRow>
+                    <TableCell colSpan={6} className="py-12 text-center text-muted-foreground">
+                      <div className="flex flex-col items-center gap-3">
+                        <DollarSign className="h-8 w-8" />
+                        <p>No medication valuation data found.</p>
+                      </div>
+                    </TableCell>
+                  </TableRow>
+                ) : topMedications.map((med) => (
                   <TableRow key={med.id}>
                     <TableCell className="font-medium">{med.name}</TableCell>
                     <TableCell>{med.category}</TableCell>
