@@ -353,9 +353,9 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
           </div>
           <div className="space-y-1">
             {/* Fix 4: htmlFor/id on Notes Label+Textarea in edit dialog */}
-            <Label htmlFor="notes">Notes</Label>
+            <Label htmlFor="edit-notes">Notes</Label>
             <Textarea
-              id="notes"
+              id="edit-notes"
               value={editForm.notes}
               onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
               className="focus-visible:ring-emerald-400"
