@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useCallback } from "react"
+import { useState, useEffect, useCallback, useRef } from "react"
 import type { Patient } from "@/lib/patient-context"
 import type { User } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
@@ -43,6 +43,9 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
   const [deletingId, setDeletingId] = useState<string | null>(null)
   const [saving, setSaving] = useState(false)
 
+  const onRecordsChangeRef = useRef(onRecordsChange)
+  useEffect(() => { onRecordsChangeRef.current = onRecordsChange }, [onRecordsChange])
+
   const loadRecords = useCallback(async (pid: string) => {
     try {
       const res = await fetch(`/api/dental/records?patientId=${encodeURIComponent(pid)}`, { credentials: "include" })
@@ -50,10 +53,12 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
         const data = await res.json().catch(() => ({}))
         const recs = Array.isArray(data.records) ? data.records : []
         setRecords(recs)
-        onRecordsChange?.(recs)
+        onRecordsChangeRef.current?.(recs)
+      } else {
+        toast.error("Failed to load dental records")
       }
-    } catch {}
-  }, [onRecordsChange])
+    } catch { toast.error("Failed to load dental records") }
+  }, []) // no external deps — stable reference
 
   useEffect(() => { void loadRecords(patient.id) }, [patient.id, loadRecords])
 
@@ -179,6 +184,10 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
             )
           })}
         </div>
+      )}
+
+      {records.length === 0 && (
+        <p className="text-sm text-slate-500">No dental records on file.</p>
       )}
 
       {/* New record form (Dentist only) */}
