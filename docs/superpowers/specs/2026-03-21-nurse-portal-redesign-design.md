@@ -284,7 +284,7 @@ Right: icon badge `rounded-xl p-2` with icon.
 
 **Content root** (what `PatientCareView` returns, rendered as a child of `SheetContent` in `nurse-dashboard.tsx`):
 
-**Sticky header (`SheetHeader`):**
+**Sticky header (plain `<div>` — do NOT use shadcn `SheetHeader` here; that lives in the dashboard wrapper):**
 ```
 className="sticky top-0 z-10 bg-white border-b border-violet-100 px-6 py-4"
 ```
