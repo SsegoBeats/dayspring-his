@@ -9,103 +9,188 @@
 
 A comprehensive audit, bug-fix, and visual redesign of the Dayspring HIS Nurse Portal. Every page, sub-page, tab, feature, API, component, export, settings page, and notification area is in scope.
 
-### In scope
-- `app/nurse/page.tsx`
-- `app/nurse/settings/page.tsx`
-- `components/dashboards/nurse-dashboard.tsx`
-- `components/nursing/patient-care-list.tsx`
-- `components/nursing/patient-care-view.tsx`
-- `components/patient/triage-form.tsx` (wrapper styling only — logic untouched)
-- `lib/nursing-context.tsx`
-- `lib/vital-signs-validation.ts`
-- `app/api/vitals/route.ts`
-- `app/api/vitals/latest/route.ts`
-- `app/api/vitals/export/route.ts`
-- `app/api/nursing-notes/route.ts`
-- `app/api/nursing-notes/latest/route.ts`
-- `app/api/nursing-notes/export/route.ts`
-- `app/api/triage/route.ts`
-- New file: `lib/vital-formatting.ts`
-- New file: `components/nursing/nurse-notification-bell.tsx`
+### Files to modify
+- `app/nurse/page.tsx` — minor only (no layout changes needed)
+- `app/nurse/settings/page.tsx` — icon swap + identity accent
+- `components/dashboards/nurse-dashboard.tsx` — full redesign + Dialog→Sheet + dev text removal + live clock + collapsible export
+- `components/nursing/patient-care-list.tsx` — full redesign + shadcn Table + critical highlighting
+- `components/nursing/patient-care-view.tsx` — full redesign (Sheet content layout, pill tabs, colored inputs, segmented note categories, history cards)
+- `components/patient/triage-form.tsx` — wrapper styling only (see §2.0 boundary definition)
+
+### Files to create
+- `lib/vital-formatting.ts` — extracted shared formatting utilities
+- `components/nursing/nurse-notification-bell.tsx` — new notification bell component
+
+### Files audited, no changes required
+- `lib/nursing-context.tsx` — audit complete; state management, optimistic updates, deduplication, error callbacks all correct
+- `lib/vital-signs-validation.ts` — audit complete; age-based thresholds, critical/warning levels all correct; this file is the canonical source for critical vitals detection
+- `app/api/vitals/route.ts` — RLS, auth, BP parsing all correct
+- `app/api/vitals/latest/route.ts` — DISTINCT ON, filtering, fallback query all correct
+- `app/api/vitals/export/route.ts` — CSV/XLSX/PDF export, audit logging all correct
+- `app/api/nursing-notes/route.ts` — type mapping, RLS, auth all correct
+- `app/api/nursing-notes/latest/route.ts` — DISTINCT ON, filtering all correct
+- `app/api/nursing-notes/export/route.ts` — export, audit logging all correct
+- `app/api/triage/route.ts` — Zod validation, auto-table-create, category calculation, RLS all correct
+
+Total API routes audited: **9**
 
 ### Out of scope
 - Other portal dashboards
 - Database schema migrations
-- `triage-form.tsx` internal logic (only visual wrapper changes)
+- `triage-form.tsx` internal logic (see §2.0)
+
+---
+
+## 2.0 Boundary: triage-form.tsx
+
+**Allowed changes:**
+- Wrapping the form output in a `bg-violet-50 rounded-2xl p-4` container inside the Triage tab (in `patient-care-view.tsx`, not inside `triage-form.tsx`)
+- No live category pill prop is needed — `TriageForm` already renders its own `suggestedCategory` Badge internally
+- Restyling the submit button via a CSS descendant wrapper (see §4.4 Triage tab)
+
+**Not allowed:**
+- Changing any field, validation logic, Zod schema, calculation logic, or data submission behavior
+- Modifying the internal layout of fields within `TriageForm`
+- Adding or removing form fields
 
 ---
 
 ## 2. Bug & Code Quality Fixes
 
-### 2.1 Dev/debug text leaked into production UI
-**Location:** `nurse-dashboard.tsx` lines ~488–493, ~597
-- `"Nurse actions stay in nurse flow"` badge — remove
-- `"Buttons now open the exact tab requested for the selected patient."` — replace with real subtitle
-- `"Notification clicks now open the correct nurse workflow instead of falling into clinician-only paths."` — replace with a real shift snapshot description
-- `"The same range now drives the summary cards, latest vitals table, and exported files."` — replace with real label copy
+### 2.1 Dev/debug text in production UI
+
+**File:** `components/dashboards/nurse-dashboard.tsx`
+
+| Location (approx. line) | Current text | Replace with |
+|---|---|---|
+| Hero pill badge (~line 430) | `"Nurse Command Center"` | `"Nurse Portal"` |
+| Patient care section subtitle (~line 491) | `"Buttons now open the exact tab requested for the selected patient."` | `"Select a patient to record vitals, add notes, or complete triage."` |
+| Patient care badge (~line 492) | Badge: `"Nurse actions stay in nurse flow"` | Remove entirely |
+| Shift snapshot card description (~line 473) | `"Notification clicks now open the correct nurse workflow instead of falling into clinician-only paths."` | `"Refreshes every 30 seconds. Range selector drives all summaries and exports."` |
+| Export panel description (~line 505) | `"The same range now drives the summary cards, latest vitals table, and exported files."` | Remove; the UI is self-explanatory |
 
 ### 2.2 Duplicate formatting utility functions
-**Location:** `patient-care-list.tsx` lines 43–72 and `patient-care-view.tsx` lines 92–147
-Both files define identical `numInt`, `numFloat`, `fmtBP`, `fmtTemp`, `fmtBpm`, `fmtRR`, `fmtSpO2`, `fmtKg`, `fmtCm` functions.
 
-**Fix:** Extract to `lib/vital-formatting.ts` as named exports. Import in both components.
+**Files:** `components/nursing/patient-care-list.tsx` (lines 43–72) and `components/nursing/patient-care-view.tsx` (lines 92–147)
+
+Both files define **identical** implementations (verified byte-for-byte) of: `numInt`, `numFloat`, `fmtBP`, `fmtTemp`, `fmtBpm`, `fmtRR`, `fmtSpO2`, `fmtKg`, `fmtCm`.
+
+**Fix:** Create `lib/vital-formatting.ts` (see §5). Remove inline definitions from both components. Import named functions.
 
 ### 2.3 Raw `<table>` in PatientCareList
-**Location:** `patient-care-list.tsx` lines 278–380
-Uses raw HTML `<table>/<thead>/<tbody>/<tr>/<td>` instead of shadcn `Table` components.
 
-**Fix:** Replace with shadcn `Table, TableHeader, TableBody, TableRow, TableHead, TableCell`.
+**File:** `components/nursing/patient-care-list.tsx` (lines 278–380)
+Uses raw `<table>`, `<thead>`, `<tbody>`, `<tr>`, `<th>`, `<td>` instead of shadcn components.
+No print CSS classes are on this table — safe to replace.
 
-### 2.4 No critical vitals highlighting in PatientCareList
-The Latest Vitals table (nurse-dashboard.tsx) correctly highlights critical rows. The Patient Care List does not show any visual indication that a patient's latest vitals are critical.
+**Fix:** Replace with shadcn `Table`, `TableHeader`, `TableBody`, `TableRow`, `TableHead`, `TableCell`. Column structure is preserved: checkbox, P.ID, Name, Age, Sex, Blood Group, Latest Vitals, Actions.
 
-**Fix:** In the patient care list row renderer, call `hasCriticalVitals()` on the patient's `getLatestVitals()` result and apply `bg-fuchsia-50` row background + a pulsing fuchsia dot next to the patient name when critical.
+### 2.4 Missing critical vitals highlighting in PatientCareList
+
+**File:** `components/nursing/patient-care-list.tsx`
+The Latest Vitals table in `nurse-dashboard.tsx` calls `hasCriticalVitals()` and `parseBloodPressure()` to highlight critical rows. The Patient Care List does not, so nurses have no visual cue that a patient in the care list has critical vitals.
+
+**Fix:** In the row renderer, import `hasCriticalVitals`, `parseBloodPressure` from `lib/vital-signs-validation`. For each patient, call `getLatestVitals(patient.id)` then evaluate:
+```typescript
+const lv = getLatestVitals(patient.id)
+const bp = lv ? parseBloodPressure(lv.bloodPressure ?? "") : { systolic: null, diastolic: null }
+const isCritical = lv
+  ? hasCriticalVitals({
+      temperature: lv.temperature != null ? Number(lv.temperature) : null,
+      systolicBP: bp.systolic,
+      diastolicBP: bp.diastolic,
+      heartRate: lv.heartRate != null ? Number(lv.heartRate) : null,
+      respiratoryRate: lv.respiratoryRate != null ? Number(lv.respiratoryRate) : null,
+      oxygenSaturation: lv.oxygenSaturation != null ? Number(lv.oxygenSaturation) : null,
+    }, patientAge)
+  : false
+```
+Apply `className={isCritical ? "bg-fuchsia-50 border-l-[3px] border-fuchsia-500" : ""}` to the `TableRow`. Add a pulsing fuchsia dot `<span className="inline-block h-2 w-2 animate-pulse rounded-full bg-fuchsia-500 mr-2" />` before the patient name when `isCritical`.
 
 ### 2.5 Dialog → Sheet for PatientCareView
-**Location:** `nurse-dashboard.tsx` lines 591–598
-The `Dialog` restricts screen real estate, especially for the long triage form.
 
-**Fix:** Replace `Dialog/DialogContent/DialogHeader/DialogTitle/DialogDescription` with `Sheet/SheetContent/SheetHeader/SheetTitle/SheetDescription` from shadcn. Sheet slides from the right, `side="right"`, `className="w-full sm:w-[80vw] overflow-y-auto"`.
+**File:** `components/dashboards/nurse-dashboard.tsx` (lines 591–598)
 
-### 2.6 Missing nurse-specific notification bell
-The pharmacist portal has a `PharmacistNotificationBell` component in its card header. The nurse portal has no equivalent — notifications only come via the global dashboard bell and EventSource toasts.
+`PatientCareView` is **only rendered in `nurse-dashboard.tsx`** (verified — no other file imports or renders it). The migration is safe.
 
-**Fix:** Create `components/nursing/nurse-notification-bell.tsx` — a compact bell icon button that fetches recent nurse-relevant notifications (new patient registrations, triage alerts) and shows an unread count badge. Clicking opens a dropdown listing notifications. Clicking a notification fires `openNursePatientCare` CustomEvent with the patient ID.
+**Fix:** Replace `Dialog`, `DialogContent`, `DialogHeader`, `DialogTitle`, `DialogDescription` imports and JSX with `Sheet`, `SheetContent`, `SheetHeader`, `SheetTitle`, `SheetDescription` from `@/components/ui/sheet`. Props: `side="right"`, `className="w-full sm:w-[80vw] sm:max-w-none overflow-y-auto"`.
 
-### 2.7 Settings page — DashboardLayout missing
-**Location:** `app/nurse/settings/page.tsx`
-The settings page uses `SettingsLayout` but is not wrapped in `DashboardLayout`. The nurse main page wraps in `DashboardLayout`, so this is inconsistent — the sidebar nav is absent on the settings page.
+**Important:** `SheetContent` has `sm:max-w-sm` hardcoded in its `side="right"` variant. Since `cn()` uses `tailwind-merge`, adding `sm:max-w-none` in `className` properly overrides the built-in constraint. Without `sm:max-w-none`, the sheet will be capped at ~384px on desktop regardless of the `sm:w-[80vw]` class.
 
-**Fix:** Verify whether `SettingsLayout` already renders inside `DashboardLayout` via the app shell. If not, wrap `NurseSettingsPage` the same way as `NursePortalPage`.
+### 2.6 Missing nurse notification bell
+
+**File:** New — `components/nursing/nurse-notification-bell.tsx`
+The pharmacist portal has `PharmacistNotificationBell`. The nurse portal has no equivalent.
+
+**Fix:** Create `NurseNotificationBell` (see §4.6). Import and render it in the Patient Care card header in `patient-care-list.tsx`.
+
+### 2.7 Settings page DashboardLayout
+
+**Verdict: Not a bug.** Verified that all portal settings pages (`/pharmacist/settings`, `/nurse/settings`, etc.) use `SettingsLayout` directly without `DashboardLayout`. This is the correct consistent pattern. No fix needed.
 
 ---
 
 ## 3. Color System — "Vital Force"
 
+### 3.1 Color tokens
+
 ```
-Base page background:  #F8F7FF  (pearl white, violet-tinted)
-Primary / identity:    violet-700  (#6D28D9)
-Hero dark:             violet-950  (#2E1065)
-Hero gradient end:     indigo-900  (#312E81)
-Critical accent:       fuchsia-600  (#C026D3)
-Vitals accent:         cyan-600  (#0891B2)
-Notes accent:          amber-600  (#D97706)
-Triage Emergency:      red-600
-Triage Very Urgent:    fuchsia-600
-Triage Urgent:         amber-500
-Triage Routine:        emerald-600
-Not triaged:           slate-400
-Card borders:          violet-100
-Card backgrounds:      white (#FFFFFF)
-Violet-tinted surface: violet-50 (#F5F3FF)
+Page background:        #F8F7FF   (pearl white, violet-tinted — apply via className="bg-[#F8F7FF]" on root or use bg-violet-50/30)
+Primary / identity:     violet-700   (#6D28D9)
+Hero dark start:        violet-950   (#2E1065)
+Hero gradient end:      indigo-900   (#312E81)
+
+Critical vitals accent: fuchsia-600  (#C026D3)   — used ONLY for "patient's vitals are outside safe range"
+Vitals data accent:     cyan-600     (#0891B2)
+Notes accent:           amber-600    (#D97706)
+
+Triage: Emergency:      red-600      (#DC2626)    — distinct from fuchsia; Emergency = red
+Triage: Very Urgent:    orange-600   (#EA580C)    — warm orange, not fuchsia (avoids color collision)
+Triage: Urgent:         amber-500    (#F59E0B)
+Triage: Routine:        emerald-600  (#059669)
+Not triaged:            slate-400    (#94A3B8)
+
+Card borders:           violet-100   (#EDE9FE)
+Card background:        white        (#FFFFFF)
+Violet surface:         violet-50    (#F5F3FF)
+Muted text:             slate-500
+Body text:              slate-700
 ```
 
-**Typography:**
-- Section labels: `text-xs font-semibold uppercase tracking-widest text-violet-400`
-- Stat numbers: `text-4xl font-bold`
-- Section headings: `text-xl font-bold tracking-tight`
-- Table headers: `text-xs font-semibold uppercase tracking-widest text-slate-400`
-- Body: `text-slate-700`
+**Color semantic separation:**
+- `fuchsia` = critical vitals (physiological danger — heart rate, BP, SpO2 outside range)
+- `red` = Emergency triage category
+- `orange` = Very Urgent triage category
+- These three are distinct and never overlap in meaning.
+
+### 3.2 Typography tokens
+
+```
+Page section label:     text-xs font-semibold uppercase tracking-widest text-violet-400
+Section heading:        text-xl font-bold tracking-tight text-slate-900
+Card title:             text-base font-semibold text-slate-900
+Stat number:            text-4xl font-bold text-slate-900
+Table header:           text-xs font-semibold uppercase tracking-widest text-slate-400
+Table cell body:        text-sm text-slate-700
+Mono (IDs, vitals):     font-mono text-sm
+Muted / caption:        text-xs text-slate-500
+Error / critical:       text-sm text-fuchsia-600 font-medium
+Warning:                text-sm text-amber-600 font-medium
+Success:                text-sm text-emerald-600 font-medium
+```
+
+### 3.3 Spacing & shape tokens
+
+```
+Card border radius:     rounded-2xl  (16px)
+Hero border radius:     rounded-[28px]
+Icon badge:             rounded-xl p-2
+Pill badge:             rounded-full px-3 py-1 text-xs
+Input focus ring:       focus-visible:ring-violet-400
+Triage row border:      border-l-[3px]  (left accent on table rows)
+Sheet width:            w-full sm:w-[80vw]
+Card shadow:            shadow-sm
+```
 
 ---
 
@@ -113,175 +198,299 @@ Violet-tinted surface: violet-50 (#F5F3FF)
 
 ### 4.1 Hero Banner (`nurse-dashboard.tsx`)
 
-**Layout:** Full-width, `rounded-[28px]`, `overflow-hidden`
 **Background:** `bg-gradient-to-br from-violet-950 via-violet-900 to-indigo-900`
-**Decorative elements:** Two blurred circle overlays (`bg-fuchsia-400/20 blur-3xl`, `bg-cyan-400/15 blur-3xl`)
-**Content grid:** `lg:grid-cols-[1.6fr_1fr]`
+**Shape:** `rounded-[28px] overflow-hidden`
+**Decorative blobs:** `absolute -left-16 top-12 h-40 w-40 rounded-full bg-fuchsia-400/20 blur-3xl` + `absolute right-0 top-0 h-48 w-48 rounded-full bg-cyan-400/15 blur-3xl`
 
-Left column:
-- Pill badge: `"Nurse Portal"` — `bg-white/10 border-white/15 text-violet-200 uppercase tracking-[0.28em] text-xs`
+**Left column:**
+- Pill: `"Nurse Portal"` — `bg-white/10 border border-white/15 text-violet-200 text-xs uppercase tracking-[0.28em] rounded-full px-3 py-1`
 - Headline: `"Your shift. Your patients. Your command."` — `text-3xl md:text-4xl font-bold text-white`
-- Subtext: `"Monitor vitals, document care, and triage patients — all from one place."` — `text-violet-200/90 text-sm md:text-base`
-- 3 quick-action cards: `bg-white/10 border-white/15 rounded-2xl hover:bg-white/15`, each with icon, title, description, animated `ArrowUpRight`
+- Subtext: `"Monitor vitals, document care, and triage patients — all from one place."` — `text-sm md:text-base text-violet-200/90`
+- 3 quick-action cards: `bg-white/10 border border-white/15 rounded-2xl p-4 hover:bg-white/15 transition`, each with:
+  - Icon (from `quickActions` array, already defined)
+  - `ArrowUpRight` that translates `group-hover:translate-x-0.5 group-hover:-translate-y-0.5`
+  - Title: `text-sm font-medium text-white`
+  - Description: `text-xs text-violet-200/80`
 
-Right column (Shift Snapshot card):
-- `bg-white/12 backdrop-blur border-white/20 rounded-2xl text-white`
-- Date range pill at top
-- Two stat boxes: Critical Patients (fuchsia dot pulses if > 0), Awaiting Triage (amber accent)
-- Thin divider
-- Live clock (updates every second via `setInterval`)
-- Remove current dev-text description
+**Right column (Shift Snapshot):**
+- Card: `bg-white/12 backdrop-blur border border-white/20 rounded-2xl text-white shadow-none`
+- Title: `"Shift Snapshot"` — `text-sm font-semibold text-white/90`
+- Date range pill: current range label in `bg-black/20 rounded-full px-3 py-1 text-xs`
+- Two stat boxes side by side:
+  - Critical Patients: `bg-black/15 rounded-2xl p-4`, label `text-xs uppercase tracking-widest text-fuchsia-300/80`, number `text-3xl font-bold`, pulsing fuchsia dot `animate-pulse` if count > 0
+  - Awaiting Triage: same structure, label `text-amber-300/80`
+- Thin `border-t border-white/10` divider
+- Live clock: `text-2xl font-mono text-white/90`, updated every second via `useEffect` with `setInterval(1000)`
+- Description: `"Refreshes every 30 seconds. Range selector drives all summaries and exports."` — `text-xs text-violet-200/60`
 
 ### 4.2 Stat Cards Row
 
-Four white cards with `border-t-4` accent, icon badge, large stat number:
+Four cards, full width grid `grid gap-4 md:grid-cols-4`. Each card:
+```
+className="rounded-2xl border border-violet-100 bg-white shadow-sm overflow-hidden"
+```
+Inside: `border-t-4` in accent color at top. Layout: `flex items-start justify-between p-5`.
+Left: label `text-xs font-semibold uppercase tracking-widest text-slate-500`, number `text-4xl font-bold text-slate-900 mt-2`, caption `text-xs text-slate-500 mt-1`.
+Right: icon badge `rounded-xl p-2` with icon.
 
-| Card | Border color | Icon bg | Icon color |
-|---|---|---|---|
-| Total Patients | `border-violet-500` | `bg-violet-100` | `text-violet-600` |
-| Vitals Logged | `border-cyan-500` | `bg-cyan-100` | `text-cyan-600` |
-| Notes Added | `border-amber-500` | `bg-amber-100` | `text-amber-600` |
-| Critical Watch | `border-fuchsia-500` | `bg-fuchsia-100` | `text-fuchsia-600` |
-
-Icon badge positioned top-right of card (`rounded-xl p-2`). Critical Watch pulses if count > 0.
+| Card | `border-t` | Icon bg | Icon color | Pulse if > 0 |
+|---|---|---|---|---|
+| Total Patients | `border-violet-500` | `bg-violet-100` | `text-violet-600` | No |
+| Vitals Logged | `border-cyan-500` | `bg-cyan-100` | `text-cyan-600` | No |
+| Notes Added | `border-amber-500` | `bg-amber-100` | `text-amber-600` | No |
+| Critical Watch | `border-fuchsia-500` | `bg-fuchsia-100` | `text-fuchsia-600` | Yes (`animate-pulse` on icon) |
 
 ### 4.3 Patient Care List (`patient-care-list.tsx`)
 
-Card: `border-l-4 border-violet-600 rounded-2xl`
-Card header: title "Patient Care" bold, subtitle "Select a patient to record vitals, add notes, or complete triage.", `NurseNotificationBell` component top-right.
+**Card:** `rounded-2xl border-l-4 border-violet-600 shadow-sm bg-white`
+**Card header:** flex row, title `"Patient Care"` `text-base font-semibold`, subtitle `"Select a patient to record vitals, add notes, or complete triage."`, `<NurseNotificationBell />` pushed to the right.
 
-Search: violet focus ring (`focus-visible:ring-violet-400`).
+**Search:** `focus-visible:ring-violet-400`, Search icon in `text-violet-400`.
 
-Bulk vitals panel: `bg-violet-50 border border-violet-200 rounded-2xl p-4`. Header: `"Recording for {N} patients"` in `text-violet-700 font-semibold`. "Record Vitals" button: `bg-violet-700 hover:bg-violet-800`.
+**Bulk vitals panel:** `bg-violet-50 border border-violet-200 rounded-2xl p-4`. Header: `text-violet-700 font-semibold`. Submit: `bg-violet-700 hover:bg-violet-800 text-white`. Clear: `variant="outline"`.
 
-Table (shadcn `Table`):
-- Headers: uppercase, `tracking-widest`, `text-xs`, `text-violet-400`
-- Rows: left border 3px colored by triage category (CSS via `border-l-[3px]` on `TableRow` className)
-- Critical rows: `bg-fuchsia-50` + pulsing fuchsia dot (`animate-pulse rounded-full bg-fuchsia-500 h-2 w-2`) beside patient name
-- Allergy badge: `bg-red-50 text-red-700 border border-red-200 text-xs`
-- Latest vitals chips: `bg-cyan-50 text-cyan-700 text-xs px-1.5 py-0.5 rounded` per value
-- Action buttons: Vitals=`variant="default" className="bg-violet-700"`, Note=`variant="outline" className="border-cyan-400 text-cyan-700"`, Triage=`variant="outline" className="border-fuchsia-400 text-fuchsia-700"`
+**Table columns:** checkbox | P.ID | Name | Age | Sex | Blood | Latest Vitals | Actions
+**Table header cells:** `text-xs font-semibold uppercase tracking-widest text-violet-400`
 
-Empty state: centered, violet icon, `text-violet-400`.
+**Row triage border colors** (same hue as triage badges):
+| Triage | `TableRow` className |
+|---|---|
+| Emergency | `border-l-[3px] border-red-500` |
+| Very Urgent | `border-l-[3px] border-orange-500` |
+| Urgent | `border-l-[3px] border-amber-500` |
+| Routine | `border-l-[3px] border-emerald-500` |
+| Not triaged | `border-l-[3px] border-slate-200` |
+
+**Critical row:** additionally add `bg-fuchsia-50` + pulsing fuchsia dot before name (see §2.4).
+
+**Latest vitals chips:** each value in `bg-cyan-50 text-cyan-700 text-xs px-1.5 py-0.5 rounded font-mono`.
+
+**Allergy badge:** `bg-red-50 text-red-700 border border-red-200 text-xs rounded-full px-2 py-0.5`.
+
+**Action buttons:**
+- Vitals: `<Button size="sm" className="bg-violet-700 hover:bg-violet-800 text-white">`
+- Note: `<Button size="sm" variant="outline" className="border-cyan-400 text-cyan-700 hover:bg-cyan-50">`
+- Triage: `<Button size="sm" variant="outline" className="border-orange-400 text-orange-700 hover:bg-orange-50">`
+
+**Empty state:** `<Search className="h-8 w-8 text-violet-300 mb-3" />` centered, `text-violet-400`.
+
+**Loading state:** Preserved — existing `Loader2` skeleton behavior kept, but spinner color changed to `text-violet-500`.
+
+**Accessibility:** ARIA labels preserved. Critical rows get `aria-label="Critical vitals"` added to the pulsing dot span.
 
 ### 4.4 Patient Care View (`patient-care-view.tsx`) — Sheet
 
-`Sheet` from shadcn, `side="right"`, width `sm:w-[80vw]`.
+**Ownership clarification:** `PatientCareView` is a plain content component — it returns a `<div>` with no Dialog or Sheet of its own. The `Sheet` wrapper lives entirely in `nurse-dashboard.tsx` (§2.5 and §4.5). §4.4 describes the content layout rendered *inside* `SheetContent` in the dashboard — **not** a new Sheet emitted by `patient-care-view.tsx`. Do **not** add Sheet or Dialog imports to `patient-care-view.tsx`.
 
-Sticky sheet header: patient name (`font-bold text-lg`), P.ID (`font-mono text-sm text-violet-600`), age + gender chips (`bg-violet-50 text-violet-700 text-xs px-2 py-0.5 rounded-full`), blood group chip, allergy badge (`bg-red-50 text-red-700`), close button.
+**Content root** (what `PatientCareView` returns, rendered as a child of `SheetContent` in `nurse-dashboard.tsx`):
 
-Tab bar: horizontal, pill-style. Active: `bg-violet-700 text-white`. Inactive: `text-violet-600 hover:bg-violet-50`. Tabs: Activity icon + "Vitals", FileText + "Note", Clock + "History", AlertCircle + "Triage".
+**Sticky header (`SheetHeader`):**
+```
+className="sticky top-0 z-10 bg-white border-b border-violet-100 px-6 py-4"
+```
+Contents: patient name `font-bold text-lg text-slate-900`, P.ID `font-mono text-sm text-violet-600`, chips for age/gender `bg-violet-50 text-violet-700 text-xs px-2 py-0.5 rounded-full`, blood group chip same style, allergy badge `bg-red-50 text-red-700 border border-red-200`.
+
+**Tab bar:**
+```
+className="flex gap-1 px-6 pt-4 pb-0 border-b border-violet-100"
+```
+Each tab button: inactive=`text-violet-600 hover:bg-violet-50 rounded-t-lg px-4 py-2 text-sm font-medium flex items-center gap-2`, active=`bg-violet-700 text-white rounded-t-lg px-4 py-2 text-sm font-medium flex items-center gap-2`. Tabs: `<Activity size={14} /> Vitals`, `<FileText size={14} /> Note`, `<Clock size={14} /> History`, `<AlertCircle size={14} /> Triage`.
 
 **Vitals tab:**
-- 2-column input grid desktop, 1-column mobile
-- Input left accent bars: `border-l-4 border-cyan-400` for BP/HR/RR/SpO2; `border-l-4 border-amber-400` for Temp; `border-l-4 border-violet-400` for Weight/Height
-- Inline validation: critical=`text-fuchsia-600`, warning=`text-amber-600`, normal=`text-emerald-600`
-- Submit: `bg-violet-700 w-full`, keyboard hint badge `Ctrl+Enter`
+- 2-column grid `grid gap-4 sm:grid-cols-2 p-6`
+- Input wrapper for BP/HR/RR/SpO2: `border-l-4 border-cyan-400 pl-3`
+- Input wrapper for Temp: `border-l-4 border-amber-400 pl-3`
+- Input wrapper for Weight/Height: `border-l-4 border-violet-400 pl-3`
+- Validation inline: critical=`text-fuchsia-600 text-xs font-medium`, warning=`text-amber-600 text-xs font-medium`, normal=`text-emerald-600 text-xs font-medium`
+- Submit: `bg-violet-700 hover:bg-violet-800 w-full` + keyboard hint `Ctrl+Enter`
+- **Loading/error states:** Preserved — existing `savingVitals` spinner and toast error behavior kept
+- **Accessibility:** Input `aria-label` attributes preserved. Validation alerts use `role="alert"`.
 
 **Note tab:**
-- Segmented button group for category (not dropdown):
-  - Assessment: `bg-violet-100 text-violet-700 border-violet-300`
-  - Medication: `bg-cyan-100 text-cyan-700 border-cyan-300`
-  - Procedure: `bg-amber-100 text-amber-700 border-amber-300`
-  - Observation: `bg-emerald-100 text-emerald-700 border-emerald-300`
-  - Other: `bg-slate-100 text-slate-700 border-slate-300`
-- Textarea with character counter
-- Submit: `bg-violet-700 w-full`
+- Category: segmented button group `flex flex-wrap gap-2` (replace `<Select>`):
+  - Assessment: `bg-violet-100 text-violet-700 border border-violet-300`
+  - Medication: `bg-cyan-100 text-cyan-700 border border-cyan-300`
+  - Procedure: `bg-amber-100 text-amber-700 border border-amber-300`
+  - Observation: `bg-emerald-100 text-emerald-700 border border-emerald-300`
+  - Other: `bg-slate-100 text-slate-700 border border-slate-300`
+  - Active state adds `ring-2 ring-offset-1` in matching color
+- Textarea: `min-h-[120px]` + character counter `text-xs text-slate-400 text-right`
+- Submit: `bg-violet-700 hover:bg-violet-800 w-full`
+- **Loading/error states:** `savingNote` spinner and toast error behavior preserved
 
 **History tab:**
-- "Vitals History" section header, then "Notes History" section header separated by a `<Separator />`
-- Vitals cards: `border-l-4 border-cyan-400 bg-cyan-50/30`, header shows date/time + nurse name, vitals as colored chips
-- Notes cards: border-l-4 colored by category (violet/cyan/amber/emerald/slate), header shows category + date/time
+- "Vitals History" label: `text-xs font-semibold uppercase tracking-widest text-cyan-500`
+- Vitals cards: `border-l-4 border-cyan-400 bg-cyan-50/30 rounded-xl p-4`, header: date/time + nurse name `text-xs text-slate-500`, vitals as chips `bg-cyan-50 text-cyan-700`
+- `<Separator className="my-4" />`
+- "Notes History" label: `text-xs font-semibold uppercase tracking-widest text-amber-500`
+- Notes cards: `border-l-4` in category color (violet/cyan/amber/emerald/slate), `rounded-xl p-4`, header: category + date/time `text-xs text-slate-500`
+- **Loading state:** `loadingHistory` spinner preserved
 
 **Triage tab:**
-- Wrapper: `bg-violet-50 rounded-2xl p-4`
-- Live triage category result pill at top of form, updates as fields change
-- Submit button: `bg-violet-700 w-full`
+- Wrapper: `bg-violet-50 rounded-2xl p-4 m-4`
+- **No external `onCategoryChange` prop needed and none should be added.** `TriageForm` already renders its own live `suggestedCategory` Badge internally (lines 143–145 of triage-form.tsx). The live category display is already handled inside the form. §2.0 boundary is not crossed.
+- Submit button: `TriageForm` has a submit Button inside it. Rather than modifying `triage-form.tsx` internals, apply a CSS override via a wrapper `<div className="[&_button[type='submit']]:bg-violet-700 [&_button[type='submit']]:hover:bg-violet-800 [&_button[type='submit']]:w-full">`. If `TriageForm` exposes a `className` prop in future, prefer that.
 
-### 4.5 Latest Vitals Table (`nurse-dashboard.tsx`)
+### 4.5 Latest Vitals Table & Sheet Wrapper (`nurse-dashboard.tsx`)
 
-Card: `border-l-4 border-cyan-500`. Header: `bg-cyan-50/50`, title "Latest Vitals", cyan record count pill, + export toggle button (`Download` icon).
+**Sheet wrapper for PatientCareView** (replaces Dialog — see §2.5):
+```tsx
+<Sheet open={!!selected} onOpenChange={handleDialogChange}>
+  <SheetContent side="right" className="w-full sm:w-[80vw] sm:max-w-none overflow-y-auto p-0">
+    <SheetHeader className="sr-only">
+      <SheetTitle>Patient Care</SheetTitle>
+      <SheetDescription>Record vitals, add nursing notes, complete triage, and review patient care history.</SheetDescription>
+    </SheetHeader>
+    {selected && <PatientCareView ... />}
+  </SheetContent>
+</Sheet>
+```
+The `SheetHeader` is visually hidden (`sr-only`) because `PatientCareView` renders its own sticky header. `SheetTitle` and `SheetDescription` are included for accessibility (shadcn Sheet requires them to avoid console warnings).
 
-Filters: search (cyan focus ring), triage dropdown (colored dot per option), Critical Only toggle (`bg-fuchsia-600` when active).
+**Card:** `rounded-2xl border-l-4 border-cyan-500 overflow-hidden shadow-sm`
+**Card header:** `bg-cyan-50/50 border-b border-cyan-100`, flex row with title `"Latest Vitals"` + cyan record count pill `bg-cyan-100 text-cyan-700 text-xs rounded-full px-2 py-0.5` + `<Button variant="ghost" size="icon" onClick={toggleExport}><Download size={16} /></Button>`.
 
-Table headers: `text-xs uppercase tracking-widest text-slate-400`. Sort icon: `text-violet-500` when active.
+**Filters row:** search (cyan focus ring), triage dropdown (each option has a colored `●` dot inline), Critical Only toggle `bg-fuchsia-600 text-white` when active.
 
-Row styles:
-- Critical: `bg-fuchsia-50 border-l-[3px] border-fuchsia-500` + pulsing dot
+**Table headers:** `text-xs font-semibold uppercase tracking-widest text-slate-400`. Active sort icon: `text-violet-500`.
+
+**Row styles:**
+- Critical: `bg-fuchsia-50` + `border-l-[3px] border-fuchsia-500` + pulsing dot before name
 - Normal: `hover:bg-violet-50`
-- Triage badges: colored `bg-*/text-*/border-*` pills per category
-- Action links: violet/cyan/fuchsia `font-medium text-sm hover:underline`
+- Triage badges:
+  - Emergency: `bg-red-100 text-red-700 border border-red-200`
+  - Very Urgent: `bg-orange-100 text-orange-700 border border-orange-200`
+  - Urgent: `bg-amber-100 text-amber-700 border border-amber-200`
+  - Routine: `bg-emerald-100 text-emerald-700 border border-emerald-200`
+  - Not triaged: `text-xs text-slate-400`
+- Action links: `text-violet-700 font-medium text-sm hover:underline`, `text-cyan-700`, `text-orange-700`
 
-Empty state: contextual message with cyan icon.
+**Empty state:** cyan icon, contextual message.
 
-**Export panel:** Collapsible section inside vitals card footer (toggled by `Download` button in header). Horizontal row: Quick Range, From, To, Format selectors + "Export Vitals" (`bg-cyan-600`) + "Export Notes" (`bg-amber-600`) buttons. Remove the separate standalone export card.
+**Loading state:** existing `Loader2` spinner preserved, `text-cyan-500`.
+
+**Collapsible export panel:**
+- State: `const [showExport, setShowExport] = useState(false)` in `nurse-dashboard.tsx`
+- Toggle button in card header (Download icon)
+- Panel renders below table with `AnimatePresence` or simple `{showExport && ...}` conditional
+- Contents: Quick Range selector, From, To, Format — horizontal on desktop, stacked on mobile
+- Export Vitals: `bg-cyan-600 hover:bg-cyan-700 text-white`
+- Export Notes: `bg-amber-600 hover:bg-amber-700 text-white`
+- The standalone export card is **removed** from the dashboard
+
+**Accessibility:** Table `role` attributes preserved. Critical row pulsing dot: `aria-label="Critical vitals detected"`.
 
 ### 4.6 Nurse Notification Bell (`nurse-notification-bell.tsx`)
 
-Component: `NurseNotificationBell`
-Renders: `Bell` icon button with an unread count badge (`bg-fuchsia-600 text-white`).
+**Component:** `NurseNotificationBell`
+**Export:** named export
 
-On mount: fetch `/api/notifications?limit=15` filtered for nurse-relevant events (new patient registrations). Poll every 60 seconds.
+**Props:** none (self-contained)
 
-Dropdown (Popover): list of recent notifications, each showing patient name, event type, time ago. Clicking a notification:
-1. Fires `window.dispatchEvent(new CustomEvent("openNursePatientCare", { detail: { patientId, initialTab: "triage", notificationId } }))`
-2. Calls `PATCH /api/notifications` to mark as read
-3. Closes popover
+**CustomEvent contract:**
+```typescript
+// Dispatched when user clicks a notification
+window.dispatchEvent(
+  new CustomEvent("openNursePatientCare", {
+    detail: {
+      patientId: string,      // UUID of the patient
+      initialTab: "triage",   // always "triage" for new patient registrations
+      notificationId: string  // notification UUID, used to mark as read
+    }
+  })
+)
+```
+This matches the existing listener in `nurse-dashboard.tsx` line 283–300 exactly.
 
-"Mark all read" button at bottom of dropdown.
+**Bell rendering:** `<Button variant="ghost" size="icon" className="relative"><Bell size={16} />{unreadCount > 0 && <span className="absolute -top-1 -right-1 h-4 w-4 rounded-full bg-fuchsia-600 text-white text-[10px] flex items-center justify-center font-bold">{unreadCount > 9 ? "9+" : unreadCount}</span>}</Button>`
+
+**Dropdown:** `<Popover>` with `<PopoverContent className="w-80 p-0">`. Header: `"Notifications"` bold + `"Mark all read"` ghost button. List: max 10 items, each: patient name, event label `"New patient registered"`, time ago `text-xs text-slate-400`. Clicking fires CustomEvent + PATCH + closes popover. Empty state: `"No new notifications"` `text-slate-400`.
+
+**Data fetching:**
+- On mount: `GET /api/notifications?limit=15` — filter items where `title` includes `"New Patient Registered"`
+- Poll every 60 seconds via `setInterval`
+- `unreadCount` = count of items where `read === false`
+- PATCH `/api/notifications` with `{ ids: [id] }` on click or mark-all
+
+**Loading/error states:** Bell renders normally during load. On fetch error: silent (no toast — bell is a secondary feature). Unread count shows `0` on error.
+
+**Accessibility:** Bell button `aria-label="Notifications"`. Popover `aria-label="Notification list"`. Each item `role="button"` with `aria-label`.
 
 ### 4.7 Settings Page (`app/nurse/settings/page.tsx`)
 
-- Icon: `Stethoscope` in `text-violet-600` (replacing `Heart`)
-- `SettingsLayout` header bottom border: `border-b-4 border-violet-600`
-- Verify `DashboardLayout` wrapping (audit only — fix if sidebar is absent)
-- `PreferenceSettings` for nurses: "Default Dashboard View" selector with violet radio buttons clearly labeled
+- **DashboardLayout:** Confirmed NOT needed — all portal settings pages use `SettingsLayout` directly. No change needed.
+- **Icon:** Change `<Heart className="h-5 w-5" />` to `<Stethoscope className="h-5 w-5 text-violet-600" />`. Update import.
+- **Identity accent on SettingsLayout header:** The shared `SettingsLayout` component's header section uses a generic gradient. For the nurse portal, no override is needed at the page level — the icon color change is sufficient to signal identity without forking the shared layout.
 
 ---
 
 ## 5. New Utility: `lib/vital-formatting.ts`
 
+Extracted from identical implementations in `patient-care-list.tsx` and `patient-care-view.tsx`. Verified identical — safe to consolidate.
+
 ```typescript
-// Extracted shared formatting functions for vital signs
+/** Parse first integer from a string. Returns null if none found. */
 export function numInt(s: string): number | null
+
+/** Parse first float from a string (handles comma decimal separator). Returns null if none found. */
 export function numFloat(s: string): number | null
+
+/** Format blood pressure string to "120/80". Handles separators: /, -, space. */
 export function fmtBP(s: string): string
-export function fmtTemp(s: string): string   // F→C conversion if > 45
+
+/** Format temperature. Auto-converts F→C if value > 45. Returns "{n.toFixed(1)} C". */
+export function fmtTemp(s: string): string
+
+/** Format heart rate. Returns "{n} bpm". */
 export function fmtBpm(s: string): string
+
+/** Format respiratory rate. Returns "{n}/min". */
 export function fmtRR(s: string): string
+
+/** Format oxygen saturation. Returns "{n}%". */
 export function fmtSpO2(s: string): string
-export function fmtKg(s: string): string     // lbs→kg conversion
-export function fmtCm(s: string): string     // ft'in"→cm conversion
+
+/** Format weight. Auto-converts lbs→kg if "lb" in string. Returns "{n.toFixed(1)} kg". */
+export function fmtKg(s: string): string
+
+/** Format height. Handles cm, ft'in", and bare numbers. Returns "{n} cm". */
+export function fmtCm(s: string): string
 ```
 
-Both `patient-care-list.tsx` and `patient-care-view.tsx` import from this module. Inline definitions removed.
+---
+
+## 6. Cross-Portal Communication
+
+| Signal | Direction | Mechanism | Status |
+|---|---|---|---|
+| New patient registered | Receptionist → Nurse | EventSource `/api/notifications/stream` → toast | Verified working |
+| Open patient care | Dashboard layout → Nurse | `CustomEvent("openNursePatientCare", {patientId, initialTab, notificationId})` | Verified working; new `NurseNotificationBell` fires same event |
+| Mark notification read | Nurse → System | `PATCH /api/notifications` | Verified working |
+
+No new cross-portal signals needed.
 
 ---
 
-## 6. Cross-Portal Communication (unchanged, verified working)
+## 7. API Layer
 
-| Signal | Direction | Mechanism |
-|---|---|---|
-| New patient registered | Receptionist → Nurse | EventSource `/api/notifications/stream` → toast |
-| Open patient care | Dashboard layout → Nurse | `CustomEvent("openNursePatientCare", {patientId, initialTab, notificationId})` |
-| Mark notification read | Nurse → System | `PATCH /api/notifications` |
-
-No new cross-portal signals needed. Existing wiring is correct and verified.
-
----
-
-## 7. API Layer (no changes needed)
-
-All 9 API routes are complete, correctly use RLS (`queryWithSession`), have proper auth permission checks, and are well-validated. No changes required.
+All 9 API routes audited. **No changes required.** All routes correctly implement:
+- RLS via `queryWithSession`
+- Permission checks via `can(role, resource, action)`
+- Input validation (Zod or manual)
+- Audit logging
+- Error handling with appropriate HTTP status codes
 
 ---
 
-## 8. Implementation Order
+## 8. Implementation Order & Verification
 
-1. Create `lib/vital-formatting.ts` (shared utilities)
-2. Create `components/nursing/nurse-notification-bell.tsx`
-3. Redesign `components/nursing/patient-care-list.tsx` (bugs + design)
-4. Redesign `components/nursing/patient-care-view.tsx` (bugs + design, Sheet)
-5. Redesign `components/dashboards/nurse-dashboard.tsx` (bugs + design, Dialog→Sheet, live clock, export collapse)
-6. Update `app/nurse/settings/page.tsx` (icon + DashboardLayout audit)
-7. Verify build passes (`npm run build`)
+Steps are ordered by dependency. Each step must not break existing functionality before the next begins.
+
+1. **`lib/vital-formatting.ts`** — Create with 9 exported functions (copied from existing implementations)
+2. **`components/nursing/nurse-notification-bell.tsx`** — Create new component
+3. **`components/nursing/patient-care-list.tsx`** — Redesign + shadcn Table + import from vital-formatting + import NurseNotificationBell + critical highlighting
+4. **`components/nursing/patient-care-view.tsx`** — Redesign + import from vital-formatting (Dialog→Sheet is done in step 5)
+5. **`components/dashboards/nurse-dashboard.tsx`** — Redesign + Dialog→Sheet + dev text removal + live clock + collapsible export + remove standalone export card
+6. **`app/nurse/settings/page.tsx`** — Icon swap only
+
+**Verification gate (step 7):** Run `npm run build`. All TypeScript errors are **blocking** — implementation is not complete until the build passes clean. Any type errors found during build must be resolved before marking complete.
