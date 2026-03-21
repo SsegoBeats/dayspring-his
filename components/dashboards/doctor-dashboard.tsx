@@ -1,5 +1,5 @@
 "use client"
-import { useEffect, useState } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { useMedical } from "@/lib/medical-context"
 import { useAuth } from "@/lib/auth-context"
@@ -17,12 +17,14 @@ interface DoctorDashboardProps {
   showDentalQueueFilter?: boolean
 }
 
+interface SelectedPatient { id: string; tab: ConsultTab }
+
 export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboardProps) {
   const { patients, getAppointmentsByDoctor } = usePatients()
   const { medicalRecords, prescriptions } = useMedical()
   const { user } = useAuth()
 
-  const todayStr = new Date().toISOString().split("T")[0]
+  const todayStr = useMemo(() => new Date().toISOString().split("T")[0], [])
   const todayAppointments = user?.name ? getAppointmentsByDoctor(user.name, todayStr) : []
   const todayDentalAppointments = todayAppointments.filter(
     (a) => (a.department || "").toLowerCase() === "dental",
@@ -30,21 +32,23 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
   const dentalQueuePatientIds = todayDentalAppointments.map((a) => a.patientId)
   const [queueView, setQueueView] = useState<"all" | "dental">("all")
 
-  const todayRecords = medicalRecords.filter(
-    (mr) => mr.date === todayStr && mr.doctorName === user?.name,
+  const todayRecords = useMemo(
+    () => medicalRecords.filter((mr) => mr.date === todayStr && mr.doctorName === user?.name),
+    [medicalRecords, todayStr, user?.name]
   )
-  const activePrescriptions = prescriptions.filter(
-    (p) => p.status === "active" && p.doctorName === user?.name,
+  const activePrescriptions = useMemo(
+    () => prescriptions.filter((p) => p.status === "active" && p.doctorName === user?.name),
+    [prescriptions, user?.name]
   )
 
   // Pending lab reviews — labs with status "Completed" but not yet "Reviewed" for this doctor
   const { tests: allLabTests } = useLab()
-  const pendingLabReviews = allLabTests.filter(
-    (t) => t.status === "Completed" && t.doctorName === user?.name,
-  ).length
+  const pendingLabReviews = useMemo(
+    () => allLabTests.filter((t) => t.status === "Completed" && t.doctorName === user?.name).length,
+    [allLabTests, user?.name]
+  )
 
   // Consultation Sheet state
-  interface SelectedPatient { id: string; tab: ConsultTab }
   const [selected, setSelected] = useState<SelectedPatient | null>(null)
   const [pendingNotifId, setPendingNotifId] = useState<string | null>(null)
 
@@ -98,7 +102,12 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
     }
   }, [selected, pendingNotifId])
 
-  const statCards = [
+  const recentRecords = useMemo(
+    () => [...medicalRecords].slice(-5).reverse(),
+    [medicalRecords]
+  )
+
+  const statCards = useMemo(() => [
     {
       label: "Total Patients",
       value: patients.length,
@@ -132,7 +141,7 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
       sub: "Awaiting review",
       pulse: pendingLabReviews > 0,
     },
-  ]
+  ], [patients.length, todayRecords.length, activePrescriptions.length, pendingLabReviews])
 
   return (
     <div className="space-y-6">
@@ -214,7 +223,7 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
             <p className="text-center text-sm text-slate-500">No medical records yet.</p>
           ) : (
             <div className="space-y-3">
-              {[...medicalRecords].slice(-5).reverse().map((record) => (
+              {recentRecords.map((record) => (
                 <div key={record.id} className="rounded-xl border-l-4 border-teal-400 bg-teal-50/30 p-3">
                   <div className="flex items-center justify-between">
                     <div>
