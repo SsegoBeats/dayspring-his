@@ -15,7 +15,7 @@ import { cn } from "@/lib/utils"
 interface LabsTabProps {
   patient: Patient
   user: User
-  labStream?: EventSource | null
+  labStream: EventSource | null
 }
 
 interface LabRow {
@@ -33,14 +33,13 @@ interface LabRow {
   doctorName?: string | null
   orderedBy?: string | null
   patientId?: string
+  pdfUrl?: string | null
 }
 
 export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
-  const { tests } = useLab()
+  const { tests, refresh } = useLab()
   const { updateLabResult } = useMedical()
-  const [labResults, setLabResults] = useState<LabRow[]>(
-    () => tests.filter((t) => t.patientId === patient.id) as LabRow[],
-  )
+  const labResults: LabRow[] = tests.filter((t) => t.patientId === patient.id) as LabRow[]
   const [orderOpen, setOrderOpen] = useState(false)
   const [selectedLabId, setSelectedLabId] = useState<string | null>(null)
   const [reviewing, setReviewing] = useState<string | null>(null)
@@ -48,19 +47,12 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
   // SSE live updates
   useEffect(() => {
     if (!labStream) return
-    const handler = (e: MessageEvent) => {
-      try {
-        const data = JSON.parse(e.data)
-        if (Array.isArray(data.tests)) {
-          setLabResults(data.tests.filter((t: LabRow) => t.patientId === patient.id))
-        } else if (data.id) {
-          setLabResults((prev) => prev.map((r) => (r.id === data.id ? { ...r, ...data } : r)))
-        }
-      } catch {}
+    const handler = (_e: MessageEvent) => {
+      refresh()
     }
     labStream.addEventListener("message", handler)
     return () => labStream.removeEventListener("message", handler)
-  }, [labStream, patient.id])
+  }, [labStream, refresh])
 
   const handleMarkReviewed = async (id: string) => {
     setReviewing(id)
@@ -73,8 +65,8 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
       })
       if (!res.ok) throw new Error("Failed to mark reviewed")
       updateLabResult(id, { status: "completed" as const })
-      setLabResults((prev) => prev.map((r) => (r.id === id ? { ...r, status: "Reviewed" } : r)))
       toast.success("Result marked as reviewed.")
+      await refresh()
     } catch {
       toast.error("Failed to update lab result.")
     } finally {
@@ -83,9 +75,9 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
   }
 
   const statusBadgeCls = (status: string) => {
-    if (status === "Reviewed") return "bg-teal-100 text-teal-700"
-    if (status === "Completed") return "bg-emerald-100 text-emerald-700"
-    return "bg-amber-100 text-amber-700"
+    if (status === "Reviewed") return "bg-teal-100 text-teal-800"
+    if (status === "Completed") return "bg-emerald-100 text-emerald-800"
+    return "bg-amber-100 text-amber-800"
   }
 
   const selectedLab = labResults.find((l) => l.id === selectedLabId)
@@ -96,7 +88,7 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
         <p className="text-xs font-semibold uppercase tracking-widest text-violet-500">Lab Results</p>
         <Button
           size="sm"
-          className="bg-violet-700 text-white hover:bg-violet-800"
+          className="bg-violet-600 text-white hover:bg-violet-700"
           onClick={() => setOrderOpen(true)}
         >
           Order Lab Test
@@ -114,8 +106,9 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
             <TableHeader>
               <TableRow>
                 <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Test</TableHead>
-                <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Status</TableHead>
                 <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Ordered</TableHead>
+                <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Status</TableHead>
+                <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Result</TableHead>
                 <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Actions</TableHead>
               </TableRow>
             </TableHeader>
@@ -135,13 +128,16 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
                       <span className="ml-2 rounded-full bg-rose-100 px-2 py-0.5 text-xs text-rose-700">Critical</span>
                     )}
                   </TableCell>
+                  <TableCell className="text-sm text-slate-600">
+                    {row.orderedAt ? new Date(row.orderedAt).toLocaleDateString() : (row.orderedDate ?? "—")}
+                  </TableCell>
                   <TableCell>
                     <span className={cn("rounded-full px-2 py-0.5 text-xs font-medium", statusBadgeCls(row.status))}>
                       {row.status}
                     </span>
                   </TableCell>
                   <TableCell className="text-sm text-slate-600">
-                    {row.orderedAt ? new Date(row.orderedAt).toLocaleDateString() : (row.orderedDate ?? "—")}
+                    {row.results ?? "—"}
                   </TableCell>
                   <TableCell onClick={(e) => e.stopPropagation()}>
                     <div className="flex gap-2">
@@ -156,21 +152,19 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
                           {reviewing === row.id ? "…" : "Mark Reviewed"}
                         </Button>
                       )}
-                      <Button
-                        size="sm"
-                        variant="outline"
-                        asChild
-                        className="border-violet-400 text-violet-700 hover:bg-violet-50"
-                      >
-                        <a
-                          href={`/api/lab-tests/pdf?id=${row.id}`}
-                          target="_blank"
-                          rel="noopener noreferrer"
-                          onClick={(e) => e.stopPropagation()}
+                      {row.pdfUrl && (
+                        <Button
+                          size="sm"
+                          variant="outline"
+                          className="border-violet-400 text-violet-700 hover:bg-violet-50"
+                          onClick={(e) => {
+                            e.stopPropagation()
+                            window.open(row.pdfUrl!, "_blank")
+                          }}
                         >
                           PDF
-                        </a>
-                      </Button>
+                        </Button>
+                      )}
                     </div>
                   </TableCell>
                 </TableRow>
