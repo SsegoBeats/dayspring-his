@@ -21,29 +21,38 @@ The Dentist portal (`/dentist`) and the Dental tab in patient consultation (`com
 ## 2. Bugs to Fix
 
 ### B1 — `toothNotes` never saved on CREATE
-**File:** `app/api/dental/records/route.ts` + `components/doctor/consultation-tabs/dental-tab.tsx`
-**Problem:** The client sends `toothNotes` as a top-level payload field, but `CreateDentalSchema` has no `toothNotes` field — only `toothChart` (a JSONB record) and `notes`. The value is silently dropped; tooth chart notes are never persisted.
-**Fix:** Add `toothNotes: z.string().optional().nullable()` to `CreateDentalSchema`. In the insert query, map it to `tooth_chart: { notes: toothNotes }` when `toothNotes` is present.
+**File:** `app/api/dental/records/route.ts`
+**Problem:** The client sends `toothNotes` as a top-level payload field, but `CreateDentalSchema` only has `toothChart` (JSONB record) and `notes`. The `toothNotes` value is silently dropped.
+**Fix:** Add `toothNotes: z.string().optional().nullable()` to `CreateDentalSchema`. When building the insert, merge: `tooth_chart = { ...input.toothChart, notes: input.toothNotes }` — so per-tooth FDI data and the general notes key coexist in the same JSONB column without overwriting each other.
 
 ### B2 — `toothNotes` never saved on PATCH
 **File:** `app/api/dental/records/[id]/route.ts`
-**Problem:** Same mismatch — `UpdateDentalSchema` has no `toothNotes` field.
-**Fix:** Add `toothNotes` to `UpdateDentalSchema` and map it to `tooth_chart->>'notes'` in the UPDATE statement.
+**Problem:** Same mismatch — `UpdateDentalSchema` has no `toothNotes` field; tooth notes silently ignored on edit.
+**Fix:** Add `toothNotes: z.string().optional().nullable()` to `UpdateDentalSchema`. In the dynamic UPDATE builder, when `toothNotes` is present, use:
+```sql
+tooth_chart = jsonb_set(COALESCE(tooth_chart, '{}'), '{notes}', to_jsonb($N::text))
+```
+This writes only the `notes` key without clobbering per-tooth FDI state data stored in the same JSONB column.
 
-### B3 — DELETE uses wrong permission check
-**File:** `app/api/dental/records/[id]/route.ts` line 81
-**Problem:** `can(auth.role, "medical", "update")` is used instead of `can(auth.role, "medical", "delete")`. A user without delete permission can delete records as long as they have update.
-**Fix:** Change to `can(auth.role, "medical", "delete")`.
+### B3 — DELETE uses wrong permission check AND Dentist lacks `delete` permission
+**File:** `app/api/dental/records/[id]/route.ts` line 81 + `lib/security.ts`
+**Problem (a):** `can(auth.role, "medical", "update")` is used instead of `can(auth.role, "medical", "delete")`.
+**Problem (b):** The Dentist role in `lib/security.ts` only has `medical: ["read", "create", "update"]` — no `"delete"`. Fixing (a) alone would make deletion impossible for dentists.
+**Fix:**
+1. Add `"delete"` to the Dentist role's `medical` permission array in `lib/security.ts`.
+2. Change the DELETE route permission check to `can(auth.role, "medical", "delete")`.
+This is intentional: dentists should be able to delete their own records (RLS already restricts to `dentist_id = current_user`).
 
-### B4 — Export cursor uses non-unique `visit_date`
-**File:** `lib/exports/datasets/dental.ts` line 64
-**Problem:** Cursor pagination uses `visit_date` as the cursor key. Multiple records can share the same `visit_date`, causing records to be silently skipped on page boundaries.
-**Fix:** Use `dr.id` as the cursor key. Change the ORDER to `ORDER BY dr.id ASC` and update `nextCursor` to `{ after: rows[rows.length - 1].id }`.
+### B4 — Export cursor uses non-unique `visit_date`; SQL cast mismatch
+**File:** `lib/exports/datasets/dental.ts`
+**Problem (a):** Cursor pagination uses `visit_date` as cursor key — multiple records can share the same timestamp, causing silent record skips at page boundaries.
+**Problem (b):** The cursor SQL uses `$3::timestamp` cast. Switching to `id` (a UUID) requires changing the cast to `$3::uuid`.
+**Fix:** Change `ORDER BY dr.visit_date ASC` to `ORDER BY dr.id ASC`. Change `AND ($3::timestamp IS NULL OR dr.visit_date > $3)` to `AND ($3::uuid IS NULL OR dr.id > $3)`. Update `nextCursor` to `{ after: rows[rows.length - 1].id }`.
 
 ### B5 — `patientsCount` fetched but never displayed
 **File:** `components/dashboards/dentist-dashboard.tsx`
 **Problem:** The summary API returns `patientsCount` but the dashboard only shows `visitsCount`.
-**Fix:** Display `patientsCount` in the new 6-stat overview card grid.
+**Fix:** Surfaced in the new 6-stat overview card grid (see Section 5.1).
 
 ---
 
@@ -67,27 +76,41 @@ components/dentist/
 | File | Change |
 |---|---|
 | `components/dashboards/dentist-dashboard.tsx` | Becomes thin wrapper importing `DentistShell` |
-| `components/doctor/consultation-tabs/dental-tab.tsx` | Full redesign: FDI chart + improved form + new styles |
-| `app/api/dental/records/route.ts` | Fix B1 (`toothNotes` in CreateDentalSchema) |
-| `app/api/dental/records/[id]/route.ts` | Fix B2 (`toothNotes` in UpdateDentalSchema) + Fix B3 (DELETE permission) |
-| `lib/exports/datasets/dental.ts` | Fix B4 (cursor uses `id`) |
+| `components/doctor/consultation-tabs/dental-tab.tsx` | Full redesign: FDI chart + improved form + cyan theme |
+| `app/api/dental/records/route.ts` | Fix B1 (`toothNotes` merge into `toothChart`) |
+| `app/api/dental/records/[id]/route.ts` | Fix B2 (`jsonb_set` for toothNotes) + Fix B3 (DELETE permission) |
+| `app/api/dental/summary/route.ts` | Extended (not replaced) to return all 6 stat values |
+| `lib/exports/datasets/dental.ts` | Fix B4 (cursor uses `id`, cast changed to `::uuid`) |
+| `lib/security.ts` | Add `"delete"` to Dentist role's `medical` permissions |
 
-### 3.3 New API route
+### 3.3 API: extend `/api/dental/summary` (not a new route)
 
-**`GET /api/dental/stats`**
-Returns all 6 stat card values in a single request. Reduces dashboard to one fetch instead of multiple.
+The existing `GET /api/dental/summary` is **extended** (not replaced) to return all 6 stat values. No new route is created. The existing `visitsCount` and `patientsCount` fields remain unchanged for backward compatibility. Four new fields are added:
 
-Response shape:
 ```ts
 {
-  visitsToday: number         // dental_records where visit_date = today, dentist_id = me
-  patientsThisMonth: number   // distinct patients in current calendar month
-  proceduresThisWeek: number  // records with non-null procedure_performed this week
-  pendingFollowUps: number    // appointments with status = 'pending' in dental dept
-  pendingLabResults: number   // lab_tests where requested_by = me AND status != 'completed'
-  pendingPreAuths: number     // insurance_authorizations where status = 'pending' for dental category
+  visitsCount: number           // existing — today's visits
+  patientsCount: number         // existing — distinct patients in range
+  proceduresThisWeek: number    // NEW — records with non-null procedure_performed this week
+  pendingFollowUps: number      // NEW — appointments status='pending' in dental dept
+  pendingLabResults: number     // NEW — lab_tests ordered by me, status != 'completed'
+  pendingPreAuths: number       // NEW — insurance_authorizations status='pending', dental category
+  recentRecords: [...]          // existing — last 5 records
 }
 ```
+
+### 3.4 Notification bell — backend trigger audit
+
+The existing `/api/notifications` endpoint and notifications table are used. Before implementing the bell, verify which notification types are already being inserted by the system:
+
+| Notification type | Created by | Status to verify |
+|---|---|---|
+| `patient_queued` | Nurse check-in flow | Check nurse check-in API |
+| `lab_result_ready` | Lab result update API | Check `app/api/lab-tests` routes |
+| `appointment_reminder` | Likely not yet implemented | May need a cron/scheduled job |
+| `preauth_status_change` | Insurance pre-auth update flow | Check insurance API routes |
+
+If any of these notification types are not yet created by the system, the bell will silently show nothing for those types. Implementation will note which types are active and which are pending backend support. The bell will render correctly either way — missing event types simply show zero.
 
 ---
 
@@ -114,47 +137,62 @@ Response shape:
 - **Active tab:** `border-b-2 border-cyan-600 text-cyan-700 font-medium`
 - **Section label:** `text-xs font-semibold uppercase tracking-widest text-cyan-600`
 
+### Loading / empty / error states
+
+All new components follow the existing dashboard pattern:
+- **Loading:** skeleton placeholder (`—` or animated pulse) while fetching
+- **Empty:** muted text (`"No records found"`, `"Nothing scheduled today"`)
+- **Error:** toast via `sonner` + graceful fallback to empty state (no crash)
+
 ---
 
 ## 5. Tab-by-Tab Feature Breakdown
 
 ### 5.1 Overview Tab (`DentistOverview`)
 
-**6-stat card grid (2 rows × 3 columns on desktop, 2×2 on tablet, 1 col on mobile):**
+**6-stat card grid (3 columns on desktop, 2 on tablet, 1 on mobile):**
 
-| Card | Icon | Metric |
-|---|---|---|
-| Today's Visits | `Stethoscope` | `visitsToday` |
-| Patients This Month | `Users` | `patientsThisMonth` |
-| Procedures This Week | `Activity` | `proceduresThisWeek` |
-| Pending Follow-ups | `Clock` | `pendingFollowUps` |
-| Pending Lab Results | `FlaskConical` | `pendingLabResults` |
-| Insurance Pre-auths | `ShieldCheck` | `pendingPreAuths` |
+| Card | Icon | Metric | Source |
+|---|---|---|---|
+| Today's Visits | `Stethoscope` | `visitsCount` | `/api/dental/summary` |
+| Patients This Month | `Users` | `patientsThisMonth` (from extended summary) | `/api/dental/summary` |
+| Procedures This Week | `Activity` | `proceduresThisWeek` | `/api/dental/summary` |
+| Pending Follow-ups | `Clock` | `pendingFollowUps` | `/api/dental/summary` |
+| Pending Lab Results | `FlaskConical` | `pendingLabResults` | `/api/dental/summary` |
+| Insurance Pre-auths | `ShieldCheck` | `pendingPreAuths` | `/api/dental/summary` |
 
-Below the stat grid: **Recent Dental Records** list (last 8, showing patient name + diagnosis + procedure + date, clickable rows that deep-link to patient consultation dental tab).
+Below the stat grid: **Recent Dental Records** list (last 8, showing patient name + diagnosis + procedure + date).
 
 ### 5.2 Patient Records Tab (`DentistPatientRecords`)
 
-- Search input (patient name or number)
-- Filtered table of all dental records accessible to this dentist
-- Columns: Date · Patient · Diagnosis · Procedure · Dentist
-- Row click → opens `PatientConsultation` with `initialTab="dental"` pre-selected
-- Pagination (20 per page)
-- API: `GET /api/dental/records` (existing, supports patientId filter; will add a "all mine" mode)
+**API change to `GET /api/dental/records`:** `patientId` becomes optional. New optional query parameters:
+- `?mode=mine` — returns all records where `dentist_id = current_user` (scoped by RLS)
+- `?search=<string>` — filters by patient first/last name or patient_number (ILIKE)
+- `?page=<n>` — page number (20 per page)
+- Without `patientId` and with `mode=mine`, the endpoint returns the dentist's full record history
+
+**UI:**
+- Search input (debounced, 300ms)
+- Table: Date · Patient · Diagnosis · Procedure
+- Row click → opens `PatientConsultation` sliding panel with `initialTab="dental"`
+- Pagination controls (Previous / Next)
+- Empty state: "No dental records found"
+
+**Authorization:** Dentist sees only their own records (RLS enforces). Hospital Admin sees all.
 
 ### 5.3 Schedule Tab (`DentistSchedule`)
 
-- Embeds the existing `DoctorDashboard` patient queue with `showDentalQueueFilter` prop (same as current)
-- Adds a "Today's Appointments" header card showing count and next patient
-- Minimal wrapper — the heavy queue logic already exists
+- Embeds existing `DoctorDashboard` with `showDentalQueueFilter` prop (existing, verified coupling)
+- Note: This couples dentist portal to `DoctorDashboard`. If `DoctorDashboard` is refactored, this tab must be updated. Accepted as a known trade-off — the coupling already exists in the current portal.
+- Adds a "Today's Appointments" header card showing count and next patient name
 
 ### 5.4 Exports Tab (`DentistExports`)
 
-- Extracted from current `dentist-dashboard.tsx` into its own component
+- Extracted from current `dentist-dashboard.tsx`
 - Date range pickers (From / To)
 - "My records only" toggle
 - Export buttons: CSV · XLSX · PDF
-- Below the export form: a short description of what each format contains
+- Brief description of export content below buttons
 
 ---
 
@@ -163,52 +201,55 @@ Below the stat grid: **Recent Dental Records** list (last 8, showing patient nam
 ### Layout
 
 ```
-Upper Right (1x)    |    Upper Left (2x)
-  18 17 16 15 14 13 12 11 | 21 22 23 24 25 26 27 28
-  48 47 46 45 44 43 42 41 | 31 32 33 34 35 36 37 38
-Lower Right (4x)    |    Lower Left (3x)
+Upper Right (1x)  |  Upper Left (2x)
+18 17 16 15 14 13 12 11 | 21 22 23 24 25 26 27 28
+48 47 46 45 44 43 42 41 | 31 32 33 34 35 36 37 38
+Lower Right (4x)  |  Lower Left (3x)
 ```
 
-### Tooth states (cycle on click)
+### Tooth states (click to cycle)
 
-| State | Label | Fill color |
+| State | Label | Fill |
 |---|---|---|
 | Normal | — | `bg-white border-cyan-200` |
 | Caries | C | `bg-amber-100 border-amber-400` |
 | Filled | F | `bg-blue-100 border-blue-400` |
 | Crown | Cr | `bg-purple-100 border-purple-400` |
-| Missing | M | `bg-slate-100 border-slate-400 text-slate-400` |
-| Extracted | X | `bg-rose-100 border-rose-400 line-through` |
+| Missing | M | `bg-slate-100 border-slate-400` |
+| Extracted | X | `bg-rose-100 border-rose-400` |
+
+### Interaction (accessible, cross-platform)
+
+- **Click** a tooth → cycles through states
+- **Selected tooth** → highlighted with `ring-2 ring-cyan-500`; a notes input appears **below the chart** in a dedicated panel (not a popover, not right-click — avoids browser context menu conflicts and mobile/accessibility issues)
+- A compact legend row sits below the chart
+- In **read-only** mode, teeth are not clickable; notes panel is hidden
 
 ### Props
 
 ```ts
 interface FdiToothChartProps {
-  value: ToothChartData               // { [toothId]: { state, notes? } }
+  value: ToothChartData               // { [toothId]: { state, notes? }, notes?: string }
   onChange: (data: ToothChartData) => void
   readOnly?: boolean
 }
-```
 
-### Interaction
-
-- Click a tooth square → cycles through states
-- Right-click (or long-press on mobile) → opens inline notes popover for that tooth
-- Selected tooth highlights with `ring-2 ring-cyan-500`
-- A compact legend row sits below the chart
-- In read-only mode, chart renders but clicks are disabled
-
-### Data storage
-
-`tooth_chart` JSONB column already exists on `dental_records`. Shape:
-```json
-{
-  "11": { "state": "caries", "notes": "mesial caries" },
-  "36": { "state": "filled" },
-  "notes": "general chart notes"
+type ToothState = "normal" | "caries" | "filled" | "crown" | "missing" | "extracted"
+type ToothChartData = {
+  [toothId: string]: { state: ToothState; notes?: string }
+  notes?: string  // top-level general chart notes (maps to existing toothNotes field)
 }
 ```
-The existing `notes` top-level key on `tooth_chart` maps to the current `toothNotes` field.
+
+### Backward compatibility
+
+Existing `dental_records` rows may have:
+- `tooth_chart = null` → render as all-normal teeth, no notes
+- `tooth_chart = {}` → same
+- `tooth_chart = { notes: "some text" }` → render all-normal, populate general notes field
+- `tooth_chart = { "11": { state: "caries" }, notes: "..." }` → full FDI data (new format)
+
+The component gracefully handles all these shapes. No migration is required — the column already stores JSONB and all formats are valid.
 
 ---
 
@@ -218,35 +259,33 @@ The existing `notes` top-level key on `tooth_chart` maps to the current `toothNo
 
 Identical polling architecture to `clinician-notification-bell.tsx`:
 - Polls `GET /api/notifications` every 30 seconds
-- Fires `new CustomEvent("dental:notification")` on new items
 - Renders unread count badge in `cyan-600`
-- Bell icon: `lucide-react` `Bell`
 - Dropdown: last 10 notifications, grouped by type
 
-### Notification types surfaced
+### Notification types
 
-| Type | Trigger |
+| Type | Trigger (to be verified during implementation) |
 |---|---|
 | `patient_queued` | New patient checked into dental department |
 | `lab_result_ready` | Lab test ordered by this dentist is completed |
-| `appointment_reminder` | Dental appointment starting in 15 minutes |
-| `preauth_status_change` | Insurance pre-auth updated for dental service category |
+| `appointment_reminder` | Appointment starting soon |
+| `preauth_status_change` | Insurance pre-auth updated for dental |
+
+If a notification type is not yet created by the backend, it simply won't appear — no runtime error.
 
 ### Integration
 
-`DentistShell` renders `DentistNotificationBell` in the portal header, same position as the clinician bell in `dashboard-layout.tsx`.
+`DentistShell` renders `DentistNotificationBell` in the portal header.
 
 ---
 
 ## 8. Dental Tab Redesign (`dental-tab.tsx`)
 
-The dental tab used inside `PatientConsultation` is redesigned with:
-
-1. **FDI Tooth Chart** at the top — shows the full mouth visual for this patient
-2. **Record list** below — existing records rendered as timeline cards with cyan left-border
-3. **New record form** — now includes the FDI chart in edit mode (pre-populated with existing chart state)
-4. **Edit dialog** — uses same FDI chart component in edit mode
-5. **Color update** — switches from `indigo` to `cyan` theme to match portal identity
+1. **FDI Tooth Chart** at top — shows full mouth for this patient; loads from existing `tooth_chart` column (handles all legacy shapes)
+2. **Record list** — existing records as timeline cards with cyan left-border accent
+3. **New record form** — includes FDI chart in edit mode + all existing text fields
+4. **Edit dialog** — pre-populates FDI chart from existing record data
+5. **Color update** — `indigo` → `cyan` throughout to match portal identity
 
 ---
 
@@ -254,12 +293,11 @@ The dental tab used inside `PatientConsultation` is redesigned with:
 
 | Portal | Communication |
 |---|---|
-| **Nurse** | Nurse checks patient into dental dept → `patient_queued` notification fires to dentist bell |
-| **Lab** | Lab marks result ready for a dentist-ordered test → `lab_result_ready` notification fires |
-| **Cashier** | Dentist creates billing charge → feeds into cashier billing queue (existing, unchanged) |
-| **Pharmacy** | Dentist prescriptions appear in pharmacist queue (existing RLS, unchanged) |
-| **Admin** | Dental records feed into admin-overview activity stream (existing, unchanged) |
-| **Clinician** | Patient consultation shell already shows dental tab when accessed by dentist role |
+| **Nurse** | Patient check-in to dental dept → `patient_queued` notification (if implemented) |
+| **Lab** | Lab result ready for dentist-ordered test → `lab_result_ready` notification (if implemented) |
+| **Cashier** | Dentist creates billing charge → cashier queue (existing, unchanged) |
+| **Pharmacy** | Dentist prescriptions → pharmacist queue (existing, unchanged) |
+| **Admin** | Dental records feed admin-overview activity stream (existing, unchanged) |
 
 ---
 
@@ -273,17 +311,18 @@ The dental tab used inside `PatientConsultation` is redesigned with:
 - `components/dentist/dentist-exports.tsx`
 - `components/dentist/dentist-notification-bell.tsx`
 - `components/dentist/fdi-tooth-chart.tsx`
-- `app/api/dental/stats/route.ts`
 
 ### Modified files
-- `components/dashboards/dentist-dashboard.tsx` — thin wrapper
-- `components/doctor/consultation-tabs/dental-tab.tsx` — full redesign with FDI chart
-- `app/api/dental/records/route.ts` — B1 fix
+- `components/dashboards/dentist-dashboard.tsx` — thin wrapper only
+- `components/doctor/consultation-tabs/dental-tab.tsx` — full redesign
+- `app/api/dental/records/route.ts` — B1 fix + new query params for Patient Records tab
 - `app/api/dental/records/[id]/route.ts` — B2 + B3 fix
-- `lib/exports/datasets/dental.ts` — B4 fix
+- `app/api/dental/summary/route.ts` — extended with 4 new stat fields
+- `lib/exports/datasets/dental.ts` — B4 fix (cursor key + SQL cast)
+- `lib/security.ts` — add `"delete"` to Dentist role's medical permissions
 
 ### Unchanged
-- `app/dentist/page.tsx`
+- `app/dentist/page.tsx` — imports `DentistDashboard` which wraps `DentistShell`; no changes needed
 - `app/dentist/settings/page.tsx`
 - All RLS policies and migrations
 - Export registry
