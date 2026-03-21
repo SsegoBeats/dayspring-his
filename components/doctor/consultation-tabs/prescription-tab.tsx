@@ -31,7 +31,7 @@ interface PrescriptionFormData {
 
 const EMPTY_MED: MedicationItem = { name: "", dosage: "", frequency: "", duration: "", instructions: "" }
 
-export function PrescriptionTab({ patient, user, onSaved }: PrescriptionTabProps) {
+export function PrescriptionTab({ patient, user: _user, onSaved }: PrescriptionTabProps) {
   const { refreshMedicalData } = useMedical()
   const [form, setForm] = useState<PrescriptionFormData>({
     visitType: "OPD",
@@ -82,7 +82,7 @@ export function PrescriptionTab({ patient, user, onSaved }: PrescriptionTabProps
       })
       if (form.visitType === "OPD") toast.info("Bill sent to cashier for payment collection.", { duration: 4000 })
       await refreshMedicalData()
-      setForm({ visitType: "OPD", medications: [{ ...EMPTY_MED }] })
+      setForm((f) => ({ ...f, medications: [{ ...EMPTY_MED }] }))
       onSaved?.()
     } catch {
       toast.error("Failed to save prescription")
