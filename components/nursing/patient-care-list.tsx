@@ -3,17 +3,27 @@
 import { useState } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { useNursing } from "@/lib/nursing-context"
+import { useAuth } from "@/lib/auth-context"
 import { formatPatientNumber } from "@/lib/patients"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { hasCriticalVitals, parseBloodPressure } from "@/lib/vital-signs-validation"
+import { fmtBP, fmtTemp, fmtBpm, fmtRR, fmtSpO2 } from "@/lib/vital-formatting"
+import { NurseNotificationBell } from "@/components/nursing/nurse-notification-bell"
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card"
+import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
 import { Search, Stethoscope, Loader2 } from "lucide-react"
-import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
 
 interface PatientCareListProps {
   onSelectPatient: (patientId: string, tab?: "vitals" | "notes" | "history" | "triage") => void
+}
+
+const TRIAGE_BORDER: Record<string, string> = {
+  Emergency: "border-l-[3px] border-red-500",
+  "Very Urgent": "border-l-[3px] border-orange-500",
+  Urgent: "border-l-[3px] border-amber-500",
+  Routine: "border-l-[3px] border-emerald-500",
 }
 
 export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
@@ -31,6 +41,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
     notes: "",
   })
   const [bulkSaving, setBulkSaving] = useState(false)
+
   const hasAnyBulkField = !!(
     bulkVitals.bloodPressure ||
     bulkVitals.temperature ||
@@ -40,49 +51,36 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
     bulkVitals.notes
   )
 
-  const numInt = (s: string) => {
-    const m = String(s || "").match(/-?\d+/)
-    return m ? parseInt(m[0], 10) : null
-  }
-
-  const numFloat = (s: string) => {
-    const m = String(s || "").replace(",", ".").match(/-?\d+(?:\.\d+)?/)
-    return m ? parseFloat(m[0]) : null
-  }
-
-  const fmtBP = (s: string) => {
-    const raw = String(s || "")
-    const m = raw.match(/(\d+)\D+(\d+)/)
-    if (m) return `${m[1]}/${m[2]}`
-    const nums = raw.match(/\d+/g)
-    if (nums && nums.length >= 2) return `${nums[0]}/${nums[1]}`
-    const n = numInt(raw)
-    return n == null ? "" : String(n)
-  }
-
-  const fmtTemp = (s: string) => {
-    const n = numFloat(s)
-    if (n == null) return ""
-    const c = n > 45 ? (n - 32) * 5 / 9 : n
-    return `${c.toFixed(1)} C`
-  }
-
-  const fmtBpm = (s: string) => (numInt(s) == null ? "" : `${numInt(s)} bpm`)
-  const fmtRR = (s: string) => (numInt(s) == null ? "" : `${numInt(s)}/min`)
-  const fmtSpO2 = (s: string) => (numInt(s) == null ? "" : `${numInt(s)}%`)
-
   const displayedPatients = searchQuery ? searchPatients(searchQuery) : patients
+
+  const getPatientAge = (patient: (typeof patients)[number]): number | null => {
+    try {
+      if (patient.ageYears) return patient.ageYears
+      if (!patient.dateOfBirth) return null
+      const dob = new Date(patient.dateOfBirth)
+      const now = new Date()
+      return (
+        now.getFullYear() -
+        dob.getFullYear() -
+        (now.getMonth() < dob.getMonth() ||
+        (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())
+          ? 1
+          : 0)
+      )
+    } catch {
+      return null
+    }
+  }
 
   if (loadingPatients) {
     return (
-      <Card>
+      <Card className="rounded-2xl border-l-4 border-violet-600 bg-white shadow-sm">
         <CardHeader>
-          <CardTitle>Patient Care List</CardTitle>
-          <CardDescription>Loading patients...</CardDescription>
+          <CardTitle className="text-base font-semibold text-slate-900">Patient Care</CardTitle>
         </CardHeader>
         <CardContent className="py-10">
-          <div className="flex items-center justify-center text-muted-foreground">
-            <Loader2 className="mr-2 h-5 w-5 animate-spin" />
+          <div className="flex items-center justify-center text-slate-500">
+            <Loader2 className="mr-2 h-5 w-5 animate-spin text-violet-500" />
             Loading patients...
           </div>
         </CardContent>
@@ -91,14 +89,20 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
   }
 
   return (
-    <Card>
-      <CardHeader>
-        <CardTitle>Patient Care List</CardTitle>
-        <CardDescription>Select a patient to record vitals and care notes</CardDescription>
+    <Card className="rounded-2xl border-l-4 border-violet-600 bg-white shadow-sm">
+      <CardHeader className="flex flex-row items-start justify-between space-y-0 pb-3">
+        <div>
+          <CardTitle className="text-base font-semibold text-slate-900">Patient Care</CardTitle>
+          <p className="mt-0.5 text-sm text-slate-500">
+            Select a patient to record vitals, add notes, or complete triage.
+          </p>
+        </div>
+        <NurseNotificationBell />
       </CardHeader>
       <CardContent className="space-y-4">
+        {/* Search */}
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-violet-400" />
           <Input
             id="patient-care-search"
             name="patientCareSearch"
@@ -106,13 +110,16 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
             placeholder="Search patients by name, ID, or phone..."
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9"
+            className="pl-9 focus-visible:ring-violet-400"
           />
         </div>
 
+        {/* Bulk vitals panel */}
         {selectedIds.length > 0 && (
-          <div className="space-y-2 rounded-md border bg-muted/40 p-3">
-            <div className="font-medium text-foreground">Record vitals for {selectedIds.length} selected</div>
+          <div className="space-y-3 rounded-2xl border border-violet-200 bg-violet-50 p-4">
+            <div className="text-sm font-semibold text-violet-700">
+              Recording for {selectedIds.length} selected patient{selectedIds.length !== 1 ? "s" : ""}
+            </div>
             <div className="grid gap-2 md:grid-cols-5">
               <Input
                 id="bulk-vitals-bp"
@@ -122,6 +129,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 value={bulkVitals.bloodPressure}
                 onChange={(e) => setBulkVitals({ ...bulkVitals, bloodPressure: e.target.value })}
                 onBlur={() => setBulkVitals((v) => ({ ...v, bloodPressure: fmtBP(v.bloodPressure) }))}
+                className="focus-visible:ring-violet-400"
               />
               <Input
                 id="bulk-vitals-temp"
@@ -131,6 +139,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 value={bulkVitals.temperature}
                 onChange={(e) => setBulkVitals({ ...bulkVitals, temperature: e.target.value })}
                 onBlur={() => setBulkVitals((v) => ({ ...v, temperature: fmtTemp(v.temperature) }))}
+                className="focus-visible:ring-violet-400"
               />
               <Input
                 id="bulk-vitals-hr"
@@ -140,6 +149,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 value={bulkVitals.heartRate}
                 onChange={(e) => setBulkVitals({ ...bulkVitals, heartRate: e.target.value })}
                 onBlur={() => setBulkVitals((v) => ({ ...v, heartRate: fmtBpm(v.heartRate) }))}
+                className="focus-visible:ring-violet-400"
               />
               <Input
                 id="bulk-vitals-rr"
@@ -149,6 +159,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 value={bulkVitals.respiratoryRate}
                 onChange={(e) => setBulkVitals({ ...bulkVitals, respiratoryRate: e.target.value })}
                 onBlur={() => setBulkVitals((v) => ({ ...v, respiratoryRate: fmtRR(v.respiratoryRate) }))}
+                className="focus-visible:ring-violet-400"
               />
               <Input
                 id="bulk-vitals-spo2"
@@ -158,6 +169,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                 value={bulkVitals.oxygenSaturation}
                 onChange={(e) => setBulkVitals({ ...bulkVitals, oxygenSaturation: e.target.value })}
                 onBlur={() => setBulkVitals((v) => ({ ...v, oxygenSaturation: fmtSpO2(v.oxygenSaturation) }))}
+                className="focus-visible:ring-violet-400"
               />
             </div>
             <Input
@@ -166,35 +178,25 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
               placeholder="Notes (optional)"
               value={bulkVitals.notes}
               onChange={(e) => setBulkVitals({ ...bulkVitals, notes: e.target.value })}
+              className="focus-visible:ring-violet-400"
             />
             <div className="flex justify-end gap-2">
               <Button variant="outline" onClick={() => setSelectedIds([])} disabled={bulkSaving}>
                 Clear Selection
               </Button>
               <Button
+                className="bg-violet-700 hover:bg-violet-800 text-white"
                 onClick={async () => {
-                  if (!user) {
-                    toast.error("Not authenticated")
-                    return
-                  }
-                  if (!hasAnyBulkField) {
-                    toast.error("Enter at least one vital sign")
-                    return
-                  }
-
+                  if (!user) { toast.error("Not authenticated"); return }
+                  if (!hasAnyBulkField) { toast.error("Enter at least one vital sign"); return }
                   setBulkSaving(true)
                   let ok = 0
                   let fail = 0
                   const refreshPromises: Promise<void>[] = []
-
                   try {
                     for (const id of selectedIds) {
                       const patient = patients.find((x) => x.id === id)
-                      if (!patient) {
-                        fail++
-                        continue
-                      }
-
+                      if (!patient) { fail++; continue }
                       try {
                         const res = await fetch("/api/vitals", {
                           method: "POST",
@@ -210,119 +212,110 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                             notes: bulkVitals.notes || undefined,
                           }),
                         })
-
                         if (!res.ok) {
                           const errorData = await res.json().catch(() => ({}))
                           throw new Error(errorData.error || "Failed to record vitals")
                         }
-
                         ok++
                         refreshPromises.push(refreshPatient(id).catch(() => {}))
-                      } catch (error: any) {
+                      } catch (error: unknown) {
                         fail++
+                        const msg = error instanceof Error ? error.message : "Error"
                         toast.error(`Failed for ${patient.firstName} ${patient.lastName}`, {
-                          description: error?.message || "Error",
+                          description: msg,
                         })
                       }
                     }
-
                     await Promise.all(refreshPromises)
-
                     if (ok) toast.success(`Recorded vitals for ${ok} patient(s)`)
                     if (fail && !ok) toast.error("Failed to record vitals for selected patients")
-
                     setSelectedIds([])
-                    setBulkVitals({
-                      bloodPressure: "",
-                      temperature: "",
-                      heartRate: "",
-                      respiratoryRate: "",
-                      oxygenSaturation: "",
-                      notes: "",
-                    })
+                    setBulkVitals({ bloodPressure: "", temperature: "", heartRate: "", respiratoryRate: "", oxygenSaturation: "", notes: "" })
                   } finally {
                     setBulkSaving(false)
                   }
                 }}
                 disabled={selectedIds.length === 0 || bulkSaving || !hasAnyBulkField}
               >
-                {bulkSaving ? (
-                  <>
-                    <Loader2 className="mr-2 h-4 w-4 animate-spin" />
-                    Recording...
-                  </>
-                ) : (
-                  "Record Vitals"
-                )}
+                {bulkSaving ? <><Loader2 className="mr-2 h-4 w-4 animate-spin" />Recording...</> : "Record Vitals"}
               </Button>
             </div>
           </div>
         )}
 
+        {/* Patient table */}
         {displayedPatients.length === 0 ? (
-          <div className="flex flex-col items-center justify-center py-10 text-center text-muted-foreground">
-            <Search className="mb-2 h-6 w-6" />
+          <div className="flex flex-col items-center justify-center py-10 text-center">
+            <Search className="mb-3 h-8 w-8 text-violet-300" />
             {searchQuery ? (
               <>
-                <p>No results for &quot;{searchQuery}&quot;</p>
+                <p className="text-violet-400">No results for &quot;{searchQuery}&quot;</p>
                 <Button variant="outline" size="sm" className="mt-3" onClick={() => setSearchQuery("")}>
                   Clear search
                 </Button>
               </>
             ) : (
-              <p>No patients found</p>
+              <p className="text-violet-400">No patients found</p>
             )}
           </div>
         ) : (
           <div className="overflow-x-auto">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-muted/40 text-left">
-                  <th className="px-2 py-2">
+            <Table>
+              <TableHeader>
+                <TableRow>
+                  <TableHead className="w-8">
                     <input
                       id="select-all-care"
                       name="selectAllCare"
                       type="checkbox"
                       checked={selectedIds.length > 0 && selectedIds.length === displayedPatients.length}
                       aria-label="Select all"
-                      onChange={(e) => setSelectedIds(e.target.checked ? displayedPatients.map((p) => p.id) : [])}
+                      onChange={(e) =>
+                        setSelectedIds(e.target.checked ? displayedPatients.map((p) => p.id) : [])
+                      }
                     />
-                  </th>
-                  <th className="px-2 py-2">P.ID</th>
-                  <th className="px-2 py-2">Name</th>
-                  <th className="px-2 py-2">Age</th>
-                  <th className="px-2 py-2">Sex</th>
-                  <th className="px-2 py-2">Blood</th>
-                  <th className="px-2 py-2">Latest Vitals</th>
-                  <th className="px-2 py-2 text-right">Actions</th>
-                </tr>
-              </thead>
-              <tbody>
+                  </TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">P.ID</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Name</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Age</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Sex</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Blood</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-widest text-violet-400">Latest Vitals</TableHead>
+                  <TableHead className="text-right text-xs font-semibold uppercase tracking-widest text-violet-400">Actions</TableHead>
+                </TableRow>
+              </TableHeader>
+              <TableBody>
                 {displayedPatients.map((patient) => {
-                  const latestVitals = getLatestVitals(patient.id)
+                  const lv = getLatestVitals(patient.id)
                   const pid = formatPatientNumber(patient.patientNumber)
-                  let age: number | "" = ""
+                  const age = getPatientAge(patient)
+                  const triage = String(patient.triageCategory || "").trim()
+                  const triseBorderCls = TRIAGE_BORDER[triage] ?? "border-l-[3px] border-slate-200"
 
-                  try {
-                    if (patient.ageYears) age = patient.ageYears
-                    else if (patient.dateOfBirth) {
-                      const dob = new Date(patient.dateOfBirth)
-                      const now = new Date()
-                      age =
-                        now.getFullYear() -
-                        dob.getFullYear() -
-                        (now.getMonth() < dob.getMonth() ||
-                        (now.getMonth() === dob.getMonth() && now.getDate() < dob.getDate())
-                          ? 1
-                          : 0)
-                    }
-                  } catch {}
+                  // Critical vitals detection
+                  const bp = lv ? parseBloodPressure(String(lv.bloodPressure ?? "")) : { systolic: null, diastolic: null }
+                  const isCritical = lv
+                    ? hasCriticalVitals(
+                        {
+                          temperature: lv.temperature != null ? Number(lv.temperature) : null,
+                          systolicBP: bp.systolic,
+                          diastolicBP: bp.diastolic,
+                          heartRate: lv.heartRate != null ? Number(lv.heartRate) : null,
+                          respiratoryRate: lv.respiratoryRate != null ? Number(lv.respiratoryRate) : null,
+                          oxygenSaturation: lv.oxygenSaturation != null ? Number(lv.oxygenSaturation) : null,
+                        },
+                        age
+                      )
+                    : false
 
                   const checked = selectedIds.includes(patient.id)
 
                   return (
-                    <tr key={patient.id} className="border-b hover:bg-muted/30">
-                      <td className="px-2 py-2">
+                    <TableRow
+                      key={patient.id}
+                      className={`${triseBorderCls} ${isCritical ? "bg-fuchsia-50" : "hover:bg-violet-50"}`}
+                    >
+                      <TableCell>
                         <input
                           type="checkbox"
                           id={`sel-${patient.id}`}
@@ -335,48 +328,86 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                             )
                           }
                         />
-                      </td>
-                      <td className="px-2 py-2 font-mono">{pid}</td>
-                      <td className="px-2 py-2">
+                      </TableCell>
+                      <TableCell className="font-mono text-sm">{pid}</TableCell>
+                      <TableCell>
                         <div className="flex items-center gap-2">
-                          <span className="font-medium text-foreground">
+                          {isCritical && (
+                            <span
+                              className="inline-block h-2 w-2 animate-pulse rounded-full bg-fuchsia-500"
+                              aria-label="Critical vitals"
+                            />
+                          )}
+                          <span className="font-medium text-slate-900">
                             {patient.firstName} {patient.lastName}
                           </span>
-                          {patient.allergies && <Badge variant="destructive">Allergies</Badge>}
+                          {patient.allergies &&
+                            patient.allergies.trim().toLowerCase() !== "none" && (
+                              <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-700">
+                                Allergies
+                              </span>
+                            )}
                         </div>
-                      </td>
-                      <td className="px-2 py-2">{age || "-"}</td>
-                      <td className="px-2 py-2">{patient.gender}</td>
-                      <td className="px-2 py-2">{patient.bloodGroup || "-"}</td>
-                      <td className="px-2 py-2 text-xs text-muted-foreground">
-                        {latestVitals ? (
-                          <div className="space-x-2">
-                            <span>BP {latestVitals.bloodPressure}</span>
-                            <span>Temp {latestVitals.temperature}</span>
-                            <span>HR {latestVitals.heartRate}</span>
-                            <span>on {latestVitals.date}</span>
+                      </TableCell>
+                      <TableCell className="text-sm text-slate-700">{age ?? "-"}</TableCell>
+                      <TableCell className="text-sm text-slate-700">{patient.gender}</TableCell>
+                      <TableCell className="text-sm text-slate-700">{patient.bloodGroup || "-"}</TableCell>
+                      <TableCell>
+                        {lv ? (
+                          <div className="flex flex-wrap gap-1">
+                            {lv.bloodPressure && (
+                              <span className="rounded bg-cyan-50 px-1.5 py-0.5 font-mono text-xs text-cyan-700">
+                                BP {fmtBP(String(lv.bloodPressure))}
+                              </span>
+                            )}
+                            {lv.temperature && (
+                              <span className="rounded bg-cyan-50 px-1.5 py-0.5 font-mono text-xs text-cyan-700">
+                                {fmtTemp(String(lv.temperature))}
+                              </span>
+                            )}
+                            {lv.heartRate && (
+                              <span className="rounded bg-cyan-50 px-1.5 py-0.5 font-mono text-xs text-cyan-700">
+                                {fmtBpm(String(lv.heartRate))}
+                              </span>
+                            )}
                           </div>
                         ) : (
-                          <span>-</span>
+                          <span className="text-xs text-slate-400">—</span>
                         )}
-                      </td>
-                      <td className="space-x-2 px-2 py-2 text-right">
-                        <Button size="sm" onClick={() => onSelectPatient(patient.id, "vitals")}>
-                          <Stethoscope className="mr-2 h-4 w-4" />
-                          Vitals
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => onSelectPatient(patient.id, "notes")}>
-                          Note
-                        </Button>
-                        <Button size="sm" variant="outline" onClick={() => onSelectPatient(patient.id, "triage")}>
-                          Triage
-                        </Button>
-                      </td>
-                    </tr>
+                      </TableCell>
+                      <TableCell className="text-right">
+                        <div className="flex justify-end gap-2">
+                          <Button
+                            size="sm"
+                            className="bg-violet-700 hover:bg-violet-800 text-white"
+                            onClick={() => onSelectPatient(patient.id, "vitals")}
+                          >
+                            <Stethoscope className="mr-1.5 h-3.5 w-3.5" />
+                            Vitals
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-cyan-400 text-cyan-700 hover:bg-cyan-50"
+                            onClick={() => onSelectPatient(patient.id, "notes")}
+                          >
+                            Note
+                          </Button>
+                          <Button
+                            size="sm"
+                            variant="outline"
+                            className="border-orange-400 text-orange-700 hover:bg-orange-50"
+                            onClick={() => onSelectPatient(patient.id, "triage")}
+                          >
+                            Triage
+                          </Button>
+                        </div>
+                      </TableCell>
+                    </TableRow>
                   )
                 })}
-              </tbody>
-            </table>
+              </TableBody>
+            </Table>
           </div>
         )}
       </CardContent>
