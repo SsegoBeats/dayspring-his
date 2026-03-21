@@ -31,17 +31,20 @@ export function fmtTemp(s: string): string {
 
 /** Format heart rate. Returns "{n} bpm". */
 export function fmtBpm(s: string): string {
-  return numInt(s) == null ? "" : `${numInt(s)} bpm`
+  const n = numInt(s)
+  return n == null ? "" : `${n} bpm`
 }
 
 /** Format respiratory rate. Returns "{n}/min". */
 export function fmtRR(s: string): string {
-  return numInt(s) == null ? "" : `${numInt(s)}/min`
+  const n = numInt(s)
+  return n == null ? "" : `${n}/min`
 }
 
 /** Format oxygen saturation. Returns "{n}%". */
 export function fmtSpO2(s: string): string {
-  return numInt(s) == null ? "" : `${numInt(s)}%`
+  const n = numInt(s)
+  return n == null ? "" : `${n}%`
 }
 
 /** Format weight. Auto-converts lbs→kg if "lb" in string. Returns "{n.toFixed(1)} kg". */
