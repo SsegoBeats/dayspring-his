@@ -3,12 +3,12 @@ import { useState, useEffect } from "react"
 import type { Patient } from "@/lib/patient-context"
 import type { User } from "@/lib/auth-context"
 import { useLab } from "@/lib/lab-context"
-import { useMedical } from "@/lib/medical-context"
+import type { LabTest } from "@/lib/lab-context"
 import { Button } from "@/components/ui/button"
 import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { OrderLabTest } from "@/components/doctor/order-lab-test"
-import { Loader2 } from "lucide-react"
+import { FlaskConical } from "lucide-react"
 import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 
@@ -18,28 +18,20 @@ interface LabsTabProps {
   labStream: EventSource | null
 }
 
-interface LabRow {
-  id: string
-  testType?: string
-  testName?: string
+interface LabRow extends Omit<LabTest, 'status'> {
   status: string
-  results?: string | null
-  notes?: string | null
-  is_critical?: boolean
-  orderedAt?: string | null
   orderedDate?: string | null
-  completedAt?: string | null
   completedDate?: string | null
-  doctorName?: string | null
   orderedBy?: string | null
-  patientId?: string
   pdfUrl?: string | null
+  is_critical?: boolean
 }
 
 export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
   const { tests, refresh } = useLab()
-  const { updateLabResult } = useMedical()
-  const labResults: LabRow[] = tests.filter((t) => t.patientId === patient.id) as LabRow[]
+  const labResults = tests
+    .filter((t) => t.patientId === patient.id)
+    .map((t) => t as LabRow)
   const [orderOpen, setOrderOpen] = useState(false)
   const [selectedLabId, setSelectedLabId] = useState<string | null>(null)
   const [reviewing, setReviewing] = useState<string | null>(null)
@@ -64,7 +56,6 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
         body: JSON.stringify({ status: "Reviewed" }),
       })
       if (!res.ok) throw new Error("Failed to mark reviewed")
-      updateLabResult(id, { status: "completed" as const })
       toast.success("Result marked as reviewed.")
       await refresh()
     } catch {
@@ -97,7 +88,7 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
 
       {labResults.length === 0 ? (
         <div className="flex flex-col items-center gap-3 py-16 text-center">
-          <Loader2 className="h-8 w-8 text-violet-300" />
+          <FlaskConical className="h-8 w-8 text-violet-300" />
           <p className="text-sm text-slate-500">No lab results for this patient yet.</p>
         </div>
       ) : (
@@ -157,6 +148,7 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
                           size="sm"
                           variant="outline"
                           className="border-violet-400 text-violet-700 hover:bg-violet-50"
+                          aria-label={`View PDF for ${row.testName}`}
                           onClick={(e) => {
                             e.stopPropagation()
                             window.open(row.pdfUrl!, "_blank")
