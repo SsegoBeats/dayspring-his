@@ -76,7 +76,7 @@ export function PrescriptionTab({ patient, user, onSaved }: PrescriptionTabProps
         toast.success("Prescription saved successfully!")
       }
       validations.slice(0, 5).forEach((v) => {
-        if (v.severity === "Critical") toast.error(v.message || "Critical validation", { duration: 6000 })
+        if (v.severity === "Critical") toast.error(v.message || "Critical validation", { duration: 8000 })
         else if (v.severity === "Warning") toast.warning(v.message || "Warning", { duration: 5000 })
         else toast.info(v.message || "Info", { duration: 4000 })
       })
@@ -106,7 +106,7 @@ export function PrescriptionTab({ patient, user, onSaved }: PrescriptionTabProps
                 "flex-1 px-4 py-2 text-sm font-medium transition-colors",
                 form.visitType === vt
                   ? "bg-teal-700 text-white"
-                  : "border-teal-300 text-teal-700 hover:bg-teal-50",
+                  : "border border-teal-300 text-teal-700 hover:bg-teal-50",
               )}
             >
               {vt === "INPATIENT" ? "Inpatient" : vt === "EMERGENCY" ? "Emergency" : "OPD"}
