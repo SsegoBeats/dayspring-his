@@ -14,7 +14,7 @@ export type UserRole =
   | "Midwife"
   | "Dentist"
 
-interface User {
+export interface User {
   id: string
   name: string
   role: UserRole
