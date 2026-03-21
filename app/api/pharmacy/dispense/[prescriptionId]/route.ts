@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { verifyToken, can } from "@/lib/security"
+import { verifyToken, can, generateReceiptNumber, generateBarcodeData } from "@/lib/security"
 import { withSession } from "@/lib/db"
 
 export async function POST(req: Request, { params }: { params: Promise<{ prescriptionId: string }> }) {
@@ -23,7 +23,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ prescri
       //       We fetch doctor info via users table for the register entry.
       const { rows: [prescription] } = await client.query(
         `SELECT p.*, m.name AS medication_name_inv, m.stock_quantity, m.is_controlled,
-                m.schedule_class, m.id AS medication_id,
+                m.schedule_class, m.id AS medication_id, m.unit_price AS medication_unit_price,
                 pat.first_name, pat.last_name,
                 u.full_name AS prescriber_name
            FROM prescriptions p
@@ -120,16 +120,16 @@ export async function POST(req: Request, { params }: { params: Promise<{ prescri
       return { prescription, primaryBatch, usedBatches, qty }
     })
 
-    // 7. Post-transaction: insert low-stock notification directly via DB if needed (no self-fetch)
+    // 7. Post-transaction: low-stock notification + inpatient/emergency auto-billing
     try {
       const { query } = await import("@/lib/db")
+
+      // Low-stock check
       const { rows: [med] } = await query(
-        `SELECT stock_quantity, reorder_level, name FROM medications WHERE id = $1`,
+        `SELECT stock_quantity, reorder_level, name, unit_price FROM medications WHERE id = $1`,
         [result.prescription.medication_id]
       )
       if (med && Number(med.stock_quantity) <= Number(med.reorder_level)) {
-        // Insert notification directly — avoids self-HTTP-fetch and cookie forwarding
-        // notifications table has no created_by column; broadcast via department+role
         await query(
           `INSERT INTO notifications (department, role, title, message, type, priority, payload)
            VALUES ($1, $2, $3, $4, 'pharmacy_low_stock', 'High', $5::jsonb)`,
@@ -142,7 +142,60 @@ export async function POST(req: Request, { params }: { params: Promise<{ prescri
           ]
         )
       }
-    } catch {} // Never fail the dispense response over a notification insert
+
+      // Inpatient/Emergency: auto-create bill for later cashier collection
+      const visitType: string = result.prescription.visit_type || "OPD"
+      if (visitType === "INPATIENT" || visitType === "EMERGENCY") {
+        const unitPrice = med ? Number(med.unit_price) || 0 : 0
+        const totalPrice = unitPrice * result.qty
+        const billNumber = generateReceiptNumber()
+        const { rows: [pat] } = await query(
+          `SELECT first_name, last_name FROM patients WHERE id = $1`,
+          [result.prescription.patient_id]
+        )
+        const patientName = pat ? `${pat.first_name || ""} ${pat.last_name || ""}`.trim() : "Patient"
+
+        const billInsert = await query(
+          `INSERT INTO bills (bill_number, patient_id, total_amount, tax_amount, discount_amount,
+                              final_amount, status, payment_method, paid_amount, barcode, cashier_id,
+                              prescription_id)
+           VALUES ($1,$2,$3,0,0,$3,'Pending',NULL,0,NULL,NULL,$4)
+           RETURNING id`,
+          [billNumber, result.prescription.patient_id, totalPrice, prescriptionId]
+        )
+        const billId = billInsert.rows[0].id as string
+
+        const barcodePayload = generateBarcodeData("payment", billId, {
+          patientId: result.prescription.patient_id,
+          source: "prescription",
+          items: [{ d: result.prescription.medication_name_inv?.slice(0, 40), q: result.qty, u: unitPrice, t: totalPrice }],
+        })
+        await query(`UPDATE bills SET barcode = $1 WHERE id = $2`, [barcodePayload, billId])
+
+        await query(
+          `INSERT INTO bill_items (bill_id, description, quantity, unit_price, total_price)
+           VALUES ($1,$2,$3,$4,$5)`,
+          [billId, result.prescription.medication_name_inv || result.prescription.medication_name, result.qty, unitPrice, totalPrice]
+        )
+
+        // Notify cashier
+        await query(
+          `INSERT INTO notifications (user_id, department, role, title, message, type, priority, payload)
+           VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)`,
+          [
+            "cashier",
+            "Cashier",
+            `${visitType === "EMERGENCY" ? "Emergency" : "Inpatient"} medication dispensed`,
+            `${result.prescription.medication_name_inv || result.prescription.medication_name} dispensed for ${patientName} — collect payment`,
+            "Payment",
+            visitType === "EMERGENCY" ? "High" : "Normal",
+            JSON.stringify({ billId, patientId: result.prescription.patient_id, billNumber, prescriptionId, source: "prescription" }),
+          ]
+        )
+      }
+    } catch (postErr) {
+      console.error("Post-dispense notifications/billing failed (non-fatal):", postErr)
+    } // Never fail the dispense response over post-transaction work
 
     return NextResponse.json({ success: true, prescription_id: prescriptionId })
   } catch (err: any) {

@@ -9,6 +9,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Tabs, TabsContent, TabsList, TabsTrigger } from "@/components/ui/tabs"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Badge } from "@/components/ui/badge"
 import { ArrowLeft, AlertCircle, FileText, Pill, History, Pencil, Trash2 } from "lucide-react"
 import Link from "next/link"
@@ -92,6 +93,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
   })
 
   const [prescriptionForm, setPrescriptionForm] = useState({
+    visitType: "OPD" as "OPD" | "INPATIENT" | "EMERGENCY",
     medications: [
       {
         name: "",
@@ -147,30 +149,22 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
   const [deletingDentalId, setDeletingDentalId] = useState<string | null>(null)
 
   const handleAddMedication = () => {
-    setPrescriptionForm({
-      medications: [
-        ...prescriptionForm.medications,
-        {
-          name: "",
-          dosage: "",
-          frequency: "",
-          duration: "",
-          instructions: "",
-        },
-      ],
-    })
+    setPrescriptionForm((f) => ({
+      ...f,
+      medications: [...f.medications, { name: "", dosage: "", frequency: "", duration: "", instructions: "" }],
+    }))
   }
 
   const handleRemoveMedication = (index: number) => {
-    setPrescriptionForm({
-      medications: prescriptionForm.medications.filter((_, i) => i !== index),
-    })
+    setPrescriptionForm((f) => ({ ...f, medications: f.medications.filter((_, i) => i !== index) }))
   }
 
   const handleMedicationChange = (index: number, field: string, value: string) => {
-    const newMedications = [...prescriptionForm.medications]
-    newMedications[index] = { ...newMedications[index], [field]: value }
-    setPrescriptionForm({ medications: newMedications })
+    setPrescriptionForm((f) => {
+      const meds = [...f.medications]
+      meds[index] = { ...meds[index], [field]: value }
+      return { ...f, medications: meds }
+    })
   }
 
   const handleSaveConsultation = () => {
@@ -227,6 +221,7 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientId: patient.id,
+          visitType: prescriptionForm.visitType,
           medications: validMedications.map((m) => ({
             name: m.name,
             dosage: m.dosage,
@@ -271,40 +266,16 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
       return
     }
 
-    setPrescriptionForm({
-      medications: [
-        {
-          name: "",
-          dosage: "",
-          frequency: "",
-          duration: "",
-          instructions: "",
-        },
-      ],
-    })
-
-    try {
-      const billingRes = await fetch("/api/billing", {
-        method: "POST",
-        credentials: "include",
-        headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          patientId: patient.id,
-          source: "prescription",
-          medications: validMedications.map((m) => ({
-            name: m.name,
-            dosage: m.dosage,
-            frequency: m.frequency,
-            duration: m.duration,
-          })),
-        }),
-      })
-      if (!billingRes.ok) {
-        toast.warning("Prescription saved. Bill could not be created automatically; cashier can add it later.")
-      }
-    } catch {
-      toast.warning("Prescription saved. Bill could not be created; cashier can add it later.")
+    // OPD: bill auto-created server-side in the prescriptions API → cashier notified.
+    // INPATIENT/EMERGENCY: bill auto-created post-dispense by pharmacy dispense endpoint.
+    if (prescriptionForm.visitType === "OPD") {
+      toast.info("Bill sent to cashier for payment collection.", { duration: 4000 })
     }
+
+    setPrescriptionForm({
+      visitType: "OPD",
+      medications: [{ name: "", dosage: "", frequency: "", duration: "", instructions: "" }],
+    })
   }
 
   const validateObstetricForm = (form: typeof obstetricForm): string | null => {
@@ -1078,6 +1049,24 @@ export function PatientConsultation({ patientId, onBack, initialTab = 'consultat
             )}
 
             <TabsContent value="prescription" className="space-y-4">
+              <div className="flex items-center gap-3 rounded-lg border border-border/60 bg-muted/30 px-4 py-3">
+                <Label htmlFor="visit-type" className="shrink-0 text-sm font-medium">Visit Type</Label>
+                <Select
+                  value={prescriptionForm.visitType}
+                  onValueChange={(val) =>
+                    setPrescriptionForm((f) => ({ ...f, visitType: val as "OPD" | "INPATIENT" | "EMERGENCY" }))
+                  }
+                >
+                  <SelectTrigger id="visit-type" className="h-9 w-48 rounded-lg">
+                    <SelectValue />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="OPD">OPD — pay before dispense</SelectItem>
+                    <SelectItem value="INPATIENT">Inpatient — bill after dispense</SelectItem>
+                    <SelectItem value="EMERGENCY">Emergency — bill after dispense</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
               <div className="space-y-4">
                 {prescriptionForm.medications.map((med, index) => (
                   <Card key={index}>

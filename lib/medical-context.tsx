@@ -38,6 +38,7 @@ export interface Prescription {
   }[]
   status: "active" | "completed" | "cancelled"
   is_controlled_substance?: boolean
+  visit_type?: "OPD" | "INPATIENT" | "EMERGENCY"
 }
 
 export interface LabResult {
@@ -215,6 +216,7 @@ async function fetchAndMapMedicalData(): Promise<{
       ],
       status,
       is_controlled_substance: p.is_controlled_substance === true,
+      visit_type: (["OPD", "INPATIENT", "EMERGENCY"].includes(p.visit_type) ? p.visit_type : "OPD") as Prescription["visit_type"],
     }
   })
   const labs: LabResult[] = (data.labResults || []).map((l: any) => ({
@@ -380,6 +382,7 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
           headers: { "Content-Type": "application/json" },
           body: JSON.stringify({
             patientId: prescription.patientId,
+            visitType: prescription.visit_type ?? "OPD",
             medications: prescription.medications.map((m) => ({
               name: m.name,
               dosage: m.dosage,

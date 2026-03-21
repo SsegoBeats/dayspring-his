@@ -1,6 +1,6 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
 import { useMedical } from "@/lib/medical-context"
 import { usePharmacy } from "@/lib/pharmacy-context"
 import { usePatients } from "@/lib/patient-context"
@@ -11,18 +11,30 @@ import { Badge } from "@/components/ui/badge"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
-import { ArrowLeft, CheckCircle, AlertCircle } from "lucide-react"
+import { ArrowLeft, CheckCircle, AlertCircle, Clock } from "lucide-react"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { useToast } from "@/hooks/use-toast"
+
+interface BillStatus {
+  visitType: string
+  bill: {
+    id: string
+    billNumber: string
+    status: string
+    finalAmount: number
+    paidAt: string | null
+  } | null
+}
 
 interface PrescriptionDispenseProps {
   prescriptionId: string
   onBack: () => void
   onSuccess?: () => void
+  /** @deprecated Pass nothing — bill status is now fetched automatically */
   billingPaid?: boolean
 }
 
-export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billingPaid }: PrescriptionDispenseProps) {
+export function PrescriptionDispense({ prescriptionId, onBack, onSuccess }: PrescriptionDispenseProps) {
   const { prescriptions, refreshMedicalData } = useMedical()
   const { medications, getMedication, refreshMedications } = usePharmacy()
   const { getPatient } = usePatients()
@@ -35,6 +47,20 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
   const [witnessName, setWitnessName] = useState("")
   const [dispensingNotes, setDispensingNotes] = useState("")
   const [dispenseError, setDispenseError] = useState<string | null>(null)
+
+  // Bill status fetched from server — drives the payment gate
+  const [billStatus, setBillStatus] = useState<BillStatus | null>(null)
+  const [billLoading, setBillLoading] = useState(true)
+
+  useEffect(() => {
+    if (!prescriptionId) return
+    setBillLoading(true)
+    fetch(`/api/pharmacy/bill-status/${prescriptionId}`, { credentials: "include" })
+      .then((r) => (r.ok ? r.json() : null))
+      .then((data: BillStatus | null) => { if (data) setBillStatus(data) })
+      .catch(() => {})
+      .finally(() => setBillLoading(false))
+  }, [prescriptionId])
 
   if (!prescription) {
     return (
@@ -51,6 +77,14 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
     )
   }
 
+  // Payment gate logic:
+  // - OPD: must have a paid bill before dispensing
+  // - INPATIENT/EMERGENCY: no payment required before dispensing (bill created after)
+  const isOPD = !billStatus || billStatus.visitType === "OPD"
+  const billPaid = billStatus?.bill?.status?.toLowerCase() === "paid"
+  const billExists = !!billStatus?.bill
+  const paymentBlocked = isOPD && !billLoading && (!billExists || !billPaid)
+
   const checkStock = () => {
     const issues: string[] = []
     prescription.medications.forEach((med) => {
@@ -58,17 +92,15 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
       if (!medication) {
         issues.push(`${med.name} not found in inventory`)
       } else {
-        // Check for expired medications
         if (medication.expiryDate) {
           const expiryDate = new Date(medication.expiryDate)
           const today = new Date()
           today.setHours(0, 0, 0, 0)
           if (expiryDate < today) {
             issues.push(`${med.name} has expired (Expiry: ${medication.expiryDate}). Do not dispense expired medications.`)
-            return // Don't check stock if expired
+            return
           }
         }
-        // Check stock availability
         const quantityNeeded = Number.parseInt(med.duration) || 1
         if (medication.stockQuantity < quantityNeeded || medication.stockQuantity === 0) {
           issues.push(`${med.name} has insufficient stock (Available: ${medication.stockQuantity}, Required: ${quantityNeeded})`)
@@ -79,14 +111,17 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
   }
 
   const handleDispense = async () => {
-    if (billingPaid === false) {
+    if (paymentBlocked) {
       toast({
-        title: "Payment verification required",
-        description: "Cannot dispense: associated bill is not marked as paid. Please confirm payment with the cashier.",
+        title: "Payment required",
+        description: billExists
+          ? "Bill is not yet marked as paid. Please ask the patient to pay at the cashier first."
+          : "No bill found for this prescription. Please create a bill at the cashier first.",
         variant: "destructive",
       })
       return
     }
+
     const issues = checkStock()
     if (issues.length > 0) {
       setStockIssues(issues)
@@ -114,7 +149,6 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
         return
       }
 
-      // Refresh contexts post-dispense
       await Promise.all([refreshMedications(), refreshMedicalData()])
 
       toast({
@@ -159,21 +193,42 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
           </div>
         </CardHeader>
         <CardContent className="space-y-6">
-          {billingPaid === true && (
+
+          {/* Payment status banner */}
+          {!billLoading && isOPD && billPaid && (
             <Alert>
               <CheckCircle className="h-4 w-4" />
-              <AlertDescription>Billing verified: associated bill is marked as paid.</AlertDescription>
-            </Alert>
-          )}
-          {billingPaid === false && (
-            <Alert variant="destructive">
-              <AlertCircle className="h-4 w-4" />
               <AlertDescription>
-                This prescription is linked to a bill that is not marked as paid. Please confirm payment with the
-                cashier before dispensing.
+                Bill <span className="font-mono font-semibold">{billStatus!.bill!.billNumber}</span> — paid. Ready to dispense.
               </AlertDescription>
             </Alert>
           )}
+          {!billLoading && isOPD && billExists && !billPaid && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                Bill <span className="font-mono font-semibold">{billStatus!.bill!.billNumber}</span> is <strong>{billStatus!.bill!.status}</strong>.
+                Please ask the patient to pay at the cashier before dispensing.
+              </AlertDescription>
+            </Alert>
+          )}
+          {!billLoading && isOPD && !billExists && (
+            <Alert variant="destructive">
+              <AlertCircle className="h-4 w-4" />
+              <AlertDescription>
+                No bill found for this OPD prescription. Please create a bill at the cashier desk first.
+              </AlertDescription>
+            </Alert>
+          )}
+          {!billLoading && !isOPD && (
+            <Alert>
+              <Clock className="h-4 w-4" />
+              <AlertDescription>
+                {billStatus!.visitType === "EMERGENCY" ? "Emergency" : "Inpatient"} prescription — dispense first, bill collected after.
+              </AlertDescription>
+            </Alert>
+          )}
+
           <div className="grid gap-4 md:grid-cols-2">
             <div className="space-y-3">
               <h3 className="font-semibold text-foreground">Patient Information</h3>
@@ -216,8 +271,10 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
                   <span className="text-foreground">{prescription.date}</span>
                 </div>
                 <div>
-                  <span className="text-muted-foreground">Status:</span>{" "}
-                  <span className="text-foreground">{prescription.status}</span>
+                  <span className="text-muted-foreground">Visit Type:</span>{" "}
+                  <Badge variant="outline" className="text-xs">
+                    {billStatus?.visitType ?? "OPD"}
+                  </Badge>
                 </div>
               </div>
             </div>
@@ -245,13 +302,11 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
                 const hasStock = medication && medication.stockQuantity > 0
                 const sufficientStock = medication && medication.stockQuantity >= (Number.parseInt(med.duration) || 1)
 
-                // Check expiry date if available
                 let expiryWarning: string | null = null
                 if (medication?.expiryDate) {
                   const expiryDate = new Date(medication.expiryDate)
                   const today = new Date()
                   const daysUntilExpiry = Math.ceil((expiryDate.getTime() - today.getTime()) / (1000 * 60 * 60 * 24))
-
                   if (expiryDate < today) {
                     expiryWarning = "Expired"
                   } else if (daysUntilExpiry <= 30) {
@@ -305,7 +360,7 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
                               </>
                             )}
                           </div>
-                          {expiryWarning && expiryWarning === "Expired" && (
+                          {expiryWarning === "Expired" && (
                             <Alert variant="destructive" className="mt-2">
                               <AlertCircle className="h-4 w-4" />
                               <AlertDescription>
@@ -369,9 +424,13 @@ export function PrescriptionDispense({ prescriptionId, onBack, onSuccess, billin
                 </Alert>
               )}
 
-              <Button onClick={handleDispense} disabled={dispensing} className="w-full">
+              <Button
+                onClick={handleDispense}
+                disabled={dispensing || billLoading || paymentBlocked}
+                className="w-full"
+              >
                 <CheckCircle className="mr-2 h-4 w-4" />
-                {dispensing ? "Dispensing..." : "Dispense Prescription"}
+                {dispensing ? "Dispensing..." : billLoading ? "Checking payment..." : paymentBlocked ? "Payment required" : "Dispense Prescription"}
               </Button>
             </div>
           )}

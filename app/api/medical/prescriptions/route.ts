@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { verifyToken, can } from "@/lib/security"
+import { verifyToken, can, generateReceiptNumber, generateBarcodeData } from "@/lib/security"
 import { query, queryWithSession } from "@/lib/db"
 
 // Validation logic (shared with validation endpoint)
@@ -204,6 +204,7 @@ export async function POST(req: Request) {
       isControlledSubstance?: boolean
       refillsAuthorized?: number
       originalPrescriptionId?: string
+      visitType?: string
     }
 
     const patientId = (body.patientId || "").trim()
@@ -236,6 +237,7 @@ export async function POST(req: Request) {
     const isControlledSubstance = body.isControlledSubstance === true
     const refillsAuthorized = Number.isFinite(body.refillsAuthorized) ? Math.max(0, Math.trunc(body.refillsAuthorized as number)) : 0
     const originalPrescriptionId = body.originalPrescriptionId ? String(body.originalPrescriptionId).trim() || null : null
+    const visitType = body.visitType && ["OPD", "INPATIENT", "EMERGENCY"].includes(body.visitType) ? body.visitType : "OPD"
 
     const created: any[] = []
 
@@ -245,11 +247,13 @@ export async function POST(req: Request) {
         `INSERT INTO prescriptions (
            patient_id, doctor_id, medication_name, dosage, frequency, duration,
            instructions, quantity, status, priority, expiry_date, clinical_notes,
-           is_controlled_substance, refills_authorized, refills_remaining, original_prescription_id
-         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Pending',$9,$10,$11,$12,$13,$13,$14)
+           is_controlled_substance, refills_authorized, refills_remaining, original_prescription_id,
+           visit_type
+         ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8,'Pending',$9,$10,$11,$12,$13,$13,$14,$15)
          RETURNING id, patient_id, doctor_id, medication_name, dosage, frequency, duration,
                    instructions, quantity, status, priority, expiry_date, clinical_notes,
-                   is_controlled_substance, refills_authorized, refills_remaining, original_prescription_id, created_at`,
+                   is_controlled_substance, refills_authorized, refills_remaining, original_prescription_id,
+                   visit_type, created_at`,
         [
           patientId,
           auth.userId,
@@ -265,6 +269,7 @@ export async function POST(req: Request) {
           isControlledSubstance,
           refillsAuthorized,
           originalPrescriptionId,
+          visitType,
         ],
       )
       const prescriptionId = rows[0].id
@@ -320,6 +325,82 @@ export async function POST(req: Request) {
       )
     } catch {
       // Non-fatal — prescription already saved
+    }
+
+    // OPD flow: auto-create a bill so the cashier can collect payment before dispense
+    // INPATIENT/EMERGENCY: bill is created post-dispense by the pharmacy dispense endpoint
+    if (visitType === "OPD" && created.length > 0) {
+      try {
+        const ptRow = await query(`SELECT first_name, last_name FROM patients WHERE id = $1`, [patientId])
+        const patientName = ptRow.rows[0]
+          ? `${ptRow.rows[0].first_name || ""} ${ptRow.rows[0].last_name || ""}`.trim()
+          : "Patient"
+
+        // Resolve unit prices from medications table
+        const medNames = cleaned.map((m) => m.name.toLowerCase())
+        const priceRes = await query(
+          `SELECT name, unit_price FROM medications WHERE LOWER(name) = ANY($1::text[])`,
+          [medNames],
+        )
+        const priceMap = new Map<string, number>(
+          priceRes.rows.map((r: any) => [String(r.name).toLowerCase(), Number(r.unit_price) || 0]),
+        )
+
+        const billItems = cleaned.map((m) => {
+          const unitPrice = priceMap.get(m.name.toLowerCase()) ?? 0
+          const qty = m.quantity || 1
+          const descParts = [m.name, m.dosage, m.frequency, m.duration].filter(Boolean)
+          return { description: descParts.join(" - "), quantity: qty, unitPrice, totalPrice: unitPrice * qty }
+        })
+        const subtotal = billItems.reduce((s, i) => s + i.totalPrice, 0)
+        const billNumber = generateReceiptNumber()
+
+        // Insert bill with prescription_id link (first prescription in batch)
+        const firstPrescriptionId = created[0].id
+        const billInsert = await query(
+          `INSERT INTO bills (bill_number, patient_id, total_amount, tax_amount, discount_amount,
+                              final_amount, status, payment_method, paid_amount, barcode, cashier_id,
+                              prescription_id)
+           VALUES ($1,$2,$3,0,0,$3,'Pending',NULL,0,NULL,NULL,$4)
+           RETURNING id`,
+          [billNumber, patientId, subtotal, firstPrescriptionId],
+        )
+        const billId = billInsert.rows[0].id as string
+
+        // Embed barcode
+        const barcodePayload = generateBarcodeData("payment", billId, {
+          patientId,
+          source: "prescription",
+          items: billItems.map((i) => ({ d: i.description.slice(0, 40), q: i.quantity, u: i.unitPrice, t: i.totalPrice })),
+        })
+        await query(`UPDATE bills SET barcode = $1 WHERE id = $2`, [barcodePayload, billId])
+
+        for (const item of billItems) {
+          await query(
+            `INSERT INTO bill_items (bill_id, description, quantity, unit_price, total_price)
+             VALUES ($1,$2,$3,$4,$5)`,
+            [billId, item.description, item.quantity, item.unitPrice, item.totalPrice],
+          )
+        }
+
+        // Notify cashier
+        await query(
+          `INSERT INTO notifications (user_id, department, role, title, message, type, priority, payload)
+           VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)`,
+          [
+            "cashier",
+            "Cashier",
+            "New prescription bill ready",
+            `OPD prescription for ${patientName}: ${cleaned.map((m) => m.name).join(", ")}`,
+            "Payment",
+            priority === "Stat" ? "High" : "Normal",
+            JSON.stringify({ billId, patientId, billNumber, prescriptionId: firstPrescriptionId, source: "prescription" }),
+          ],
+        )
+      } catch (billingErr) {
+        console.error("OPD auto-billing failed (non-fatal):", billingErr)
+        // Non-fatal — prescription is already saved; cashier can create the bill manually
+      }
     }
 
     return NextResponse.json({
