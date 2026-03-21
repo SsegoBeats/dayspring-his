@@ -56,6 +56,7 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
   useEffect(() => {
     const es = new EventSource(`/api/lab-tests/stream?patientId=${patientId}`, { withCredentials: true })
     labStreamRef.current = es
+    es.onerror = () => { es.close(); labStreamRef.current = null }
     return () => { es.close(); labStreamRef.current = null }
   }, [patientId])
 
@@ -98,7 +99,7 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
               {patient.firstName} {patient.lastName}
             </h2>
             <div className="flex flex-wrap items-center gap-2">
-              <span className="font-mono text-sm text-teal-600">P.ID: {pid ? `P.${pid}` : "—"}</span>
+              <span className="font-mono text-sm text-teal-600">P.ID: {pid || "—"}</span>
               {age != null && (
                 <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-700">{age} yrs</span>
               )}
@@ -128,7 +129,7 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
       </div>
 
       {/* Pill tab bar */}
-      <div className="no-print flex gap-1 overflow-x-auto border-b border-teal-100 px-6 pb-0 pt-4">
+      <div role="tablist" className="no-print flex gap-1 overflow-x-auto border-b border-teal-100 px-6 pb-0 pt-4">
         {tabs.map((tab) => (
           <button
             key={tab.id}
@@ -161,7 +162,7 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
       {/* Print section — preserved from original */}
       <div className="only-print hidden border rounded p-4 text-sm space-y-2 bg-white">
         <h2 className="text-lg font-semibold">Clinician Summary</h2>
-        <div>Patient: {patient.firstName} {patient.lastName} (PID: {pid ? `P.${pid}` : "—"})</div>
+        <div>Patient: {patient.firstName} {patient.lastName} (PID: {pid || "—"})</div>
         <div>Printed by: {user.email || user.name}</div>
         <div className="grid grid-cols-2 gap-2">
           <div>Age: {age ?? "—"}</div>
