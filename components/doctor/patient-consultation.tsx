@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect, useRef } from "react"
+import { useState, useEffect } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { useMedical } from "@/lib/medical-context"
 import { useAuth } from "@/lib/auth-context"
@@ -51,13 +51,13 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
   const [activeTab, setActiveTab] = useState<ConsultTab>(initialTab)
   const [dentalHistory, setDentalHistory] = useState<DentalRecordSummary[]>([])
 
-  // SSE stream for live lab updates
-  const labStreamRef = useRef<EventSource | null>(null)
+  // SSE stream for live lab updates — kept in state so it can be passed to LabsTab during render
+  const [labStream, setLabStream] = useState<EventSource | null>(null)
   useEffect(() => {
     const es = new EventSource(`/api/lab-tests/stream?patientId=${patientId}`, { withCredentials: true })
-    labStreamRef.current = es
-    es.onerror = () => { es.close(); labStreamRef.current = null }
-    return () => { es.close(); labStreamRef.current = null }
+    setLabStream(es)
+    es.onerror = () => { es.close(); setLabStream(null) }
+    return () => { es.close(); setLabStream(null) }
   }, [patientId])
 
   if (!patient || !user) {
@@ -152,7 +152,7 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
       <div className="px-6 py-6 no-print">
         {activeTab === "consultation" && <ConsultationTab patient={patient} user={user} />}
         {activeTab === "prescription" && <PrescriptionTab patient={patient} user={user} />}
-        {activeTab === "labs" && <LabsTab patient={patient} user={user} labStream={labStreamRef.current} />}
+        {activeTab === "labs" && <LabsTab patient={patient} user={user} labStream={labStream} />}
         {activeTab === "history" && <HistoryTab patient={patient} user={user} />}
         {activeTab === "dental" && user.role === "Dentist" && (
           <DentalTab patient={patient} user={user} onRecordsChange={setDentalHistory} />
