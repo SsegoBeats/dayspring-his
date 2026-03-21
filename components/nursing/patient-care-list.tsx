@@ -290,7 +290,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                   const pid = formatPatientNumber(patient.patientNumber)
                   const age = getPatientAge(patient)
                   const triage = String(patient.triageCategory || "").trim()
-                  const triseBorderCls = TRIAGE_BORDER[triage] ?? "border-l-[3px] border-slate-200"
+                  const triageBorderCls = TRIAGE_BORDER[triage] ?? "border-l-[3px] border-slate-200"
 
                   // Critical vitals detection
                   const bp = lv ? parseBloodPressure(String(lv.bloodPressure ?? "")) : { systolic: null, diastolic: null }
@@ -313,7 +313,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                   return (
                     <TableRow
                       key={patient.id}
-                      className={`${triseBorderCls} ${isCritical ? "bg-fuchsia-50" : "hover:bg-violet-50"}`}
+                      className={`${triageBorderCls} ${isCritical ? "bg-fuchsia-50" : "hover:bg-violet-50"}`}
                     >
                       <TableCell>
                         <input

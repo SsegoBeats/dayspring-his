@@ -1,7 +1,7 @@
 "use client"
 
 import type React from "react"
-import { useEffect, useState } from "react"
+import { useCallback, useEffect, useState } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { useNursing } from "@/lib/nursing-context"
 import { useAuth } from "@/lib/auth-context"
@@ -118,50 +118,11 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
     setVitalAlerts([])
   }, [patient, patientAge, vitalsForm])
 
-  useEffect(() => {
-    if (!patient) return
-    const onKey = (e: KeyboardEvent) => {
-      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
-        if (activeTab === "vitals") void commitVitals()
-        if (activeTab === "notes") void commitNote()
-      }
-    }
-    window.addEventListener("keydown", onKey)
-    return () => window.removeEventListener("keydown", onKey)
-  }, [activeTab, patient, user]) // eslint-disable-line react-hooks/exhaustive-deps
+  const notifyUpdate = useCallback((tab: CareTab, category?: string) => {
+    onUpdated?.({ patientId: patient?.id ?? patientId, activeTab: tab, category })
+  }, [onUpdated, patient, patientId])
 
-  useEffect(() => {
-    if (!patient) return
-    try {
-      const last = vitalHistory[vitalHistory.length - 1]
-      if (!last) return
-      setVitalsForm((current) => ({
-        bloodPressure: current.bloodPressure || last.bloodPressure || "",
-        temperature: current.temperature || last.temperature || "",
-        heartRate: current.heartRate || last.heartRate || "",
-        respiratoryRate: current.respiratoryRate || last.respiratoryRate || "",
-        oxygenSaturation: current.oxygenSaturation || last.oxygenSaturation || "",
-        weight: current.weight || last.weight || "",
-        height: current.height || last.height || "",
-        notes: current.notes || "",
-      }))
-    } catch {}
-  }, [patient, patientId, vitalHistory])
-
-  if (!patient) {
-    return (
-      <div className="flex flex-col items-center justify-center p-8 text-center">
-        <p className="text-slate-500">Patient not found</p>
-        <Button onClick={onBack} className="mt-4 bg-violet-700 hover:bg-violet-800">Go Back</Button>
-      </div>
-    )
-  }
-
-  const notifyUpdate = (tab: CareTab, category?: string) => {
-    onUpdated?.({ patientId: patient.id, activeTab: tab, category })
-  }
-
-  const commitVitals = async () => {
+  const commitVitals = useCallback(async () => {
     if (!user || !patient) return
     if (!vitalsForm.bloodPressure || !vitalsForm.temperature || !vitalsForm.heartRate || !vitalsForm.respiratoryRate || !vitalsForm.oxygenSaturation) {
       toast.error("Please fill in all required vital sign fields"); return
@@ -195,9 +156,9 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
     } finally {
       setSavingVitals(false)
     }
-  }
+  }, [user, patient, vitalsForm, vitalAlerts, addVitalSigns, refreshPatient, notifyUpdate])
 
-  const commitNote = async () => {
+  const commitNote = useCallback(async () => {
     if (!user || !patient || !noteForm.note.trim()) { toast.error("Please enter a nursing note"); return }
     setSavingNote(true)
     const now = new Date()
@@ -219,6 +180,45 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
     } finally {
       setSavingNote(false)
     }
+  }, [user, patient, noteForm, addNursingNote, refreshPatient, notifyUpdate])
+
+  useEffect(() => {
+    if (!patient) return
+    const onKey = (e: KeyboardEvent) => {
+      if ((e.ctrlKey || e.metaKey) && e.key === "Enter") {
+        if (activeTab === "vitals") void commitVitals()
+        if (activeTab === "notes") void commitNote()
+      }
+    }
+    window.addEventListener("keydown", onKey)
+    return () => window.removeEventListener("keydown", onKey)
+  }, [activeTab, patient, commitVitals, commitNote])
+
+  useEffect(() => {
+    if (!patient) return
+    try {
+      const last = vitalHistory[vitalHistory.length - 1]
+      if (!last) return
+      setVitalsForm((current) => ({
+        bloodPressure: current.bloodPressure || last.bloodPressure || "",
+        temperature: current.temperature || last.temperature || "",
+        heartRate: current.heartRate || last.heartRate || "",
+        respiratoryRate: current.respiratoryRate || last.respiratoryRate || "",
+        oxygenSaturation: current.oxygenSaturation || last.oxygenSaturation || "",
+        weight: current.weight || last.weight || "",
+        height: current.height || last.height || "",
+        notes: current.notes || "",
+      }))
+    } catch {}
+  }, [patient, patientId, vitalHistory])
+
+  if (!patient) {
+    return (
+      <div className="flex flex-col items-center justify-center p-8 text-center">
+        <p className="text-slate-500">Patient not found</p>
+        <Button onClick={onBack} className="mt-4 bg-violet-700 hover:bg-violet-800">Go Back</Button>
+      </div>
+    )
   }
 
   const TABS: { value: CareTab; label: string; Icon: typeof Activity }[] = [

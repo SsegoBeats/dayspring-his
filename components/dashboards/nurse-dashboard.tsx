@@ -37,6 +37,24 @@ import { useSettings } from "@/lib/settings-context"
 
 type CareTab = "vitals" | "notes" | "history" | "triage"
 type SortColumn = "patient" | "pid" | "time" | "temp" | "hr" | "rr" | "spo2" | "bp"
+
+interface LatestVitalsRow {
+  id: string
+  patient_id: string
+  patient_number: string
+  first_name: string
+  last_name: string
+  heart_rate: number | string | null
+  respiratory_rate: number | string | null
+  oxygen_saturation: number | string | null
+  temperature: number | string | null
+  blood_pressure_systolic: number | string | null
+  blood_pressure_diastolic: number | string | null
+  triage_category: string | null
+  recorded_at: string | null
+  created_at: string | null
+  nurse_name: string | null
+}
 type DatePreset = "today" | "last7" | "month" | "custom"
 type QuickAction =
   | { label: string; description: string; icon: LucideIcon; href: string; onClick?: never }
@@ -71,7 +89,7 @@ export function NurseDashboard() {
   const [selected, setSelected] = useState<{ id: string; tab?: CareTab } | null>(null)
   const [rangeVitalsCount, setRangeVitalsCount] = useState<number | null>(null)
   const [rangeNotesCount, setRangeNotesCount] = useState<number | null>(null)
-  const [latestVitals, setLatestVitals] = useState<any[]>([])
+  const [latestVitals, setLatestVitals] = useState<LatestVitalsRow[]>([])
   const [latestLoading, setLatestLoading] = useState(false)
   const [q, setQ] = useState("")
   const [filterTriage, setFilterTriage] = useState("")
@@ -126,7 +144,7 @@ export function NurseDashboard() {
     }
   }, [patients])
 
-  const isCriticalRow = useCallback((row: any) => {
+  const isCriticalRow = useCallback((row: LatestVitalsRow) => {
     const bp = parseBloodPressure(`${row.blood_pressure_systolic || ""}/${row.blood_pressure_diastolic || ""}`)
     return hasCriticalVitals(
       {
