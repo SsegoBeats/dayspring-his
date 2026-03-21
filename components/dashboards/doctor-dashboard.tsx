@@ -11,6 +11,7 @@ import { Sheet, SheetContent, SheetHeader, SheetTitle, SheetDescription } from "
 import { useLab } from "@/lib/lab-context"
 import { Users, Stethoscope, Pill, FlaskConical, Calendar } from "lucide-react"
 import Link from "next/link"
+import { ClinicianNotificationBell } from "@/components/doctor/clinician-notification-bell"
 
 interface DoctorDashboardProps {
   title?: string
@@ -162,8 +163,13 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
               Consultations, prescriptions, labs, and records — all in one place.
             </p>
           </div>
+          {/* Actions + Shift Snapshot */}
+          <div className="flex shrink-0 flex-col items-end gap-3">
+          <div className="flex items-center gap-2">
+            <ClinicianNotificationBell />
+          </div>
           {/* Shift Snapshot */}
-          <div className="shrink-0 rounded-xl border border-white/15 bg-white/10 p-4 text-white md:min-w-[200px]">
+          <div className="rounded-xl border border-white/15 bg-white/10 p-4 text-white md:min-w-[200px]">
             <p className="text-xs font-semibold uppercase tracking-widest text-teal-200">Shift Snapshot</p>
             <div className="mt-2 space-y-1 text-sm">
               <div className="flex justify-between gap-4">
@@ -176,6 +182,7 @@ export function DoctorDashboard({ title, showDentalQueueFilter }: DoctorDashboar
               </div>
               <div className="mt-2 text-center font-mono text-lg font-bold">{clockTime}</div>
             </div>
+          </div>
           </div>
         </div>
       </div>
