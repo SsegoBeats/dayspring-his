@@ -1,5 +1,5 @@
 "use client"
-import { useState } from "react"
+import { useMemo, useState } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { formatPatientNumber } from "@/lib/patients"
 import { Card, CardContent, CardHeader } from "@/components/ui/card"
@@ -18,11 +18,16 @@ export function PatientQueue({ onSelectPatient, filterPatientIds, filterEmptyMes
   const { patients, searchPatients } = usePatients()
   const [search, setSearch] = useState("")
 
-  const baseList = search ? searchPatients(search) : patients
+  const baseList = useMemo(
+    () => (search ? searchPatients(search) : patients),
+    [search, searchPatients, patients]
+  )
   const displayedPatients =
     filterPatientIds != null
       ? baseList.filter((p) => filterPatientIds.includes(p.id))
       : baseList
+
+  const currentYear = new Date().getFullYear()
 
   return (
     <Card className="rounded-2xl border-l-4 border-teal-600 bg-white shadow-sm">
@@ -68,7 +73,7 @@ export function PatientQueue({ onSelectPatient, filterPatientIds, filterEmptyMes
                 const pid = formatPatientNumber(patient.patientNumber)
                 const derivedAge =
                   patient.dateOfBirth && !Number.isNaN(new Date(patient.dateOfBirth).getTime())
-                    ? Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear())
+                    ? Math.max(0, currentYear - new Date(patient.dateOfBirth).getFullYear())
                     : null
                 const age = patient.ageYears ?? derivedAge ?? "—"
                 const allergyStr = patient.allergies?.trim()
@@ -76,7 +81,7 @@ export function PatientQueue({ onSelectPatient, filterPatientIds, filterEmptyMes
 
                 return (
                   <TableRow key={patient.id} className="hover:bg-teal-50/40">
-                    <TableCell className="font-mono text-sm text-teal-600">{pid || "—"}</TableCell>
+                    <TableCell className="font-mono text-sm text-teal-600">{pid}</TableCell>
                     <TableCell>
                       <div className="font-medium text-slate-900">
                         {patient.firstName} {patient.lastName}
