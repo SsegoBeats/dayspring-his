@@ -23,9 +23,8 @@ import {
   Settings2,
   type LucideIcon,
 } from "lucide-react"
-import { Badge } from "@/components/ui/badge"
 import { toast } from "sonner"
-import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Sheet, SheetContent, SheetDescription, SheetHeader, SheetTitle } from "@/components/ui/sheet"
 import { usePatients } from "@/lib/patient-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
@@ -86,6 +85,8 @@ export function NurseDashboard() {
   const [exportFormat, setExportFormat] = useState<"csv" | "xlsx" | "pdf">("csv")
   const [exporting, setExporting] = useState<null | "vitals" | "notes">(null)
   const [refreshKey, setRefreshKey] = useState(0)
+  const [showExport, setShowExport] = useState(false)
+  const [clockTime, setClockTime] = useState(() => new Date().toLocaleTimeString())
 
   const seenNotif = useRef<Set<string>>(new Set())
   const streamPrimed = useRef(false)
@@ -420,17 +421,28 @@ export function NurseDashboard() {
     }
   }, [selected, settings?.defaultDashboard, settingsLoading])
 
+  useEffect(() => {
+    const tick = setInterval(() => setClockTime(new Date().toLocaleTimeString()), 1000)
+    return () => clearInterval(tick)
+  }, [])
+
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[28px] border border-sky-200/50 bg-[radial-gradient(circle_at_top_left,_rgba(125,211,252,0.28),_transparent_36%),linear-gradient(135deg,_rgba(8,47,73,1)_0%,_rgba(10,82,119,0.98)_48%,_rgba(16,185,129,0.92)_100%)] p-6 text-white shadow-[0_30px_80px_-40px_rgba(8,47,73,0.85)]">
-        <div className="absolute -left-16 top-12 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-emerald-300/10 blur-3xl" />
+      <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-violet-950 via-violet-900 to-indigo-900 p-6 text-white shadow-[0_30px_80px_-40px_rgba(46,16,101,0.85)]">
+        <div className="absolute -left-16 top-12 h-40 w-40 rounded-full bg-fuchsia-400/20 blur-3xl" />
+        <div className="absolute right-0 top-0 h-48 w-48 rounded-full bg-cyan-400/15 blur-3xl" />
         <div className="relative grid gap-6 lg:grid-cols-[1.6fr_1fr]">
           <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-sky-100">Nurse Command Center</div>
+            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-violet-200">
+              Nurse Portal
+            </div>
             <div className="space-y-3">
-              <h2 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-4xl">Coordinate triage, chart vitals, and keep patient care moving without losing context.</h2>
-              <p className="max-w-2xl text-sm text-sky-100/90 md:text-base">The nurse portal is now wired so actions land on the right patient, date filters drive both analytics and exports, and incoming notifications hand off directly into the care workflow.</p>
+              <h2 className="max-w-3xl text-3xl font-bold tracking-tight md:text-4xl">
+                Your shift. Your patients. Your command.
+              </h2>
+              <p className="max-w-2xl text-sm text-violet-200/90 md:text-base">
+                Monitor vitals, document care, and triage patients — all from one place.
+              </p>
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {quickActions.map((action) => {
@@ -438,110 +450,253 @@ export function NurseDashboard() {
                 if (action.href) {
                   return (
                     <Link key={action.label} href={action.href} className="group rounded-2xl border border-white/15 bg-white/10 p-4 transition hover:bg-white/15">
-                      <div className="mb-3 flex items-center justify-between"><Icon className="h-5 w-5 text-sky-100" /><ArrowUpRight className="h-4 w-4 text-sky-50/80 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" /></div>
+                      <div className="mb-3 flex items-center justify-between">
+                        <Icon className="h-5 w-5 text-violet-200" />
+                        <ArrowUpRight className="h-4 w-4 text-violet-200/80 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                      </div>
                       <div className="text-sm font-medium">{action.label}</div>
-                      <p className="mt-1 text-xs text-sky-100/80">{action.description}</p>
+                      <p className="mt-1 text-xs text-violet-200/80">{action.description}</p>
                     </Link>
                   )
                 }
-
                 return (
                   <button key={action.label} type="button" onClick={action.onClick} className="group rounded-2xl border border-white/15 bg-white/10 p-4 text-left transition hover:bg-white/15">
-                    <div className="mb-3 flex items-center justify-between"><Icon className="h-5 w-5 text-sky-100" /><ArrowUpRight className="h-4 w-4 text-sky-50/80 transition group-hover:translate-x-0.5 group-hover:-translate-y-0.5" /></div>
+                    <div className="mb-3 flex items-center justify-between">
+                      <Icon className="h-5 w-5 text-violet-200" />
+                      <ArrowUpRight className="h-4 w-4 text-violet-200/80 transition group-hover:-translate-y-0.5 group-hover:translate-x-0.5" />
+                    </div>
                     <div className="text-sm font-medium">{action.label}</div>
-                    <p className="mt-1 text-xs text-sky-100/80">{action.description}</p>
+                    <p className="mt-1 text-xs text-violet-200/80">{action.description}</p>
                   </button>
                 )
               })}
             </div>
           </div>
 
-          <Card className="border-white/15 bg-white/10 text-white shadow-none backdrop-blur">
-            <CardHeader className="pb-3"><CardTitle className="text-base">Shift snapshot</CardTitle></CardHeader>
-            <CardContent className="space-y-4">
-              <div className="flex items-center justify-between rounded-2xl border border-white/10 bg-black/10 px-4 py-3">
-                <div>
-                  <p className="text-xs uppercase tracking-[0.22em] text-sky-100/75">Range</p>
-                  <p className="mt-1 text-sm font-medium">{currentRangeLabel}</p>
+          {/* Shift Snapshot */}
+          <div className="rounded-2xl border border-white/20 bg-white/12 p-5 backdrop-blur">
+            <p className="text-sm font-semibold text-white/90">Shift Snapshot</p>
+            <div className="mt-3 rounded-full bg-black/20 px-3 py-1 text-xs text-white/80 w-fit">
+              {currentRangeLabel}
+            </div>
+            <div className="mt-4 grid grid-cols-2 gap-3">
+              <div className="rounded-2xl bg-black/15 p-4">
+                <p className="text-xs uppercase tracking-widest text-fuchsia-300/80">Critical Patients</p>
+                <div className="mt-2 flex items-center gap-2">
+                  <p className="text-3xl font-bold">{criticalPatientCount}</p>
+                  {criticalPatientCount > 0 && <span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-400" />}
                 </div>
-                <Badge className="border-white/15 bg-white/10 text-white hover:bg-white/10">{datePreset}</Badge>
               </div>
-              <div className="grid gap-3 sm:grid-cols-2">
-                <div className="rounded-2xl border border-white/10 bg-black/10 p-4"><p className="text-xs uppercase tracking-[0.22em] text-sky-100/75">Critical patients</p><p className="mt-2 text-3xl font-semibold">{criticalPatientCount}</p></div>
-                <div className="rounded-2xl border border-white/10 bg-black/10 p-4"><p className="text-xs uppercase tracking-[0.22em] text-sky-100/75">Awaiting triage</p><p className="mt-2 text-3xl font-semibold">{untriagedCount}</p></div>
+              <div className="rounded-2xl bg-black/15 p-4">
+                <p className="text-xs uppercase tracking-widest text-amber-300/80">Awaiting Triage</p>
+                <p className="mt-2 text-3xl font-bold">{untriagedCount}</p>
               </div>
-              <p className="text-xs text-sky-100/75">Notification clicks now open the correct nurse workflow instead of falling into clinician-only paths.</p>
-            </CardContent>
-          </Card>
+            </div>
+            <div className="mt-4 border-t border-white/10 pt-4">
+              <p className="font-mono text-2xl text-white/90">{clockTime}</p>
+              <p className="mt-1 text-xs text-violet-200/60">
+                Refreshes every 30 seconds. Range selector drives all summaries and exports.
+              </p>
+            </div>
+          </div>
         </div>
       </section>
 
       <div className="grid gap-4 md:grid-cols-4">
-        <Card className="border-sky-200/60 bg-gradient-to-br from-sky-50 via-white to-sky-100/70 shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Total Patients</CardTitle><Users className="h-4 w-4 text-sky-600" /></CardHeader><CardContent><div className="text-3xl font-semibold text-slate-950 dark:text-white">{patients.length}</div><p className="text-xs text-muted-foreground">Under nursing coverage</p></CardContent></Card>
-        <Card className="border-emerald-200/60 bg-gradient-to-br from-emerald-50 via-white to-emerald-100/70 shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Vitals Logged</CardTitle><Activity className="h-4 w-4 text-emerald-600" /></CardHeader><CardContent><div className="text-3xl font-semibold text-slate-950 dark:text-white">{rangeVitalsCount ?? fallbackVitalsCount}</div><p className="text-xs text-muted-foreground">Across {currentRangeLabel}</p></CardContent></Card>
-        <Card className="border-amber-200/60 bg-gradient-to-br from-amber-50 via-white to-amber-100/70 shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Notes Added</CardTitle><FileText className="h-4 w-4 text-amber-600" /></CardHeader><CardContent><div className="text-3xl font-semibold text-slate-950 dark:text-white">{rangeNotesCount ?? fallbackNotesCount}</div><p className="text-xs text-muted-foreground">Across {currentRangeLabel}</p></CardContent></Card>
-        <Card className="border-rose-200/60 bg-gradient-to-br from-rose-50 via-white to-rose-100/70 shadow-sm"><CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2"><CardTitle className="text-sm font-medium">Critical Watch</CardTitle><Clock className="h-4 w-4 text-rose-600" /></CardHeader><CardContent><div className="text-3xl font-semibold text-slate-950 dark:text-white">{criticalPatientCount}</div><p className="text-xs text-muted-foreground">Latest vitals outside safe range</p></CardContent></Card>
+        <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm">
+          <div className="border-t-4 border-violet-500" />
+          <div className="flex items-start justify-between p-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Total Patients</p>
+              <p className="mt-2 text-4xl font-bold text-slate-900">{patients.length}</p>
+              <p className="mt-1 text-xs text-slate-500">Under nursing coverage</p>
+            </div>
+            <div className="rounded-xl bg-violet-100 p-2"><Users className="h-5 w-5 text-violet-600" /></div>
+          </div>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm">
+          <div className="border-t-4 border-cyan-500" />
+          <div className="flex items-start justify-between p-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Vitals Logged</p>
+              <p className="mt-2 text-4xl font-bold text-slate-900">{rangeVitalsCount ?? fallbackVitalsCount}</p>
+              <p className="mt-1 text-xs text-slate-500">Across {currentRangeLabel}</p>
+            </div>
+            <div className="rounded-xl bg-cyan-100 p-2"><Activity className="h-5 w-5 text-cyan-600" /></div>
+          </div>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm">
+          <div className="border-t-4 border-amber-500" />
+          <div className="flex items-start justify-between p-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Notes Added</p>
+              <p className="mt-2 text-4xl font-bold text-slate-900">{rangeNotesCount ?? fallbackNotesCount}</p>
+              <p className="mt-1 text-xs text-slate-500">Across {currentRangeLabel}</p>
+            </div>
+            <div className="rounded-xl bg-amber-100 p-2"><FileText className="h-5 w-5 text-amber-600" /></div>
+          </div>
+        </div>
+        <div className="overflow-hidden rounded-2xl border border-violet-100 bg-white shadow-sm">
+          <div className="border-t-4 border-fuchsia-500" />
+          <div className="flex items-start justify-between p-5">
+            <div>
+              <p className="text-xs font-semibold uppercase tracking-widest text-slate-500">Critical Watch</p>
+              <p className="mt-2 text-4xl font-bold text-slate-900">{criticalPatientCount}</p>
+              <p className="mt-1 text-xs text-slate-500">Latest vitals outside safe range</p>
+            </div>
+            <div className={`rounded-xl bg-fuchsia-100 p-2 ${criticalPatientCount > 0 ? "animate-pulse" : ""}`}>
+              <Clock className="h-5 w-5 text-fuchsia-600" />
+            </div>
+          </div>
+        </div>
       </div>
 
       <div ref={careListRef} className="space-y-3">
-        <div className="flex flex-col gap-2 md:flex-row md:items-center md:justify-between">
-          <div>
-            <h3 className="text-lg font-semibold text-foreground">Patient care</h3>
-            <p className="text-sm text-muted-foreground">Buttons now open the exact tab requested for the selected patient.</p>
-          </div>
-          <Badge variant="outline" className="w-fit">Nurse actions stay in nurse flow</Badge>
+        <div>
+          <h3 className="text-xl font-bold tracking-tight text-slate-900">Patient Care</h3>
         </div>
         <PatientCareList onSelectPatient={(id, tab) => openPatientCare(id, (tab as CareTab) || "vitals")} />
       </div>
 
-      <Card className="overflow-hidden border-teal-200/70 bg-[linear-gradient(180deg,_rgba(240,253,250,0.95),_rgba(255,255,255,1))] shadow-sm dark:bg-[linear-gradient(180deg,_rgba(6,78,59,0.22),_rgba(15,23,42,0.85))]">
-        <CardHeader className="border-b border-teal-100/80"><CardTitle className="text-base">Export vitals and notes</CardTitle></CardHeader>
-        <CardContent className="space-y-4 pt-6">
-          <div className="grid items-end gap-3 md:grid-cols-12">
-            <div className="space-y-1 md:col-span-2"><label htmlFor="nurse-export-quick-range" className="text-xs font-medium">Quick Range</label><Select value={datePreset} onValueChange={(value: DatePreset) => setDatePreset(value)}><SelectTrigger id="nurse-export-quick-range" aria-label="Quick range"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="today">Today</SelectItem><SelectItem value="last7">Last 7 Days</SelectItem><SelectItem value="month">This Month</SelectItem><SelectItem value="custom">Custom</SelectItem></SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-2"><label htmlFor="nurse-export-from" className="text-xs font-medium">From</label><Input id="nurse-export-from" name="nurseExportFrom" type="date" value={dateFrom} onChange={(e) => { setDateFrom(e.target.value); setDatePreset("custom") }} disabled={datePreset !== "custom"} /></div>
-            <div className="space-y-1 md:col-span-2"><label htmlFor="nurse-export-to" className="text-xs font-medium">To</label><Input id="nurse-export-to" name="nurseExportTo" type="date" value={dateTo} onChange={(e) => { setDateTo(e.target.value); setDatePreset("custom") }} disabled={datePreset !== "custom"} /></div>
-            <div className="space-y-1 md:col-span-2"><label htmlFor="nurse-export-format" className="text-xs font-medium">Format</label><Select value={exportFormat} onValueChange={(value: "csv" | "xlsx" | "pdf") => setExportFormat(value)}><SelectTrigger id="nurse-export-format" aria-label="Export format"><SelectValue /></SelectTrigger><SelectContent><SelectItem value="csv">CSV</SelectItem><SelectItem value="xlsx">XLSX</SelectItem><SelectItem value="pdf">PDF</SelectItem></SelectContent></Select></div>
-            <div className="space-y-1 md:col-span-4"><p className="text-xs text-muted-foreground">The same range now drives the summary cards, latest vitals table, and exported files.</p><div className="flex flex-wrap justify-end gap-2"><Button variant="outline" size="sm" onClick={() => void runExport("vitals")} disabled={exporting !== null}>{exporting === "vitals" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}Export Vitals</Button><Button variant="outline" size="sm" onClick={() => void runExport("notes")} disabled={exporting !== null}>{exporting === "notes" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}Export Notes</Button></div></div>
-          </div>
-        </CardContent>
-      </Card>
-
       <div ref={latestRef}>
-      <Card className="overflow-hidden border-border/60 shadow-sm">
-        <CardHeader className="border-b border-border/60 bg-muted/20">
+      <Card className="overflow-hidden rounded-2xl border-l-4 border-cyan-500 shadow-sm">
+        <CardHeader className="border-b border-cyan-100 bg-cyan-50/50">
           <div className="flex flex-col gap-3 lg:flex-row lg:items-center lg:justify-between">
-            <div><CardTitle>Latest Vitals</CardTitle><p className="text-sm text-muted-foreground">Filtered by {currentRangeLabel}</p></div>
-            <div className="flex flex-wrap gap-2">
-              <div className="w-full sm:w-48"><Input id="nurse-search" name="nurseSearch" value={q} onChange={(e) => setQ(e.target.value)} placeholder="Search by name or P.ID" /></div>
-              <Select value={filterTriage || "__all_triage__"} onValueChange={(value) => setFilterTriage(value === "__all_triage__" ? "" : value)}><SelectTrigger className="w-40"><SelectValue placeholder="Triage" /></SelectTrigger><SelectContent><SelectItem value="__all_triage__">All Triage</SelectItem><SelectItem value="Emergency">Emergency</SelectItem><SelectItem value="Very Urgent">Very Urgent</SelectItem><SelectItem value="Urgent">Urgent</SelectItem><SelectItem value="Routine">Routine</SelectItem></SelectContent></Select>
-              <Button variant={filterCritical ? "default" : "outline"} size="sm" onClick={() => setFilterCritical((value) => !value)}><AlertCircle className={`mr-2 h-4 w-4 ${filterCritical ? "text-white" : ""}`} />Critical Only</Button>
+            <div className="flex items-center gap-3">
+              <CardTitle className="text-base font-semibold">Latest Vitals</CardTitle>
+              {sortedVitals.length > 0 && (
+                <span className="rounded-full bg-cyan-100 px-2 py-0.5 text-xs text-cyan-700">
+                  {sortedVitals.length} records
+                </span>
+              )}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <div className="w-full sm:w-48">
+                <Input
+                  id="nurse-search"
+                  name="nurseSearch"
+                  value={q}
+                  onChange={(e) => setQ(e.target.value)}
+                  placeholder="Search by name or P.ID"
+                  className="focus-visible:ring-cyan-400"
+                />
+              </div>
+              <Select value={filterTriage || "__all_triage__"} onValueChange={(value) => setFilterTriage(value === "__all_triage__" ? "" : value)}>
+                <SelectTrigger className="w-40">
+                  <SelectValue placeholder="Triage" />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all_triage__">All Triage</SelectItem>
+                  <SelectItem value="Emergency"><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-red-500" />Emergency</SelectItem>
+                  <SelectItem value="Very Urgent"><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-orange-500" />Very Urgent</SelectItem>
+                  <SelectItem value="Urgent"><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-amber-500" />Urgent</SelectItem>
+                  <SelectItem value="Routine"><span className="mr-1.5 inline-block h-2 w-2 rounded-full bg-emerald-500" />Routine</SelectItem>
+                </SelectContent>
+              </Select>
+              <Button
+                variant={filterCritical ? "default" : "outline"}
+                size="sm"
+                onClick={() => setFilterCritical((v) => !v)}
+                className={filterCritical ? "bg-fuchsia-600 hover:bg-fuchsia-700 text-white border-fuchsia-600" : "border-fuchsia-300 text-fuchsia-600 hover:bg-fuchsia-50"}
+              >
+                <AlertCircle className="mr-2 h-4 w-4" />Critical Only
+              </Button>
+              <Button
+                variant="ghost"
+                size="icon"
+                onClick={() => setShowExport((v) => !v)}
+                title="Toggle export panel"
+                aria-label="Toggle export panel"
+              >
+                <Download className="h-4 w-4 text-slate-500" />
+              </Button>
             </div>
           </div>
         </CardHeader>
         <CardContent className="pt-0">
+          {/* Collapsible export panel */}
+          {showExport && (
+            <div className="border-b border-cyan-100 bg-cyan-50/30 px-4 py-4">
+              <div className="grid items-end gap-3 md:grid-cols-12">
+                <div className="space-y-1 md:col-span-2">
+                  <label htmlFor="nurse-export-quick-range" className="text-xs font-medium">Quick Range</label>
+                  <Select value={datePreset} onValueChange={(value: DatePreset) => setDatePreset(value)}>
+                    <SelectTrigger id="nurse-export-quick-range" aria-label="Quick range"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="today">Today</SelectItem>
+                      <SelectItem value="last7">Last 7 Days</SelectItem>
+                      <SelectItem value="month">This Month</SelectItem>
+                      <SelectItem value="custom">Custom</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label htmlFor="nurse-export-from" className="text-xs font-medium">From</label>
+                  <Input id="nurse-export-from" name="nurseExportFrom" type="date" value={dateFrom}
+                    onChange={(e) => { setDateFrom(e.target.value); setDatePreset("custom") }}
+                    disabled={datePreset !== "custom"} />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label htmlFor="nurse-export-to" className="text-xs font-medium">To</label>
+                  <Input id="nurse-export-to" name="nurseExportTo" type="date" value={dateTo}
+                    onChange={(e) => { setDateTo(e.target.value); setDatePreset("custom") }}
+                    disabled={datePreset !== "custom"} />
+                </div>
+                <div className="space-y-1 md:col-span-2">
+                  <label htmlFor="nurse-export-format" className="text-xs font-medium">Format</label>
+                  <Select value={exportFormat} onValueChange={(value: "csv" | "xlsx" | "pdf") => setExportFormat(value)}>
+                    <SelectTrigger id="nurse-export-format" aria-label="Export format"><SelectValue /></SelectTrigger>
+                    <SelectContent>
+                      <SelectItem value="csv">CSV</SelectItem>
+                      <SelectItem value="xlsx">XLSX</SelectItem>
+                      <SelectItem value="pdf">PDF</SelectItem>
+                    </SelectContent>
+                  </Select>
+                </div>
+                <div className="flex flex-wrap gap-2 md:col-span-4">
+                  <Button size="sm" onClick={() => void runExport("vitals")} disabled={exporting !== null}
+                    className="bg-cyan-600 hover:bg-cyan-700 text-white">
+                    {exporting === "vitals" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Download className="mr-2 h-4 w-4" />}
+                    Export Vitals
+                  </Button>
+                  <Button size="sm" onClick={() => void runExport("notes")} disabled={exporting !== null}
+                    className="bg-amber-600 hover:bg-amber-700 text-white">
+                    {exporting === "notes" ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <FileText className="mr-2 h-4 w-4" />}
+                    Export Notes
+                  </Button>
+                </div>
+              </div>
+            </div>
+          )}
+
           <div className="overflow-x-auto">
             <Table>
               <TableHeader>
                 <TableRow>
-                  <TableHead className="cursor-pointer select-none" onClick={() => setSort("pid")}><div className="flex items-center gap-1">P.ID{sortBy === "pid" ? sortOrder === "asc" ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" /> : null}</div></TableHead>
-                  <TableHead className="cursor-pointer select-none" onClick={() => setSort("patient")}><div className="flex items-center gap-1">Patient{sortBy === "patient" ? sortOrder === "asc" ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" /> : null}</div></TableHead>
-                  <TableHead className="cursor-pointer select-none" onClick={() => setSort("time")}><div className="flex items-center gap-1">Time{sortBy === "time" ? sortOrder === "asc" ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" /> : null}</div></TableHead>
-                  <TableHead className="cursor-pointer select-none" onClick={() => setSort("temp")}><div className="flex items-center gap-1">Temp{sortBy === "temp" ? sortOrder === "asc" ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" /> : null}</div></TableHead>
-                  <TableHead className="cursor-pointer select-none" onClick={() => setSort("hr")}><div className="flex items-center gap-1">HR{sortBy === "hr" ? sortOrder === "asc" ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" /> : null}</div></TableHead>
-                  <TableHead className="cursor-pointer select-none" onClick={() => setSort("rr")}><div className="flex items-center gap-1">RR{sortBy === "rr" ? sortOrder === "asc" ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" /> : null}</div></TableHead>
-                  <TableHead className="cursor-pointer select-none" onClick={() => setSort("spo2")}><div className="flex items-center gap-1">SpO2{sortBy === "spo2" ? sortOrder === "asc" ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" /> : null}</div></TableHead>
-                  <TableHead className="cursor-pointer select-none" onClick={() => setSort("bp")}><div className="flex items-center gap-1">BP{sortBy === "bp" ? sortOrder === "asc" ? <SortAsc className="h-3 w-3" /> : <SortDesc className="h-3 w-3" /> : null}</div></TableHead>
-                  <TableHead>Nurse</TableHead>
-                  <TableHead>Triage</TableHead>
-                  <TableHead>Actions</TableHead>
+                  {(["pid","patient","time","temp","hr","rr","spo2","bp"] as SortColumn[]).map((col) => (
+                    <TableHead key={col} className="cursor-pointer select-none text-xs font-semibold uppercase tracking-widest text-slate-400" onClick={() => setSort(col)}>
+                      <div className="flex items-center gap-1">
+                        {col.toUpperCase()}
+                        {sortBy === col ? (sortOrder === "asc" ? <SortAsc className="h-3 w-3 text-violet-500" /> : <SortDesc className="h-3 w-3 text-violet-500" />) : null}
+                      </div>
+                    </TableHead>
+                  ))}
+                  <TableHead className="text-xs font-semibold uppercase tracking-widest text-slate-400">Nurse</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-widest text-slate-400">Triage</TableHead>
+                  <TableHead className="text-xs font-semibold uppercase tracking-widest text-slate-400">Actions</TableHead>
                 </TableRow>
               </TableHeader>
               <TableBody>
                 {latestLoading ? (
-                  <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground"><span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin" />Loading latest vitals...</span></TableCell></TableRow>
+                  <TableRow><TableCell colSpan={11} className="text-center text-sm text-slate-500">
+                    <span className="inline-flex items-center gap-2"><Loader2 className="h-4 w-4 animate-spin text-cyan-500" />Loading latest vitals...</span>
+                  </TableCell></TableRow>
                 ) : sortedVitals.length === 0 ? (
-                  <TableRow><TableCell colSpan={11} className="text-center text-sm text-muted-foreground">{q.trim() ? <span>No results for &quot;{q.trim()}&quot;. <button className="underline" onClick={() => setQ("")}>Clear search</button></span> : filterCritical || filterTriage ? <span>No vitals match the active filters.</span> : <span>No vitals recorded for this range.</span>}</TableCell></TableRow>
+                  <TableRow><TableCell colSpan={11} className="text-center text-sm text-slate-500">
+                    {q.trim() ? <span>No results for &quot;{q.trim()}&quot;. <button className="text-violet-600 underline" onClick={() => setQ("")}>Clear</button></span>
+                      : filterCritical || filterTriage ? <span>No vitals match the active filters.</span>
+                      : <span>No vitals recorded for this range.</span>}
+                  </TableCell></TableRow>
                 ) : (
                   sortedVitals.map((row) => {
                     const recordedAt = new Date(row.recorded_at || row.created_at || Date.now())
@@ -552,31 +707,63 @@ export function NurseDashboard() {
                     const hr = row.heart_rate != null ? `${row.heart_rate} bpm` : ""
                     const rr = row.respiratory_rate != null ? `${row.respiratory_rate}/min` : ""
                     const spo2 = row.oxygen_saturation != null ? `${row.oxygen_saturation}%` : ""
-                    const bp = row.blood_pressure_systolic != null && row.blood_pressure_diastolic != null ? `${row.blood_pressure_systolic}/${row.blood_pressure_diastolic}` : ""
+                    const bp = row.blood_pressure_systolic != null && row.blood_pressure_diastolic != null
+                      ? `${row.blood_pressure_systolic}/${row.blood_pressure_diastolic}` : ""
                     const triage = String(row.triage_category || "").trim()
-                    const triageVariant = triage === "Emergency" || triage === "Very Urgent" ? "destructive" : triage === "Urgent" ? "default" : "secondary"
-                    const onOpenVitals = (event?: React.MouseEvent | React.KeyboardEvent) => { event?.stopPropagation(); openPatientCare(row.patient_id, "vitals") }
-                    const onOpenNotes = (event?: React.MouseEvent | React.KeyboardEvent) => { event?.stopPropagation(); openPatientCare(row.patient_id, "notes") }
-                    const onOpenTriage = (event?: React.MouseEvent | React.KeyboardEvent) => { event?.stopPropagation(); openPatientCare(row.patient_id, "triage") }
-                    const onKeyDown = (event: React.KeyboardEvent) => {
-                      if (event.key === "Enter") return onOpenVitals(event)
-                      if (event.key.toLowerCase() === "v") return onOpenVitals(event)
-                      if (event.key.toLowerCase() === "n") return onOpenNotes(event)
-                      if (event.key.toLowerCase() === "t") return onOpenTriage(event)
+                    const critical = isCriticalRow(row)
+
+                    const triageBadgeCls =
+                      triage === "Emergency" ? "bg-red-100 text-red-700 border border-red-200"
+                      : triage === "Very Urgent" ? "bg-orange-100 text-orange-700 border border-orange-200"
+                      : triage === "Urgent" ? "bg-amber-100 text-amber-700 border border-amber-200"
+                      : triage === "Routine" ? "bg-emerald-100 text-emerald-700 border border-emerald-200"
+                      : ""
+
+                    const onOpenVitals = (e?: React.MouseEvent | React.KeyboardEvent) => { e?.stopPropagation(); openPatientCare(row.patient_id, "vitals") }
+                    const onOpenNotes = (e?: React.MouseEvent | React.KeyboardEvent) => { e?.stopPropagation(); openPatientCare(row.patient_id, "notes") }
+                    const onOpenTriage = (e?: React.MouseEvent | React.KeyboardEvent) => { e?.stopPropagation(); openPatientCare(row.patient_id, "triage") }
+                    const onKeyDown = (e: React.KeyboardEvent) => {
+                      if (e.key === "Enter") return onOpenVitals(e)
+                      if (e.key.toLowerCase() === "v") return onOpenVitals(e)
+                      if (e.key.toLowerCase() === "n") return onOpenNotes(e)
+                      if (e.key.toLowerCase() === "t") return onOpenTriage(e)
                     }
+
                     return (
-                      <TableRow key={row.id} className="cursor-pointer hover:bg-muted/40" onClick={() => openPatientCare(row.patient_id, "vitals")} tabIndex={0} onKeyDown={onKeyDown} aria-label={`Open patient ${[row.first_name, row.last_name].filter(Boolean).join(" ")}`}>
-                        <TableCell className="font-mono">{pid}</TableCell>
-                        <TableCell>{[row.first_name, row.last_name].filter(Boolean).join(" ")}</TableCell>
-                        <TableCell>{recordedAt.toTimeString().slice(0, 5)} <span className="text-xs text-muted-foreground">- {relativeTime}</span></TableCell>
-                        <TableCell>{temp}</TableCell>
-                        <TableCell>{hr}</TableCell>
-                        <TableCell>{rr}</TableCell>
-                        <TableCell>{spo2}</TableCell>
-                        <TableCell>{bp}</TableCell>
-                        <TableCell>{row.nurse_name || <span className="text-xs text-muted-foreground">-</span>}</TableCell>
-                        <TableCell>{triage ? <Badge variant={triageVariant as any}>{triage}</Badge> : <span className="text-xs text-muted-foreground">Not triaged</span>}</TableCell>
-                        <TableCell><div className="flex flex-wrap gap-3"><button type="button" className="text-sky-700 hover:underline" onClick={onOpenVitals} title="Record Vitals (V or Enter)">Record Vitals</button><button type="button" className="text-emerald-700 hover:underline" onClick={onOpenNotes} title="Add Nursing Note (N)">Add Note</button><button type="button" className="text-violet-700 hover:underline" onClick={onOpenTriage} title="Open Triage (T)">Triage</button></div></TableCell>
+                      <TableRow
+                        key={row.id}
+                        className={`cursor-pointer ${critical ? "bg-fuchsia-50 border-l-[3px] border-fuchsia-500" : "hover:bg-violet-50"}`}
+                        onClick={() => openPatientCare(row.patient_id, "vitals")}
+                        tabIndex={0}
+                        onKeyDown={onKeyDown}
+                        aria-label={`Open patient ${[row.first_name, row.last_name].filter(Boolean).join(" ")}`}
+                      >
+                        <TableCell className="font-mono text-sm">{pid}</TableCell>
+                        <TableCell>
+                          <div className="flex items-center gap-1.5">
+                            {critical && <span className="h-2 w-2 animate-pulse rounded-full bg-fuchsia-500" aria-label="Critical vitals detected" />}
+                            <span>{[row.first_name, row.last_name].filter(Boolean).join(" ")}</span>
+                          </div>
+                        </TableCell>
+                        <TableCell className="text-sm">{recordedAt.toTimeString().slice(0, 5)} <span className="text-xs text-slate-400">— {relativeTime}</span></TableCell>
+                        <TableCell className="font-mono text-sm">{temp}</TableCell>
+                        <TableCell className="font-mono text-sm">{hr}</TableCell>
+                        <TableCell className="font-mono text-sm">{rr}</TableCell>
+                        <TableCell className="font-mono text-sm">{spo2}</TableCell>
+                        <TableCell className="font-mono text-sm">{bp}</TableCell>
+                        <TableCell className="text-sm">{row.nurse_name || <span className="text-xs text-slate-400">—</span>}</TableCell>
+                        <TableCell>
+                          {triage
+                            ? <span className={`rounded-full px-2 py-0.5 text-xs font-medium ${triageBadgeCls}`}>{triage}</span>
+                            : <span className="text-xs text-slate-400">Not triaged</span>}
+                        </TableCell>
+                        <TableCell>
+                          <div className="flex flex-wrap gap-3">
+                            <button type="button" className="text-sm font-medium text-violet-700 hover:underline" onClick={onOpenVitals} title="Record Vitals (V)">Vitals</button>
+                            <button type="button" className="text-sm font-medium text-cyan-700 hover:underline" onClick={onOpenNotes} title="Add Note (N)">Note</button>
+                            <button type="button" className="text-sm font-medium text-orange-700 hover:underline" onClick={onOpenTriage} title="Triage (T)">Triage</button>
+                          </div>
+                        </TableCell>
                       </TableRow>
                     )
                   })
@@ -588,15 +775,23 @@ export function NurseDashboard() {
       </Card>
       </div>
 
-      <Dialog open={!!selected} onOpenChange={handleDialogChange}>
-        <DialogContent size="xl" className="max-h-[85vh] overflow-y-auto">
-          <DialogHeader>
-            <DialogTitle>{selected ? (() => { const patient = patients.find((item) => item.id === selected.id); if (!patient) return "Patient Care"; const pid = formatPatientNumber(patient.patientNumber); return `Patient Care - ${patient.firstName} ${patient.lastName} (${pid})` })() : "Patient Care"}</DialogTitle>
-            <DialogDescription>Record vitals, add nursing notes, complete triage, and review patient care history.</DialogDescription>
-          </DialogHeader>
-          {selected && <PatientCareView key={`${selected.id}:${selected.tab || "vitals"}`} patientId={selected.id} initialTab={selected.tab || "vitals"} onBack={() => handleDialogChange(false)} onUpdated={({ patientId }) => { void refreshDashboard(patientId) }} />}
-        </DialogContent>
-      </Dialog>
+      <Sheet open={!!selected} onOpenChange={handleDialogChange}>
+        <SheetContent side="right" className="w-full sm:w-[80vw] sm:max-w-none overflow-y-auto p-0">
+          <SheetHeader className="sr-only">
+            <SheetTitle>Patient Care</SheetTitle>
+            <SheetDescription>Record vitals, add nursing notes, complete triage, and review patient care history.</SheetDescription>
+          </SheetHeader>
+          {selected && (
+            <PatientCareView
+              key={`${selected.id}:${selected.tab || "vitals"}`}
+              patientId={selected.id}
+              initialTab={selected.tab || "vitals"}
+              onBack={() => handleDialogChange(false)}
+              onUpdated={({ patientId }) => { void refreshDashboard(patientId) }}
+            />
+          )}
+        </SheetContent>
+      </Sheet>
     </div>
   )
 }
