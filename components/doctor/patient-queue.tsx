@@ -1,107 +1,111 @@
 "use client"
-
 import { useState } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { formatPatientNumber } from "@/lib/patients"
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
+import { Card, CardContent, CardHeader } from "@/components/ui/card"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
-import { Badge } from "@/components/ui/badge"
-import { Search, Stethoscope } from "lucide-react"
+import { Table, TableHeader, TableBody, TableRow, TableHead, TableCell } from "@/components/ui/table"
+import { Search, Stethoscope, Users } from "lucide-react"
 
 interface PatientQueueProps {
   onSelectPatient: (patientId: string) => void
-  /** When set, only patients whose id is in this array are shown (e.g. today's dental appointments). */
   filterPatientIds?: string[] | null
-  /** Message when queue is filtered and no patients match. */
   filterEmptyMessage?: string
 }
 
 export function PatientQueue({ onSelectPatient, filterPatientIds, filterEmptyMessage }: PatientQueueProps) {
   const { patients, searchPatients } = usePatients()
-  const [searchQuery, setSearchQuery] = useState("")
+  const [search, setSearch] = useState("")
 
-  const baseList = searchQuery ? searchPatients(searchQuery) : patients
+  const baseList = search ? searchPatients(search) : patients
   const displayedPatients =
     filterPatientIds != null
       ? baseList.filter((p) => filterPatientIds.includes(p.id))
       : baseList
 
   return (
-    <Card className="border-0 shadow-md bg-gradient-to-br from-slate-50 via-white to-sky-50">
-      <CardHeader>
-        <CardTitle className="text-foreground">Patient Queue</CardTitle>
-        <CardDescription className="text-sky-700">Select a patient to begin consultation</CardDescription>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <Card className="rounded-2xl border-l-4 border-teal-600 bg-white shadow-sm">
+      <CardHeader className="pb-3">
         <div className="relative">
-          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
+          <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
           <Input
-            placeholder="Search patients by name, ID, or phone..."
-            value={searchQuery}
-            onChange={(e) => setSearchQuery(e.target.value)}
-            className="pl-9 bg-white/80"
+            placeholder="Search patients by name, ID, or phone…"
+            value={search}
+            onChange={(e) => setSearch(e.target.value)}
+            className="pl-9 focus-visible:ring-teal-400"
           />
         </div>
-
+      </CardHeader>
+      <CardContent className="p-0">
         {displayedPatients.length === 0 ? (
-          <div className="rounded-md border border-dashed py-10 text-center text-muted-foreground">
-            {filterPatientIds != null ? (filterEmptyMessage ?? "No patients in today's dental queue") : "No patients match your search"}
+          <div className="flex flex-col items-center gap-3 py-16 text-center">
+            <Users className="h-10 w-10 text-teal-300" />
+            <p className="text-sm text-slate-500">
+              {filterPatientIds != null
+                ? (filterEmptyMessage ?? "No patients in today's queue.")
+                : search
+                ? "No patients match your search."
+                : "No patients in queue."}
+            </p>
           </div>
         ) : (
-          <div className="overflow-x-auto rounded-md border border-sky-100 bg-white/70 shadow-sm">
-            <table className="w-full text-sm">
-              <thead>
-                <tr className="border-b bg-sky-50 text-left text-xs font-medium uppercase tracking-wide text-sky-800">
-                  <th className="py-3 px-3">P.ID</th>
-                  <th className="py-3 px-3">Name</th>
-                  <th className="py-3 px-3">Age</th>
-                  <th className="py-3 px-3">Sex</th>
-                  <th className="py-3 px-3">Blood</th>
-                  <th className="py-3 px-3">Phone</th>
-                  <th className="py-3 px-3 text-right">Action</th>
-                </tr>
-              </thead>
-              <tbody>
-                {displayedPatients.map((patient) => {
-                  const pid = formatPatientNumber(patient.patientNumber)
-                  const derivedAge =
-                    patient.dateOfBirth && !Number.isNaN(new Date(patient.dateOfBirth).getTime())
-                      ? Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear())
-                      : null
-                  const age = patient.ageYears ?? derivedAge ?? "-"
-                  return (
-                    <tr
-                      key={patient.id}
-                      className="border-b last:border-0 hover:bg-sky-50/60"
-                    >
-                      <td className="py-3 px-3 font-mono text-foreground">{pid ? `P.${pid}` : "—"}</td>
-                      <td className="py-3 px-3">
-                        <div className="font-medium text-foreground">
-                          {patient.firstName} {patient.lastName}
-                        </div>
-                        {patient.allergies && patient.allergies.trim().toLowerCase() !== "none" && (
-                          <Badge variant="destructive" className="mt-1">
-                            Allergies
-                          </Badge>
-                        )}
-                      </td>
-                      <td className="py-3 px-3">{age}</td>
-                      <td className="py-3 px-3 capitalize">{patient.gender || "—"}</td>
-                      <td className="py-3 px-3">{patient.bloodGroup || "—"}</td>
-                      <td className="py-3 px-3">{patient.phone || "—"}</td>
-                      <td className="py-3 px-3 text-right">
-                        <Button size="sm" onClick={() => onSelectPatient(patient.id)}>
-                          <Stethoscope className="mr-2 h-4 w-4" />
-                          Consult
-                        </Button>
-                      </td>
-                    </tr>
-                  )
-                })}
-              </tbody>
-            </table>
-          </div>
+          <Table>
+            <TableHeader>
+              <TableRow>
+                {["P.ID", "Name", "Age", "Sex", "Blood", "Phone", "Action"].map((h) => (
+                  <TableHead
+                    key={h}
+                    className={`text-xs font-semibold uppercase tracking-widest text-teal-400 ${h === "Action" ? "text-right" : ""}`}
+                  >
+                    {h}
+                  </TableHead>
+                ))}
+              </TableRow>
+            </TableHeader>
+            <TableBody>
+              {displayedPatients.map((patient) => {
+                const pid = formatPatientNumber(patient.patientNumber)
+                const derivedAge =
+                  patient.dateOfBirth && !Number.isNaN(new Date(patient.dateOfBirth).getTime())
+                    ? Math.max(0, new Date().getFullYear() - new Date(patient.dateOfBirth).getFullYear())
+                    : null
+                const age = patient.ageYears ?? derivedAge ?? "—"
+                const allergyStr = patient.allergies?.trim()
+                const hasAllergy = !!allergyStr && allergyStr.toLowerCase() !== "none"
+
+                return (
+                  <TableRow key={patient.id} className="hover:bg-teal-50/40">
+                    <TableCell className="font-mono text-sm text-teal-600">{pid || "—"}</TableCell>
+                    <TableCell>
+                      <div className="font-medium text-slate-900">
+                        {patient.firstName} {patient.lastName}
+                      </div>
+                      {hasAllergy && (
+                        <span className="mt-0.5 inline-block rounded-full border border-rose-200 bg-rose-50 px-2 py-0.5 text-xs text-rose-700">
+                          Allergies
+                        </span>
+                      )}
+                    </TableCell>
+                    <TableCell className="text-slate-600">{age}</TableCell>
+                    <TableCell className="capitalize text-slate-600">{patient.gender || "—"}</TableCell>
+                    <TableCell className="text-slate-600">{patient.bloodGroup || "—"}</TableCell>
+                    <TableCell className="text-slate-600">{patient.phone || "—"}</TableCell>
+                    <TableCell className="text-right">
+                      <Button
+                        size="sm"
+                        className="bg-teal-700 text-white hover:bg-teal-800"
+                        onClick={() => onSelectPatient(patient.id)}
+                      >
+                        <Stethoscope className="mr-1.5 h-4 w-4" />
+                        Consult
+                      </Button>
+                    </TableCell>
+                  </TableRow>
+                )
+              })}
+            </TableBody>
+          </Table>
         )}
       </CardContent>
     </Card>
