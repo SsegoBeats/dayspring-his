@@ -13,8 +13,12 @@ import { PrescriptionTab } from "./consultation-tabs/prescription-tab"
 import { LabsTab } from "./consultation-tabs/labs-tab"
 import { HistoryTab } from "./consultation-tabs/history-tab"
 import { DentalTab } from "./consultation-tabs/dental-tab"
+import { AllergiesTab } from "./consultation-tabs/allergies-tab"
+import { ChronicConditionsTab } from "./consultation-tabs/chronic-conditions-tab"
+import { ImmunizationsTab } from "./consultation-tabs/immunizations-tab"
+import { DocumentsTab } from "./consultation-tabs/documents-tab"
 
-export type ConsultTab = "consultation" | "prescription" | "labs" | "history" | "dental"
+export type ConsultTab = "consultation" | "prescription" | "labs" | "history" | "dental" | "allergies" | "conditions" | "immunizations" | "documents"
 
 interface PatientConsultationProps {
   patientId: string
@@ -84,6 +88,10 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
     { id: "labs", label: "Labs" },
     { id: "history", label: "History" },
     ...(user.role === "Dentist" ? [{ id: "dental" as ConsultTab, label: "Dental" }] : []),
+    { id: "allergies" as ConsultTab, label: "Allergies" },
+    { id: "conditions" as ConsultTab, label: "Conditions" },
+    { id: "immunizations" as ConsultTab, label: "Immunizations" },
+    { id: "documents" as ConsultTab, label: "Documents" },
   ]
 
   return (
@@ -157,6 +165,10 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
         {activeTab === "dental" && user.role === "Dentist" && (
           <DentalTab patient={patient} user={user} onRecordsChange={setDentalHistory} />
         )}
+        {activeTab === "allergies" && <AllergiesTab patient={patient} user={user} />}
+        {activeTab === "conditions" && <ChronicConditionsTab patient={patient} user={user} />}
+        {activeTab === "immunizations" && <ImmunizationsTab patient={patient} user={user} />}
+        {activeTab === "documents" && <DocumentsTab patient={patient} user={user} />}
       </div>
 
       {/* Print section — preserved from original */}

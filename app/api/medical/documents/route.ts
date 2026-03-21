@@ -48,7 +48,7 @@ export async function POST(req: Request) {
   try {
     const auth = await getAuth()
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "medical", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!can(auth.role, "medical", "create")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     await ensureMedicalTables()
 

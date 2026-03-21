@@ -88,6 +88,8 @@ import { ReceptionDashboardDataset } from "@/lib/exports/datasets/reception-dash
 import { ReceptionDailyDataset } from "@/lib/exports/datasets/reception-daily"
 import { ObstetricsDataset } from "@/lib/exports/datasets/obstetrics"
 import { DentalDataset } from "@/lib/exports/datasets/dental"
+import { MedicalRecordsDataset } from "@/lib/exports/datasets/medical-records"
+import { PrescriptionsDataset } from "@/lib/exports/datasets/prescriptions"
 import { RadiologyLabTestsDataset } from "@/lib/exports/datasets/radiology-lab-tests"
 import { UsersDataset } from "@/lib/exports/datasets/users"
 
@@ -109,6 +111,8 @@ export const Datasets: Record<string, Dataset> = {
   reception_daily: new ReceptionDailyDataset(),
   obstetrics: new ObstetricsDataset(),
   dental: new DentalDataset(),
+  medical_records: new MedicalRecordsDataset(),
+  prescriptions: new PrescriptionsDataset(),
 }
 
 

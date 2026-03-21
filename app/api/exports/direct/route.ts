@@ -33,6 +33,8 @@ const Schema = z.object({
     "reception_daily",
     "obstetrics",
     "dental",
+    "medical_records",
+    "prescriptions",
   ]),
   format: z.enum(["csv", "xlsx", "pdf", "ndjson"]).default("csv"),
   filters: z.record(z.any()),
