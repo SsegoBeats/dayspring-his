@@ -51,20 +51,6 @@ export function ConsultationTab({ patient, user, onSaved }: ConsultationTabProps
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [field]: e.target.value }))
 
-  const getVitalNumbers = () => {
-    const parts = form.bloodPressure.split("/")
-    const sys = numFloat(parts[0] ?? "")
-    const dia = numFloat(parts[1] ?? "")
-    return {
-      systolicBP: sys ?? null,
-      diastolicBP: dia ?? null,
-      temperature: numFloat(form.temperature),
-      heartRate: numInt(form.heartRate),
-      respiratoryRate: numInt(form.respiratoryRate),
-      oxygenSaturation: numInt(form.oxygenSaturation),
-    }
-  }
-
   const doSave = useCallback(() => {
     if (!form.diagnosis.trim() && !form.symptoms.trim()) {
       toast.error("Enter at least symptoms or diagnosis before saving.")
@@ -95,8 +81,17 @@ export function ConsultationTab({ patient, user, onSaved }: ConsultationTabProps
   }, [form, patient, user, addMedicalRecord, onSaved])
 
   const handleSubmit = useCallback(() => {
+    const parts = form.bloodPressure.split("/")
+    const vitalNumbers = {
+      systolicBP: numFloat(parts[0] ?? "") ?? null,
+      diastolicBP: numFloat(parts[1] ?? "") ?? null,
+      temperature: numFloat(form.temperature),
+      heartRate: numInt(form.heartRate),
+      respiratoryRate: numInt(form.respiratoryRate),
+      oxygenSaturation: numInt(form.oxygenSaturation),
+    }
     const ageYears = patient.ageYears ?? null
-    const alerts = validateVitalSigns(getVitalNumbers(), ageYears)
+    const alerts = validateVitalSigns(vitalNumbers, ageYears)
     const criticals = alerts.filter((a) => a.type === "critical")
     if (criticals.length > 0) {
       setCriticalAlerts(criticals)
