@@ -46,6 +46,18 @@ const EMPTY_OB_FORM: ObstetricFormState = {
   edd: "", fundalHeightCm: "", fetalHeartRate: "", presentation: "", notes: "",
 }
 
+// Fix 2: moved to module scope — static array, no deps on props/state
+const obFields: Array<{ key: keyof ObstetricFormState; label: string; type?: string; placeholder?: string }> = [
+  { key: "visitDate", label: "Visit Date", type: "date" },
+  { key: "gravida", label: "Gravida", placeholder: "e.g. 2" },
+  { key: "parity", label: "Parity", placeholder: "e.g. 1" },
+  { key: "gestationalAgeWeeks", label: "Gestational Age (weeks)", placeholder: "e.g. 28" },
+  { key: "edd", label: "EDD", type: "date" },
+  { key: "fundalHeightCm", label: "Fundal Height (cm)", placeholder: "e.g. 28" },
+  { key: "fetalHeartRate", label: "Fetal Heart Rate (bpm)", placeholder: "e.g. 140" },
+  { key: "presentation", label: "Presentation", placeholder: "Cephalic, Breech…" },
+]
+
 function validateObstetricForm(form: ObstetricFormState): string | null {
   const ga = form.gestationalAgeWeeks ? Number(form.gestationalAgeWeeks) : null
   if (ga != null && (ga < 0 || ga > 44)) return "Gestational age should be between 0 and 44 weeks"
@@ -69,6 +81,20 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
   const [editingId, setEditingId] = useState<string | null>(null)
   const [editForm, setEditForm] = useState<ObstetricFormState>(EMPTY_OB_FORM)
   const [savingEdit, setSavingEdit] = useState(false)
+  // Fix 1: saving guard for new assessment
+  const [savingNew, setSavingNew] = useState(false)
+
+  // Fix 5: DRY refetch helper
+  const refreshObstetricHistory = async () => {
+    const refetch = await fetch(
+      `/api/obstetrics/assessments?patientId=${encodeURIComponent(patient.id)}`,
+      { credentials: "include" },
+    )
+    if (refetch.ok) {
+      const data = await refetch.json().catch(() => ({}))
+      setObstetricHistory(Array.isArray(data.assessments) ? data.assessments : [])
+    }
+  }
 
   // Fetch obstetric history on mount
   useEffect(() => {
@@ -82,13 +108,19 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
           const data = await res.json().catch(() => ({}))
           setObstetricHistory(Array.isArray(data.assessments) ? data.assessments : [])
         }
-      } catch { setObstetricHistory([]) }
+      } catch {
+        // Fix 3: error toast in fetch catch
+        toast.error("Failed to load obstetric history")
+        setObstetricHistory([])
+      }
     })()
   }, [patient.id])
 
   const handleSaveObstetric = async () => {
     const err = validateObstetricForm(obsForm)
     if (err) { toast.error(err); return }
+    // Fix 1: set saving guard
+    setSavingNew(true)
     try {
       const payload: Record<string, unknown> = {
         patientId: patient.id,
@@ -113,16 +145,13 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
       }
       toast.success("Obstetric assessment saved.")
       setObsForm(EMPTY_OB_FORM)
-      const refetch = await fetch(
-        `/api/obstetrics/assessments?patientId=${encodeURIComponent(patient.id)}`,
-        { credentials: "include" },
-      )
-      if (refetch.ok) {
-        const data = await refetch.json().catch(() => ({}))
-        setObstetricHistory(Array.isArray(data.assessments) ? data.assessments : [])
-      }
+      // Fix 5: use shared refetch helper
+      await refreshObstetricHistory()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to save obstetric assessment")
+    } finally {
+      // Fix 1: clear saving guard
+      setSavingNew(false)
     }
   }
 
@@ -169,30 +198,12 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
       }
       toast.success("Obstetric assessment updated.")
       setEditingId(null)
-      const refetch = await fetch(
-        `/api/obstetrics/assessments?patientId=${encodeURIComponent(patient.id)}`,
-        { credentials: "include" },
-      )
-      if (refetch.ok) {
-        const data = await refetch.json().catch(() => ({}))
-        setObstetricHistory(Array.isArray(data.assessments) ? data.assessments : [])
-      }
+      // Fix 5: use shared refetch helper
+      await refreshObstetricHistory()
     } catch (e: unknown) {
       toast.error(e instanceof Error ? e.message : "Failed to update")
     } finally { setSavingEdit(false) }
   }
-
-  // Shared field list for both add and edit forms
-  const obFields: Array<{ key: keyof ObstetricFormState; label: string; type?: string; placeholder?: string }> = [
-    { key: "visitDate", label: "Visit Date", type: "date" },
-    { key: "gravida", label: "Gravida", placeholder: "e.g. 2" },
-    { key: "parity", label: "Parity", placeholder: "e.g. 1" },
-    { key: "gestationalAgeWeeks", label: "Gestational Age (weeks)", placeholder: "e.g. 28" },
-    { key: "edd", label: "EDD", type: "date" },
-    { key: "fundalHeightCm", label: "Fundal Height (cm)", placeholder: "e.g. 28" },
-    { key: "fetalHeartRate", label: "Fetal Heart Rate (bpm)", placeholder: "e.g. 140" },
-    { key: "presentation", label: "Presentation", placeholder: "Cephalic, Breech…" },
-  ]
 
   return (
     <div className="space-y-8">
@@ -256,10 +267,12 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
             </Button>
           )}
           <div className="grid gap-3 sm:grid-cols-2">
+            {/* Fix 4: htmlFor/id on Label+Input pairs */}
             {obFields.map(({ key, label, type, placeholder }) => (
               <div key={key} className="space-y-1">
-                <Label>{label}</Label>
+                <Label htmlFor={key}>{label}</Label>
                 <Input
+                  id={key}
                   type={type || "text"}
                   placeholder={placeholder}
                   value={obsForm[key]}
@@ -270,15 +283,22 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
             ))}
           </div>
           <div className="space-y-1">
-            <Label>Notes</Label>
+            {/* Fix 4: htmlFor/id on Notes Label+Textarea */}
+            <Label htmlFor="notes">Notes</Label>
             <Textarea
+              id="notes"
               value={obsForm.notes}
               onChange={(e) => setObsForm((f) => ({ ...f, notes: e.target.value }))}
               className="min-h-[60px] focus-visible:ring-emerald-400"
             />
           </div>
-          <Button onClick={handleSaveObstetric} className="bg-emerald-600 text-white hover:bg-emerald-700">
-            Save Assessment
+          {/* Fix 1: disabled state + loading label */}
+          <Button
+            onClick={handleSaveObstetric}
+            disabled={savingNew}
+            className="bg-emerald-600 text-white hover:bg-emerald-700"
+          >
+            {savingNew ? "Saving…" : "Save Assessment"}
           </Button>
         </div>
       </div>
@@ -316,10 +336,12 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
             <DialogDescription>Update this obstetric visit record.</DialogDescription>
           </DialogHeader>
           <div className="grid gap-3 sm:grid-cols-2">
+            {/* Fix 4: htmlFor/id on Label+Input pairs in edit dialog */}
             {obFields.map(({ key, label, type, placeholder }) => (
               <div key={key} className="space-y-1">
-                <Label>{label}</Label>
+                <Label htmlFor={key}>{label}</Label>
                 <Input
+                  id={key}
                   type={type || "text"}
                   placeholder={placeholder}
                   value={editForm[key]}
@@ -330,8 +352,10 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
             ))}
           </div>
           <div className="space-y-1">
-            <Label>Notes</Label>
+            {/* Fix 4: htmlFor/id on Notes Label+Textarea in edit dialog */}
+            <Label htmlFor="notes">Notes</Label>
             <Textarea
+              id="notes"
               value={editForm.notes}
               onChange={(e) => setEditForm((f) => ({ ...f, notes: e.target.value }))}
               className="focus-visible:ring-emerald-400"
