@@ -10,11 +10,20 @@ import { useLab } from "@/lib/lab-context"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
 
+interface LabCatalogItem {
+  loincCode: string | null
+  name: string
+  component?: string
+  property?: string
+  system?: string
+  class?: string
+}
+
 export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: string; open: boolean; onOpenChange: (o:boolean)=>void }) {
   const { orderTest } = useLab()
   const [search, setSearch] = useState("")
-  const [catalog, setCatalog] = useState<any[]>([])
-  const [selected, setSelected] = useState<any[]>([])
+  const [catalog, setCatalog] = useState<LabCatalogItem[]>([])
+  const [selected, setSelected] = useState<LabCatalogItem[]>([])
   const [manualName, setManualName] = useState("")
   const [priority, setPriority] = useState("Routine")
   const [specimenType, setSpecimenType] = useState("Blood")
@@ -47,7 +56,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
     return () => { clearTimeout(t); ctrl.abort() }
   }, [search])
 
-  const addTest = (item:any) => {
+  const addTest = (item: LabCatalogItem) => {
     if (selected.find((s)=> s.loincCode === item.loincCode)) return
     setSelected((prev)=> [...prev, item])
   }
@@ -55,7 +64,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
   const addManual = () => {
     const name = manualName.trim()
     if (!name) return
-    setSelected((prev)=> [...prev, { loincCode: null, name, class: "Lab" }])
+    setSelected((prev): LabCatalogItem[] => [...prev, { loincCode: null, name, class: "Lab" }])
     setManualName("")
   }
 
