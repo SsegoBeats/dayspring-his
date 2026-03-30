@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import { query, withClient } from "@/lib/db"
+import { query } from "@/lib/db"
 import { emailTemplates } from "@/lib/email-service"
 import nodemailer from "nodemailer"
 import { ORG_EMAIL } from "@/lib/org-constants"
@@ -70,18 +70,6 @@ export async function POST() {
     if (appts.length === 0) {
       return NextResponse.json({ success: true, sent: 0 })
     }
-
-    // Ensure reminders table exists
-    await withClient(async (client) => {
-      await client.query(`
-        CREATE TABLE IF NOT EXISTS appointment_reminders (
-          id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-          appointment_id UUID NOT NULL REFERENCES appointments(id) ON DELETE CASCADE,
-          sent_at TIMESTAMP NOT NULL DEFAULT CURRENT_TIMESTAMP,
-          UNIQUE (appointment_id)
-        );
-      `)
-    })
 
     const transporter = getTransporter()
     let sentCount = 0
