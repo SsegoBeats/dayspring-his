@@ -15,7 +15,7 @@ CREATE TABLE IF NOT EXISTS suppliers (
   nda_license_number text,
   payment_terms text,
   is_active boolean DEFAULT true,
-  created_by uuid REFERENCES auth.users(id),
+  created_by uuid REFERENCES users(id),
   created_at timestamptz DEFAULT now(),
   updated_at timestamptz DEFAULT now()
 );
@@ -34,10 +34,10 @@ CREATE TABLE IF NOT EXISTS purchase_orders (
   status text NOT NULL DEFAULT 'draft',
   notes text,
   expected_delivery_date date,
-  created_by uuid REFERENCES auth.users(id),
-  approved_by uuid REFERENCES auth.users(id),
+  created_by uuid REFERENCES users(id),
+  approved_by uuid REFERENCES users(id),
   approved_at timestamptz,
-  cancelled_by uuid REFERENCES auth.users(id),
+  cancelled_by uuid REFERENCES users(id),
   cancelled_at timestamptz,
   cancellation_reason text,
   created_at timestamptz DEFAULT now(),
@@ -74,7 +74,7 @@ CREATE TABLE IF NOT EXISTS goods_received_notes (
   purchase_order_id uuid REFERENCES purchase_orders(id),
   supplier_id uuid REFERENCES suppliers(id) NOT NULL,
   invoice_number text,
-  received_by uuid REFERENCES auth.users(id) NOT NULL,
+  received_by uuid REFERENCES users(id) NOT NULL,
   received_at timestamptz DEFAULT now(),
   notes text,
   created_at timestamptz DEFAULT now()
@@ -112,7 +112,7 @@ CREATE TABLE IF NOT EXISTS controlled_drug_register (
   quantity_dispensed integer NOT NULL,
   batch_number text,
   running_balance integer NOT NULL,
-  dispensed_by uuid REFERENCES auth.users(id) NOT NULL,
+  dispensed_by uuid REFERENCES users(id) NOT NULL,
   dispensed_at timestamptz DEFAULT now(),
   witness_name text,
   entry_type text DEFAULT 'dispense',
@@ -126,7 +126,7 @@ CREATE POLICY "cdr_insert_pharmacy" ON controlled_drug_register FOR INSERT WITH 
 -- Pharmacy settings (per-user)
 CREATE TABLE IF NOT EXISTS pharmacy_settings (
   id uuid PRIMARY KEY DEFAULT gen_random_uuid(),
-  user_id uuid REFERENCES auth.users(id) UNIQUE NOT NULL,
+  user_id uuid REFERENCES users(id) UNIQUE NOT NULL,
   low_stock_threshold_override integer,
   expiry_warning_days integer DEFAULT 90,
   expiry_critical_days integer DEFAULT 30,
