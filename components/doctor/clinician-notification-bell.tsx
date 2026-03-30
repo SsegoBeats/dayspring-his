@@ -37,6 +37,7 @@ export function ClinicianNotificationBell() {
   const [notifications, setNotifications] = useState<ClinicianNotif[]>([])
   const [open, setOpen] = useState(false)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
+  const sseRef = useRef<EventSource | null>(null)
 
   const fetchNotifications = useCallback(async () => {
     try {
@@ -52,8 +53,29 @@ export function ClinicianNotificationBell() {
 
   useEffect(() => {
     void fetchNotifications()
-    intervalRef.current = setInterval(() => void fetchNotifications(), 60000)
-    return () => { if (intervalRef.current) clearInterval(intervalRef.current) }
+
+    // SSE-first: open a server-sent events stream; fall back to 60s polling on error
+    const es = new EventSource("/api/notifications/stream", { withCredentials: true })
+    sseRef.current = es
+
+    es.onmessage = () => { void fetchNotifications() }
+
+    es.onerror = () => {
+      es.close()
+      sseRef.current = null
+      if (!intervalRef.current) {
+        intervalRef.current = setInterval(() => void fetchNotifications(), 60000)
+      }
+    }
+
+    return () => {
+      es.close()
+      sseRef.current = null
+      if (intervalRef.current) {
+        clearInterval(intervalRef.current)
+        intervalRef.current = null
+      }
+    }
   }, [fetchNotifications])
 
   const unreadCount = notifications.filter((n) => !n.read_at).length
@@ -86,7 +108,7 @@ export function ClinicianNotificationBell() {
   return (
     <Popover open={open} onOpenChange={setOpen}>
       <PopoverTrigger asChild>
-        <Button variant="ghost" size="icon" aria-label="Notifications" className="relative text-teal-100 hover:bg-teal-800/60">
+        <Button variant="ghost" size="icon" aria-label="Notifications" className={cn("relative hover:bg-teal-800/60", unreadCount > 0 ? "text-white" : "text-teal-100")}>
           <Bell className="h-5 w-5" />
           {unreadCount > 0 && (
             <span className="absolute -right-0.5 -top-0.5 flex h-4 w-4 items-center justify-center rounded-full bg-rose-500 text-[10px] font-bold text-white">
@@ -112,7 +134,7 @@ export function ClinicianNotificationBell() {
                 onClick={() => handleNotifClick(n)}
                 className={cn(
                   "w-full px-4 py-3 text-left transition-colors hover:bg-teal-50/60",
-                  !n.read_at && "bg-teal-50",
+                  !n.read_at ? "bg-teal-50 border-l-4 border-teal-500" : "border-l-4 border-transparent",
                 )}
               >
                 <p className={cn("text-sm font-medium", !n.read_at ? "text-teal-900" : "text-slate-700")}>
