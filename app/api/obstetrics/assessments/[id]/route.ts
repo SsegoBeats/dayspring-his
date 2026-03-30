@@ -1,103 +1,105 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { z } from "zod"
 import { verifyToken, can } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
 
-const UpdateSchema = z.object({
-  visitDate: z.string().optional().nullable(),
-  gravida: z.number().int().nonnegative().optional().nullable(),
-  parity: z.number().int().nonnegative().optional().nullable(),
-  gestationalAgeWeeks: z.number().int().nonnegative().optional().nullable(),
-  edd: z.string().optional().nullable(),
-  fundalHeightCm: z.number().nonnegative().optional().nullable(),
-  fetalHeartRate: z.number().int().nonnegative().optional().nullable(),
-  presentation: z.string().optional().nullable(),
-  notes: z.string().optional().nullable(),
-})
+function toInt(val: unknown): number | null {
+  if (val === null || val === undefined) return null
+  if (typeof val === "number") return Number.isFinite(val) ? Math.trunc(val) : null
+  const m = String(val).match(/-?\d+/)
+  return m ? parseInt(m[0], 10) : null
+}
+
+function toFloat(val: unknown): number | null {
+  if (val === null || val === undefined) return null
+  if (typeof val === "number") return Number.isFinite(val) ? val : null
+  const m = String(val).replace(",", ".").match(/-?\d+(?:\.\d+)?/)
+  return m ? parseFloat(m[0]) : null
+}
+
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
 
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
 ) {
   try {
-    const { id } = await params
-    if (!id) return NextResponse.json({ error: "Assessment id required" }, { status: 400 })
-
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "medical", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
-
-    const body = await req.json().catch(() => ({}))
-    const input = UpdateSchema.parse(body)
-
-    const updates: string[] = []
-    const values: any[] = []
-    let pos = 1
-
-    if (input.visitDate !== undefined) {
-      const d = input.visitDate ? new Date(input.visitDate) : null
-      updates.push(`visit_date = $${pos++}`)
-      values.push(d ? d.toISOString() : null)
-    }
-    if (input.gravida !== undefined) {
-      updates.push(`gravida = $${pos++}`)
-      values.push(input.gravida)
-    }
-    if (input.parity !== undefined) {
-      updates.push(`parity = $${pos++}`)
-      values.push(input.parity)
-    }
-    if (input.gestationalAgeWeeks !== undefined) {
-      updates.push(`gestational_age_weeks = $${pos++}`)
-      values.push(input.gestationalAgeWeeks)
-    }
-    if (input.edd !== undefined) {
-      updates.push(`edd = $${pos++}`)
-      values.push(input.edd ? new Date(input.edd).toISOString().slice(0, 10) : null)
-    }
-    if (input.fundalHeightCm !== undefined) {
-      updates.push(`fundal_height_cm = $${pos++}`)
-      values.push(input.fundalHeightCm)
-    }
-    if (input.fetalHeartRate !== undefined) {
-      updates.push(`fetal_heart_rate = $${pos++}`)
-      values.push(input.fetalHeartRate)
-    }
-    if (input.presentation !== undefined) {
-      updates.push(`presentation = $${pos++}`)
-      values.push(input.presentation)
-    }
-    if (input.notes !== undefined) {
-      updates.push(`notes = $${pos++}`)
-      values.push(input.notes)
+    if (!can(auth.role, "medical", "update")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
 
-    if (updates.length === 0) {
+    const { id } = await params
+    if (!id || !UUID_RE.test(id)) {
+      return NextResponse.json({ error: "id must be a valid UUID" }, { status: 400 })
+    }
+
+    // Ownership check
+    const existing = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `SELECT recorded_by FROM obstetric_assessments WHERE id = $1`,
+      [id],
+    )
+    if (!existing.rows[0]) {
+      return NextResponse.json({ error: "Assessment not found" }, { status: 404 })
+    }
+    if (existing.rows[0].recorded_by !== auth.userId && auth.role !== "Hospital Admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const body = (await req.json().catch(() => ({}))) as {
+      visitDate?: string
+      gravida?: unknown
+      parity?: unknown
+      gestationalAgeWeeks?: unknown
+      edd?: string
+      fundalHeightCm?: unknown
+      fetalHeartRate?: unknown
+      presentation?: string | null
+      notes?: string | null
+    }
+
+    // Build SET clause — only update fields that were explicitly sent
+    const fieldMap: Array<[string, unknown]> = [
+      ["visit_date", body.visitDate !== undefined
+        ? (body.visitDate && !Number.isNaN(new Date(body.visitDate).getTime())
+            ? body.visitDate
+            : null)
+        : undefined],
+      ["gravida", body.gravida !== undefined ? toInt(body.gravida) : undefined],
+      ["parity", body.parity !== undefined ? toInt(body.parity) : undefined],
+      ["gestational_age_weeks", body.gestationalAgeWeeks !== undefined ? toInt(body.gestationalAgeWeeks) : undefined],
+      ["edd", body.edd !== undefined ? (body.edd || null) : undefined],
+      ["fundal_height_cm", body.fundalHeightCm !== undefined ? toFloat(body.fundalHeightCm) : undefined],
+      ["fetal_heart_rate", body.fetalHeartRate !== undefined ? toInt(body.fetalHeartRate) : undefined],
+      ["presentation", body.presentation !== undefined ? (body.presentation || null) : undefined],
+      ["notes", body.notes !== undefined ? (body.notes || null) : undefined],
+    ].filter(([, v]) => v !== undefined) as Array<[string, unknown]>
+
+    if (fieldMap.length === 0) {
       return NextResponse.json({ error: "No fields to update" }, { status: 400 })
     }
-    updates.push(`updated_at = CURRENT_TIMESTAMP`)
 
-    values.push(id)
-    const setClause = updates.join(", ")
-    const sql = `UPDATE obstetric_assessments SET ${setClause} WHERE id = $${pos} RETURNING id, patient_id, recorded_by, visit_date, gravida, parity, gestational_age_weeks, edd, fundal_height_cm, fetal_heart_rate, presentation, notes`
+    const setClauses = fieldMap.map(([col], i) => `${col} = $${i + 2}`).join(", ")
+    const values: unknown[] = [id, ...fieldMap.map(([, v]) => v)]
 
     const { rows } = await queryWithSession(
       { role: auth.role, userId: auth.userId },
-      sql,
+      `UPDATE obstetric_assessments
+       SET ${setClauses}, updated_at = NOW()
+       WHERE id = $1
+       RETURNING id, patient_id, visit_date, gravida, parity,
+                 gestational_age_weeks, edd, fundal_height_cm,
+                 fetal_heart_rate, presentation, notes, created_at`,
       values,
     )
 
-    if (rows.length === 0) {
-      return NextResponse.json({ error: "Assessment not found or access denied" }, { status: 404 })
-    }
-    return NextResponse.json({ assessment: rows[0] })
-  } catch (error: any) {
-    if (error?.name === "ZodError") {
-      return NextResponse.json({ error: "Validation error", details: error.issues }, { status: 400 })
-    }
-    return NextResponse.json({ error: "Failed to update obstetric assessment" }, { status: 500 })
+    return NextResponse.json(rows[0])
+  } catch (err) {
+    console.error("PATCH /api/obstetrics/assessments/[id] error:", err)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
