@@ -41,17 +41,30 @@ export async function PATCH(
       updates.push(`procedure_performed = $${idx++}`)
       values.push(input.procedurePerformed)
     }
-    if (input.toothChart !== undefined) {
-      updates.push(`tooth_chart = $${idx++}::jsonb`)
-      values.push(JSON.stringify(input.toothChart))
-    }
-    if (input.toothNotes !== undefined) {
-      // tooth_chart.notes is the embedded key for general tooth chart notes.
-      // Using jsonb_set here does a surgical update of only the 'notes' key
-      // inside the tooth_chart JSONB column, preserving any per-tooth FDI state
-      // data (e.g. { "11": { state: "caries" } }) that may already be stored there.
-      updates.push(`tooth_chart = jsonb_set(COALESCE(tooth_chart, '{}'), '{notes}', to_jsonb($${idx++}::text))`)
-      values.push(input.toothNotes ?? "")
+    const hasChart = input.toothChart !== undefined
+    const hasNotes = input.toothNotes !== undefined
+
+    if (hasChart || hasNotes) {
+      if (hasChart && hasNotes) {
+        // Both sent — merge in application layer to avoid double-write conflict on tooth_chart column.
+        // tooth_chart.notes is the embedded key for general chart notes (distinct from the top-level notes column).
+        updates.push(`tooth_chart = $${idx++}::jsonb`)
+        values.push(
+          JSON.stringify({
+            ...(input.toothChart ?? {}),
+            ...(input.toothNotes != null ? { notes: input.toothNotes } : {}),
+          })
+        )
+      } else if (hasChart) {
+        // Only FDI chart data — replace whole object
+        updates.push(`tooth_chart = $${idx++}::jsonb`)
+        values.push(JSON.stringify(input.toothChart))
+      } else {
+        // Only toothNotes — surgical jsonb_set preserves existing per-tooth FDI state.
+        // tooth_chart.notes is the embedded key for general chart notes.
+        updates.push(`tooth_chart = jsonb_set(COALESCE(tooth_chart, '{}'), '{notes}', to_jsonb($${idx++}::text))`)
+        values.push(input.toothNotes ?? "")
+      }
     }
     if (input.notes !== undefined) {
       updates.push(`notes = $${idx++}`)
