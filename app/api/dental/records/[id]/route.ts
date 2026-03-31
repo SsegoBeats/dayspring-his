@@ -78,7 +78,7 @@ export async function DELETE(
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "medical", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!can(auth.role, "medical", "delete")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const { id } = await params
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
