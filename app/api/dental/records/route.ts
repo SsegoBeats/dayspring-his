@@ -9,6 +9,7 @@ const CreateDentalSchema = z.object({
   diagnosis: z.string().optional().nullable(),
   procedurePerformed: z.string().optional().nullable(),
   toothChart: z.record(z.string(), z.any()).optional().nullable(),
+  toothNotes: z.string().optional().nullable(),
   notes: z.string().optional().nullable(),
 })
 
@@ -80,7 +81,11 @@ export async function POST(req: Request) {
         auth.userId,
         input.diagnosis ?? null,
         input.procedurePerformed ?? null,
-        input.toothChart ?? null,
+        input.toothNotes != null
+          ? JSON.stringify({ ...(input.toothChart ?? {}), notes: input.toothNotes })
+          : input.toothChart != null
+            ? JSON.stringify(input.toothChart)
+            : null,
         input.notes ?? null,
       ],
     )
