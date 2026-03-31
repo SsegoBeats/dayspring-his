@@ -59,11 +59,15 @@ export async function PATCH(
         // Only FDI chart data — replace whole object
         updates.push(`tooth_chart = $${idx++}::jsonb`)
         values.push(JSON.stringify(input.toothChart))
-      } else {
-        // Only toothNotes — surgical jsonb_set preserves existing per-tooth FDI state.
+      } else if (input.toothNotes !== null) {
+        // Only toothNotes with a value — surgical jsonb_set preserves existing per-tooth FDI state.
         // tooth_chart.notes is the embedded key for general chart notes.
         updates.push(`tooth_chart = jsonb_set(COALESCE(tooth_chart, '{}'), '{notes}', to_jsonb($${idx++}::text))`)
-        values.push(input.toothNotes ?? "")
+        values.push(input.toothNotes)
+      } else {
+        // toothNotes: null — client explicitly clearing notes. Remove the key without touching FDI data.
+        updates.push(`tooth_chart = COALESCE(tooth_chart, '{}') - 'notes'`)
+        // No idx increment — no parameter placeholder in this branch.
       }
     }
     if (input.notes !== undefined) {
