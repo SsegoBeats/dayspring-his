@@ -7,7 +7,7 @@ import { queryWithSession } from "@/lib/db"
  * GET /api/dental/summary?from=&to=
  * Returns dental visit counts and optional recent records for the current dentist.
  * When from/to provided: counts in that range for this dentist.
- * Always returns recentRecords: last 5 dental records by this dentist (for dashboard).
+ * Always returns recentRecords: last 8 dental records by this dentist (for dashboard).
  */
 export async function GET(req: Request) {
   const cookieStore = await cookies()
@@ -93,37 +93,51 @@ export async function GET(req: Request) {
   )
   const proceduresThisWeek = parseInt(String(procRows[0]?.cnt ?? 0), 10)
 
-  // Pending follow-ups (dental dept appointments, status pending or scheduled, today or future)
+  // Pending follow-ups (dental dept appointments, status Scheduled, today or future)
+  // Uses onlyMine branching: Dentist sees only their own patients (doctor_id match).
   const { rows: fuRows } = await queryWithSession(session,
-    `SELECT COUNT(*) AS cnt FROM appointments
-     WHERE LOWER(department) = 'dental'
-       AND LOWER(status) IN ('pending', 'scheduled')
-       AND appointment_date >= CURRENT_DATE`,
-    []
+    onlyMine
+      ? `SELECT COUNT(*) AS cnt FROM appointments
+         WHERE LOWER(department) = 'dental'
+           AND status = 'Scheduled'
+           AND appointment_date >= CURRENT_DATE
+           AND doctor_id = $1`
+      : `SELECT COUNT(*) AS cnt FROM appointments
+         WHERE LOWER(department) = 'dental'
+           AND status = 'Scheduled'
+           AND appointment_date >= CURRENT_DATE`,
+    onlyMine ? [auth.userId] : []
   )
   const pendingFollowUps = parseInt(String(fuRows[0]?.cnt ?? 0), 10)
 
-  // Pending lab results (lab_tests ordered by this dentist, status != 'completed')
+  // Pending lab results (lab_tests ordered by this dentist, only genuinely in-flight statuses)
+  // Valid lab_tests statuses: 'Pending', 'In Progress', 'Completed', 'Cancelled'.
+  // Excludes 'Completed' (done) and 'Cancelled' (terminal/abandoned).
   const { rows: labRows } = await queryWithSession(session,
     onlyMine
       ? `SELECT COUNT(*) AS cnt FROM lab_tests
-         WHERE doctor_id = $1 AND LOWER(status) != 'completed'`
-      : `SELECT COUNT(*) AS cnt FROM lab_tests WHERE LOWER(status) != 'completed'`,
+         WHERE doctor_id = $1 AND status IN ('Pending', 'In Progress')`
+      : `SELECT COUNT(*) AS cnt FROM lab_tests WHERE status IN ('Pending', 'In Progress')`,
     onlyMine ? [auth.userId] : []
   )
   const pendingLabResults = parseInt(String(labRows[0]?.cnt ?? 0), 10)
 
-  // Pending pre-auths — graceful fallback if table doesn't exist
+  // Pending pre-auths — graceful fallback on RLS or schema errors.
+  // Table: preauthorizations (not insurance_authorizations).
+  // Columns: status ('Pending','Approved','Denied','Expired'), service_category (added at runtime by preauthorizations route).
+  // NOTE: The preauth_rw RLS policy only permits 'Hospital Admin' and 'Receptionist' roles.
+  // Dentist role is blocked entirely by RLS, so this will always return 0 for dentists (caught below).
   let pendingPreAuths = 0
   try {
     const { rows: paRows } = await queryWithSession(session,
-      `SELECT COUNT(*) AS cnt FROM insurance_authorizations
-       WHERE status = 'pending'
+      `SELECT COUNT(*) AS cnt FROM preauthorizations
+       WHERE status = 'Pending'
          AND LOWER(service_category) LIKE '%dental%'`,
       []
     )
     pendingPreAuths = parseInt(String(paRows[0]?.cnt ?? 0), 10)
   } catch {
+    // RLS blocks Dentist role from reading preauthorizations; returns 0 silently.
     pendingPreAuths = 0
   }
 
