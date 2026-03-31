@@ -32,10 +32,11 @@ export class DentalDataset implements Dataset {
   async queryPage(
     ctx: ExportContext,
     f: z.infer<typeof Filter>,
-    cursor?: { after?: string },
+    cursor?: { after_date?: string; after_id?: string },
     pageSize = 5000,
   ) {
-    const after = cursor?.after ?? null
+    const after_date = cursor?.after_date ?? null
+    const after_id = cursor?.after_id ?? null
     const run = getQuery(ctx)
     const dentistId = f.recordedByUserId ? ctx.userId : null
     const { rows } = await run(
@@ -55,15 +56,21 @@ export class DentalDataset implements Dataset {
       LEFT JOIN users u ON u.id = dr.dentist_id
       WHERE ($1::timestamp IS NULL OR dr.visit_date >= $1)
         AND ($2::timestamp IS NULL OR dr.visit_date <= $2)
-        AND ($3::uuid IS NULL OR dr.id > $3)
-        AND ($5::uuid IS NULL OR dr.dentist_id = $5)
-      ORDER BY dr.id ASC
-      LIMIT $4
+        AND (
+          $3::timestamp IS NULL
+          OR dr.visit_date > $3::timestamp
+          OR (dr.visit_date = $3::timestamp AND dr.id > $4::uuid)
+        )
+        AND ($6::uuid IS NULL OR dr.dentist_id = $6)
+      ORDER BY dr.visit_date ASC, dr.id ASC
+      LIMIT $5
       `,
-      [f.from ?? null, f.to ?? null, after, pageSize, dentistId],
+      [f.from ?? null, f.to ?? null, after_date, after_id, pageSize, dentistId],
     )
     const nextCursor =
-      rows.length === pageSize ? { after: rows[rows.length - 1].id } : undefined
+      rows.length === pageSize
+        ? { after_date: rows[rows.length - 1].visit_date, after_id: rows[rows.length - 1].id }
+        : undefined
     return { rows, nextCursor }
   }
 }
