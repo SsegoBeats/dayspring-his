@@ -40,7 +40,8 @@ export class DentalDataset implements Dataset {
     const dentistId = f.recordedByUserId ? ctx.userId : null
     const { rows } = await run(
       `
-      SELECT 
+      SELECT
+        dr.id,
         dr.visit_date,
         p.patient_number,
         CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
@@ -54,15 +55,15 @@ export class DentalDataset implements Dataset {
       LEFT JOIN users u ON u.id = dr.dentist_id
       WHERE ($1::timestamp IS NULL OR dr.visit_date >= $1)
         AND ($2::timestamp IS NULL OR dr.visit_date <= $2)
-        AND ($3::timestamp IS NULL OR dr.visit_date > $3)
+        AND ($3::uuid IS NULL OR dr.id > $3)
         AND ($5::uuid IS NULL OR dr.dentist_id = $5)
-      ORDER BY dr.visit_date ASC
+      ORDER BY dr.id ASC
       LIMIT $4
       `,
       [f.from ?? null, f.to ?? null, after, pageSize, dentistId],
     )
     const nextCursor =
-      rows.length === pageSize ? { after: rows[rows.length - 1].visit_date } : undefined
+      rows.length === pageSize ? { after: rows[rows.length - 1].id } : undefined
     return { rows, nextCursor }
   }
 }
