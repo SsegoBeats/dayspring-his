@@ -44,7 +44,7 @@ export async function GET(req: Request) {
     patientsCount = parseInt(String(countRows[0]?.patients_count ?? 0), 10)
   }
 
-  // Recent dental records for dashboard (last 5 by this dentist, or all if admin)
+  // Recent dental records for dashboard (last 8 by this dentist, or all if admin)
   const recentSql = onlyMine
     ? `SELECT dr.id, dr.patient_id, dr.visit_date, dr.diagnosis, dr.procedure_performed,
               p.patient_number, p.first_name, p.last_name
@@ -52,13 +52,13 @@ export async function GET(req: Request) {
        JOIN patients p ON p.id = dr.patient_id
        WHERE dr.dentist_id = $1
        ORDER BY dr.visit_date DESC
-       LIMIT 5`
+       LIMIT 8`
     : `SELECT dr.id, dr.patient_id, dr.visit_date, dr.diagnosis, dr.procedure_performed,
               p.patient_number, p.first_name, p.last_name
        FROM dental_records dr
        JOIN patients p ON p.id = dr.patient_id
        ORDER BY dr.visit_date DESC
-       LIMIT 5`
+       LIMIT 8`
   const recentParams = onlyMine ? [auth.userId] : []
   const { rows: recentRows } = await queryWithSession(session, recentSql, recentParams)
   const recentRecords = (recentRows || []).map((r: any) => ({
@@ -71,9 +71,69 @@ export async function GET(req: Request) {
     patientName: [r.first_name, r.last_name].filter(Boolean).join(" ").trim(),
   }))
 
+  // Procedures this week (non-null procedure_performed, by this dentist, Mon–Sun)
+  const weekStart = new Date()
+  weekStart.setDate(weekStart.getDate() - weekStart.getDay() + (weekStart.getDay() === 0 ? -6 : 1))
+  weekStart.setHours(0, 0, 0, 0)
+  const weekEnd = new Date(weekStart)
+  weekEnd.setDate(weekStart.getDate() + 6)
+  weekEnd.setHours(23, 59, 59, 999)
+
+  const { rows: procRows } = await queryWithSession(session,
+    onlyMine
+      ? `SELECT COUNT(*) AS cnt FROM dental_records
+         WHERE dentist_id = $1 AND procedure_performed IS NOT NULL
+           AND visit_date >= $2::timestamp AND visit_date <= $3::timestamp`
+      : `SELECT COUNT(*) AS cnt FROM dental_records
+         WHERE procedure_performed IS NOT NULL
+           AND visit_date >= $1::timestamp AND visit_date <= $2::timestamp`,
+    onlyMine
+      ? [auth.userId, weekStart.toISOString(), weekEnd.toISOString()]
+      : [weekStart.toISOString(), weekEnd.toISOString()]
+  )
+  const proceduresThisWeek = parseInt(String(procRows[0]?.cnt ?? 0), 10)
+
+  // Pending follow-ups (dental dept appointments, status pending or scheduled, today or future)
+  const { rows: fuRows } = await queryWithSession(session,
+    `SELECT COUNT(*) AS cnt FROM appointments
+     WHERE LOWER(department) = 'dental'
+       AND LOWER(status) IN ('pending', 'scheduled')
+       AND appointment_date >= CURRENT_DATE`,
+    []
+  )
+  const pendingFollowUps = parseInt(String(fuRows[0]?.cnt ?? 0), 10)
+
+  // Pending lab results (lab_tests ordered by this dentist, status != 'completed')
+  const { rows: labRows } = await queryWithSession(session,
+    onlyMine
+      ? `SELECT COUNT(*) AS cnt FROM lab_tests
+         WHERE doctor_id = $1 AND LOWER(status) != 'completed'`
+      : `SELECT COUNT(*) AS cnt FROM lab_tests WHERE LOWER(status) != 'completed'`,
+    onlyMine ? [auth.userId] : []
+  )
+  const pendingLabResults = parseInt(String(labRows[0]?.cnt ?? 0), 10)
+
+  // Pending pre-auths — graceful fallback if table doesn't exist
+  let pendingPreAuths = 0
+  try {
+    const { rows: paRows } = await queryWithSession(session,
+      `SELECT COUNT(*) AS cnt FROM insurance_authorizations
+       WHERE status = 'pending'
+         AND LOWER(service_category) LIKE '%dental%'`,
+      []
+    )
+    pendingPreAuths = parseInt(String(paRows[0]?.cnt ?? 0), 10)
+  } catch {
+    pendingPreAuths = 0
+  }
+
   return NextResponse.json({
     visitsCount,
     patientsCount,
+    proceduresThisWeek,
+    pendingFollowUps,
+    pendingLabResults,
+    pendingPreAuths,
     recentRecords,
     ...(fromParam && toParam ? { from: fromParam, to: toParam } : {}),
   })
