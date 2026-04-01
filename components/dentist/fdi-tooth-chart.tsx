@@ -5,9 +5,15 @@ import { Textarea } from "@/components/ui/textarea"
 
 export type ToothState = "normal" | "caries" | "filled" | "crown" | "missing" | "extracted"
 
+export type ToothEntry = { state: ToothState; notes?: string }
+
+/**
+ * Per-tooth FDI data keyed by tooth number string (e.g. "11", "48").
+ * The special key "notes" may hold a global chart-note string (legacy).
+ * All other keys hold ToothEntry objects or undefined.
+ */
 export type ToothChartData = {
-  [toothId: string]: { state: ToothState; notes?: string }
-  notes?: string
+  [toothId: string]: ToothEntry | string | undefined
 }
 
 export interface FdiToothChartProps {
@@ -38,9 +44,14 @@ const LOWER_LEFT  = [31, 32, 33, 34, 35, 36, 37, 38]
 
 const LEGEND = Object.entries(STATE_CODES).filter(([k]) => k !== "normal") as [ToothState, string][]
 
+/** Safely extract a ToothEntry from a chart value (skips legacy string notes). */
+function getEntry(chart: ToothChartData, id: string): ToothEntry | undefined {
+  const v = chart[id]
+  return typeof v === "object" && v !== null ? v : undefined
+}
+
 function normaliseChart(raw: ToothChartData | null | undefined): ToothChartData {
   if (!raw) return {}
-  // raw may be { notes: "text" } (legacy) or { "11": { state: "caries" }, notes: "..." } (new)
   return raw
 }
 
@@ -49,7 +60,7 @@ export function FdiToothChart({ value, onChange, readOnly = false }: FdiToothCha
   const [selectedTooth, setSelectedTooth] = useState<string | null>(null)
 
   function getState(id: number): ToothState {
-    return chart[String(id)]?.state ?? "normal"
+    return getEntry(chart, String(id))?.state ?? "normal"
   }
 
   function cycleState(id: number, e: React.MouseEvent) {
@@ -63,7 +74,8 @@ export function FdiToothChart({ value, onChange, readOnly = false }: FdiToothCha
     if (next === "normal") {
       delete updated[key]
     } else {
-      updated[key] = { ...chart[key], state: next }
+      const existing = getEntry(chart, key)
+      updated[key] = { ...existing, state: next }
     }
     onChange(updated)
   }
@@ -76,7 +88,8 @@ export function FdiToothChart({ value, onChange, readOnly = false }: FdiToothCha
 
   function updateToothNote(id: string, notes: string) {
     const updated: ToothChartData = { ...chart }
-    updated[id] = { ...chart[id], state: chart[id]?.state ?? "normal", notes }
+    const existing = getEntry(chart, id)
+    updated[id] = { state: existing?.state ?? "normal", notes }
     onChange(updated)
   }
 
@@ -151,7 +164,7 @@ export function FdiToothChart({ value, onChange, readOnly = false }: FdiToothCha
             Tooth {selectedTooth} notes
           </p>
           <Textarea
-            value={chart[selectedTooth]?.notes ?? ""}
+            value={getEntry(chart, selectedTooth)?.notes ?? ""}
             onChange={(e) => updateToothNote(selectedTooth, e.target.value)}
             placeholder={`Notes for tooth ${selectedTooth}…`}
             className="min-h-[56px] text-sm focus-visible:ring-cyan-400"
