@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { FdiToothChart, type ToothChartData } from "@/components/dentist/fdi-tooth-chart"
 
 interface DentalTabProps {
   patient: Patient
@@ -22,17 +23,20 @@ interface DentalRecord {
   procedure_performed?: string | null
   visit_date?: string | null
   notes?: string | null
-  tooth_chart?: { notes?: string } | null
+  tooth_chart?: ToothChartData | null
 }
 
 interface DentalFormState {
   diagnosis: string
   procedurePerformed: string
   toothNotes: string
+  toothChart: ToothChartData
   visitDate: string
 }
 
-const EMPTY_DENTAL: DentalFormState = { diagnosis: "", procedurePerformed: "", toothNotes: "", visitDate: "" }
+const EMPTY_DENTAL: DentalFormState = {
+  diagnosis: "", procedurePerformed: "", toothNotes: "", toothChart: {}, visitDate: "",
+}
 
 export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
   const [records, setRecords] = useState<DentalRecord[]>([])
@@ -73,6 +77,7 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
         diagnosis: form.diagnosis || null,
         procedurePerformed: form.procedurePerformed || null,
         toothNotes: form.toothNotes || null,
+        toothChart: Object.keys(form.toothChart).length > 0 ? form.toothChart : null,
       }
       if (form.visitDate) payload.visitDate = form.visitDate
       const res = await fetch("/api/dental/records", {
@@ -94,11 +99,13 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
 
   const openEdit = (r: DentalRecord) => {
     setEditingId(r.id)
-    const toothNotes = typeof r.tooth_chart?.notes === "string" ? r.tooth_chart.notes : (r.notes || "")
+    const rawChart: ToothChartData = r.tooth_chart ?? {}
+    const toothNotes = typeof rawChart.notes === "string" ? rawChart.notes : (r.notes || "")
     setEditForm({
       diagnosis: r.diagnosis || "",
       procedurePerformed: r.procedure_performed || "",
       toothNotes,
+      toothChart: rawChart,
       visitDate: r.visit_date ? String(r.visit_date).slice(0, 16) : "",
     })
   }
@@ -111,6 +118,7 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
         diagnosis: editForm.diagnosis || null,
         procedurePerformed: editForm.procedurePerformed || null,
         toothNotes: editForm.toothNotes || null,
+        toothChart: Object.keys(editForm.toothChart).length > 0 ? editForm.toothChart : null,
       }
       if (editForm.visitDate) payload.visitDate = editForm.visitDate
       const res = await fetch(`/api/dental/records/${editingId}`, {
@@ -149,20 +157,37 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
 
   return (
     <div className="space-y-6">
-      <p className="text-xs font-semibold uppercase tracking-widest text-indigo-500">Dental Records</p>
+      <p className="text-xs font-semibold uppercase tracking-widest text-cyan-500">Dental Records</p>
 
       {/* Existing records */}
       {records.length > 0 && (
         <div className="space-y-3">
           {records.map((r) => {
-            const toothNotes = typeof r.tooth_chart?.notes === "string" ? r.tooth_chart.notes : r.notes
+            const chart = r.tooth_chart ?? {}
+            const toothNotes = typeof chart.notes === "string" ? chart.notes : r.notes
+            const hasChartData = Object.keys(chart).some((k) => k !== "notes")
             return (
-              <div key={r.id} className="rounded-xl border-l-4 border-indigo-400 bg-indigo-50/30 p-4">
+              <div key={r.id} className="rounded-xl border-l-4 border-cyan-400 bg-cyan-50/30 p-4">
                 <div className="flex items-start justify-between gap-2">
-                  <div className="space-y-0.5 text-sm">
-                    {r.visit_date && <div className="font-medium">{String(r.visit_date).slice(0, 10)}</div>}
-                    {r.diagnosis && <div className="text-slate-700">Dx: {r.diagnosis}</div>}
-                    {r.procedure_performed && <div className="text-slate-700">Procedure: {r.procedure_performed}</div>}
+                  <div className="space-y-2 text-sm flex-1 min-w-0">
+                    {r.visit_date && (
+                      <div className="font-semibold text-cyan-700">{String(r.visit_date).slice(0, 10)}</div>
+                    )}
+                    {hasChartData && (
+                      <div className="mb-2">
+                        <FdiToothChart value={chart} onChange={() => {}} readOnly />
+                      </div>
+                    )}
+                    {r.diagnosis && (
+                      <div className="text-slate-700">
+                        <span className="font-medium text-slate-500">Dx:</span> {r.diagnosis}
+                      </div>
+                    )}
+                    {r.procedure_performed && (
+                      <div className="text-slate-700">
+                        <span className="font-medium text-slate-500">Procedure:</span> {r.procedure_performed}
+                      </div>
+                    )}
                     {toothNotes && <div className="text-slate-500 italic">{toothNotes}</div>}
                   </div>
                   {canEdit && (
@@ -192,8 +217,8 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
 
       {/* New record form (Dentist only) */}
       {user.role === "Dentist" && (
-        <div className="rounded-xl border border-indigo-100 p-4 space-y-3">
-          <p className="text-sm font-medium text-indigo-700">New Dental Record</p>
+        <div className="rounded-xl border border-cyan-100 p-4 space-y-3">
+          <p className="text-sm font-medium text-cyan-700">New Dental Record</p>
           <div className="space-y-1">
             <Label htmlFor="dental-visit-date">Visit Date</Label>
             <Input
@@ -201,7 +226,16 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
               type="datetime-local"
               value={form.visitDate}
               onChange={(e) => setForm((f) => ({ ...f, visitDate: e.target.value }))}
-              className="focus-visible:ring-indigo-400"
+              className="focus-visible:ring-cyan-400"
+            />
+          </div>
+          <div className="space-y-1">
+            <Label className="text-xs font-semibold uppercase tracking-widest text-cyan-500">
+              Tooth Chart
+            </Label>
+            <FdiToothChart
+              value={form.toothChart}
+              onChange={(data) => setForm((f) => ({ ...f, toothChart: data }))}
             />
           </div>
           <div className="space-y-1">
@@ -211,7 +245,7 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
               value={form.diagnosis}
               onChange={(e) => setForm((f) => ({ ...f, diagnosis: e.target.value }))}
               placeholder="Caries, pulpitis, periodontal disease…"
-              className="min-h-[60px] focus-visible:ring-indigo-400"
+              className="min-h-[60px] focus-visible:ring-cyan-400"
             />
           </div>
           <div className="space-y-1">
@@ -221,7 +255,7 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
               value={form.procedurePerformed}
               onChange={(e) => setForm((f) => ({ ...f, procedurePerformed: e.target.value }))}
               placeholder="Extraction, filling, root canal, scaling…"
-              className="min-h-[60px] focus-visible:ring-indigo-400"
+              className="min-h-[60px] focus-visible:ring-cyan-400"
             />
           </div>
           <div className="space-y-1">
@@ -231,10 +265,10 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
               value={form.toothNotes}
               onChange={(e) => setForm((f) => ({ ...f, toothNotes: e.target.value }))}
               placeholder="Tooth numbers and specific findings…"
-              className="focus-visible:ring-indigo-400"
+              className="focus-visible:ring-cyan-400"
             />
           </div>
-          <Button onClick={handleSave} disabled={saving} className="bg-indigo-600 text-white hover:bg-indigo-700">
+          <Button onClick={handleSave} disabled={saving} className="bg-cyan-600 text-white hover:bg-cyan-700">
             {saving ? "Saving…" : "Save Dental Record"}
           </Button>
         </div>
@@ -245,7 +279,7 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
         <DialogContent className="max-h-[85vh] max-w-lg overflow-y-auto">
           <DialogHeader>
             <DialogTitle>Edit Dental Record</DialogTitle>
-            <DialogDescription>Update visit date, diagnosis, procedure, and tooth chart notes.</DialogDescription>
+            <DialogDescription>Update visit date, diagnosis, procedure, and tooth chart.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3">
             <div className="space-y-1">
@@ -255,6 +289,16 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
                 type="datetime-local"
                 value={editForm.visitDate}
                 onChange={(e) => setEditForm((f) => ({ ...f, visitDate: e.target.value }))}
+                className="focus-visible:ring-cyan-400"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label className="text-xs font-semibold uppercase tracking-widest text-cyan-500">
+                Tooth Chart
+              </Label>
+              <FdiToothChart
+                value={editForm.toothChart}
+                onChange={(data) => setEditForm((f) => ({ ...f, toothChart: data }))}
               />
             </div>
             <div className="space-y-1">
@@ -263,6 +307,7 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
                 id="edit-dental-diagnosis"
                 value={editForm.diagnosis}
                 onChange={(e) => setEditForm((f) => ({ ...f, diagnosis: e.target.value }))}
+                className="focus-visible:ring-cyan-400"
               />
             </div>
             <div className="space-y-1">
@@ -271,6 +316,7 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
                 id="edit-dental-procedure"
                 value={editForm.procedurePerformed}
                 onChange={(e) => setEditForm((f) => ({ ...f, procedurePerformed: e.target.value }))}
+                className="focus-visible:ring-cyan-400"
               />
             </div>
             <div className="space-y-1">
@@ -279,12 +325,13 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
                 id="edit-dental-tooth-notes"
                 value={editForm.toothNotes}
                 onChange={(e) => setEditForm((f) => ({ ...f, toothNotes: e.target.value }))}
+                className="focus-visible:ring-cyan-400"
               />
             </div>
           </div>
           <div className="flex justify-end gap-2 pt-2">
             <Button variant="outline" onClick={() => setEditingId(null)}>Cancel</Button>
-            <Button onClick={handleSaveEdit} disabled={savingEdit}>
+            <Button onClick={handleSaveEdit} disabled={savingEdit} className="bg-cyan-600 text-white hover:bg-cyan-700">
               {savingEdit ? "Saving…" : "Save changes"}
             </Button>
           </div>
