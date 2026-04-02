@@ -103,3 +103,47 @@ export async function PATCH(
     return NextResponse.json({ error: "Internal server error" }, { status: 500 })
   }
 }
+
+export async function DELETE(
+  _req: Request,
+  { params }: { params: Promise<{ id: string }> },
+) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    const auth = token ? verifyToken(token) : null
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, "medical", "delete")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    const { id } = await params
+    if (!id || !UUID_RE.test(id)) {
+      return NextResponse.json({ error: "id must be a valid UUID" }, { status: 400 })
+    }
+
+    // Ownership check — only recorder or Hospital Admin may delete
+    const existing = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `SELECT recorded_by FROM obstetric_assessments WHERE id = $1`,
+      [id],
+    )
+    if (!existing.rows[0]) {
+      return NextResponse.json({ error: "Assessment not found" }, { status: 404 })
+    }
+    if (existing.rows[0].recorded_by !== auth.userId && auth.role !== "Hospital Admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `DELETE FROM obstetric_assessments WHERE id = $1`,
+      [id],
+    )
+
+    return new NextResponse(null, { status: 204 })
+  } catch (err) {
+    console.error("DELETE /api/obstetrics/assessments/[id] error:", err)
+    return NextResponse.json({ error: "Internal server error" }, { status: 500 })
+  }
+}
