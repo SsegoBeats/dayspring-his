@@ -33,6 +33,9 @@ CREATE TABLE IF NOT EXISTS labor_delivery_records (
 CREATE INDEX IF NOT EXISTS idx_labor_delivery_patient
   ON labor_delivery_records(patient_id, admission_date DESC);
 
+CREATE INDEX IF NOT EXISTS idx_labor_delivery_midwife
+  ON labor_delivery_records(midwife_id);
+
 -- ── Postnatal Visits ────────────────────────────────────────────────────────
 CREATE TABLE IF NOT EXISTS postnatal_visits (
   id                   UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
@@ -59,6 +62,9 @@ CREATE INDEX IF NOT EXISTS idx_postnatal_patient
 
 CREATE INDEX IF NOT EXISTS idx_postnatal_labor
   ON postnatal_visits(labor_delivery_id);
+
+CREATE INDEX IF NOT EXISTS idx_postnatal_midwife
+  ON postnatal_visits(midwife_id);
 
 -- ── RLS: labor_delivery_records ─────────────────────────────────────────────
 ALTER TABLE labor_delivery_records ENABLE ROW LEVEL SECURITY;
