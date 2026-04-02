@@ -13,43 +13,17 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const fromParam = url.searchParams.get("from")?.trim() || null
   const toParam = url.searchParams.get("to")?.trim() || null
+  const patientId = url.searchParams.get("patientId")?.trim() || null
+
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (patientId && !UUID_RE.test(patientId)) {
+    return NextResponse.json({ error: "patientId must be a valid UUID" }, { status: 400 })
+  }
 
   const session = { role: auth.role, userId: auth.userId }
 
-  if (fromParam && toParam) {
-    const from = new Date(fromParam)
-    const to = new Date(toParam)
-    const { rows } = await queryWithSession(
-      session,
-      `SELECT
-        oa.id,
-        oa.patient_id,
-        oa.visit_date,
-        oa.gravida,
-        oa.parity,
-        oa.gestational_age_weeks,
-        oa.edd,
-        oa.fundal_height_cm,
-        oa.fetal_heart_rate,
-        oa.presentation,
-        oa.notes,
-        p.patient_number,
-        CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
-        u.name AS recorded_by
-       FROM obstetric_assessments oa
-       JOIN patients p ON p.id = oa.patient_id
-       LEFT JOIN users u ON u.id = oa.recorded_by
-       WHERE oa.visit_date >= $1::timestamp AND oa.visit_date <= $2::timestamp
-       ORDER BY oa.visit_date DESC
-       LIMIT 500`,
-      [from.toISOString(), to.toISOString()],
-    )
-    return NextResponse.json({ visits: rows })
-  }
-
-  const { rows } = await queryWithSession(
-    session,
-    `SELECT
+  const baseSelect = `
+    SELECT
       oa.id,
       oa.patient_id,
       oa.visit_date,
@@ -64,11 +38,28 @@ export async function GET(req: Request) {
       p.patient_number,
       CONCAT(p.first_name, ' ', p.last_name) AS patient_name,
       u.name AS recorded_by
-     FROM obstetric_assessments oa
-     JOIN patients p ON p.id = oa.patient_id
-     LEFT JOIN users u ON u.id = oa.recorded_by
-     ORDER BY oa.visit_date DESC
-     LIMIT 500`,
+    FROM obstetric_assessments oa
+    JOIN patients p ON p.id = oa.patient_id
+    LEFT JOIN users u ON u.id = oa.recorded_by`
+
+  const conditions: string[] = []
+  const values: unknown[] = []
+
+  if (fromParam && toParam) {
+    values.push(new Date(fromParam).toISOString())
+    values.push(new Date(toParam).toISOString())
+    conditions.push(`oa.visit_date >= $${values.length - 1}::timestamp AND oa.visit_date <= $${values.length}::timestamp`)
+  }
+  if (patientId) {
+    values.push(patientId)
+    conditions.push(`oa.patient_id = $${values.length}`)
+  }
+
+  const where = conditions.length > 0 ? `WHERE ${conditions.join(" AND ")}` : ""
+  const { rows } = await queryWithSession(
+    session,
+    `${baseSelect} ${where} ORDER BY oa.visit_date DESC LIMIT 500`,
+    values,
   )
   return NextResponse.json({ visits: rows })
 }
