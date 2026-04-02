@@ -14,12 +14,33 @@ export async function GET(req: Request) {
   const fromParam = url.searchParams.get("from")?.trim() || null
   const toParam = url.searchParams.get("to")?.trim() || null
 
-  const from = fromParam ? new Date(fromParam) : null
-  const to = toParam ? new Date(toParam) : null
-
   const session = { role: auth.role, userId: auth.userId }
 
-  if (from && to) {
+  // Active pregnancies: patients with EDD in the next 40 weeks
+  const { rows: activeRows } = await queryWithSession(
+    session,
+    `SELECT COUNT(DISTINCT patient_id) AS active_pregnancies
+     FROM obstetric_assessments
+     WHERE edd IS NOT NULL
+       AND edd >= CURRENT_DATE
+       AND edd <= CURRENT_DATE + INTERVAL '40 weeks'`,
+  )
+  const activePregnancies = parseInt(String(activeRows[0]?.active_pregnancies ?? 0), 10)
+
+  // Upcoming deliveries: EDDs within the next 4 weeks
+  const { rows: upcomingRows } = await queryWithSession(
+    session,
+    `SELECT COUNT(DISTINCT patient_id) AS upcoming_deliveries
+     FROM obstetric_assessments
+     WHERE edd IS NOT NULL
+       AND edd >= CURRENT_DATE
+       AND edd <= CURRENT_DATE + INTERVAL '4 weeks'`,
+  )
+  const upcomingDeliveries = parseInt(String(upcomingRows[0]?.upcoming_deliveries ?? 0), 10)
+
+  if (fromParam && toParam) {
+    const from = new Date(fromParam)
+    const to = new Date(toParam)
     const { rows: countRows } = await queryWithSession(
       session,
       `SELECT COUNT(*) AS assessments_count, COUNT(DISTINCT patient_id) AS patients_count
@@ -29,14 +50,22 @@ export async function GET(req: Request) {
     )
     const assessmentsCount = parseInt(String(countRows[0]?.assessments_count ?? 0), 10)
     const patientsCount = parseInt(String(countRows[0]?.patients_count ?? 0), 10)
-    return NextResponse.json({ assessmentsCount, patientsCount, from: fromParam, to: toParam })
+    return NextResponse.json({
+      assessmentsCount,
+      patientsCount,
+      activePregnancies,
+      upcomingDeliveries,
+      from: fromParam,
+      to: toParam,
+    })
   }
 
   const { rows: countRows } = await queryWithSession(
     session,
-    `SELECT COUNT(*) AS total_assessments, COUNT(DISTINCT patient_id) AS total_patients FROM obstetric_assessments`,
+    `SELECT COUNT(*) AS total_assessments, COUNT(DISTINCT patient_id) AS total_patients
+     FROM obstetric_assessments`,
   )
   const assessmentsCount = parseInt(String(countRows[0]?.total_assessments ?? 0), 10)
   const patientsCount = parseInt(String(countRows[0]?.total_patients ?? 0), 10)
-  return NextResponse.json({ assessmentsCount, patientsCount })
+  return NextResponse.json({ assessmentsCount, patientsCount, activePregnancies, upcomingDeliveries })
 }
