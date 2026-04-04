@@ -36,7 +36,7 @@ export class RadiologyDataset implements Dataset {
     const params: any[] = [
       f.from,
       f.to,
-      f.status ?? null,
+      f.status ? f.status.toLowerCase() : null,
       cursor?.after ?? null,
       cursor?.id ?? null,
       pageSize,
@@ -58,9 +58,9 @@ export class RadiologyDataset implements Dataset {
       LEFT JOIN patients p ON p.id = lt.patient_id
       LEFT JOIN users d ON d.id = lt.doctor_id
       LEFT JOIN users u ON u.id = lt.assigned_radiologist_id
-      WHERE COALESCE(NULLIF(lt.test_name, ''), lt.test_type) = ANY($7::text[])
+      WHERE LOWER(COALESCE(NULLIF(lt.test_name, ''), lt.test_type)) = ANY($7::text[])
         AND lt.ordered_at BETWEEN $1 AND $2
-        AND ($3::text IS NULL OR lt.status = $3)
+        AND ($3::text IS NULL OR LOWER(lt.status) = $3)
         AND (
           $4::timestamp IS NULL
           OR lt.ordered_at > $4
