@@ -4,19 +4,21 @@ import { SettingsColumns, SettingsLayout } from "@/components/settings/settings-
 import { EmailSettings } from "@/components/settings/email-settings"
 import { PasswordSettings } from "@/components/settings/password-settings"
 import { ProfileSettings, NotificationSettings, PreferenceSettings } from "@/components/settings/preference-settings"
+import { RadiologistWorkflowSettings } from "@/components/settings/radiologist-workflow-settings"
 import { Scan } from "lucide-react"
 
 export default function RadiologistSettingsPage() {
   return (
     <SettingsLayout
       title="Radiologist Settings"
-      description="Manage your radiology account and imaging preferences"
+      description="Manage your radiology account, workflow defaults, and imaging preferences"
       icon={<Scan className="h-5 w-5" />}
     >
       <SettingsColumns
         primary={
           <>
             <ProfileSettings />
+            <RadiologistWorkflowSettings />
             <PreferenceSettings />
           </>
         }

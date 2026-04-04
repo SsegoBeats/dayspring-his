@@ -7,13 +7,19 @@ export const RADIOLOGY_MODALITIES = [
   "mri",
   "ultrasound",
   "mammography",
+  "fluoroscopy",
+  "nuclear medicine",
+  "pet scan",
+  "pet-ct",
+  "dexa",
+  "angiography",
 ] as const
 
 export type RadiologyStatus = "pending" | "in-progress" | "completed" | "cancelled"
 export type RadiologyPriority = "routine" | "urgent" | "stat"
 
 export type RadiologyStructuredTemplate = {
-  modality: "X-Ray" | "CT Scan" | "MRI" | "Ultrasound" | "Mammography"
+  modality: "X-Ray" | "CT Scan" | "MRI" | "Ultrasound" | "Mammography" | "Fluoroscopy" | "Nuclear Medicine" | "PET Scan" | "Angiography"
   description: string
   sectionOrder: string[]
   requiredSections: string[]
@@ -42,6 +48,50 @@ export const RADIOLOGY_UPLOAD_EXTENSIONS = [
 ] as const
 
 const STRUCTURED_REPORT_TEMPLATES: Record<RadiologyStructuredTemplate["modality"], RadiologyStructuredTemplate> = {
+  Fluoroscopy: {
+    modality: "Fluoroscopy",
+    description: "Fluoroscopy reporting with procedure description, fluoroscopy time, and findings.",
+    sectionOrder: ["Clinical Indication", "Procedure", "Fluoroscopy Time", "Contrast Used", "Findings", "Impression", "Recommendations"],
+    requiredSections: ["Clinical Indication", "Procedure", "Findings", "Impression"],
+    quickPhrases: [
+      "Procedure performed without immediate complication.",
+      "Contrast medium administered without adverse reaction.",
+      "Dynamic assessment demonstrates normal mucosal pattern throughout.",
+    ],
+  },
+  "Nuclear Medicine": {
+    modality: "Nuclear Medicine",
+    description: "Nuclear medicine scan reporting with radiopharmaceutical details, acquisition, and findings.",
+    sectionOrder: ["Clinical Indication", "Radiopharmaceutical", "Technique", "Findings", "Impression", "Recommendations"],
+    requiredSections: ["Clinical Indication", "Radiopharmaceutical", "Findings", "Impression"],
+    quickPhrases: [
+      "No abnormal tracer uptake identified on this examination.",
+      "Uniform physiological tracer distribution without focal photopenic defect.",
+      "No evidence of scintigraphic metastatic disease within the scanned region.",
+    ],
+  },
+  "PET Scan": {
+    modality: "PET Scan",
+    description: "PET/PET-CT reporting with SUV values, metabolic activity, and staging assessment.",
+    sectionOrder: ["Clinical Indication", "Technique", "Comparison", "Findings", "SUV Measurements", "Impression", "Staging", "Recommendations"],
+    requiredSections: ["Clinical Indication", "Technique", "Findings", "Impression", "Staging"],
+    quickPhrases: [
+      "No FDG-avid lesion identified to suggest active malignancy.",
+      "Physiological FDG distribution without pathological hypermetabolic focus.",
+      "No new FDG-avid lesion compared to prior examination.",
+    ],
+  },
+  Angiography: {
+    modality: "Angiography",
+    description: "Angiography reporting with vessel assessment, stenosis grading, and intervention details.",
+    sectionOrder: ["Clinical Indication", "Technique", "Access Site", "Vessels Assessed", "Findings", "Intervention", "Impression", "Recommendations"],
+    requiredSections: ["Clinical Indication", "Vessels Assessed", "Findings", "Impression"],
+    quickPhrases: [
+      "No significant stenosis or occlusion identified in the vessels assessed.",
+      "Patent vascular anatomy without evidence of aneurysmal dilatation.",
+      "Successful catheterisation and contrast opacification of target vessels.",
+    ],
+  },
   "X-Ray": {
     modality: "X-Ray",
     description: "Concise radiograph reporting with clinical indication, findings, and impression.",
@@ -134,6 +184,10 @@ export function resolveRadiologyModality(value?: string | null): RadiologyStruct
   if (normalized === "mri") return "MRI"
   if (normalized === "ultrasound") return "Ultrasound"
   if (normalized === "mammography") return "Mammography"
+  if (normalized === "fluoroscopy") return "Fluoroscopy"
+  if (normalized === "nuclear medicine") return "Nuclear Medicine"
+  if (normalized === "pet scan" || normalized === "pet" || normalized === "pet-ct") return "PET Scan"
+  if (normalized === "angiography" || normalized === "dsa") return "Angiography"
   return null
 }
 

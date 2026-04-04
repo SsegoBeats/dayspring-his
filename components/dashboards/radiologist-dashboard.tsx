@@ -266,6 +266,23 @@ export function RadiologistDashboard() {
     [completedStudies],
   )
 
+  const completionRate = useMemo(() => {
+    if (studies.length === 0) return null
+    return Math.round((completedStudies.length / studies.length) * 100)
+  }, [studies.length, completedStudies.length])
+
+  const avgTurnaroundHours = useMemo(() => {
+    const withTat = completedStudies.filter(
+      (study) => study.completedAt && study.orderedAt,
+    )
+    if (withTat.length === 0) return null
+    const total = withTat.reduce((sum, study) => {
+      const diff = new Date(study.completedAt!).getTime() - new Date(study.orderedAt).getTime()
+      return sum + diff / (1000 * 60 * 60)
+    }, 0)
+    return Math.round((total / withTat.length) * 10) / 10
+  }, [completedStudies])
+
   const baseFilteredStudies = useMemo(() => {
     return studies.filter((study) => {
       if (modalityFilter !== "all" && study.testName !== modalityFilter) return false
@@ -611,21 +628,49 @@ export function RadiologistDashboard() {
 
   return (
     <div className="space-y-6">
-      <section className="relative overflow-hidden rounded-[28px] border border-sky-200/50 bg-[linear-gradient(135deg,#082f49_0%,#0f766e_55%,#164e63_100%)] px-6 py-7 text-white shadow-[0_28px_80px_-32px_rgba(8,47,73,0.95)] md:px-8">
-        <div className="absolute -left-12 top-12 h-40 w-40 rounded-full bg-white/10 blur-3xl" />
-        <div className="absolute right-0 top-0 h-52 w-52 rounded-full bg-emerald-300/10 blur-3xl" />
+      <section className="relative overflow-hidden rounded-[28px] border border-sky-200/40 bg-[linear-gradient(145deg,#062032_0%,#0a4a5e_35%,#0f766e_70%,#0d4f4a_100%)] px-6 py-8 text-white shadow-[0_32px_90px_-28px_rgba(6,32,50,0.9)] md:px-10">
+        <div className="pointer-events-none absolute -left-16 top-8 h-52 w-52 rounded-full bg-teal-400/15 blur-3xl" />
+        <div className="pointer-events-none absolute -right-8 -top-8 h-64 w-64 rounded-full bg-sky-300/10 blur-3xl" />
+        <div className="pointer-events-none absolute bottom-0 left-1/3 h-32 w-96 rounded-full bg-emerald-500/10 blur-2xl" />
         <div className="relative grid gap-6 lg:grid-cols-[1.7fr_1fr]">
           <div className="space-y-5">
-            <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-sky-100">
-              Radiology Command Desk
+            <div className="flex items-center gap-3">
+              <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1.5 text-xs font-semibold uppercase tracking-[0.28em] text-sky-100">
+                <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-emerald-400" />
+                Radiology Command Desk
+              </div>
+              {overdueStudies.length > 0 && (
+                <div className="inline-flex items-center gap-1.5 rounded-full border border-red-400/40 bg-red-500/20 px-2.5 py-1 text-xs font-semibold text-red-200">
+                  <ShieldAlert className="h-3 w-3" />
+                  {overdueStudies.length} overdue
+                </div>
+              )}
             </div>
             <div className="space-y-3">
               <h2 className="max-w-3xl text-3xl font-semibold tracking-tight md:text-4xl">
-                Read faster, assign cleanly, and keep every imaging study visible from order to final report.
+                Read faster. Report cleanly. Close every study before the queue backs up.
               </h2>
-              <p className="max-w-2xl text-sm text-sky-100/90 md:text-base">
-                The radiologist portal now runs on the live study queue, real assignment ownership, notification handoff, and working workload exports.
+              <p className="max-w-2xl text-sm text-sky-100/80 md:text-base">
+                Live worklist, real assignment ownership, structured report templates, notification handoff to ordering clinicians, and one-click workload exports.
               </p>
+            </div>
+            <div className="flex flex-wrap gap-4 rounded-2xl border border-white/10 bg-white/5 px-5 py-3 text-sm">
+              <span className="text-sky-200/70">Today:</span>
+              <span className="font-semibold text-white">{orderedToday} ordered</span>
+              <span className="text-white/30">·</span>
+              <span className="font-semibold text-emerald-300">{completedToday} completed</span>
+              {completionRate !== null && (
+                <>
+                  <span className="text-white/30">·</span>
+                  <span className="font-semibold text-teal-300">{completionRate}% overall completion</span>
+                </>
+              )}
+              {avgTurnaroundHours !== null && (
+                <>
+                  <span className="text-white/30">·</span>
+                  <span className="font-semibold text-indigo-300">{avgTurnaroundHours}h avg TAT</span>
+                </>
+              )}
             </div>
             <div className="grid gap-3 md:grid-cols-3">
               {quickActions.map((action) => {
@@ -715,14 +760,14 @@ export function RadiologistDashboard() {
         </div>
       </section>
 
-      <div className="grid gap-4 md:grid-cols-5">
+      <div className="grid gap-4 sm:grid-cols-2 md:grid-cols-4 xl:grid-cols-7">
         <Card className="border-amber-100 bg-amber-50/50">
           <CardHeader className="pb-2">
             <CardTitle className="text-xs uppercase tracking-[0.18em] text-amber-700">Active Queue</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">{activeStudies.length}</div>
-            <p className="text-xs text-amber-900/80">Pending and in-progress studies still needing action.</p>
+            <p className="text-xs text-amber-900/80">Pending and in-progress studies needing action.</p>
           </CardContent>
         </Card>
         <Card className="border-sky-100 bg-sky-50/50">
@@ -731,7 +776,7 @@ export function RadiologistDashboard() {
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">{orderedToday}</div>
-            <p className="text-xs text-sky-900/80">New studies entering the radiology queue today.</p>
+            <p className="text-xs text-sky-900/80">New studies entering the queue today.</p>
           </CardContent>
         </Card>
         <Card className="border-emerald-100 bg-emerald-50/50">
@@ -759,6 +804,28 @@ export function RadiologistDashboard() {
           <CardContent>
             <div className="text-3xl font-semibold">{myAssignedStudies.length}</div>
             <p className="text-xs text-violet-900/80">Active studies currently assigned to you.</p>
+          </CardContent>
+        </Card>
+        <Card className="border-teal-100 bg-teal-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-[0.18em] text-teal-700">Completion Rate</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold">
+              {completionRate !== null ? `${completionRate}%` : "—"}
+            </div>
+            <p className="text-xs text-teal-900/80">Share of all studies with a submitted report.</p>
+          </CardContent>
+        </Card>
+        <Card className="border-indigo-100 bg-indigo-50/50">
+          <CardHeader className="pb-2">
+            <CardTitle className="text-xs uppercase tracking-[0.18em] text-indigo-700">Avg Turnaround</CardTitle>
+          </CardHeader>
+          <CardContent>
+            <div className="text-3xl font-semibold">
+              {avgTurnaroundHours !== null ? `${avgTurnaroundHours}h` : "—"}
+            </div>
+            <p className="text-xs text-indigo-900/80">Mean hours from order to completed report.</p>
           </CardContent>
         </Card>
       </div>
@@ -793,6 +860,10 @@ export function RadiologistDashboard() {
                     <SelectItem value="MRI">MRI</SelectItem>
                     <SelectItem value="Ultrasound">Ultrasound</SelectItem>
                     <SelectItem value="Mammography">Mammography</SelectItem>
+                    <SelectItem value="Fluoroscopy">Fluoroscopy</SelectItem>
+                    <SelectItem value="Nuclear Medicine">Nuclear Medicine</SelectItem>
+                    <SelectItem value="PET Scan">PET Scan</SelectItem>
+                    <SelectItem value="Angiography">Angiography</SelectItem>
                   </SelectContent>
                 </Select>
                 <Select value={priorityFilter} onValueChange={setPriorityFilter}>
@@ -1112,6 +1183,10 @@ export function RadiologistDashboard() {
                       <SelectItem value="MRI">MRI</SelectItem>
                       <SelectItem value="Ultrasound">Ultrasound</SelectItem>
                       <SelectItem value="Mammography">Mammography</SelectItem>
+                      <SelectItem value="Fluoroscopy">Fluoroscopy</SelectItem>
+                      <SelectItem value="Nuclear Medicine">Nuclear Medicine</SelectItem>
+                      <SelectItem value="PET Scan">PET Scan</SelectItem>
+                      <SelectItem value="Angiography">Angiography</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>
@@ -1186,6 +1261,10 @@ export function RadiologistDashboard() {
                       <SelectItem value="MRI">MRI</SelectItem>
                       <SelectItem value="Ultrasound">Ultrasound</SelectItem>
                       <SelectItem value="Mammography">Mammography</SelectItem>
+                      <SelectItem value="Fluoroscopy">Fluoroscopy</SelectItem>
+                      <SelectItem value="Nuclear Medicine">Nuclear Medicine</SelectItem>
+                      <SelectItem value="PET Scan">PET Scan</SelectItem>
+                      <SelectItem value="Angiography">Angiography</SelectItem>
                     </SelectContent>
                   </Select>
                 </div>

@@ -200,8 +200,8 @@ export async function POST(req: Request) {
     if (!created.length) return NextResponse.json({ error: "No tests were created. Ensure testName or LOINC code is provided." }, { status: 400 })
 
     // Check if any radiology tests were created
-    const radiologyTests = created.filter((t: any) => 
-      t.testName && ["X-Ray", "CT Scan", "MRI", "Ultrasound", "Mammography"].includes(t.testName)
+    const radiologyTests = created.filter((t: any) =>
+      t.testName && ["X-Ray", "CT Scan", "MRI", "Ultrasound", "Mammography", "Fluoroscopy", "Nuclear Medicine", "PET Scan", "Angiography"].includes(t.testName)
     )
 
     // Notify Lab Techs for non-radiology tests

@@ -36,12 +36,13 @@ export class RadiologyLabTestsDataset implements Dataset {
     const params: any[] = [f.from, f.to]
     const whereParts = [
       `lt.ordered_at BETWEEN $1 AND $2`,
-      `lt.test_name IN ('X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammography')`,
+      `lt.test_name IN ('X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammography', 'Fluoroscopy', 'Nuclear Medicine', 'PET Scan', 'Angiography')`,
     ]
 
     if (f.statuses && f.statuses.length > 0) {
-      params.push(f.statuses.map((status) => status.toLowerCase()))
-      whereParts.push(`LOWER(lt.status) = ANY($${params.length}::text[])`)
+      // Normalize both sides: DB "In Progress" → "in progress", UI "in-progress" → "in progress"
+      params.push(f.statuses.map((status) => status.toLowerCase().replace(/-/g, " ")))
+      whereParts.push(`REPLACE(LOWER(lt.status), '-', ' ') = ANY($${params.length}::text[])`)
     }
 
     if (f.modality) {

@@ -170,10 +170,19 @@ export function RadiologyTestQueue({
                       ? "default"
                       : "outline"
 
+                const isStatRow = test.priority === "stat"
+                const isOverdue = getAgeMeta(test.orderedAt).severity === "critical"
+
                 return (
                   <TableRow
                     key={test.id}
-                    className="cursor-pointer hover:bg-muted/30"
+                    className={`cursor-pointer transition-colors ${
+                      isStatRow
+                        ? "border-l-2 border-l-red-500 bg-red-50/40 hover:bg-red-50/60 dark:bg-red-950/20 dark:hover:bg-red-950/30"
+                        : isOverdue
+                          ? "border-l-2 border-l-amber-400 bg-amber-50/30 hover:bg-amber-50/50 dark:bg-amber-950/10 dark:hover:bg-amber-950/20"
+                          : "hover:bg-muted/30"
+                    }`}
                     onClick={() => onSelectTest(test.id)}
                     onKeyDown={(event) => {
                       if (event.key === "Enter" || event.key === " ") {

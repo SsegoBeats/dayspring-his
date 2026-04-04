@@ -56,6 +56,9 @@ async function ensurePreferenceColumns() {
         IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'service_crit') THEN
           ALTER TABLE user_settings ADD COLUMN service_crit INT DEFAULT 60;
         END IF;
+        IF NOT EXISTS (SELECT 1 FROM information_schema.columns WHERE table_name = 'user_settings' AND column_name = 'extra_prefs') THEN
+          ALTER TABLE user_settings ADD COLUMN extra_prefs JSONB DEFAULT '{}';
+        END IF;
       END IF;
     END$$;
   `)
@@ -73,7 +76,7 @@ export async function GET() {
     await ensurePreferenceColumns()
 
     const { rows } = await query(
-      "SELECT theme, locale, currency, timezone, date_format, default_dashboard, queue_wait_warn, queue_wait_crit, service_warn, service_crit FROM user_settings WHERE user_id = $1",
+      "SELECT theme, locale, currency, timezone, date_format, default_dashboard, queue_wait_warn, queue_wait_crit, service_warn, service_crit, extra_prefs FROM user_settings WHERE user_id = $1",
       [payload.userId]
     )
 
@@ -82,6 +85,8 @@ export async function GET() {
         preferences: DEFAULT_PREFERENCES
       })
     }
+
+    const extra = rows[0].extra_prefs && typeof rows[0].extra_prefs === "object" ? rows[0].extra_prefs : {}
 
     return NextResponse.json({
       preferences: {
@@ -95,11 +100,46 @@ export async function GET() {
         queue_wait_crit: rows[0].queue_wait_crit ?? DEFAULT_PREFERENCES.queue_wait_crit,
         service_warn: rows[0].service_warn ?? DEFAULT_PREFERENCES.service_warn,
         service_crit: rows[0].service_crit ?? DEFAULT_PREFERENCES.service_crit,
+        ...extra,
       }
     })
   } catch (error) {
     console.error("Error fetching preferences:", error)
     return NextResponse.json({ error: "Failed to fetch preferences" }, { status: 500 })
+  }
+}
+
+/** PATCH: store arbitrary extra preference keys (e.g. radiologistWorkflow) without overwriting core prefs. */
+export async function PATCH(req: Request) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    const payload = verifyToken(token)
+    if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+    await ensurePreferenceColumns()
+
+    const body = await req.json().catch(() => ({}))
+    if (typeof body !== "object" || body === null) {
+      return NextResponse.json({ error: "Invalid input" }, { status: 400 })
+    }
+
+    // Merge into extra_prefs JSONB — safe partial update
+    await query(
+      `INSERT INTO user_settings (user_id, extra_prefs, updated_at)
+       VALUES ($1, $2::jsonb, NOW())
+       ON CONFLICT (user_id)
+       DO UPDATE SET
+         extra_prefs = COALESCE(user_settings.extra_prefs, '{}'::jsonb) || $2::jsonb,
+         updated_at = NOW()`,
+      [payload.userId, JSON.stringify(body)],
+    )
+
+    return NextResponse.json({ success: true })
+  } catch (error) {
+    console.error("Error patching preferences:", error)
+    return NextResponse.json({ error: "Failed to update preferences" }, { status: 500 })
   }
 }
 
