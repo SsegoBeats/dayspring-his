@@ -28,6 +28,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { useAuth } from "@/lib/auth-context"
 import { useLab } from "@/lib/lab-context"
 import { usePatients } from "@/lib/patient-context"
+import { useSettings } from "@/lib/settings-context"
 import {
   buildStructuredRadiologyReport,
   calculateAgeFromDob,
@@ -67,6 +68,11 @@ export function RadiologyTestDetails({ testId, onBack, onSelectTest }: Radiology
   const { user } = useAuth()
   const { tests, refresh } = useLab()
   const { getPatient } = usePatients()
+  const { settings } = useSettings()
+  const workflowPrefs = (settings as any)?.radiologistWorkflow as {
+    enforceStructuredReports?: boolean
+    showPreviousStudiesDefault?: boolean
+  } | undefined
 
   const [study, setStudy] = useState<RadiologyStudy | null>(null)
   const [loading, setLoading] = useState(true)
@@ -158,6 +164,12 @@ export function RadiologyTestDetails({ testId, onBack, onSelectTest }: Radiology
     }
   }, [study?.patientId])
 
+  useEffect(() => {
+    if (workflowPrefs?.showPreviousStudiesDefault && study?.id) {
+      setShowPreviousStudies(true)
+    }
+  }, [study?.id, workflowPrefs?.showPreviousStudiesDefault])
+
   const patient = study ? getPatient(study.patientId) : undefined
   const age =
     patient?.ageYears ??
@@ -183,7 +195,9 @@ export function RadiologyTestDetails({ testId, onBack, onSelectTest }: Radiology
     [results, structuredTemplate],
   )
   const enforceStructuredSections = Boolean(
-    structuredTemplate && ["CT Scan", "MRI", "Mammography"].includes(structuredTemplate.modality),
+    structuredTemplate &&
+      (workflowPrefs?.enforceStructuredReports === true ||
+        ["CT Scan", "MRI", "Mammography"].includes(structuredTemplate.modality)),
   )
 
   const previousStudies = useMemo(() => {
@@ -380,24 +394,35 @@ export function RadiologyTestDetails({ testId, onBack, onSelectTest }: Radiology
 
       <div className="grid gap-5 xl:grid-cols-[1.3fr_0.7fr]">
         <Card className="overflow-hidden border-border/70 shadow-sm">
-          <CardHeader className="border-b border-border/60 bg-muted/20">
+          <CardHeader className={`border-b border-border/60 ${
+            study.priority === "stat"
+              ? "bg-[linear-gradient(135deg,#1e0a0a_0%,#3b0d0d_50%,#1c1c1c_100%)] text-white"
+              : study.priority === "urgent"
+                ? "bg-[linear-gradient(135deg,#1a1400_0%,#3b2800_50%,#1c1a0a_100%)] text-white"
+                : "bg-[linear-gradient(135deg,#062032_0%,#0a3d52_60%,#062032_100%)] text-white"
+          }`}>
             <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
               <div className="space-y-1">
-                <CardTitle className="flex items-center gap-2">
-                  <Scan className="h-5 w-5 text-sky-600" />
+                <CardTitle className="flex items-center gap-2 text-white">
+                  <Scan className={`h-5 w-5 ${study.priority === "stat" ? "text-red-400" : study.priority === "urgent" ? "text-amber-400" : "text-sky-400"}`} />
                   {study.testName}
                 </CardTitle>
-                <CardDescription>
-                  {study.accessionNumber || study.id}
+                <CardDescription className="text-white/60">
+                  Accession: {study.accessionNumber || study.id}
                 </CardDescription>
               </div>
-              <div className="flex flex-wrap gap-2">
+              <div className="flex flex-wrap items-center gap-2">
                 <Badge variant={study.status === "completed" ? "default" : study.status === "cancelled" ? "destructive" : "secondary"}>
                   {formatStudyStatus(study.status)}
                 </Badge>
                 <Badge variant={study.priority === "stat" ? "destructive" : study.priority === "urgent" ? "default" : "outline"}>
                   {formatStudyPriority(study.priority)}
                 </Badge>
+                {study.assignedToName && (
+                  <span className="rounded-full border border-white/20 bg-white/10 px-2.5 py-0.5 text-xs text-white/80">
+                    {study.assignedToName}
+                  </span>
+                )}
               </div>
             </div>
           </CardHeader>
