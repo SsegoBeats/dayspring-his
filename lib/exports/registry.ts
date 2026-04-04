@@ -87,6 +87,8 @@ import { QueueEventsDataset } from "@/lib/exports/datasets/queue-events"
 import { ReceptionDashboardDataset } from "@/lib/exports/datasets/reception-dashboard"
 import { ReceptionDailyDataset } from "@/lib/exports/datasets/reception-daily"
 import { ObstetricsDataset } from "@/lib/exports/datasets/obstetrics"
+import { LaborDataset } from "@/lib/exports/datasets/labor"
+import { PostnatalDataset } from "@/lib/exports/datasets/postnatal"
 import { DentalDataset } from "@/lib/exports/datasets/dental"
 import { MedicalRecordsDataset } from "@/lib/exports/datasets/medical-records"
 import { PrescriptionsDataset } from "@/lib/exports/datasets/prescriptions"
@@ -110,6 +112,8 @@ export const Datasets: Record<string, Dataset> = {
   reception_dashboard: new ReceptionDashboardDataset(),
   reception_daily: new ReceptionDailyDataset(),
   obstetrics: new ObstetricsDataset(),
+  labor: new LaborDataset(),
+  postnatal: new PostnatalDataset(),
   dental: new DentalDataset(),
   medical_records: new MedicalRecordsDataset(),
   prescriptions: new PrescriptionsDataset(),

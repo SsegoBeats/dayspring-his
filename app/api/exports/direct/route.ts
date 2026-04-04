@@ -32,6 +32,8 @@ const Schema = z.object({
     "reception_dashboard",
     "reception_daily",
     "obstetrics",
+    "labor",
+    "postnatal",
     "dental",
     "medical_records",
     "prescriptions",

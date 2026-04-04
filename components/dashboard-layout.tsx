@@ -76,7 +76,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             <NotificationsBell userRole={user?.role} />
             {showAncLink && (
               <Button asChild variant="ghost" size="sm">
-                <Link href="/midwife/anc">ANC</Link>
+                <Link href="/midwife">Midwifery Portal</Link>
               </Button>
             )}
             {showSchedulesLink && (

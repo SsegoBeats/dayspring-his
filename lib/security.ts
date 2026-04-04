@@ -114,7 +114,7 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
   },
   Midwife: {
     patients: ["read"],
-    medical: ["read", "create", "update"],
+    medical: ["read", "create", "update", "delete"],
     appointments: ["read", "update"],
     lab: ["read", "create"],
     radiology: ["read", "create"],
