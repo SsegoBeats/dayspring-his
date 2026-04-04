@@ -1,6 +1,8 @@
 "use client"
 
-import { useState } from "react"
+import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { SettingsColumns, SettingsLayout } from "@/components/settings/settings-layout"
 import { EmailSettings } from "@/components/settings/email-settings"
 import { PasswordSettings } from "@/components/settings/password-settings"
@@ -18,6 +20,19 @@ function MidwifePreferences() {
   const [eddAlertWeeks, setEddAlertWeeks] = useState("4")
   const [saving, setSaving] = useState(false)
 
+  useEffect(() => {
+    fetch("/api/settings/preferences", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: { preferences?: { midwifePrefs?: { eddMethod?: string; eddAlertWeeks?: number } } }) => {
+        const stored = data?.preferences?.midwifePrefs
+        if (stored) {
+          if (stored.eddMethod) setEddMethod(stored.eddMethod)
+          if (stored.eddAlertWeeks != null) setEddAlertWeeks(String(stored.eddAlertWeeks))
+        }
+      })
+      .catch(() => {})
+  }, [])
+
   async function save() {
     const weeks = parseInt(eddAlertWeeks, 10)
     if (isNaN(weeks) || weeks < 1 || weeks > 12) {
@@ -27,12 +42,14 @@ function MidwifePreferences() {
     setSaving(true)
     try {
       const res = await fetch("/api/settings/preferences", {
-        method: "POST",
+        method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
-          midwife_edd_method: eddMethod,
-          midwife_edd_alert_weeks: weeks,
+          midwifePrefs: {
+            eddMethod,
+            eddAlertWeeks: weeks,
+          },
         }),
       })
       if (!res.ok) {
@@ -120,6 +137,32 @@ function MidwifePreferences() {
 }
 
 export default function MidwifeSettingsPage() {
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!user) {
+      router.replace("/")
+      return
+    }
+    if ((user.role || "").toLowerCase() !== "midwife") {
+      router.replace("/settings")
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading || !user) {
+    return (
+      <div className="flex min-h-screen items-center justify-center">
+        <div className="text-muted-foreground">Loading settings...</div>
+      </div>
+    )
+  }
+
+  if ((user.role || "").toLowerCase() !== "midwife") {
+    return null
+  }
+
   return (
     <SettingsLayout
       title="Midwifery Settings"

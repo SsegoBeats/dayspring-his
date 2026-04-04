@@ -17,6 +17,20 @@ interface LabTechWorkflowPrefs {
   showPriorResultsDefault: boolean
 }
 
+interface RadiologistWorkflowPrefs {
+  defaultModality: string
+  autoClaimOnOpen: boolean
+  statAlertSound: boolean
+  enforceStructuredReports: boolean
+  showPreviousStudiesDefault: boolean
+  overdueThresholdHours: number
+}
+
+interface MidwifePrefs {
+  eddMethod: string
+  eddAlertWeeks: number
+}
+
 interface Settings {
   theme: string
   locale: string
@@ -26,6 +40,8 @@ interface Settings {
   defaultDashboard: string
   notifyEmailReminders: boolean
   labTechWorkflow?: LabTechWorkflowPrefs
+  radiologistWorkflow?: RadiologistWorkflowPrefs
+  midwifePrefs?: MidwifePrefs
 }
 
 interface SettingsContextType {
@@ -84,6 +100,8 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             defaultDashboard: data.preferences.defaultDashboard || DEFAULT_SETTINGS.defaultDashboard,
             notifyEmailReminders: true,
             labTechWorkflow: data.preferences.labTechWorkflow ?? undefined,
+            radiologistWorkflow: data.preferences.radiologistWorkflow ?? undefined,
+            midwifePrefs: data.preferences.midwifePrefs ?? undefined,
           })
         } else {
           setSettings({ ...DEFAULT_SETTINGS, currency })

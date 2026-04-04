@@ -252,10 +252,15 @@ export function RadiologistDashboard() {
     () => studies.filter((study) => study.status === "completed"),
     [studies],
   )
-  const overdueStudies = useMemo(
-    () => activeStudies.filter((study) => isOver24Hours(study.orderedAt)),
-    [activeStudies],
-  )
+  const overdueStudies = useMemo(() => {
+    const thresholdHours = settings?.radiologistWorkflow?.overdueThresholdHours ?? 24
+    const thresholdMs = thresholdHours * 60 * 60 * 1000
+    return activeStudies.filter((study) => {
+      if (!study.orderedAt) return false
+      const d = new Date(study.orderedAt)
+      return !Number.isNaN(d.getTime()) && Date.now() - d.getTime() >= thresholdMs
+    })
+  }, [activeStudies, settings?.radiologistWorkflow?.overdueThresholdHours])
   const myAssignedStudies = useMemo(
     () => activeStudies.filter((study) => study.assignedToId === user?.id),
     [activeStudies, user?.id],
@@ -790,11 +795,11 @@ export function RadiologistDashboard() {
         </Card>
         <Card className="border-rose-100 bg-rose-50/50">
           <CardHeader className="pb-2">
-            <CardTitle className="text-xs uppercase tracking-[0.18em] text-rose-700">Over 24 Hours</CardTitle>
+            <CardTitle className="text-xs uppercase tracking-[0.18em] text-rose-700">Over {settings?.radiologistWorkflow?.overdueThresholdHours ?? 24}h</CardTitle>
           </CardHeader>
           <CardContent>
             <div className="text-3xl font-semibold">{overdueStudies.length}</div>
-            <p className="text-xs text-rose-900/80">Studies breaching the 24-hour turnaround threshold.</p>
+            <p className="text-xs text-rose-900/80">Studies breaching the {settings?.radiologistWorkflow?.overdueThresholdHours ?? 24}-hour turnaround threshold.</p>
           </CardContent>
         </Card>
         <Card className="border-violet-100 bg-violet-50/50">

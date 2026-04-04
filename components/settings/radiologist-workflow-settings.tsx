@@ -36,7 +36,7 @@ export function RadiologistWorkflowSettings() {
   useEffect(() => {
     fetch("/api/settings/preferences", { credentials: "include" })
       .then((res) => (res.ok ? res.json() : {}))
-      .then((data) => {
+      .then((data: { preferences?: { radiologistWorkflow?: Partial<WorkflowPrefs> } }) => {
         const stored = data?.preferences?.radiologistWorkflow
         if (stored && typeof stored === "object") {
           const merged = { ...DEFAULTS, ...stored }
