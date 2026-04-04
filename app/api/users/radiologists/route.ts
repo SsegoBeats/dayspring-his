@@ -7,8 +7,11 @@ export async function GET() {
   const cookieStore = await cookies()
   const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
   const auth = token ? verifyToken(token) : null
-  if (!auth || !can(auth.role, "medical", "read")) {
+  if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+  if (!can(auth.role, "medical", "read")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
   }
   const { rows } = await queryWithSession(
     { role: auth.role, userId: auth.userId },
