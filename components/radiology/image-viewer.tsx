@@ -4,7 +4,7 @@ import { useState } from "react"
 import Image from "next/image"
 import { Dialog, DialogContent, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { Button } from "@/components/ui/button"
-import { ChevronLeft, ChevronRight, X, ZoomIn, ZoomOut, RotateCw } from "lucide-react"
+import { ChevronLeft, ChevronRight, RefreshCcw, ZoomIn, ZoomOut, RotateCw } from "lucide-react"
 import { cn } from "@/lib/utils"
 
 interface ImageViewerProps {
@@ -15,7 +15,20 @@ interface ImageViewerProps {
 }
 
 export function ImageViewer({ images, open, onOpenChange, initialIndex = 0 }: ImageViewerProps) {
-  if (images.length === 0) return null
+  if (images.length === 0) {
+    return (
+      <Dialog open={open} onOpenChange={onOpenChange}>
+        <DialogContent className="max-w-lg">
+          <DialogHeader>
+            <DialogTitle>Image Viewer</DialogTitle>
+          </DialogHeader>
+          <div className="flex flex-col items-center justify-center gap-3 py-12 text-center text-muted-foreground">
+            <p className="text-sm">No images are available for this study.</p>
+          </div>
+        </DialogContent>
+      </Dialog>
+    )
+  }
 
   const viewerKey = `${initialIndex}-${images[initialIndex]?.url || images.length}`
 
@@ -128,8 +141,8 @@ function ViewerContent({
           <Button variant="ghost" size="icon" onClick={handleRotate} className="text-white hover:bg-white/20">
             <RotateCw className="h-4 w-4" />
           </Button>
-          <Button variant="ghost" size="icon" onClick={handleReset} className="text-white hover:bg-white/20">
-            <X className="h-4 w-4" />
+          <Button variant="ghost" size="icon" onClick={handleReset} className="text-white hover:bg-white/20" title="Reset view">
+            <RefreshCcw className="h-4 w-4" />
           </Button>
         </div>
       </div>

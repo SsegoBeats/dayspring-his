@@ -657,7 +657,11 @@ export function RadiologyTestDetails({ testId, onBack, onSelectTest }: Radiology
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Save className="mr-2 h-4 w-4" />}
                   Save Draft
                 </Button>
-                <Button onClick={() => void handleSubmitReport()} disabled={saving || !results.trim()}>
+                <Button
+                  onClick={() => void handleSubmitReport()}
+                  disabled={saving || !results.trim() || (enforceStructuredSections && missingRequiredSections.length > 0)}
+                  title={enforceStructuredSections && missingRequiredSections.length > 0 ? `Complete required sections before submission: ${missingRequiredSections.join(", ")}` : undefined}
+                >
                   {saving ? <Loader2 className="mr-2 h-4 w-4 animate-spin" /> : <Send className="mr-2 h-4 w-4" />}
                   Submit Report
                 </Button>
