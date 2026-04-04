@@ -72,6 +72,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     }
     return NextResponse.json({ test })
   } catch (e) {
+    console.error('GET /api/lab-tests/[id] failed:', e)
     return NextResponse.json({ error: 'Failed to load test' }, { status: 500 })
   }
 }
@@ -266,7 +267,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           )
           const test = testRows[0]
           if (test && test.doctor_id) {
-            const isRadiologyStudy = ['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammography'].includes(test.test_name || test.test_type)
+            const isRadiologyStudy = ['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammography', 'Fluoroscopy', 'Nuclear Medicine', 'PET Scan', 'Angiography'].includes(test.test_name || test.test_type)
             const patientName = test.first_name && test.last_name
               ? `${test.first_name} ${test.last_name}`.trim()
               : 'patient'
@@ -334,7 +335,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
             [id]
           )
           const test = testRows[0]
-          const isRadiologyStudy = test && ['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammography'].includes(test.test_name || test.test_type)
+          const isRadiologyStudy = test && ['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammography', 'Fluoroscopy', 'Nuclear Medicine', 'PET Scan', 'Angiography'].includes(test.test_name || test.test_type)
           if (test && test.doctor_id && isRadiologyStudy) {
             const patientName = test.first_name && test.last_name
               ? `${test.first_name} ${test.last_name}`.trim()
