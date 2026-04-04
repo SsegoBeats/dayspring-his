@@ -283,12 +283,12 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
 
   return (
     <>
-      <Card>
-        <CardHeader>
+      <Card className="border-slate-200 bg-white/95 shadow-sm">
+        <CardHeader className="border-b border-slate-100 pb-4">
           <div className="flex items-center justify-between">
             <div>
-              <CardTitle>Laboratory Tests</CardTitle>
-              <CardDescription>View and manage laboratory test requests</CardDescription>
+              <CardTitle className="flex items-center gap-2 text-base">Laboratory Queue <span className="rounded-full bg-slate-100 px-2 py-0.5 text-xs font-normal text-muted-foreground">{sortedTests.length}</span></CardTitle>
+              <CardDescription>Select a row to process, assign, or review results</CardDescription>
             </div>
             {selectedTests.size > 0 && (
               <div className="flex gap-2">
@@ -515,7 +515,9 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                 <tbody>
                   {sortedTests.map((test) => {
                     const s = (test.status || '').toLowerCase()
+                    const isStat = (test.priority || '').toLowerCase() === 'stat'
                     const mins = s === 'completed' ? minsBetween(test.orderedAt, test.completedAt || undefined) : minsBetween(test.orderedAt, undefined)
+                    const isOverdue = s !== 'completed' && s !== 'cancelled' && mins != null && mins > 240
                     const agingBadge = (() => {
                       if (mins == null) return null
                       const label = mins < 60 ? `${mins}m` : `${Math.floor(mins / 60)}h ${mins % 60}m`
@@ -524,10 +526,20 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
                     })()
                     const flags = flagCounts(test)
                     const isSelected = selectedTests.has(test.id)
+                    const rowBg = isSelected
+                      ? 'bg-blue-50/60'
+                      : flags.critical
+                        ? 'bg-red-50/40'
+                        : isStat
+                          ? 'bg-rose-50/30'
+                          : isOverdue
+                            ? 'bg-amber-50/30'
+                            : ''
                     return (
-                      <tr 
-                        key={test.id} 
-                        className={`border-b hover:bg-muted/40 ${isSelected ? 'bg-blue-50/50' : ''} ${flags.critical ? 'bg-red-50/30' : ''}`}
+                      <tr
+                        key={test.id}
+                        className={`border-b hover:bg-muted/30 transition-colors ${rowBg}`}
+                        style={isStat ? { borderLeft: '3px solid #ef4444' } : isOverdue ? { borderLeft: '3px solid #f59e0b' } : { borderLeft: '3px solid transparent' }}
                       >
                         <td className="py-2 px-2">
                           <Checkbox checked={isSelected} onCheckedChange={() => toggleTest(test.id)} />
@@ -739,23 +751,31 @@ export function LabTestQueue({ tests, onSelectTest, emptyMessage }: LabTestQueue
             <DialogDescription>View and print or download lab test results for this patient.</DialogDescription>
           </DialogHeader>
           <div className="space-y-3 max-h-[70vh] overflow-y-auto">
-            {viewPatient && sortedTests.filter(t => t.patientId === viewPatient.id).map((t) => (
-              <div key={t.id} className="rounded-md border p-3 flex flex-col gap-2">
+            {viewPatient && tests.filter(t => t.patientId === viewPatient.id).sort((a, b) => new Date(b.orderedAt).getTime() - new Date(a.orderedAt).getTime()).map((t) => (
+              <div key={t.id} className={`rounded-xl border p-3 flex flex-col gap-2 ${(t.priority || '').toLowerCase() === 'stat' ? 'border-red-200 bg-red-50/40' : ''}`}>
                 <div className="flex items-start justify-between gap-3">
                   <div className="text-sm">
-                    <div className="font-semibold">{t.testName}</div>
-                    <div className="text-xs text-muted-foreground">{t.accessionNumber} · {t.priority || 'Routine'} · {t.specimenType || '-'}</div>
+                    <div className="flex items-center gap-2">
+                      <span className="font-semibold">{t.testName}</span>
+                      {(t.priority || '').toLowerCase() === 'stat' && <span className="rounded-full bg-red-100 px-1.5 py-0.5 text-[10px] font-bold text-red-700">STAT</span>}
+                    </div>
+                    <div className="text-xs text-muted-foreground">{t.accessionNumber || 'No accession'} · {t.specimenType || 'No specimen'}</div>
                     <div className="text-xs text-muted-foreground">Ordered: {new Date(t.orderedAt).toLocaleString()}</div>
-                    <div className="text-xs text-muted-foreground">Status: {t.status}</div>
+                    <div className="mt-0.5 flex items-center gap-1.5 text-xs">
+                      <span className={`rounded-full px-1.5 py-0.5 text-[10px] font-medium ${t.status.toLowerCase() === 'completed' ? 'bg-emerald-100 text-emerald-700' : t.status.toLowerCase() === 'in progress' ? 'bg-cyan-100 text-cyan-700' : t.status.toLowerCase() === 'cancelled' ? 'bg-red-100 text-red-700' : 'bg-slate-100 text-slate-600'}`}>{t.status}</span>
+                      {t.rejectionReason && <span className="text-red-600 italic">Rejected: {t.rejectionReason}</span>}
+                    </div>
                   </div>
-                  <Button size="sm" onClick={() => { onSelectTest(t.id); setViewPatient(null) }}>
-                    Process
-                  </Button>
+                  {t.status.toLowerCase() !== 'cancelled' && (
+                    <Button size="sm" variant="outline" onClick={() => { onSelectTest(t.id); setViewPatient(null) }}>
+                      {t.status.toLowerCase() === 'completed' ? 'View' : 'Process'}
+                    </Button>
+                  )}
                 </div>
               </div>
             ))}
-            {viewPatient && sortedTests.filter(t => t.patientId === viewPatient.id).length === 0 && (
-              <div className="text-sm text-muted-foreground">No tests for this patient.</div>
+            {viewPatient && tests.filter(t => t.patientId === viewPatient.id).length === 0 && (
+              <div className="rounded-xl border border-dashed px-4 py-6 text-center text-sm text-muted-foreground">No tests found for this patient.</div>
             )}
           </div>
         </DialogContent>

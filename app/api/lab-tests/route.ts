@@ -23,13 +23,13 @@ export async function GET(req: Request) {
 
     const whereParts: string[] = []
     const params: any[] = []
-    if (status && status !== 'all') { params.push(status); whereParts.push(`status ILIKE $${params.length}`) }
-    if (patientId) { params.push(patientId); whereParts.push(`patient_id = $${params.length}`) }
-    if (from) { params.push(from); whereParts.push(`ordered_at >= $${params.length}`) }
-    if (to) { params.push(to); whereParts.push(`ordered_at <= $${params.length}`) }
+    if (status && status !== 'all') { params.push(status); whereParts.push(`lt.status ILIKE $${params.length}`) }
+    if (patientId) { params.push(patientId); whereParts.push(`lt.patient_id = $${params.length}`) }
+    if (from) { params.push(from); whereParts.push(`lt.ordered_at >= $${params.length}`) }
+    if (to) { params.push(to); whereParts.push(`lt.ordered_at <= $${params.length}`) }
     if (q) {
       params.push(`%${q.toLowerCase()}%`)
-      whereParts.push(`(LOWER(test_name) LIKE $${params.length} OR LOWER(test_type) LIKE $${params.length} OR accession_number ILIKE $${params.length})`)
+      whereParts.push(`(LOWER(lt.test_name) LIKE $${params.length} OR LOWER(lt.test_type) LIKE $${params.length} OR lt.accession_number ILIKE $${params.length} OR LOWER(CONCAT(p.first_name, ' ', p.last_name)) LIKE $${params.length})`)
     }
     params.push(limit)
     params.push(offset)

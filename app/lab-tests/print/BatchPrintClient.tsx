@@ -8,18 +8,60 @@ import { BarcodeGenerator } from "@/components/barcode-generator"
 import { ORG_NAME, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS, ORG_LOGO_PATH } from "@/lib/org-constants"
 
 function ResultCard({ test }: { test: any }) {
-  const parts = useMemo(() => {
-    const obj: Record<string, string> = {}
+  const analytes = useMemo(() => {
+    const out: { parameter: string; value: string; refRange: string; flag: string }[] = []
     const rx =
-      /(Hb|WBC|Platelets|HCT|MCV|Neut|Lymph|Mono|Eos|Baso|RBS|ALT|AST|ALP|T\.?\s*Bilirubin|D\.?\s*Bilirubin|Albumin|Total\s*Protein)\s*:\s*([^\n]+)/gi
-    if (typeof test.results === "string") {
-      let m: RegExpExecArray | null
-      while ((m = rx.exec(test.results)) != null) {
-        obj[m[1].replace(/\s+/g, " ")] = m[2].trim()
+      /(Hb|WBC|Platelets|HCT|MCV|Neut|Lymph|Mono|Eos|Baso|RBS|ALT|AST|ALP|T\.?\s*Bilirubin|D\.?\s*Bilirubin|Albumin|Total\s*Protein|CRP|pH|SG|Nitrite|Leukocyte|Blood|Protein|Glucose|Ketone|HIV\s*Rapid)\s*:\s*([^\n]+)/gi
+    if (typeof test.results !== "string") return out
+    const sex = String(test.patientGender || "").toLowerCase()
+    const ageYears = (() => {
+      const d = test.patientDob ? new Date(test.patientDob) : null
+      if (!d || isNaN(d.getTime())) return undefined
+      const n = new Date()
+      let y = n.getFullYear() - d.getFullYear()
+      const mo = n.getMonth() - d.getMonth()
+      if (mo < 0 || (mo === 0 && n.getDate() < d.getDate())) y--
+      return Math.max(0, y)
+    })()
+    const toNum = (s: string) => { const m = String(s).replace(/,/g, "").match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null }
+    const range = (k: string): [number | null, number | null, string] => {
+      switch (k) {
+        case "Hb": { if (typeof ageYears === "number" && ageYears < 12) return [11.5, 15.5, "g/dL"]; const f = sex === "female"; return [f ? 12 : 13, f ? 15.5 : 17, "g/dL"] }
+        case "WBC": { if (typeof ageYears === "number" && ageYears < 12) return [5, 15, "x10^9/L"]; return [4, 11, "x10^9/L"] }
+        case "Platelets": return [150, 450, "x10^9/L"]
+        case "HCT": { if (typeof ageYears === "number" && ageYears < 12) return [35, 45, "%"]; const f = sex === "female"; return [f ? 36 : 40, f ? 46 : 52, "%"] }
+        case "MCV": { if (typeof ageYears === "number" && ageYears < 12) return [75, 95, "fL"]; return [80, 100, "fL"] }
+        case "Neut": return [40, 75, "%"]
+        case "Lymph": return [20, 45, "%"]
+        case "Mono": return [2, 10, "%"]
+        case "Eos": return [1, 6, "%"]
+        case "Baso": return [0, 2, "%"]
+        case "RBS": return [3.9, 7.8, "mmol/L"]
+        case "ALT": return [7, 55, "U/L"]
+        case "AST": return [8, 48, "U/L"]
+        case "ALP": { if (typeof ageYears === "number" && ageYears < 12) return [100, 350, "U/L"]; return [40, 130, "U/L"] }
+        case "T. Bilirubin": return [0.3, 1.2, "mg/dL"]
+        case "D. Bilirubin": return [0.0, 0.3, "mg/dL"]
+        case "Albumin": return [3.5, 5.0, "g/dL"]
+        case "Total Protein": return [6.0, 8.3, "g/dL"]
+        case "CRP": return [0, 10, "mg/L"]
+        case "pH": return [5.0, 8.0, ""]
+        case "SG": return [1.005, 1.03, ""]
+        default: return [null, null, ""]
       }
     }
-    return obj
-  }, [test.results])
+    let m: RegExpExecArray | null
+    while ((m = rx.exec(test.results)) != null) {
+      const k = m[1].replace(/\s+/g, " ")
+      const v = m[2].trim()
+      const [lo, hi, unit] = range(k)
+      const val = toNum(v)
+      let flag = ""
+      if (val != null && lo != null && hi != null) flag = val < lo ? "L" : val > hi ? "H" : ""
+      out.push({ parameter: k, value: v, refRange: lo != null && hi != null ? `${lo}–${hi} ${unit}`.trim() : "", flag })
+    }
+    return out
+  }, [test.results, test.patientGender, test.patientDob])
 
   return (
     <div className="mb-6 break-inside-avoid">
@@ -64,7 +106,7 @@ function ResultCard({ test }: { test: any }) {
         </div>
       </div>
 
-      {Object.keys(parts).length > 0 && (
+      {analytes.length > 0 && (
         <div className="mb-3">
           <div className="font-medium">Analytes</div>
           <table className="w-full text-sm border">
@@ -72,13 +114,17 @@ function ResultCard({ test }: { test: any }) {
               <tr className="border-b bg-muted/40">
                 <th className="px-2 py-1 text-left">Parameter</th>
                 <th className="px-2 py-1 text-left">Value</th>
+                <th className="px-2 py-1 text-left">Ref Range</th>
+                <th className="px-2 py-1 text-left">Flag</th>
               </tr>
             </thead>
             <tbody>
-              {Object.entries(parts).map(([k, v]) => (
-                <tr key={k} className="border-b">
-                  <td className="px-2 py-1">{k}</td>
-                  <td className="px-2 py-1">{v}</td>
+              {analytes.map((a) => (
+                <tr key={a.parameter} className={`border-b ${a.flag === "H" || a.flag === "L" ? "bg-red-50/60" : ""}`}>
+                  <td className="px-2 py-1">{a.parameter}</td>
+                  <td className="px-2 py-1 font-medium">{a.value}</td>
+                  <td className="px-2 py-1 text-muted-foreground">{a.refRange || "-"}</td>
+                  <td className="px-2 py-1 font-semibold" style={{ color: a.flag ? (a.flag === "H" ? "#dc2626" : "#d97706") : undefined }}>{a.flag || ""}</td>
                 </tr>
               ))}
             </tbody>
@@ -86,7 +132,7 @@ function ResultCard({ test }: { test: any }) {
         </div>
       )}
 
-      {(!test.results || Object.keys(parts).length === 0) && (
+      {(!test.results || analytes.length === 0) && (
         <div className="mb-3">
           <div className="font-medium">Results</div>
           <pre className="whitespace-pre-wrap rounded border bg-muted/40 p-3 text-sm">{test.results || "-"}</pre>
@@ -157,6 +203,7 @@ export default function BatchPrintClient() {
         url.searchParams.set("from", from)
         url.searchParams.set("to", to)
         if (status) url.searchParams.set("status", status)
+        url.searchParams.set("limit", "5000")
         const res = await fetch(url.toString(), { credentials: "include" })
         if (!res.ok) throw new Error("Failed to load")
         const data = await res.json()

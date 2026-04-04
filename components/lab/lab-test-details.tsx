@@ -343,7 +343,7 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
       </Button>
 
       <Card className="overflow-hidden border-sky-100 shadow-sm">
-        <CardHeader className="bg-gradient-to-r from-sky-50 via-white to-cyan-50">
+        <CardHeader className="bg-[radial-gradient(ellipse_at_top_left,_rgba(14,165,233,0.12),_transparent_55%),linear-gradient(135deg,_rgba(240,249,255,1),_rgba(255,255,255,0.97))] pb-5">
           <div className="flex flex-col gap-6 lg:flex-row lg:items-start lg:justify-between">
             <div className="space-y-3">
               <div className="flex flex-wrap items-center gap-2">
@@ -352,7 +352,7 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                 </Badge>
                 <Badge
                   variant={test.priority?.toLowerCase() === "stat" ? "destructive" : "secondary"}
-                  className={test.priority?.toLowerCase() === "stat" ? "" : "bg-amber-100 text-amber-900"}
+                  className={test.priority?.toLowerCase() === "stat" ? "animate-none shadow-[0_0_6px_rgba(239,68,68,0.4)]" : "bg-amber-100 text-amber-900"}
                 >
                   {test.priority || "Routine"}
                 </Badge>
@@ -364,34 +364,34 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                         ? "secondary"
                         : "outline"
                   }
+                  className={test.status.toLowerCase() === "completed" ? "bg-emerald-600 text-white" : test.status.toLowerCase() === "in progress" ? "border-cyan-300 bg-cyan-50 text-cyan-800" : ""}
                 >
                   {test.status}
                 </Badge>
+                {test.loincCode ? (
+                  <span className="rounded-full border border-slate-200 bg-slate-50 px-2.5 py-0.5 font-mono text-[10px] text-muted-foreground">LOINC {test.loincCode}</span>
+                ) : null}
               </div>
               <div>
                 <CardTitle className="text-2xl tracking-tight">{test.testName || test.testType}</CardTitle>
-                <CardDescription className="mt-1">Test ID: {test.id}</CardDescription>
+                {test.loincLongName && test.loincLongName !== test.testName ? (
+                  <p className="mt-0.5 text-xs text-muted-foreground">{test.loincLongName}</p>
+                ) : null}
+                <CardDescription className="mt-1 font-mono text-xs">ID: {test.id}</CardDescription>
               </div>
               <div className="grid gap-2 text-sm text-muted-foreground sm:grid-cols-2">
-                <div>
-                  Patient: <span className="font-medium text-foreground">{test.patientName}</span>
-                </div>
-                <div>
-                  P.ID: <span className="font-mono text-foreground">{patientNumber}</span>
-                </div>
-                <div>
-                  Clinician: <span className="text-foreground">{test.doctorName || "-"}</span>
-                </div>
-                <div>
-                  Specimen: <span className="text-foreground">{test.specimenType || specimenType || "-"}</span>
-                </div>
+                <div>Patient: <span className="font-medium text-foreground">{test.patientName}</span></div>
+                <div>P.ID: <span className="font-mono text-foreground">{patientNumber}</span></div>
+                <div>Clinician: <span className="text-foreground">{test.doctorName || "—"}</span></div>
+                <div>Specimen: <span className="text-foreground">{test.specimenType || specimenType || "—"}</span></div>
+                {test.labTechName ? <div>Assigned: <span className="text-foreground">{test.labTechName}</span></div> : null}
               </div>
             </div>
 
             {test.accessionNumber ? (
-              <div className="rounded-2xl border border-sky-100 bg-white/80 p-4 shadow-sm">
+              <div className="rounded-2xl border border-sky-100 bg-white/90 p-4 shadow-sm">
                 <div className="mb-2 text-xs uppercase tracking-[0.18em] text-muted-foreground">Accession</div>
-                <div className="mb-3 font-mono text-sm text-foreground">{test.accessionNumber}</div>
+                <div className="mb-3 font-mono text-sm font-semibold text-foreground">{test.accessionNumber}</div>
                 <BarcodeGenerator value={test.accessionNumber} width={2} height={40} displayValue={true} />
               </div>
             ) : null}
@@ -551,15 +551,23 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                     />
                   </div>
 
-                  <div className="flex items-center gap-2 rounded-2xl border border-emerald-100 bg-emerald-50/60 p-4">
+                  <div className={`flex items-start gap-3 rounded-2xl border p-4 transition-colors ${verified ? "border-emerald-200 bg-emerald-50/80" : "border-slate-200 bg-slate-50/60"}`}>
                     <Checkbox
                       id="verify-results"
                       checked={verified}
                       onCheckedChange={(checked) => setVerified(checked === true)}
+                      className="mt-0.5"
                     />
-                    <Label htmlFor="verify-results" className="cursor-pointer text-sm">
-                      I have verified these results are accurate and ready for clinician review.
-                    </Label>
+                    <div>
+                      <Label htmlFor="verify-results" className="cursor-pointer text-sm font-medium">
+                        {verified ? "Results verified and ready for clinician review." : "Verify results before submission"}
+                      </Label>
+                      {!verified && (
+                        <p className="mt-0.5 text-xs text-muted-foreground">
+                          Confirm all structured values and free-text findings are accurate.
+                        </p>
+                      )}
+                    </div>
                   </div>
 
                   <div className="flex flex-wrap gap-2">
@@ -722,10 +730,11 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
 }
 
 function InfoTile({ label, value }: { label: string; value: string }) {
+  const empty = value === "—" || value === "-"
   return (
-    <div className="rounded-2xl border border-slate-200 bg-slate-50/70 p-4">
-      <div className="text-xs uppercase tracking-[0.18em] text-muted-foreground">{label}</div>
-      <div className="mt-2 text-sm font-medium text-foreground">{value}</div>
+    <div className="rounded-2xl border border-slate-200 bg-slate-50/60 p-4 transition-colors hover:border-slate-300">
+      <div className="text-[10px] font-medium uppercase tracking-[0.2em] text-muted-foreground">{label}</div>
+      <div className={`mt-2 text-sm font-medium ${empty ? "text-muted-foreground/60" : "text-foreground"}`}>{value}</div>
     </div>
   )
 }

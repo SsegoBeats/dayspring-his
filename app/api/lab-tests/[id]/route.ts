@@ -336,7 +336,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
           )
           const test = testRows[0]
           const isRadiologyStudy = test && ['X-Ray', 'CT Scan', 'MRI', 'Ultrasound', 'Mammography', 'Fluoroscopy', 'Nuclear Medicine', 'PET Scan', 'Angiography'].includes(test.test_name || test.test_type)
-          if (test && test.doctor_id && isRadiologyStudy) {
+          if (test && test.doctor_id && isRadiologyStudy && !body.rejectionReason) {
             const patientName = test.first_name && test.last_name
               ? `${test.first_name} ${test.last_name}`.trim()
               : 'patient'
@@ -356,7 +356,7 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
                 })
               ]
             )
-          } else if (test && test.doctor_id && !body.rejectionReason) {
+          } else if (test && test.doctor_id && !body.rejectionReason && !isRadiologyStudy) {
             const patientName = test.first_name && test.last_name
               ? `${test.first_name} ${test.last_name}`.trim()
               : "patient"

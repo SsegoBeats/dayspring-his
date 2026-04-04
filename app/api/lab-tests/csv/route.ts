@@ -11,13 +11,29 @@ function getAnalyteRows(test: any) {
   const rows: { Patient: string; PID?: string; Test: string; Parameter: string; Value: string; RefRange?: string; Flag?: string; Accession?: string; Ordered?: string; Completed?: string }[] = []
   const rx = /(Hb|WBC|Platelets|HCT|MCV|Neut|Lymph|Mono|Eos|Baso|RBS|ALT|AST|ALP|T\.?\s*Bilirubin|D\.?\s*Bilirubin|Albumin|Total\s*Protein|CRP|pH|SG|Nitrite|Leukocyte|Blood|Protein|Glucose|Ketone|HIV\s*Rapid|Test\s*1|Test\s*2)\s*:\s*([^\n]+)/ig
   const toNum = (s:string) => { const m = String(s).replace(/,/g,'').match(/-?\d+(?:\.\d+)?/); return m ? parseFloat(m[0]) : null }
+  const sex = String((test.gender ?? test.patient_gender ?? '') || '').toLowerCase()
+  const dobRaw = test.date_of_birth ?? test.patient_dob
+  const dob = dobRaw ? new Date(dobRaw) : null
+  const ageYears = (dob && !isNaN(dob.getTime())) ? (() => { const n = new Date(); let y = n.getFullYear() - dob.getFullYear(); const m = n.getMonth() - dob.getMonth(); if (m < 0 || (m === 0 && n.getDate() < dob.getDate())) y--; return Math.max(0, y) })() : null
   const ref = (k:string): [number|null, number|null, string] => {
     switch (k) {
-      case 'Hb': return [12, 17, 'g/dL']
-      case 'WBC': return [4, 11, 'x10^9/L']
+      case 'Hb': {
+        if (typeof ageYears === 'number' && ageYears < 12) return [11.5, 15.5, 'g/dL']
+        const female = sex === 'female'; return [female ? 12 : 13, female ? 15.5 : 17, 'g/dL']
+      }
+      case 'WBC': {
+        if (typeof ageYears === 'number' && ageYears < 12) return [5, 15, 'x10^9/L']
+        return [4, 11, 'x10^9/L']
+      }
       case 'Platelets': return [150, 450, 'x10^9/L']
-      case 'HCT': return [36, 52, '%']
-      case 'MCV': return [80, 100, 'fL']
+      case 'HCT': {
+        if (typeof ageYears === 'number' && ageYears < 12) return [35, 45, '%']
+        const female = sex === 'female'; return [female ? 36 : 40, female ? 46 : 52, '%']
+      }
+      case 'MCV': {
+        if (typeof ageYears === 'number' && ageYears < 12) return [75, 95, 'fL']
+        return [80, 100, 'fL']
+      }
       case 'Neut': return [40, 75, '%']
       case 'Lymph': return [20, 45, '%']
       case 'Mono': return [2, 10, '%']
@@ -26,7 +42,10 @@ function getAnalyteRows(test: any) {
       case 'RBS': return [3.9, 7.8, 'mmol/L']
       case 'ALT': return [7, 55, 'U/L']
       case 'AST': return [8, 48, 'U/L']
-      case 'ALP': return [40, 130, 'U/L']
+      case 'ALP': {
+        if (typeof ageYears === 'number' && ageYears < 12) return [100, 350, 'U/L']
+        return [40, 130, 'U/L']
+      }
       case 'T. Bilirubin': return [0.3, 1.2, 'mg/dL']
       case 'D. Bilirubin': return [0.0, 0.3, 'mg/dL']
       case 'Albumin': return [3.5, 5.0, 'g/dL']
@@ -106,7 +125,7 @@ export async function GET(req: Request) {
     if (status && status.toLowerCase() !== 'all') { params.push(status); where.push(`lt.status ILIKE $${params.length}`) }
 
     const { rows } = await query(
-      `SELECT lt.id, lt.patient_id, p.first_name, p.last_name, p.patient_number,
+      `SELECT lt.id, lt.patient_id, p.first_name, p.last_name, p.patient_number, p.gender, p.date_of_birth,
               lt.doctor_id, d.name AS doctor_name,
               lt.test_name, lt.test_type, lt.status, lt.results, lt.notes,
               lt.lab_tech_id, t.name AS lab_tech_name,

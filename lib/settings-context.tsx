@@ -7,6 +7,16 @@
 import { createContext, useContext, useState, useEffect, type ReactNode } from "react"
 import { convertFromUGX } from "@/lib/utils"
 
+interface LabTechWorkflowPrefs {
+  overdueThresholdHours: number
+  autoAssignOnOpen: boolean
+  statAlertSound: boolean
+  defaultExportFormat: "csv" | "xlsx" | "pdf"
+  defaultSpecimenCategory: string
+  requireSpecimenBeforeStart: boolean
+  showPriorResultsDefault: boolean
+}
+
 interface Settings {
   theme: string
   locale: string
@@ -15,6 +25,7 @@ interface Settings {
   dateFormat: string
   defaultDashboard: string
   notifyEmailReminders: boolean
+  labTechWorkflow?: LabTechWorkflowPrefs
 }
 
 interface SettingsContextType {
@@ -72,6 +83,7 @@ export function SettingsProvider({ children }: { children: ReactNode }) {
             dateFormat: data.preferences.dateFormat || DEFAULT_SETTINGS.dateFormat,
             defaultDashboard: data.preferences.defaultDashboard || DEFAULT_SETTINGS.defaultDashboard,
             notifyEmailReminders: true,
+            labTechWorkflow: data.preferences.labTechWorkflow ?? undefined,
           })
         } else {
           setSettings({ ...DEFAULT_SETTINGS, currency })
