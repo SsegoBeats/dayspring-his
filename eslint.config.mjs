@@ -11,5 +11,13 @@ export default defineConfig([
       "react-hooks/purity": "warn",
     },
   },
-  globalIgnores([".next/**", "out/**", "build/**", "next-env.d.ts", "node_modules/**"]),
+  globalIgnores([
+    ".next/**",
+    "out/**",
+    "build/**",
+    "next-env.d.ts",
+    "node_modules/**",
+    ".claude/**",
+    ".worktrees/**",
+  ]),
 ])

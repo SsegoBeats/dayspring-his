@@ -55,6 +55,57 @@ function normaliseChart(raw: ToothChartData | null | undefined): ToothChartData 
   return raw
 }
 
+interface ToothBtnProps {
+  id: number
+  state: ToothState
+  isSelected: boolean
+  readOnly: boolean
+  onToothClick: (id: number, e: React.MouseEvent) => void
+}
+
+function ToothBtn({ id, state, isSelected, readOnly, onToothClick }: ToothBtnProps) {
+  return (
+    <button
+      type="button"
+      title={readOnly ? `Tooth ${id}` : `Tooth ${id} — click to cycle, shift+click to reset`}
+      onClick={(e) => onToothClick(id, e)}
+      className={cn(
+        "w-8 h-8 rounded border text-[10px] font-bold flex items-center justify-center transition-all select-none",
+        STATE_STYLES[state],
+        isSelected && "ring-2 ring-cyan-500 ring-offset-1",
+        readOnly ? "cursor-default" : "cursor-pointer hover:opacity-80",
+      )}
+    >
+      {STATE_CODES[state]}
+    </button>
+  )
+}
+
+interface ToothRowProps {
+  teeth: number[]
+  getState: (id: number) => ToothState
+  selectedTooth: string | null
+  readOnly: boolean
+  onToothClick: (id: number, e: React.MouseEvent) => void
+}
+
+function ToothRow({ teeth, getState, selectedTooth, readOnly, onToothClick }: ToothRowProps) {
+  return (
+    <div className="flex gap-0.5">
+      {teeth.map((id) => (
+        <ToothBtn
+          key={id}
+          id={id}
+          state={getState(id)}
+          isSelected={selectedTooth === String(id)}
+          readOnly={readOnly}
+          onToothClick={onToothClick}
+        />
+      ))}
+    </div>
+  )
+}
+
 export function FdiToothChart({ value, onChange, readOnly = false }: FdiToothChartProps) {
   const chart = normaliseChart(value)
   const [selectedTooth, setSelectedTooth] = useState<string | null>(null)
@@ -93,41 +144,15 @@ export function FdiToothChart({ value, onChange, readOnly = false }: FdiToothCha
     onChange(updated)
   }
 
-  function ToothBtn({ id }: { id: number }) {
-    const state = getState(id)
-    const isSelected = selectedTooth === String(id)
-    return (
-      <button
-        type="button"
-        title={readOnly ? `Tooth ${id}` : `Tooth ${id} — click to cycle, shift+click to reset`}
-        onClick={(e) => handleToothClick(id, e)}
-        className={cn(
-          "w-8 h-8 rounded border text-[10px] font-bold flex items-center justify-center transition-all select-none",
-          STATE_STYLES[state],
-          isSelected && "ring-2 ring-cyan-500 ring-offset-1",
-          readOnly ? "cursor-default" : "cursor-pointer hover:opacity-80",
-        )}
-      >
-        {STATE_CODES[state]}
-      </button>
-    )
-  }
-
-  function ToothRow({ teeth }: { teeth: number[] }) {
-    return (
-      <div className="flex gap-0.5">
-        {teeth.map((id) => <ToothBtn key={id} id={id} />)}
-      </div>
-    )
-  }
+  const rowProps = { getState, selectedTooth, readOnly, onToothClick: handleToothClick }
 
   return (
     <div className="space-y-2">
       {/* Upper arch */}
       <div className="flex gap-1 justify-center">
-        <ToothRow teeth={UPPER_RIGHT} />
+        <ToothRow teeth={UPPER_RIGHT} {...rowProps} />
         <div className="w-px bg-cyan-200 mx-1" />
-        <ToothRow teeth={UPPER_LEFT} />
+        <ToothRow teeth={UPPER_LEFT} {...rowProps} />
       </div>
       {/* Arch labels */}
       <div className="flex justify-center gap-1">
@@ -137,9 +162,9 @@ export function FdiToothChart({ value, onChange, readOnly = false }: FdiToothCha
       </div>
       {/* Lower arch */}
       <div className="flex gap-1 justify-center">
-        <ToothRow teeth={LOWER_RIGHT} />
+        <ToothRow teeth={LOWER_RIGHT} {...rowProps} />
         <div className="w-px bg-cyan-200 mx-1" />
-        <ToothRow teeth={LOWER_LEFT} />
+        <ToothRow teeth={LOWER_LEFT} {...rowProps} />
       </div>
       <div className="flex justify-center gap-1">
         <span className="text-[9px] text-slate-400 w-[136px] text-right">Lower R</span>
