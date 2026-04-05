@@ -1,8 +1,18 @@
 import { NextResponse } from "next/server"
+import { type NextRequest } from "next/server"
 import { query, withClient } from "@/lib/db"
 import { emailTemplates, sendEmail } from "@/lib/email-service"
 
-export async function POST() {
+export async function POST(req: NextRequest) {
+  const expectedToken = process.env.JOBS_RUNNER_TOKEN
+  if (!expectedToken) {
+    console.error("[jobs/run] JOBS_RUNNER_TOKEN environment variable is not set")
+    return NextResponse.json({ error: "Service unavailable" }, { status: 503 })
+  }
+  const authHeader = req.headers.get("authorization")
+  if (authHeader !== `Bearer ${expectedToken}`) {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
   // Worker loop (single tick): claim a pending job and execute
   try {
     const job = await withClient(async (client) => {

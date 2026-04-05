@@ -65,20 +65,16 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })()
   }, [refreshUser])
 
-  const login = async (email: string, password: string, role: UserRole): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string, _role?: UserRole): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, role }),
+        body: JSON.stringify({ email, password }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        // Handle specific error cases with detailed messages
-        if (data.code === "ACCOUNT_INACTIVE") {
-          return { success: false, error: data.message || data.error }
-        }
         return { success: false, error: data.error || "Login failed" }
       }
       const data = await res.json()
@@ -86,19 +82,10 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         ...data,
         emailVerified: !!data.emailVerified
       })
-      // As a last resort in dev, attach token to subsequent requests
-      if (process.env.NODE_ENV !== "production" && data?.token) {
-        try {
-          localStorage.setItem("session_dev_bearer", data.token)
-          // also set a non-HttpOnly cookie so fetch() immediately includes it
-          const maxAge = 60 * 60 * 8
-          document.cookie = `session_dev=${data.token}; Path=/; Max-Age=${maxAge}`
-        } catch {}
-      }
       // Ensure browser stores cookie before providers fire requests
       try {
         await refreshUser()
-        if (typeof window !== "undefined" && !document.cookie.match(/(?:^|;\s)(session=|session_dev=)/)) {
+        if (typeof window !== "undefined" && !document.cookie.match(/(?:^|;\s)session=/)) {
           // Fallback: force a full navigation so Set-Cookie is applied
           window.location.href = "/dashboard"
         }
@@ -142,6 +129,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       if (typeof window !== "undefined") {
         localStorage.removeItem("theme")
         localStorage.removeItem("lastThemeUser")
+        localStorage.removeItem("session_dev_bearer")
       }
     } catch {}
     setUser(null)

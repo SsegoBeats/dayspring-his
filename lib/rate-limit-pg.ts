@@ -50,9 +50,10 @@ export async function rateLimitPg(key: string, limit: number, windowSeconds: num
       }
     })
   } catch (error) {
-    // Fail-open to avoid blocking auth/OTP when DB rate-limit metadata is missing.
-    console.error("[rate-limit] Falling back to allow due DB error:", error)
-    return true
+    // Fail closed: deny the request when rate-limit DB is unavailable.
+    // Prevents brute-force attacks exploiting DB outages.
+    console.error("[rate-limit] DB error, denying request:", error)
+    return false
   }
 }
 

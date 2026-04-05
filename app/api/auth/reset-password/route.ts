@@ -2,10 +2,15 @@ import { NextResponse } from "next/server"
 import { z } from "zod"
 import { query } from "@/lib/db"
 import { hashPassword, validatePasswordStrength } from "@/lib/security"
+import { rateLimitPg } from "@/lib/rate-limit-pg"
 
 const Schema = z.object({ token: z.string().min(10), newPassword: z.string().min(8) })
 
 export async function POST(req: Request) {
+  const ip = (req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1").split(",")[0]
+  if (!(await rateLimitPg(`pwdreset-submit:${ip}`, 10, 900))) {
+    return NextResponse.json({ error: "Too many attempts" }, { status: 429 })
+  }
   const { token, newPassword } = Schema.parse(await req.json())
   const strength = validatePasswordStrength(newPassword)
   if (!strength.valid) return NextResponse.json({ error: "Weak password", details: strength.errors }, { status: 400 })

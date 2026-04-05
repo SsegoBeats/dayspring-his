@@ -1,6 +1,15 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/security"
 
 export async function GET() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth || auth.role !== "Hospital Admin") {
+    return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  }
+
   const spec = {
     openapi: "3.0.0",
     info: { title: "Dayspring HIS API", version: "1.0.0" },

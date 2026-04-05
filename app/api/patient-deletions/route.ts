@@ -13,8 +13,8 @@ export async function GET(req: Request) {
     const url = new URL(req.url)
     const status = url.searchParams.get("status") || undefined
 
-    // Only admins (or roles that can delete patients) can list requests
-    if (!can(auth.role, 'patients', 'delete')) {
+    // Only Hospital Admin can list and manage deletion requests
+    if (auth.role !== 'Hospital Admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 
@@ -100,8 +100,8 @@ export async function PATCH(req: Request) {
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
-    // Only roles that can delete patients may approve/reject and perform deletion
-    if (!can(auth.role, 'patients', 'delete')) {
+    // Only Hospital Admin may approve/reject and perform deletion
+    if (auth.role !== 'Hospital Admin') {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
 

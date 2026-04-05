@@ -9,7 +9,6 @@ import { query } from "@/lib/db"
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
-  role: z.string(),
 })
 
 export async function POST(req: Request) {
@@ -20,7 +19,12 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { email, password, role } = LoginSchema.parse(body)
+    const { email, password } = LoginSchema.parse(body)
+
+    // Per-account rate limiting: prevents credential stuffing from distributed IPs
+    if (!(await rateLimitPg(`login:account:${email.toLowerCase()}`, 5, 900))) {
+      return NextResponse.json({ error: "Too many attempts" }, { status: 429 })
+    }
 
     const { rows } = await query<{
       id: string
@@ -38,11 +42,7 @@ export async function POST(req: Request) {
     }
     
     if (!user.is_active) {
-      return NextResponse.json({ 
-        error: "Account Deactivated", 
-        message: "Your account has been deactivated. Please contact your system administrator to restore access.",
-        code: "ACCOUNT_INACTIVE"
-      }, { status: 403 })
+      return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
     const ok = await verifyPassword(password, user.password_hash)
@@ -55,20 +55,6 @@ export async function POST(req: Request) {
         ip 
       })
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-    }
-
-    // Validate that the selected role matches the user's actual role
-    if (user.role !== role) {
-      await writeAuditLog({ 
-        action: "LOGIN_FAILED", 
-        entityType: "User", 
-        entityId: user.id, 
-        details: { category: "AUTHENTICATION", description: `Role mismatch login attempt for ${user.email} - selected: ${role}, actual: ${user.role}` },
-        ip 
-      })
-      return NextResponse.json({
-        error: "Invalid credentials",
-      }, { status: 401 })
     }
 
       const token = generateToken(user.id, user.email, user.role)

@@ -360,10 +360,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ patients: patientsWithParsedMetadata, nextCursor })
   } catch (err: any) {
     console.error("Error fetching patients:", err)
-    return NextResponse.json({ 
-      error: "Failed to fetch patients",
-      details: err.message 
-    }, { status: 500 })
+    return NextResponse.json({ error: "Failed to fetch patients" }, { status: 500 })
   }
 }
 

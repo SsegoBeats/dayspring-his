@@ -40,6 +40,21 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "role is required for changeRole action" }, { status: 400 })
   }
 
+  // Prevent lockout: ensure at least one active Hospital Admin remains after the operation
+  if (input.action === "deactivate" || (input.action === "changeRole" && input.role !== "Hospital Admin")) {
+    const { rows: adminRows } = await query<{ id: string }>(
+      `SELECT id FROM users WHERE role = 'Hospital Admin' AND is_active = true`
+    )
+    const affectedAdmins = adminRows.filter((r) => input.userIds.includes(r.id))
+    const remainingAdmins = adminRows.length - affectedAdmins.length
+    if (remainingAdmins < 1) {
+      return NextResponse.json(
+        { error: "This operation would remove the last active Hospital Admin. At least one active admin must remain." },
+        { status: 400 }
+      )
+    }
+  }
+
   const placeholdersAct = input.userIds.map((_, i) => `$${i + 1}`).join(", ")
   const placeholdersRole = input.userIds.map((_, i) => `$${i + 2}`).join(", ")
 

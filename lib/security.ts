@@ -1,8 +1,9 @@
- 
+
 
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
 import crypto from "crypto"
+import { z } from "zod"
 
 // Password hashing
 export async function hashPassword(password: string): Promise<string> {
@@ -101,7 +102,7 @@ type Resource =
 
 const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
   Receptionist: {
-    patients: ["read", "create", "update", "delete"],
+    patients: ["read", "create", "update"],
     appointments: ["read", "create", "update"],
     beds: ["read"], // Can view bed availability for patient admission
     checkins: ["read", "create", "update"],
@@ -227,10 +228,18 @@ export function generateBarcodeData(type: string, id: string, data: any): string
   return Buffer.from(JSON.stringify(barcodeData)).toString("base64")
 }
 
-export function decodeBarcodeData(barcode: string): any {
+const BarcodeSchema = z.object({
+  type: z.string(),
+  id: z.string(),
+  data: z.unknown(),
+  timestamp: z.string(),
+})
+
+export function decodeBarcodeData(barcode: string): z.infer<typeof BarcodeSchema> | null {
   try {
     const decoded = Buffer.from(barcode, "base64").toString("utf-8")
-    return JSON.parse(decoded)
+    const parsed = JSON.parse(decoded)
+    return BarcodeSchema.parse(parsed)
   } catch (error) {
     console.error("[v0] Barcode decoding failed:", error)
     return null
