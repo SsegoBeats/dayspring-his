@@ -182,11 +182,7 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
     const code = e?.code || ''
     if (code === '23503') {
       return NextResponse.json(
-        {
-          error: "User cannot be deleted because related records still reference this account.",
-          constraint: e?.constraint || undefined,
-          detail: e?.detail || undefined,
-        },
+        { error: "User cannot be deleted because related records still reference this account." },
         { status: 409 },
       )
     }

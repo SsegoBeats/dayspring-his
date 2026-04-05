@@ -66,30 +66,29 @@ export async function POST(req: Request) {
         details: { category: "AUTHENTICATION", description: `Role mismatch login attempt for ${user.email} - selected: ${role}, actual: ${user.role}` },
         ip 
       })
-      return NextResponse.json({ 
-        error: `You do not have access to the ${role} portal. Your role is: ${user.role}` 
-      }, { status: 403 })
+      return NextResponse.json({
+        error: "Invalid credentials",
+      }, { status: 401 })
     }
 
       const token = generateToken(user.id, user.email, user.role)
-      // Set cookie on response and include token in body for dev helpers
-      const res = NextResponse.json({ 
-        id: user.id, 
-        email: user.email, 
-        name: user.name, 
-        role: user.role, 
+      const res = NextResponse.json({
+        id: user.id,
+        email: user.email,
+        name: user.name,
+        role: user.role,
         emailVerified: !!user.email_verified_at,
-        token 
       })
+      const isProduction = process.env.NODE_ENV === "production"
       res.cookies.set("session", token, {
         httpOnly: true,
-        secure: false,
+        secure: isProduction,
         sameSite: "lax",
         path: "/",
         maxAge: 60 * 60 * 8,
       })
       // Non-HttpOnly fallback in development for browsers that ignore dev Set-Cookie
-      if (process.env.NODE_ENV !== "production") {
+      if (!isProduction) {
         res.cookies.set("session_dev", token, {
           httpOnly: false,
           secure: false,
@@ -103,12 +102,12 @@ export async function POST(req: Request) {
         const store = await cookies()
         store.set("session", token, {
           httpOnly: true,
-          secure: false,
+          secure: isProduction,
           sameSite: "lax",
           path: "/",
           maxAge: 60 * 60 * 8,
         })
-        if (process.env.NODE_ENV !== "production") {
+        if (!isProduction) {
           store.set("session_dev", token, {
             httpOnly: false,
             secure: false,

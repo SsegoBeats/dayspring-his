@@ -31,3 +31,21 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 .worktrees/
+
+# private keys and certificates
+/secrets/
+*.key
+*.pem
+*.p12
+*.pfx
+
+# temporary scripts and scratch files
+temp-*.py
+temp-*.ps1
+tmp_*.txt
+
+# server log files
+*.log
+
+# database dumps
+*.sql
