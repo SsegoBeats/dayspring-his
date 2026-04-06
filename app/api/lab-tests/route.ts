@@ -11,6 +11,7 @@ export async function GET(req: Request) {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, 'lab', 'read')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const url = new URL(req.url)
     const status = url.searchParams.get('status')
@@ -31,10 +32,16 @@ export async function GET(req: Request) {
       params.push(`%${q.toLowerCase()}%`)
       whereParts.push(`(LOWER(lt.test_name) LIKE $${params.length} OR LOWER(lt.test_type) LIKE $${params.length} OR lt.accession_number ILIKE $${params.length} OR LOWER(CONCAT(p.first_name, ' ', p.last_name)) LIKE $${params.length})`)
     }
+    // Lab Tech sees only tests assigned to them or unassigned (queue-scoped access)
+    if (auth.role === 'Lab Tech') {
+      params.push(auth.userId)
+      whereParts.push(`(lt.lab_tech_id = $${params.length} OR lt.lab_tech_id IS NULL)`)
+    }
     params.push(limit)
     params.push(offset)
 
-    const { rows } = await query(
+    const { rows } = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
       `SELECT lt.*, p.first_name, p.last_name, p.patient_number, p.gender, p.date_of_birth,
               d.name AS doctor_name,
               t.name AS lab_tech_name,
@@ -92,7 +99,7 @@ export async function GET(req: Request) {
     return NextResponse.json({ tests })
   } catch (e:any) {
     console.error("Error in /api/lab-tests GET:", e)
-    return NextResponse.json({ error: 'Failed to load lab tests', details: e.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to load lab tests' }, { status: 500 })
   }
 }
 
@@ -115,8 +122,8 @@ export async function POST(req: Request) {
     if (forbiddenOrderRoles.includes(auth.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
-    // Allow roles that can order labs via medical create or patient update (lab tech cannot create orders)
-    if (!can(auth.role, 'medical', 'create') && !can(auth.role, 'patients', 'update')) {
+    // Allow roles that can order labs (medical:create covers clinicians; lab:create covers nurses via explicit RBAC)
+    if (!can(auth.role, 'medical', 'create') && !can(auth.role, 'lab', 'create')) {
       return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
     }
     const body = await req.json().catch(()=> ({}))
@@ -284,7 +291,7 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ tests: created })
   } catch (e:any) {
-    return NextResponse.json({ error: 'Failed to order lab test', details: e.message }, { status: 500 })
+    return NextResponse.json({ error: 'Failed to order lab test' }, { status: 500 })
   }
 }
 

@@ -158,6 +158,7 @@ const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
     medical: ["read", "create"],
     appointments: ["read", "update"],
     beds: ["read", "update"], // Can edit bed status and assign patients
+    lab: ["read", "create"], // Can order and view lab tests
   },
   "Lab Tech": {
     lab: ["read", "create", "update"],

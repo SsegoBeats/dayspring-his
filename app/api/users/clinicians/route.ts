@@ -8,9 +8,10 @@ export async function GET() {
   const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
   const auth = token ? verifyToken(token) : null
   if (!auth || !can(auth.role, "appointments", "read")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  const isAdmin = auth.role === 'Hospital Admin'
   const { rows } = await queryWithSession(
     { role: auth.role, userId: auth.userId },
-    `SELECT id, name, email, role FROM users WHERE role IN ('Clinician','Midwife','Dentist') AND is_active = true ORDER BY name ASC`,
+    `SELECT id, name, ${isAdmin ? 'email, ' : ''}role FROM users WHERE role IN ('Clinician','Midwife','Dentist') AND is_active = true ORDER BY name ASC`,
   )
   return NextResponse.json({ clinicians: rows })
 }
