@@ -6,41 +6,34 @@ import { Pool } from "pg"
 // Keep under Vercel's 300s limit: fail fast so run-migrations page can show a clear message
 export const maxDuration = 60
 
+// Honour the same escape hatch used in lib/db.ts.
+// Set DB_SSL_REJECT_UNAUTHORIZED=false in .env only when the managed provider
+// uses a self-signed certificate AND you have verified the host is trustworthy.
+const allowSelfSigned = process.env.DB_SSL_REJECT_UNAUTHORIZED === "false"
+
 function parseConnectionString(connectionString: string): { connectionString: string; ssl?: any } {
   try {
     const url = new URL(connectionString)
     const params = new URLSearchParams(url.search)
     const sslMode = params.get("sslmode")
-    params.delete("sslmode") // Remove sslmode to avoid warning - we handle SSL via ssl option
+    params.delete("sslmode")
     url.search = params.toString()
     const cleanConnectionString = url.toString()
-    
-    // Determine SSL configuration
+
     let ssl: any = false
     if (sslMode === "disable") {
       ssl = false
     } else if (process.env.NODE_ENV === "production") {
-      // For managed databases, often need to accept self-signed certs
-      const isCloudDb = url.hostname.includes(".vercel") || 
-                       url.hostname.includes(".aws") || 
-                       url.hostname.includes(".azure") ||
-                       url.hostname.includes(".cloud")
-      
-      if (sslMode === "verify-full") {
-        ssl = { rejectUnauthorized: true }
-      } else {
-        // Default for production: require SSL but allow self-signed (common for managed DBs)
-        ssl = { rejectUnauthorized: false }
-      }
+      ssl = { rejectUnauthorized: !allowSelfSigned }
     } else {
       ssl = false
     }
-    
+
     return { connectionString: cleanConnectionString, ssl }
   } catch {
     return {
       connectionString,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: !allowSelfSigned } : false,
     }
   }
 }

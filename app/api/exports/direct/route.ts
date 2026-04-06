@@ -55,6 +55,12 @@ export async function POST(req: Request) {
     const input = Schema.parse(body)
     if (!can(auth.role, "exports", "create")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
+    // The 'users' dataset contains staff PII (names, emails, roles).
+    // Only Hospital Admin may export it.
+    if (input.dataset === "users" && auth.role !== "Hospital Admin") {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+
     const ds = Datasets[input.dataset]
     const parsedFilters = ds.validateFilters(input.filters)
     // Resolve requestor full name

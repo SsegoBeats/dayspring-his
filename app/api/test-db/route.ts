@@ -3,41 +3,31 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { Pool } from "pg"
 
+const allowSelfSigned = process.env.DB_SSL_REJECT_UNAUTHORIZED === "false"
+
 function parseConnectionString(connectionString: string): { connectionString: string; ssl?: any } {
   try {
     const url = new URL(connectionString)
     const params = new URLSearchParams(url.search)
     const sslMode = params.get("sslmode")
-    params.delete("sslmode") // Remove sslmode to avoid warning - we handle SSL via ssl option
+    params.delete("sslmode")
     url.search = params.toString()
     const cleanConnectionString = url.toString()
-    
-    // Determine SSL configuration
+
     let ssl: any = false
     if (sslMode === "disable") {
       ssl = false
     } else if (process.env.NODE_ENV === "production") {
-      // For managed databases, often need to accept self-signed certs
-      const isCloudDb = url.hostname.includes(".vercel") || 
-                       url.hostname.includes(".aws") || 
-                       url.hostname.includes(".azure") ||
-                       url.hostname.includes(".cloud")
-      
-      if (sslMode === "verify-full") {
-        ssl = { rejectUnauthorized: true }
-      } else {
-        // Default for production: require SSL but allow self-signed (common for managed DBs)
-        ssl = { rejectUnauthorized: false }
-      }
+      ssl = { rejectUnauthorized: !allowSelfSigned }
     } else {
       ssl = false
     }
-    
+
     return { connectionString: cleanConnectionString, ssl }
   } catch {
     return {
       connectionString,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: !allowSelfSigned } : false,
     }
   }
 }
@@ -93,9 +83,8 @@ export async function GET() {
     return NextResponse.json(
       {
         success: false,
-        error: error.message,
+        error: "Database connection failed",
         details: {
-          code: error.code,
           hint: getConnectionErrorHint(error.code),
         },
       },

@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 
 export async function POST() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (auth.role !== "Hospital Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
   try {
     console.log("[Migration 004] Starting migration: enhance-triage-opd...")
 
@@ -197,11 +205,7 @@ export async function POST() {
   } catch (error: any) {
     console.error("[Migration 004] Migration error:", error)
     return NextResponse.json(
-      {
-        success: false,
-        error: error.message,
-        details: error.stack,
-      },
+      { success: false, error: "Migration failed" },
       { status: 500 },
     )
   }

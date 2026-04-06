@@ -9,14 +9,32 @@ import { verifyToken } from "@/lib/security"
 export const runtime = "nodejs"
 export const dynamic = "force-dynamic"
 
-async function requireSession() {
+// Roles that are permitted to drive the QZ Tray print signing flow.
+// Any role that may print receipts, labels, or reports should be included.
+const PRINT_ALLOWED_ROLES = new Set([
+  "Hospital Admin",
+  "Receptionist",
+  "Cashier",
+  "Nurse",
+  "Clinician",
+  "Pharmacist",
+  "Lab Tech",
+  "Radiologist",
+  "Midwife",
+  "Dentist",
+])
+
+async function requirePrintRole() {
   const cookieStore = await cookies()
   const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
-  return token ? verifyToken(token) : null
+  const auth = token ? verifyToken(token) : null
+  if (!auth) return null
+  if (!PRINT_ALLOWED_ROLES.has(auth.role)) return null
+  return auth
 }
 
 export async function GET(req: Request) {
-  const auth = await requireSession()
+  const auth = await requirePrintRole()
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }
@@ -48,7 +66,7 @@ export async function GET(req: Request) {
 }
 
 export async function POST(req: Request) {
-  const auth = await requireSession()
+  const auth = await requirePrintRole()
   if (!auth) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   }

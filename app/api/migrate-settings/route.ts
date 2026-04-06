@@ -1,7 +1,15 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 
 export async function POST() {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (auth.role !== "Hospital Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
   try {
     // Add new columns to users table
     await query(`
@@ -32,9 +40,9 @@ export async function POST() {
     })
   } catch (error: any) {
     console.error("Migration error:", error)
-    return NextResponse.json({ 
-      error: "Migration failed",
-      details: error.message 
+    console.error("[migrate-settings] Migration error:", error)
+    return NextResponse.json({
+      error: "Migration failed"
     }, { status: 500 })
   }
 }
