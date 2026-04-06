@@ -73,6 +73,8 @@ export async function POST(req: Request) {
   try {
     const auth = await resolveNotificationAuth(req)
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    // Only Hospital Admin may broadcast notifications to arbitrary users/roles
+    if (auth.role !== "Hospital Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     await ensureNotificationInfrastructure()
     const body = await req.json().catch(() => ({}))

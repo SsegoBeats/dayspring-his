@@ -19,6 +19,11 @@ export async function GET(req: Request) {
       }
     } catch {}
   }
+  // Require authentication — org contact details should not be publicly readable
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   const { rows } = await query(`SELECT currency FROM organization_settings WHERE id = 1`)
   const s = rows?.[0] || {}
   // Return hardcoded organization details from constants, only currency from database
@@ -59,6 +64,7 @@ export async function POST(req: Request) {
       WHERE id = 1`, [currency])
     return NextResponse.json({ success: true })
   } catch (e:any) {
-    return NextResponse.json({ error: 'Failed to update settings', details: e?.message }, { status: 500 })
+    console.error("[settings/org] Failed to update settings:", e?.message)
+    return NextResponse.json({ error: 'Failed to update settings' }, { status: 500 })
   }
 }

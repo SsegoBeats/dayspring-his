@@ -86,9 +86,9 @@ export async function POST(req: NextRequest) {
 
     const whereClause = whereConditions.length > 0 ? `WHERE ${whereConditions.join(' AND ')}` : ''
 
-    // Get audit logs for export
+    // Get audit logs for export — capped at 10,000 rows to prevent memory exhaustion
     const logsQuery = `
-      SELECT 
+      SELECT
         al.id,
         al.created_at as timestamp,
         al.user_id,
@@ -103,6 +103,7 @@ export async function POST(req: NextRequest) {
       LEFT JOIN users u ON u.id = al.user_id
       ${whereClause}
       ORDER BY al.created_at DESC
+      LIMIT 10000
     `
 
     const { rows } = await query(logsQuery, params)

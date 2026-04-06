@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { verifyToken } from "@/lib/security"
-import { query } from "@/lib/db"
+import { verifyToken, can } from "@/lib/security"
+import { queryWithSession } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
 
@@ -90,6 +90,7 @@ export async function GET(req: Request) {
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!can(auth.role, 'lab', 'read')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const url = new URL(req.url)
     const patientId = url.searchParams.get('patientId')
@@ -103,7 +104,8 @@ export async function GET(req: Request) {
     if (to) { params.push(to); where.push(`lt.ordered_at <= $${params.length}`) }
     if (status && status.toLowerCase() !== 'all') { params.push(status); where.push(`lt.status ILIKE $${params.length}`) }
 
-    const { rows } = await query(
+    const { rows } = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
       `SELECT lt.id, lt.patient_id, p.first_name, p.last_name, p.patient_number, p.gender, p.date_of_birth,
               lt.doctor_id, d.name AS doctor_name,
               lt.test_name, lt.test_type, lt.status, lt.results, lt.notes,
@@ -115,7 +117,9 @@ export async function GET(req: Request) {
          LEFT JOIN users t ON t.id = lt.lab_tech_id
         ${where.length ? `WHERE ${where.join(' AND ')}` : ''}
         ORDER BY COALESCE(lt.completed_at, lt.ordered_at) DESC
-        LIMIT 2000`, params)
+        LIMIT 2000`,
+      params
+    )
 
     const tests = rows.map((r:any)=> ({
       ...r,

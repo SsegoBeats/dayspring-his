@@ -2,6 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
+import { writeAuditLog } from "@/lib/audit"
 
 export async function GET() {
   try {
@@ -64,6 +65,14 @@ export async function GET() {
           LIMIT 500`,
       ),
     ])
+    // Audit bulk read of clinical data (non-blocking — failure must not break the response)
+    writeAuditLog({
+      userId: auth.userId,
+      action: "READ",
+      entityType: "MedicalRecords",
+      details: { recordCount: records.rows.length, prescriptionCount: prescriptions.rows.length, labCount: labs.rows.length, role: auth.role },
+    }).catch(() => {})
+
     return NextResponse.json({ medicalRecords: records.rows, prescriptions: prescriptions.rows, labResults: labs.rows })
   } catch (err: any) {
     console.error("Error in /api/medical:", err)

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
-import { query } from "@/lib/db"
+import { query, queryWithSession } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
 import { getSystemCurrency } from "@/lib/org"
 import { convertFromUGX, formatCurrencyStatic } from "@/lib/utils"
@@ -22,7 +22,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
 
     const { id } = await params
     await ensurePaymentsBillLink()
-    const { rows } = await query(
+    const { rows } = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
       `SELECT p.id, p.receipt_no, p.amount, p.method, p.reference, p.created_at, p.bill_id,
               pat.first_name, pat.last_name, pat.patient_number, pat.phone,
               b.bill_number, b.final_amount, b.paid_amount
@@ -40,7 +41,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     // Fetch cashier name
     let cashier = ''
     try {
-      const u = await query(`SELECT name FROM users WHERE id = (SELECT cashier_id FROM payments WHERE id = $1)`, [id])
+      const u = await queryWithSession({ role: auth.role, userId: auth.userId }, `SELECT name FROM users WHERE id = (SELECT cashier_id FROM payments WHERE id = $1)`, [id])
       cashier = u.rows?.[0]?.name || ''
     } catch {}
 
@@ -48,7 +49,7 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const currency = await getSystemCurrency()
     const amountUGX = Number(r.amount)
 
-    const items = await query(`SELECT description, amount FROM payment_items WHERE payment_id = $1 ORDER BY description ASC`, [id])
+    const items = await queryWithSession({ role: auth.role, userId: auth.userId }, `SELECT description, amount FROM payment_items WHERE payment_id = $1 ORDER BY description ASC`, [id])
     let data: any[]
     let meta: Record<string, string> = {
       Report: 'Payment Receipt',

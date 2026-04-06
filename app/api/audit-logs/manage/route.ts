@@ -65,10 +65,7 @@ export async function DELETE(req: NextRequest) {
       rowCount = (result as any).rowCount || 0
     } catch (dbError) {
       console.error("Database error:", dbError)
-      return NextResponse.json({ 
-        error: "Database operation failed", 
-        details: dbError instanceof Error ? dbError.message : 'Unknown database error'
-      }, { status: 500 })
+      return NextResponse.json({ error: "Database operation failed" }, { status: 500 })
     }
 
     // Only log the deletion action if we're not deleting all logs

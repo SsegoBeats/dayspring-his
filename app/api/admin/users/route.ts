@@ -12,6 +12,13 @@ export async function GET(req: Request) {
   const auth = token ? verifyToken(token) : null
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "users", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Re-verify role from DB to guard against stale JWTs (e.g. user was demoted after login)
+  const { rows: fresh } = await query<{ role: string; is_active: boolean }>(
+    "SELECT role, is_active FROM users WHERE id = $1", [auth.userId]
+  )
+  if (!fresh[0]?.is_active || !can(fresh[0].role, "users", "read")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
   const url = new URL(req.url)
   const page = Math.max(1, Number(url.searchParams.get("page") || 1))
   const pageSize = Math.max(1, Math.min(50, Number(url.searchParams.get("pageSize") || 20)))
@@ -115,6 +122,13 @@ export async function POST(req: Request) {
   const auth = token ? verifyToken(token) : null
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "users", "create")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Re-verify role from DB to guard against stale JWTs
+  const { rows: fresh } = await query<{ role: string; is_active: boolean }>(
+    "SELECT role, is_active FROM users WHERE id = $1", [auth.userId]
+  )
+  if (!fresh[0]?.is_active || !can(fresh[0].role, "users", "create")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
   const body = await req.json()
   const input = CreateSchema.parse(body)
 

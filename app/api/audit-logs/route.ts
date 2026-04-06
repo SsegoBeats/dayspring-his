@@ -184,19 +184,22 @@ export async function GET(req: NextRequest) {
 
 export async function POST(req: NextRequest) {
   try {
-    const auth = await checkAuthForLogging()
+    // Only Hospital Admin may write audit log entries via the API
+    const auth = await checkAuth()
     if (auth.error) {
       return NextResponse.json({ error: auth.error }, { status: auth.status })
     }
 
     const body = await req.json()
-    const { action, entityType, entityId, details, ipAddress } = body
+    const { action, entityType, entityId, details } = body
 
     if (!action || !entityType) {
       return NextResponse.json({ error: "Action and entity type are required" }, { status: 400 })
     }
 
-    // Insert audit log
+    // Derive IP from request headers — never trust a client-supplied ipAddress field
+    const ip = (req.headers.get("x-forwarded-for") || req.headers.get("x-real-ip") || "127.0.0.1").split(",")[0].trim()
+
     try {
       const { rows } = await query(`
         INSERT INTO audit_logs (user_id, action, entity_type, entity_id, details, ip_address)
@@ -208,20 +211,17 @@ export async function POST(req: NextRequest) {
         entityType,
         entityId || null,
         JSON.stringify(details || {}),
-        ipAddress || '127.0.0.1'
+        ip,
       ])
 
-      return NextResponse.json({ 
-        success: true, 
+      return NextResponse.json({
+        success: true,
         id: rows[0].id,
         timestamp: rows[0].created_at
       })
     } catch (dbError) {
       console.error("Database error creating audit log:", dbError)
-      return NextResponse.json({ 
-        error: "Failed to create audit log", 
-        details: dbError instanceof Error ? dbError.message : 'Unknown database error'
-      }, { status: 500 })
+      return NextResponse.json({ error: "Failed to create audit log" }, { status: 500 })
     }
 
   } catch (error) {

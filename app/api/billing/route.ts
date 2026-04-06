@@ -3,6 +3,7 @@ import { cookies } from "next/headers"
 import { verifyToken, can, generateReceiptNumber, generateBarcodeData } from "@/lib/security"
 import { query, queryWithSession } from "@/lib/db"
 import { ensureNotificationInfrastructure } from "@/lib/notifications"
+import { writeAuditLog } from "@/lib/audit"
 
 export async function GET(req: Request) {
   try {
@@ -17,7 +18,7 @@ export async function GET(req: Request) {
     const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit") || 500)))
     const bills = await queryWithSession(
       { role: auth.role, userId: auth.userId },
-      `SELECT b.id, b.bill_number, b.patient_id, p.patient_number, p.first_name, p.last_name, p.phone, p.email,
+      `SELECT b.id, b.bill_number, b.patient_id, p.patient_number, p.first_name, p.last_name,
               b.total_amount, b.tax_amount, b.discount_amount,
               b.final_amount, b.status, b.payment_method, b.paid_amount, b.created_at, b.paid_at
        FROM bills b
@@ -26,7 +27,6 @@ export async function GET(req: Request) {
          $1::text IS NULL OR
          b.bill_number ILIKE $1 OR
          p.patient_number ILIKE $1 OR
-         p.phone ILIKE $1 OR
          CONCAT(p.first_name, ' ', p.last_name) ILIKE $1
        )
          AND ($2::text IS NULL OR LOWER(b.status) = LOWER($2))
@@ -45,6 +45,14 @@ export async function GET(req: Request) {
             [billIds],
           )
         : { rows: [] as any[] }
+    // Audit bulk billing read (non-blocking)
+    writeAuditLog({
+      userId: auth.userId,
+      action: "READ",
+      entityType: "Bills",
+      details: { count: bills.rows.length, role: auth.role },
+    }).catch(() => {})
+
     return NextResponse.json({ bills: bills.rows, items: itemsRes.rows })
   } catch (err: any) {
     return NextResponse.json({ error: "Failed to fetch bills" }, { status: 500 })

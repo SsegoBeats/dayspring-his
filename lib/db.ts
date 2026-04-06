@@ -17,45 +17,33 @@ function parseConnectionString(connectionString: string): { connectionString: st
     url.search = params.toString()
     const cleanConnectionString = url.toString()
     
-    // Determine SSL configuration based on sslmode and environment
+    // Determine SSL configuration based on sslmode and environment.
+    // DB_SSL_REJECT_UNAUTHORIZED=false is an escape hatch for managed DBs that issue
+    // self-signed certificates (e.g. some on-premise deployments). Default is true.
+    const allowSelfSigned = process.env.DB_SSL_REJECT_UNAUTHORIZED === "false"
     let ssl: any = false
     if (sslMode === "disable") {
       ssl = false
     } else if (sslMode === "verify-full") {
       ssl = { rejectUnauthorized: true }
     } else if (sslMode === "require" || sslMode === "prefer" || sslMode === "verify-ca") {
-      ssl = { rejectUnauthorized: false }
+      ssl = { rejectUnauthorized: !allowSelfSigned }
     } else if (process.env.NODE_ENV === "production") {
-      // In production, SSL is typically required
-      // For managed databases (Vercel Postgres, etc.), we may need to accept self-signed certs
-      // Check if it's a cloud database URL (common patterns)
-      const isCloudDb = url.hostname.includes(".vercel") || 
-                       url.hostname.includes(".aws") || 
-                       url.hostname.includes(".azure") ||
-                       url.hostname.includes(".cloud")
-      
-      if (!sslMode && isCloudDb) {
-        // For verify-full or cloud DBs without explicit mode, verify certificates
-        ssl = { rejectUnauthorized: true }
-      } else if (isCloudDb) {
-        // For require/prefer/verify-ca or cloud DBs, accept but verify when possible
-        // Many cloud providers use self-signed certs, so we allow them
-        ssl = { rejectUnauthorized: false }
-      } else {
-        // Default for production: require SSL but allow self-signed (common for managed DBs)
-        ssl = { rejectUnauthorized: false }
-      }
+      // Production default: require SSL and verify certificates.
+      // Set DB_SSL_REJECT_UNAUTHORIZED=false only if your managed DB uses self-signed certs.
+      ssl = { rejectUnauthorized: !allowSelfSigned }
     } else {
-      // In development, no SSL needed for local connections
+      // Development: no SSL needed for local connections
       ssl = false
     }
     
     return { connectionString: cleanConnectionString, ssl }
   } catch {
     // If URL parsing fails, use original connection string with safe defaults
+    const allowSelfSigned = process.env.DB_SSL_REJECT_UNAUTHORIZED === "false"
     return {
       connectionString,
-      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: false } : false,
+      ssl: process.env.NODE_ENV === "production" ? { rejectUnauthorized: !allowSelfSigned } : false,
     }
   }
 }

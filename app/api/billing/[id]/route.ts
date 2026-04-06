@@ -65,10 +65,7 @@ export async function GET(
     })
   } catch (err: any) {
     console.error("[billing] GET bill error:", err?.message || err)
-    return NextResponse.json(
-      { error: err?.message || "Failed to fetch bill" },
-      { status: 500 },
-    )
+    return NextResponse.json({ error: "Failed to fetch bill" }, { status: 500 })
   }
 }
 
@@ -371,7 +368,7 @@ export async function DELETE(
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-    if (!can(auth.role, "billing", "update")) {
+    if (!can(auth.role, "billing", "delete")) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     }
     const { id: billId } = await params

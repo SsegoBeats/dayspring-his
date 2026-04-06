@@ -121,7 +121,7 @@ export async function POST(req: Request) {
     const url = `/uploads/${filename}`
     return NextResponse.json({ url, mimeType: ct || null, originalName: file.name || filename, storage: "local" })
   } catch (err: any) {
-    // Some runtimes throw TypeError for non-multipart bodies
-    return NextResponse.json({ error: err?.message || "Upload failed" }, { status: 500 })
+    console.error("[upload] Upload error:", err?.message)
+    return NextResponse.json({ error: "Upload failed" }, { status: 500 })
   }
 }

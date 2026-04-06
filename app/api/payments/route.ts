@@ -86,7 +86,8 @@ export async function POST(req: Request) {
         await queryWithSession({ role: auth.role, userId: auth.userId }, `INSERT INTO payment_items (payment_id, description, amount) VALUES ($1,$2,$3)`, [paymentId, it.description, it.amount])
       }
     }
-    await writeAuditLog({ userId: auth.userId, action: "PAYMENT_CREATE", entityType: "Payment", entityId: paymentId, details: { ...data, amount } })
+    // Log only the non-sensitive metadata; strip item descriptions and references
+    await writeAuditLog({ userId: auth.userId, action: "PAYMENT_CREATE", entityType: "Payment", entityId: paymentId, details: { patientId: data.patientId, billId: data.billId, amount, method: data.method, itemCount: data.items?.length ?? 0 } })
     return NextResponse.json({ id: paymentId, receiptNo: rows[0].receipt_no })
   } catch (err: any) {
     if (err?.name === "ZodError") return NextResponse.json({ error: "Validation error", details: err.issues }, { status: 400 })

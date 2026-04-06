@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { verifyToken } from "@/lib/security"
-import { query } from "@/lib/db"
+import { verifyToken, can } from "@/lib/security"
+import { queryWithSession } from "@/lib/db"
 import { toPDF } from "@/lib/exports/writers/pdf"
 import { formatPatientNumber } from "@/lib/patients"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_EMAIL, ORG_PHONE, ORG_ADDRESS } from "@/lib/org-constants"
@@ -83,8 +83,10 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const token = cookieStore.get('session')?.value || cookieStore.get('session_dev')?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!can(auth.role, 'lab', 'read')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const testQ = await query(
+    const testQ = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
       `SELECT lt.id, lt.patient_id, p.first_name, p.last_name, p.patient_number, p.gender, p.date_of_birth,
               lt.doctor_id, d.name AS doctor_name,
               lt.test_name, lt.test_type, lt.status, lt.results, lt.notes,
@@ -98,7 +100,8 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
          LEFT JOIN users t ON t.id = lt.lab_tech_id
          LEFT JOIN users ar ON ar.id = lt.assigned_radiologist_id
          LEFT JOIN users rb ON rb.id = lt.reviewed_by
-        WHERE lt.id = $1`, [id]
+        WHERE lt.id = $1`,
+      [id]
     )
     if (!testQ.rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const r:any = testQ.rows[0]

@@ -136,6 +136,13 @@ export async function PUT(_: Request, { params }: { params: Promise<{ id: string
   const auth = token ? verifyToken(token) : null
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "users", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Re-verify role from DB to guard against stale JWTs (e.g. demoted admin reusing old token)
+  const { rows: fresh } = await query<{ role: string; is_active: boolean }>(
+    "SELECT role, is_active FROM users WHERE id = $1", [auth.userId]
+  )
+  if (!fresh[0]?.is_active || !can(fresh[0].role, "users", "update")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
   if (auth.userId === id) {
     return NextResponse.json({ error: "You cannot change your own role or status from User Management." }, { status: 400 })
   }
@@ -170,6 +177,13 @@ export async function DELETE(_: Request, { params }: { params: Promise<{ id: str
   const auth = token ? verifyToken(token) : null
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "users", "delete")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Re-verify role from DB to guard against stale JWTs
+  const { rows: fresh } = await query<{ role: string; is_active: boolean }>(
+    "SELECT role, is_active FROM users WHERE id = $1", [auth.userId]
+  )
+  if (!fresh[0]?.is_active || !can(fresh[0].role, "users", "delete")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
   if (auth.userId === id) {
     return NextResponse.json({ error: "You cannot delete your own account from User Management." }, { status: 400 })
   }

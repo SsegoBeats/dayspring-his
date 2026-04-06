@@ -22,6 +22,13 @@ export async function POST(request: Request) {
   const auth = token ? verifyToken(token) : null
   if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
   if (!can(auth.role, "users", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  // Re-verify role from DB to guard against stale JWTs
+  const { rows: fresh } = await query<{ role: string; is_active: boolean }>(
+    "SELECT role, is_active FROM users WHERE id = $1", [auth.userId]
+  )
+  if (!fresh[0]?.is_active || !can(fresh[0].role, "users", "update")) {
+    return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+  }
 
   const body = await request.json()
   const input = BulkSchema.parse(body)
