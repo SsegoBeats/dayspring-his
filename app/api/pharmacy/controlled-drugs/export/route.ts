@@ -30,7 +30,7 @@ export async function GET(req: Request) {
               p.first_name || ' ' || p.last_name AS patient_name,
               cdr.prescriber_name, cdr.prescriber_registration_number,
               cdr.quantity_dispensed, cdr.batch_number, cdr.running_balance,
-              u.full_name AS dispensed_by_name, cdr.witness_name, cdr.notes
+              u.name AS dispensed_by_name, cdr.witness_name, cdr.notes
          FROM controlled_drug_register cdr
     LEFT JOIN medications m ON m.id = cdr.medication_id
     LEFT JOIN patients p ON p.id = cdr.patient_id

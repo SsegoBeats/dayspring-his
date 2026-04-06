@@ -12,13 +12,13 @@ export async function GET(req: Request) {
     if (!can(auth.role, "pharmacy", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
     const { rows } = await queryWithSession({ role: auth.role, userId: auth.userId },
-      `SELECT g.*, s.name AS supplier_name, u.full_name AS received_by_name,
+      `SELECT g.*, s.name AS supplier_name, u.name AS received_by_name,
               COUNT(gi.id) AS item_count
          FROM goods_received_notes g
     LEFT JOIN suppliers s ON s.id = g.supplier_id
     LEFT JOIN users u ON u.id = g.received_by
     LEFT JOIN grn_items gi ON gi.grn_id = g.id
-     GROUP BY g.id, s.name, u.full_name
+     GROUP BY g.id, s.name, u.name
      ORDER BY g.received_at DESC LIMIT 200`
     )
     return NextResponse.json({ grns: rows })

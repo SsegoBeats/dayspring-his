@@ -25,7 +25,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ prescri
         `SELECT p.*, m.name AS medication_name_inv, m.stock_quantity, m.is_controlled,
                 m.schedule_class, m.id AS medication_id, m.unit_price AS medication_unit_price,
                 pat.first_name, pat.last_name,
-                u.full_name AS prescriber_name
+                u.name AS prescriber_name
            FROM prescriptions p
       LEFT JOIN medications m ON m.name = p.medication_name
       LEFT JOIN patients pat ON pat.id = p.patient_id

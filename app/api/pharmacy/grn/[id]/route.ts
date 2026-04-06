@@ -15,7 +15,7 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const { rows: [grn] } = await queryWithSession({ role: auth.role, userId: auth.userId },
       `SELECT g.*, s.name AS supplier_name, s.address AS supplier_address,
               s.nda_license_number AS supplier_nda,
-              u.full_name AS received_by_name
+              u.name AS received_by_name
          FROM goods_received_notes g
     LEFT JOIN suppliers s ON s.id = g.supplier_id
     LEFT JOIN users u ON u.id = g.received_by
