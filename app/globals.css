@@ -162,6 +162,91 @@
   animation: pharmacist-fade-up 0.35s ease-out forwards;
 }
 
+/* ── Login page ─────────────────────────────────────────────────────────── */
+@keyframes ds-pulse-ring {
+  0%   { transform: scale(0.7); opacity: 0.8; }
+  100% { transform: scale(2.4); opacity: 0; }
+}
+@keyframes ds-float {
+  0%, 100% { transform: translateY(0px); }
+  50%       { transform: translateY(-8px); }
+}
+@keyframes ds-fade-up {
+  from { opacity: 0; transform: translateY(16px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+/* Pulse-rings loader (system loading screen) */
+.ds-loader {
+  position: relative;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  width: 80px;
+  height: 80px;
+}
+.ds-loader__ring {
+  position: absolute;
+  width: 40px;
+  height: 40px;
+  border-radius: 50%;
+  border: 2.5px solid oklch(0.55 0.15 240);
+  animation: ds-pulse-ring 2s ease-out infinite;
+}
+.ds-loader__ring:nth-child(2) { animation-delay: 0.65s; }
+.ds-loader__ring:nth-child(3) { animation-delay: 1.3s; }
+.ds-loader__dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: oklch(0.55 0.15 240);
+  box-shadow: 0 0 12px oklch(0.55 0.15 240 / 0.5);
+  z-index: 1;
+}
+
+/* Login left panel */
+.login-panel-grid {
+  background-image:
+    linear-gradient(rgba(255,255,255,0.07) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255,255,255,0.07) 1px, transparent 1px);
+  background-size: 40px 40px;
+}
+.login-logo-glow {
+  background: rgba(255, 255, 255, 0.08);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.15);
+  box-shadow: 0 0 40px rgba(96, 165, 250, 0.2), inset 0 1px 0 rgba(255,255,255,0.1);
+  animation: ds-float 4s ease-in-out infinite;
+}
+.login-feature-card {
+  background: rgba(255, 255, 255, 0.07);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+  transition: background 0.2s ease;
+}
+.login-feature-card:hover {
+  background: rgba(255, 255, 255, 0.12);
+}
+
+/* Login form card */
+.login-form-card {
+  background: var(--card);
+  border: 1px solid var(--border);
+  border-radius: 16px;
+  box-shadow: 0 4px 6px -1px rgba(0,0,0,0.05), 0 20px 60px -10px rgba(0,0,0,0.08);
+  animation: ds-fade-up 0.4s ease-out both;
+}
+.login-input-field {
+  transition: border-color 0.15s ease, box-shadow 0.15s ease;
+}
+.login-input-field:focus {
+  border-color: oklch(0.55 0.15 240) !important;
+  box-shadow: 0 0 0 3px oklch(0.55 0.15 240 / 0.15) !important;
+  outline: none !important;
+}
+
 /* Print: only receipt/content, hide app chrome */
 @media print {
   body {
