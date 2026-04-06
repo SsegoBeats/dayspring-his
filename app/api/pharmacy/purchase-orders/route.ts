@@ -26,13 +26,13 @@ export async function GET(req: Request) {
               s.name AS supplier_name,
               COUNT(poi.id) AS item_count,
               COALESCE(SUM(poi.quantity_ordered * poi.unit_cost), 0) AS total_value,
-              cb.full_name AS created_by_name
+              cb.name AS created_by_name
          FROM purchase_orders po
     LEFT JOIN suppliers s ON s.id = po.supplier_id
     LEFT JOIN purchase_order_items poi ON poi.purchase_order_id = po.id
     LEFT JOIN users cb ON cb.id = po.created_by
         ${where}
-     GROUP BY po.id, s.name, cb.full_name
+     GROUP BY po.id, s.name, cb.name
      ORDER BY po.created_at DESC
         LIMIT 200`,
       params

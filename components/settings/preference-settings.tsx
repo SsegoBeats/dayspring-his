@@ -76,9 +76,10 @@ export function ProfileSettings() {
   const saveProfile = async () => {
     setSaving(true)
     try {
+      const csrf = (document.cookie.split(";").find((c) => c.trim().startsWith("csrfToken=")) || "").split("=")[1] || ""
       const res = await fetch("/api/settings/profile", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
         credentials: "include",
         body: JSON.stringify(profile)
       })
@@ -224,9 +225,10 @@ export function NotificationSettings() {
   const saveNotifications = async () => {
     setSaving(true)
     try {
+      const csrf = (document.cookie.split(";").find((c) => c.trim().startsWith("csrfToken=")) || "").split("=")[1] || ""
       const res = await fetch("/api/settings/notifications", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
         credentials: "include",
         body: JSON.stringify(notifications)
       })
@@ -520,9 +522,10 @@ export function PreferenceSettings() {
   const savePreferences = async () => {
     setSaving(true)
     try {
+      const csrf = (document.cookie.split(";").find((c) => c.trim().startsWith("csrfToken=")) || "").split("=")[1] || ""
       const res = await fetch("/api/settings/preferences", {
         method: "POST",
-        headers: { "Content-Type": "application/json" },
+        headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
         credentials: "include",
         body: JSON.stringify({ ...preferences, currency: settings?.currency || "UGX" })
       })
