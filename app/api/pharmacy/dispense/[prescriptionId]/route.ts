@@ -102,7 +102,7 @@ export async function POST(req: Request, { params }: { params: Promise<{ prescri
         }
         const newBalance = Number(balanceRow.computed_balance) - qty
         // prescriptions table has no prescriber_name/prescriber_registration_number columns;
-        // use doctor's full_name fetched via users join above, and null for registration number.
+        // use doctor's name fetched via users join above (u.name AS prescriber_name), and null for registration number.
         await client.query(
           `INSERT INTO controlled_drug_register
            (medication_id, patient_id, prescription_id, prescriber_name, prescriber_registration_number,
