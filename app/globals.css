@@ -265,19 +265,19 @@
   pointer-events: none;
 }
 .ds-logo-halo-ring--1 {
-  width: 180px;
-  height: 180px;
+  width: 290px;
+  height: 290px;
   animation: ds-halo-breathe 3.2s ease-in-out infinite;
 }
 .ds-logo-halo-ring--2 {
-  width: 230px;
-  height: 230px;
+  width: 340px;
+  height: 340px;
   border-color: rgba(147, 197, 253, 0.18);
   animation: ds-halo-breathe 3.2s ease-in-out infinite 0.7s;
 }
 .ds-logo-halo-ring--3 {
-  width: 285px;
-  height: 285px;
+  width: 395px;
+  height: 395px;
   border-color: rgba(147, 197, 253, 0.09);
   animation: ds-halo-breathe 3.2s ease-in-out infinite 1.4s;
 }
