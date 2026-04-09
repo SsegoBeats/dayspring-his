@@ -79,16 +79,16 @@ export default function HomePage() {
         <div className="relative z-10 flex flex-col items-center text-center text-white max-w-sm w-full">
 
           {/* Logo — frameless, floating with halo rings */}
-          <div className="relative mb-10 flex items-center justify-center w-[220px] h-[220px]">
+          <div className="relative mb-10 flex items-center justify-center w-[280px] h-[280px]">
             <div className="ds-logo-halo-ring ds-logo-halo-ring--1" />
             <div className="ds-logo-halo-ring ds-logo-halo-ring--2" />
             <div className="ds-logo-halo-ring ds-logo-halo-ring--3" />
             <Image
               src={ORG_LOGO_PATH}
               alt={ORG_NAME}
-              width={200}
-              height={200}
-              className="ds-logo-float relative z-10 h-44 w-auto object-contain"
+              width={260}
+              height={260}
+              className="ds-logo-float relative z-10 h-56 w-auto object-contain"
               priority
             />
           </div>
