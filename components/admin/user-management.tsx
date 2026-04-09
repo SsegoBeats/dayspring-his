@@ -949,9 +949,9 @@ export function UserManagement() {
                       </DialogHeader>
                       <div className="space-y-4">
                         <div>
-                          <Label>New Role</Label>
+                          <Label htmlFor="bulk-role-select">New Role</Label>
                           <Select value={bulkRoleValue} onValueChange={setBulkRoleValue}>
-                            <SelectTrigger>
+                            <SelectTrigger id="bulk-role-select">
                               <SelectValue placeholder="Select role" />
                             </SelectTrigger>
                             <SelectContent>

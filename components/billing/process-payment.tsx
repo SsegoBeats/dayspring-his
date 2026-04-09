@@ -720,9 +720,9 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                   </p>
                   <div className="grid gap-3 sm:grid-cols-2">
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Method 1</Label>
+                      <Label htmlFor="split-method-1" className="text-xs text-muted-foreground">Method 1</Label>
                       <Select value={splitMethod1} onValueChange={setSplitMethod1}>
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger id="split-method-1" className="h-9">
                           <SelectValue placeholder="Select method" />
                         </SelectTrigger>
                         <SelectContent>
@@ -734,8 +734,10 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Amount 1</Label>
+                      <Label htmlFor="split-amount-1" className="text-xs text-muted-foreground">Amount 1</Label>
                       <Input
+                        id="split-amount-1"
+                        name="splitAmount1"
                         type="number"
                         step="0.01"
                         min="0.01"
@@ -751,9 +753,9 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                       />
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Method 2</Label>
+                      <Label htmlFor="split-method-2" className="text-xs text-muted-foreground">Method 2</Label>
                       <Select value={splitMethod2} onValueChange={setSplitMethod2}>
-                        <SelectTrigger className="h-9">
+                        <SelectTrigger id="split-method-2" className="h-9">
                           <SelectValue placeholder="Select method" />
                         </SelectTrigger>
                         <SelectContent>
@@ -765,8 +767,10 @@ export function ProcessPayment({ billId, onBack }: ProcessPaymentProps) {
                       </Select>
                     </div>
                     <div className="space-y-2">
-                      <Label className="text-xs text-muted-foreground">Amount 2</Label>
+                      <Label htmlFor="split-amount-2" className="text-xs text-muted-foreground">Amount 2</Label>
                       <Input
+                        id="split-amount-2"
+                        name="splitAmount2"
                         type="number"
                         step="0.01"
                         min="0.01"

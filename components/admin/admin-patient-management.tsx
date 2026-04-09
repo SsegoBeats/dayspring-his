@@ -604,19 +604,25 @@ export function AdminPatientManagement() {
                 />
               </div>
               <div className="space-y-1">
-                <Label>Registration date</Label>
+                <Label htmlFor="pt-registered-after">Registration date</Label>
                 <div className="flex gap-2">
                   <Input
+                    id="pt-registered-after"
+                    name="registeredAfter"
                     type="date"
                     value={filters.registeredAfter}
                     onChange={(e) => setFilters({ ...filters, registeredAfter: e.target.value })}
                     className="text-xs"
+                    aria-label="Registered after"
                   />
                   <Input
+                    id="pt-registered-before"
+                    name="registeredBefore"
                     type="date"
                     value={filters.registeredBefore}
                     onChange={(e) => setFilters({ ...filters, registeredBefore: e.target.value })}
                     className="text-xs"
+                    aria-label="Registered before"
                   />
                 </div>
               </div>

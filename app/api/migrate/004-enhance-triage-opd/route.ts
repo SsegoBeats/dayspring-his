@@ -11,7 +11,7 @@ export async function POST() {
   if (auth.role !== "Hospital Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   try {
-    console.log("[Migration 004] Starting migration: enhance-triage-opd...")
+    if (process.env.NODE_ENV === "development") console.info("[Migration 004] Starting migration: enhance-triage-opd...")
 
     // Add missing columns to patients table
     await query(`
@@ -196,7 +196,7 @@ export async function POST() {
       ALTER TABLE patients DROP CONSTRAINT IF EXISTS patients_current_status_check;
     `)
 
-    console.log("[Migration 004] Migration completed successfully!")
+    if (process.env.NODE_ENV === "development") console.info("[Migration 004] Migration completed successfully!")
 
     return NextResponse.json({
       success: true,

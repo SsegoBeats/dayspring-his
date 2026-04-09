@@ -1102,8 +1102,8 @@ export function RadiologistDashboard() {
                       <SelectItem value="custom">Custom</SelectItem>
                     </SelectContent>
                   </Select>
-                  <Input type="date" value={exportFrom} onChange={(event) => { setDatePreset("custom"); setExportFrom(event.target.value) }} />
-                  <Input type="date" value={exportTo} onChange={(event) => { setDatePreset("custom"); setExportTo(event.target.value) }} />
+                  <Input id="rad-export-from" name="exportFrom" type="date" aria-label="Export from date" value={exportFrom} onChange={(event) => { setDatePreset("custom"); setExportFrom(event.target.value) }} />
+                  <Input id="rad-export-to" name="exportTo" type="date" aria-label="Export to date" value={exportTo} onChange={(event) => { setDatePreset("custom"); setExportTo(event.target.value) }} />
                 </div>
                 <p className="text-xs text-muted-foreground">
                   Current filters included: {modalityFilter !== "all" ? modalityFilter : "all modalities"} /{" "}
@@ -1179,9 +1179,9 @@ export function RadiologistDashboard() {
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Modality</Label>
+                  <Label htmlFor="new-study-modality">Modality</Label>
                   <Select value={newStudyModality} onValueChange={setNewStudyModality}>
-                    <SelectTrigger><SelectValue placeholder="Select modality" /></SelectTrigger>
+                    <SelectTrigger id="new-study-modality"><SelectValue placeholder="Select modality" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="X-Ray">X-Ray</SelectItem>
                       <SelectItem value="CT Scan">CT Scan</SelectItem>
@@ -1196,9 +1196,9 @@ export function RadiologistDashboard() {
                   </Select>
                 </div>
                 <div className="space-y-2">
-                  <Label>Priority</Label>
+                  <Label htmlFor="new-study-priority">Priority</Label>
                   <Select value={newStudyPriority} onValueChange={setNewStudyPriority}>
-                    <SelectTrigger><SelectValue placeholder="Select priority" /></SelectTrigger>
+                    <SelectTrigger id="new-study-priority"><SelectValue placeholder="Select priority" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="routine">Routine</SelectItem>
                       <SelectItem value="urgent">Urgent</SelectItem>
@@ -1257,9 +1257,9 @@ export function RadiologistDashboard() {
               </div>
               <div className="grid gap-3 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label>Study Type</Label>
+                  <Label htmlFor="upload-study-type">Study Type</Label>
                   <Select value={uploadModality} onValueChange={setUploadModality}>
-                    <SelectTrigger><SelectValue placeholder="Select study type" /></SelectTrigger>
+                    <SelectTrigger id="upload-study-type"><SelectValue placeholder="Select study type" /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="X-Ray">X-Ray</SelectItem>
                       <SelectItem value="CT Scan">CT Scan</SelectItem>
@@ -1321,9 +1321,9 @@ export function RadiologistDashboard() {
               {assignStudyIds.length} selected case{assignStudyIds.length === 1 ? "" : "s"}
             </div>
             <div className="space-y-2">
-              <Label>Assign To</Label>
+              <Label htmlFor="assign-radiologist">Assign To</Label>
               <Select value={assignRadiologistId} onValueChange={setAssignRadiologistId}>
-                <SelectTrigger><SelectValue placeholder="Select radiologist" /></SelectTrigger>
+                <SelectTrigger id="assign-radiologist"><SelectValue placeholder="Select radiologist" /></SelectTrigger>
                 <SelectContent>
                   {user?.id ? <SelectItem value={user.id}>Me ({user.name})</SelectItem> : null}
                   {radiologists
@@ -1358,9 +1358,9 @@ export function RadiologistDashboard() {
               {bulkStatusStudyIds.length} selected case{bulkStatusStudyIds.length === 1 ? "" : "s"}
             </div>
             <div className="space-y-2">
-              <Label>New Status</Label>
+              <Label htmlFor="bulk-status-value">New Status</Label>
               <Select value={bulkStatusValue} onValueChange={setBulkStatusValue}>
-                <SelectTrigger><SelectValue placeholder="Select status" /></SelectTrigger>
+                <SelectTrigger id="bulk-status-value"><SelectValue placeholder="Select status" /></SelectTrigger>
                 <SelectContent>
                   <SelectItem value="Pending">Pending</SelectItem>
                   <SelectItem value="In Progress">In Progress</SelectItem>

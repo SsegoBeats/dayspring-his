@@ -86,11 +86,11 @@ export default function ClinicianPage() {
             <div className="flex flex-wrap items-end gap-4">
               <div className="space-y-1">
                 <Label htmlFor="expFrom" className="text-teal-700">From</Label>
-                <Input id="expFrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
+                <Input id="expFrom" name="exportFrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-40" />
               </div>
               <div className="space-y-1">
                 <Label htmlFor="expTo" className="text-teal-700">To</Label>
-                <Input id="expTo" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
+                <Input id="expTo" name="exportTo" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-40" />
               </div>
               <label className="flex items-center gap-2 text-sm text-slate-600 pb-1 cursor-pointer select-none">
                 <input

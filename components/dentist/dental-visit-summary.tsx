@@ -158,26 +158,26 @@ export function DentalVisitSummary({ record, canEdit, onUpdated, onDeleted }: De
       {editing ? (
         <div className="space-y-3">
           <div className="space-y-1">
-            <Label>Visit Date</Label>
-            <Input type="datetime-local" value={form.visitDate}
+            <Label htmlFor="dental-visit-date">Visit Date</Label>
+            <Input id="dental-visit-date" name="visitDate" type="datetime-local" value={form.visitDate}
               onChange={(e) => setForm((f) => ({ ...f, visitDate: e.target.value }))}
               className="focus-visible:ring-cyan-400" />
           </div>
           <div className="space-y-1">
-            <Label>Diagnosis</Label>
-            <Textarea value={form.diagnosis}
+            <Label htmlFor="dental-diagnosis">Diagnosis</Label>
+            <Textarea id="dental-diagnosis" name="diagnosis" value={form.diagnosis}
               onChange={(e) => setForm((f) => ({ ...f, diagnosis: e.target.value }))}
               className="focus-visible:ring-cyan-400" />
           </div>
           <div className="space-y-1">
-            <Label>Procedure Performed</Label>
-            <Textarea value={form.procedurePerformed}
+            <Label htmlFor="dental-procedure">Procedure Performed</Label>
+            <Textarea id="dental-procedure" name="procedurePerformed" value={form.procedurePerformed}
               onChange={(e) => setForm((f) => ({ ...f, procedurePerformed: e.target.value }))}
               className="focus-visible:ring-cyan-400" />
           </div>
           <div className="space-y-1">
-            <Label>Tooth / Chart Notes</Label>
-            <Textarea value={form.toothNotes}
+            <Label htmlFor="dental-tooth-notes">Tooth / Chart Notes</Label>
+            <Textarea id="dental-tooth-notes" name="toothNotes" value={form.toothNotes}
               onChange={(e) => setForm((f) => ({ ...f, toothNotes: e.target.value }))}
               className="focus-visible:ring-cyan-400" />
           </div>

@@ -342,12 +342,12 @@ export function EditBill({ billId, onBack, mode = "page" }: EditBillProps) {
                           </div>
 
                           <div className="space-y-2">
-                            <Label>Item type</Label>
+                            <Label htmlFor={`edit-item-${index}-type`}>Item type</Label>
                             <Select
                               value={item.itemType ?? "medication"}
                               onValueChange={(v) => handleItemChange(index, "itemType", v as "medication" | "service")}
                             >
-                              <SelectTrigger>
+                              <SelectTrigger id={`edit-item-${index}-type`}>
                                 <SelectValue />
                               </SelectTrigger>
                               <SelectContent>
@@ -360,12 +360,12 @@ export function EditBill({ billId, onBack, mode = "page" }: EditBillProps) {
                           {isService && (
                             <>
                               <div className="space-y-2">
-                                <Label>Service</Label>
+                                <Label htmlFor={`edit-item-${index}-service`}>Service</Label>
                                 <Select
                                   value={item.serviceCategory ?? ""}
                                   onValueChange={(v) => handleItemChange(index, "serviceCategory", v)}
                                 >
-                                  <SelectTrigger>
+                                  <SelectTrigger id={`edit-item-${index}-service`}>
                                     <SelectValue placeholder="Select service" />
                                   </SelectTrigger>
                                   <SelectContent>
@@ -379,7 +379,7 @@ export function EditBill({ billId, onBack, mode = "page" }: EditBillProps) {
                               </div>
                               {isDelivery && (
                                 <div className="space-y-2">
-                                  <Label>Delivery type</Label>
+                                  <Label htmlFor={`edit-item-${index}-delivery-type`}>Delivery type</Label>
                                   <Select
                                     value={
                                       item.description.startsWith("Delivery - ")
@@ -388,7 +388,7 @@ export function EditBill({ billId, onBack, mode = "page" }: EditBillProps) {
                                     }
                                     onValueChange={(v) => handleDeliverySubChange(index, v)}
                                   >
-                                    <SelectTrigger>
+                                    <SelectTrigger id={`edit-item-${index}-delivery-type`}>
                                       <SelectValue placeholder="Select type" />
                                     </SelectTrigger>
                                     <SelectContent>
@@ -406,8 +406,10 @@ export function EditBill({ billId, onBack, mode = "page" }: EditBillProps) {
 
                           <div className="grid gap-3 md:grid-cols-4">
                             <div className="space-y-2 md:col-span-2">
-                              <Label>Description</Label>
+                              <Label htmlFor={`edit-item-${index}-desc`}>Description</Label>
                               <Input
+                                id={`edit-item-${index}-desc`}
+                                name={`edit-item-${index}-description`}
                                 placeholder={isService ? "e.g., Laboratory Tests" : "e.g., General Consultation"}
                                 value={item.description}
                                 onChange={(e) => handleItemChange(index, "description", e.target.value)}
@@ -415,8 +417,10 @@ export function EditBill({ billId, onBack, mode = "page" }: EditBillProps) {
                               />
                             </div>
                             <div className="space-y-2">
-                              <Label>Quantity</Label>
+                              <Label htmlFor={`edit-item-${index}-qty`}>Quantity</Label>
                               <Input
+                                id={`edit-item-${index}-qty`}
+                                name={`edit-item-${index}-quantity`}
                                 type="number"
                                 min="1"
                                 value={item.quantity}
@@ -428,8 +432,10 @@ export function EditBill({ billId, onBack, mode = "page" }: EditBillProps) {
                             </div>
                             {isService ? (
                               <div className="space-y-2">
-                                <Label>Total</Label>
+                                <Label htmlFor={`edit-item-${index}-total`}>Total</Label>
                                 <Input
+                                  id={`edit-item-${index}-total`}
+                                  name={`edit-item-${index}-total`}
                                   type="number"
                                   step="0.01"
                                   min="0"
@@ -441,8 +447,10 @@ export function EditBill({ billId, onBack, mode = "page" }: EditBillProps) {
                               </div>
                             ) : (
                               <div className="space-y-2">
-                                <Label>Unit Price</Label>
+                                <Label htmlFor={`edit-item-${index}-price`}>Unit Price</Label>
                                 <Input
+                                  id={`edit-item-${index}-price`}
+                                  name={`edit-item-${index}-unitPrice`}
                                   type="number"
                                   step="0.01"
                                   min="0"

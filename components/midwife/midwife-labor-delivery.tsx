@@ -330,8 +330,8 @@ export function MidwifeLaborDelivery({ openNewOnMount = false }: MidwifeLaborDel
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1"><Label className="text-xs font-medium">Duration (hours)</Label><Input type="number" min={0} step="0.5" placeholder="e.g. 8.5" value={form.durationOfLaborHours} onChange={(e) => setForm((f) => ({ ...f, durationOfLaborHours: e.target.value }))} /></div>
-              <div className="space-y-1"><Label className="text-xs font-medium">Blood Loss (ml)</Label><Input type="number" min={0} placeholder="e.g. 300" value={form.bloodLossMl} onChange={(e) => setForm((f) => ({ ...f, bloodLossMl: e.target.value }))} /></div>
+              <div className="space-y-1"><Label htmlFor="labor-duration" className="text-xs font-medium">Duration (hours)</Label><Input id="labor-duration" name="durationOfLaborHours" type="number" min={0} step="0.5" placeholder="e.g. 8.5" value={form.durationOfLaborHours} onChange={(e) => setForm((f) => ({ ...f, durationOfLaborHours: e.target.value }))} /></div>
+              <div className="space-y-1"><Label htmlFor="labor-blood-loss" className="text-xs font-medium">Blood Loss (ml)</Label><Input id="labor-blood-loss" name="bloodLossMl" type="number" min={0} placeholder="e.g. 300" value={form.bloodLossMl} onChange={(e) => setForm((f) => ({ ...f, bloodLossMl: e.target.value }))} /></div>
             </div>
             <hr className="border-rose-100" />
             <p className="text-xs font-semibold text-rose-700 uppercase tracking-wide">Baby Details</p>
@@ -347,9 +347,9 @@ export function MidwifeLaborDelivery({ openNewOnMount = false }: MidwifeLaborDel
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1"><Label className="text-xs font-medium">Birth Weight (g)</Label><Input type="number" min={0} placeholder="e.g. 3200" value={form.babyBirthWeightG} onChange={(e) => setForm((f) => ({ ...f, babyBirthWeightG: e.target.value }))} /></div>
-              <div className="space-y-1"><Label className="text-xs font-medium">APGAR 1 min</Label><Input type="number" min={0} max={10} placeholder="0–10" value={form.babyApgar1min} onChange={(e) => setForm((f) => ({ ...f, babyApgar1min: e.target.value }))} /></div>
-              <div className="space-y-1"><Label className="text-xs font-medium">APGAR 5 min</Label><Input type="number" min={0} max={10} placeholder="0–10" value={form.babyApgar5min} onChange={(e) => setForm((f) => ({ ...f, babyApgar5min: e.target.value }))} /></div>
+              <div className="space-y-1"><Label htmlFor="baby-birth-weight" className="text-xs font-medium">Birth Weight (g)</Label><Input id="baby-birth-weight" name="babyBirthWeightG" type="number" min={0} placeholder="e.g. 3200" value={form.babyBirthWeightG} onChange={(e) => setForm((f) => ({ ...f, babyBirthWeightG: e.target.value }))} /></div>
+              <div className="space-y-1"><Label htmlFor="baby-apgar-1" className="text-xs font-medium">APGAR 1 min</Label><Input id="baby-apgar-1" name="babyApgar1min" type="number" min={0} max={10} placeholder="0–10" value={form.babyApgar1min} onChange={(e) => setForm((f) => ({ ...f, babyApgar1min: e.target.value }))} /></div>
+              <div className="space-y-1"><Label htmlFor="baby-apgar-5" className="text-xs font-medium">APGAR 5 min</Label><Input id="baby-apgar-5" name="babyApgar5min" type="number" min={0} max={10} placeholder="0–10" value={form.babyApgar5min} onChange={(e) => setForm((f) => ({ ...f, babyApgar5min: e.target.value }))} /></div>
               <div className="space-y-1 col-span-2">
                 <Label className="text-xs font-medium">Baby Condition</Label>
                 <Select value={form.babyCondition} onValueChange={(v) => setForm((f) => ({ ...f, babyCondition: v }))}>

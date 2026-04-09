@@ -150,9 +150,9 @@ function WritePrescription() {
       </div>
 
       <div className="space-y-1">
-        <Label>Priority</Label>
+        <Label htmlFor="dentist-priority">Priority</Label>
         <Select value={priority} onValueChange={setPriority}>
-          <SelectTrigger className="focus:ring-cyan-400">
+          <SelectTrigger id="dentist-priority" className="focus:ring-cyan-400">
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -174,23 +174,23 @@ function WritePrescription() {
           </div>
           <div className="grid grid-cols-2 gap-2">
             <div className="col-span-2 space-y-1">
-              <Label className="text-xs">Medication name</Label>
-              <Input value={med.name} onChange={(e) => updateMed(i, "name", e.target.value)}
+              <Label htmlFor={`med-${i}-name`} className="text-xs">Medication name</Label>
+              <Input id={`med-${i}-name`} name={`med-${i}-name`} value={med.name} onChange={(e) => updateMed(i, "name", e.target.value)}
                 placeholder="e.g. Amoxicillin" className="focus-visible:ring-cyan-400" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Dosage</Label>
-              <Input value={med.dosage} onChange={(e) => updateMed(i, "dosage", e.target.value)}
+              <Label htmlFor={`med-${i}-dosage`} className="text-xs">Dosage</Label>
+              <Input id={`med-${i}-dosage`} name={`med-${i}-dosage`} value={med.dosage} onChange={(e) => updateMed(i, "dosage", e.target.value)}
                 placeholder="e.g. 500mg" className="focus-visible:ring-cyan-400" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Frequency</Label>
-              <Input value={med.frequency} onChange={(e) => updateMed(i, "frequency", e.target.value)}
+              <Label htmlFor={`med-${i}-frequency`} className="text-xs">Frequency</Label>
+              <Input id={`med-${i}-frequency`} name={`med-${i}-frequency`} value={med.frequency} onChange={(e) => updateMed(i, "frequency", e.target.value)}
                 placeholder="e.g. 3x daily" className="focus-visible:ring-cyan-400" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs">Duration</Label>
-              <Input value={med.duration} onChange={(e) => updateMed(i, "duration", e.target.value)}
+              <Label htmlFor={`med-${i}-duration`} className="text-xs">Duration</Label>
+              <Input id={`med-${i}-duration`} name={`med-${i}-duration`} value={med.duration} onChange={(e) => updateMed(i, "duration", e.target.value)}
                 placeholder="e.g. 7 days" className="focus-visible:ring-cyan-400" />
             </div>
             <div className="space-y-1">

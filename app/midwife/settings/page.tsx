@@ -111,6 +111,7 @@ function MidwifePreferences() {
           </Label>
           <Input
             id="edd-alert-weeks"
+            name="eddAlertWeeks"
             type="number"
             min={1}
             max={12}

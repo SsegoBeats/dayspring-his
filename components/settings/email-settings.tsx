@@ -42,8 +42,6 @@ export function EmailSettings() {
     if (resendCooldown > 0) {
       const timer = setTimeout(() => setResendCooldown(resendCooldown - 1), 1000)
       return () => clearTimeout(timer)
-    } else if (resendCooldown === 0 && showOtpInput && process.env.NODE_ENV === "development") {
-      console.log("[OTP Frontend] Resend cooldown completed")
     }
   }, [resendCooldown, showOtpInput])
 
@@ -75,7 +73,6 @@ export function EmailSettings() {
         toast.success(d?.message || `Verification code sent to ${email}`)
         setShowOtpInput(true)
         setResendCooldown(60) // 60 second cooldown
-        console.log("[OTP Frontend] OTP sent successfully, cooldown started (60 seconds)")
       } else {
         setServerMessage(null)
         toast.error(d.error || "Failed to send verification code")

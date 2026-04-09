@@ -208,12 +208,12 @@ export function MidwifeANCVisits({ openNewOnMount = false }: MidwifeANCVisitsPro
         <CardContent>
           <div className="flex flex-wrap items-end gap-3">
             <div className="space-y-1">
-              <Label className="text-xs text-slate-500">From</Label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-36 text-xs" />
+              <Label htmlFor="anc-filter-from" className="text-xs text-slate-500">From</Label>
+              <Input id="anc-filter-from" name="filterFrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)} className="w-36 text-xs" />
             </div>
             <div className="space-y-1">
-              <Label className="text-xs text-slate-500">To</Label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-36 text-xs" />
+              <Label htmlFor="anc-filter-to" className="text-xs text-slate-500">To</Label>
+              <Input id="anc-filter-to" name="filterTo" type="date" value={to} onChange={(e) => setTo(e.target.value)} className="w-36 text-xs" />
             </div>
           </div>
         </CardContent>
@@ -297,36 +297,36 @@ export function MidwifeANCVisits({ openNewOnMount = false }: MidwifeANCVisitsPro
             )}
             <div className="grid grid-cols-2 gap-3">
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Visit Date</Label>
-                <Input type="date" value={form.visitDate} onChange={(e) => setForm((f) => ({ ...f, visitDate: e.target.value }))} />
+                <Label htmlFor="anc-visit-date" className="text-xs font-medium">Visit Date</Label>
+                <Input id="anc-visit-date" name="visitDate" type="date" value={form.visitDate} onChange={(e) => setForm((f) => ({ ...f, visitDate: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium">EDD</Label>
-                <Input type="date" value={form.edd} onChange={(e) => setForm((f) => ({ ...f, edd: e.target.value }))} />
+                <Label htmlFor="anc-edd" className="text-xs font-medium">EDD</Label>
+                <Input id="anc-edd" name="edd" type="date" value={form.edd} onChange={(e) => setForm((f) => ({ ...f, edd: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Gravida (G)</Label>
-                <Input type="number" min={0} placeholder="e.g. 2" value={form.gravida} onChange={(e) => setForm((f) => ({ ...f, gravida: e.target.value }))} />
+                <Label htmlFor="anc-gravida" className="text-xs font-medium">Gravida (G)</Label>
+                <Input id="anc-gravida" name="gravida" type="number" min={0} placeholder="e.g. 2" value={form.gravida} onChange={(e) => setForm((f) => ({ ...f, gravida: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Parity (P)</Label>
-                <Input type="number" min={0} placeholder="e.g. 1" value={form.parity} onChange={(e) => setForm((f) => ({ ...f, parity: e.target.value }))} />
+                <Label htmlFor="anc-parity" className="text-xs font-medium">Parity (P)</Label>
+                <Input id="anc-parity" name="parity" type="number" min={0} placeholder="e.g. 1" value={form.parity} onChange={(e) => setForm((f) => ({ ...f, parity: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Gestational Age (wks)</Label>
-                <Input type="number" min={0} max={45} placeholder="e.g. 28" value={form.gestationalAgeWeeks} onChange={(e) => setForm((f) => ({ ...f, gestationalAgeWeeks: e.target.value }))} />
+                <Label htmlFor="anc-gestational-age" className="text-xs font-medium">Gestational Age (wks)</Label>
+                <Input id="anc-gestational-age" name="gestationalAgeWeeks" type="number" min={0} max={45} placeholder="e.g. 28" value={form.gestationalAgeWeeks} onChange={(e) => setForm((f) => ({ ...f, gestationalAgeWeeks: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Fundal Height (cm)</Label>
-                <Input type="number" min={0} step="0.5" placeholder="e.g. 28.0" value={form.fundalHeightCm} onChange={(e) => setForm((f) => ({ ...f, fundalHeightCm: e.target.value }))} />
+                <Label htmlFor="anc-fundal-height" className="text-xs font-medium">Fundal Height (cm)</Label>
+                <Input id="anc-fundal-height" name="fundalHeightCm" type="number" min={0} step="0.5" placeholder="e.g. 28.0" value={form.fundalHeightCm} onChange={(e) => setForm((f) => ({ ...f, fundalHeightCm: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Fetal Heart Rate</Label>
-                <Input type="number" min={60} max={200} placeholder="e.g. 140" value={form.fetalHeartRate} onChange={(e) => setForm((f) => ({ ...f, fetalHeartRate: e.target.value }))} />
+                <Label htmlFor="anc-fetal-hr" className="text-xs font-medium">Fetal Heart Rate</Label>
+                <Input id="anc-fetal-hr" name="fetalHeartRate" type="number" min={60} max={200} placeholder="e.g. 140" value={form.fetalHeartRate} onChange={(e) => setForm((f) => ({ ...f, fetalHeartRate: e.target.value }))} />
               </div>
               <div className="space-y-1">
-                <Label className="text-xs font-medium">Presentation</Label>
-                <Input placeholder="e.g. Cephalic" value={form.presentation} onChange={(e) => setForm((f) => ({ ...f, presentation: e.target.value }))} />
+                <Label htmlFor="anc-presentation" className="text-xs font-medium">Presentation</Label>
+                <Input id="anc-presentation" name="presentation" placeholder="e.g. Cephalic" value={form.presentation} onChange={(e) => setForm((f) => ({ ...f, presentation: e.target.value }))} />
               </div>
             </div>
             <div className="space-y-1">

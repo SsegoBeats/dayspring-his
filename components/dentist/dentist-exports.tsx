@@ -77,13 +77,13 @@ export function DentistExports() {
         <CardContent className="space-y-4">
           <div className="grid gap-3 md:grid-cols-2">
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">From</label>
-              <Input type="date" value={from} onChange={(e) => setFrom(e.target.value)}
+              <label htmlFor="dentist-export-from" className="text-xs font-medium text-slate-600">From</label>
+              <Input id="dentist-export-from" name="exportFrom" type="date" value={from} onChange={(e) => setFrom(e.target.value)}
                 className="focus-visible:ring-cyan-400" />
             </div>
             <div className="space-y-1">
-              <label className="text-xs font-medium text-slate-600">To</label>
-              <Input type="date" value={to} onChange={(e) => setTo(e.target.value)}
+              <label htmlFor="dentist-export-to" className="text-xs font-medium text-slate-600">To</label>
+              <Input id="dentist-export-to" name="exportTo" type="date" value={to} onChange={(e) => setTo(e.target.value)}
                 className="focus-visible:ring-cyan-400" />
             </div>
           </div>

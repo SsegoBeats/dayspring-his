@@ -214,7 +214,6 @@ export function AppointmentScheduler() {
                   const res = await fetch('/api/appointments/send-reminders', { method: 'POST' })
                   if (res.ok) {
                     const data = await res.json();
-                    console.log('Reminders sent:', data)
                   }
                 } catch (e) { console.error(e) }
               }}

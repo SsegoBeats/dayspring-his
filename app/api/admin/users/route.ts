@@ -178,24 +178,12 @@ export async function POST(req: Request) {
     if (process.env.NODE_ENV === 'development') console.warn('[User Creation] email_verification_tokens insert failed:', (e as Error)?.message)
   }
 
-  // Send welcome email (without verification code - user gets that on first login)
+  // Send single welcome email that includes the verification code (if issued)
   try {
-    const welcomeTpl = emailTemplates.welcome(input.name, input.email, input.password, input.role)
+    const welcomeTpl = emailTemplates.welcome(input.name, input.email, input.password, input.role, otp)
     await sendEmailServer(input.email, welcomeTpl)
-  } catch (error) {
-    console.error("[User Creation] Failed to send welcome email:", error)
+  } catch {
     // Don't fail user creation if email fails
-  }
-
-  // Send verification code email separately (only when OTP was stored)
-  if (typeof otp !== 'undefined') {
-    try {
-      const { emailTemplates: vEmailTemplates } = await import("@/lib/email-service")
-      const verificationTpl = vEmailTemplates.verificationCode(input.name, otp)
-      await sendEmailServer(input.email, verificationTpl)
-    } catch (error) {
-      console.error("[User Creation] Failed to send verification email:", error)
-    }
   }
 
   // Log the user creation action

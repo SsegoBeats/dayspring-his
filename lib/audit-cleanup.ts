@@ -3,7 +3,6 @@ import { query } from "@/lib/db"
 // Automatic audit log cleanup - removes logs older than 30 days
 export async function cleanupAuditLogs() {
   try {
-    console.log("Starting automatic audit log cleanup...")
     
     // Delete logs older than 30 days
     const result = await query(
@@ -11,7 +10,6 @@ export async function cleanupAuditLogs() {
     )
     const rowCount = (result as any).rowCount || 0
 
-    console.log(`Audit log cleanup completed: ${rowCount} records deleted`)
     
     // Don't log cleanup actions to avoid cluttering the audit log
     // The cleanup itself is a system maintenance task, not a user action

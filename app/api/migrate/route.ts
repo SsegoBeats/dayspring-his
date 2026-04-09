@@ -1145,7 +1145,7 @@ export async function GET() {
   const client = await pool.connect()
 
   try {
-    console.log("[v0] Starting database migration...")
+    if (process.env.NODE_ENV === "development") console.info("[v0] Starting database migration...")
 
     // Set a statement timeout to prevent hanging queries
     await client.query("SET statement_timeout = '240s'") // 4 minutes (less than Vercel's 5 min limit)
@@ -1158,7 +1158,7 @@ export async function GET() {
     // Execute schema creation (best-effort; legacy bootstrap path)
     try {
       await client.query(schema)
-      console.log("[v0] Schema created successfully")
+      if (process.env.NODE_ENV === "development") console.info("[v0] Schema created successfully")
     } catch (e: any) {
       // Some environments may hit non-fatal syntax issues in legacy DO $$ blocks.
       // We log and continue because CLI migrations in /migrations are the primary source of truth.

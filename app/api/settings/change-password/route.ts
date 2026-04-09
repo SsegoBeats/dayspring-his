@@ -50,7 +50,6 @@ export async function POST(req: Request) {
       const { emailTemplates } = await import("@/lib/email-service")
       const template = emailTemplates.passwordChanged(userName)
       await sendEmailServer(userEmail, template)
-      console.log(`[Password Change] Confirmation email sent to ${userEmail}`)
     }
   } catch (emailError) {
     console.error(`[Password Change] Failed to send confirmation email:`, emailError)
