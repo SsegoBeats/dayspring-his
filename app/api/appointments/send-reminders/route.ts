@@ -1,4 +1,6 @@
 import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/security"
 import { query } from "@/lib/db"
 import { emailTemplates } from "@/lib/email-service"
 import nodemailer from "nodemailer"
@@ -30,7 +32,20 @@ function getTransporter() {
   })
 }
 
-export async function POST() {
+export async function POST(req: Request) {
+  // Accept either a cron secret (server-to-server) or an authenticated admin session
+  const cronSecret = process.env.CRON_SECRET
+  const authHeader = req.headers.get("authorization")
+  if (cronSecret && authHeader === `Bearer ${cronSecret}`) {
+    // Authorized via cron secret — proceed
+  } else {
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    const auth = token ? verifyToken(token) : null
+    if (!auth || auth.role !== "Hospital Admin") {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+  }
   try {
     const now = new Date()
     const in24h = new Date(now.getTime() + 24 * 60 * 60 * 1000)

@@ -50,7 +50,7 @@ export function AppointmentForm({ onSubmitted, initialPatientId, initialDoctorId
         const res = await fetch('/api/users/clinicians', { credentials: 'include' })
         if (res.ok) {
           const data = await res.json()
-          const list = Array.isArray(data?.doctors) ? data.doctors : (Array.isArray(data?.users) ? data.users : [])
+          const list = Array.isArray(data?.clinicians) ? data.clinicians : (Array.isArray(data?.doctors) ? data.doctors : (Array.isArray(data?.users) ? data.users : []))
           setDoctors(list.map((u: any) => ({ id: u.id, name: u.name || `${u.first_name || ''} ${u.last_name || ''}`.trim() })))
         }
       } catch {}
