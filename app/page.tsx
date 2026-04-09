@@ -58,6 +58,8 @@ export default function HomePage() {
       >
         {/* Subtle grid overlay */}
         <div className="absolute inset-0 login-panel-grid" />
+        {/* Aurora depth layer */}
+        <div className="login-aurora" />
 
         {/* Decorative blobs */}
         <div
@@ -76,22 +78,25 @@ export default function HomePage() {
         {/* Content */}
         <div className="relative z-10 flex flex-col items-center text-center text-white max-w-sm w-full">
 
-          {/* Logo in floating glass pill */}
-          <div className="mb-8 p-7 rounded-3xl login-logo-glow">
+          {/* Logo — frameless, floating with halo rings */}
+          <div className="relative mb-10 flex items-center justify-center w-[220px] h-[220px]">
+            <div className="ds-logo-halo-ring ds-logo-halo-ring--1" />
+            <div className="ds-logo-halo-ring ds-logo-halo-ring--2" />
+            <div className="ds-logo-halo-ring ds-logo-halo-ring--3" />
             <Image
               src={ORG_LOGO_PATH}
               alt={ORG_NAME}
-              width={140}
-              height={140}
-              className="h-28 w-auto object-contain drop-shadow-2xl"
+              width={200}
+              height={200}
+              className="ds-logo-float relative z-10 h-44 w-auto object-contain"
               priority
             />
           </div>
 
-          <h1 className="text-[1.7rem] font-bold tracking-tight text-white leading-snug">
+          <h1 className="text-[1.85rem] font-bold tracking-tight leading-snug login-panel-title">
             {ORG_NAME}
           </h1>
-          <p className="text-blue-200 text-sm mt-1 mb-10 font-medium tracking-wide uppercase">
+          <p className="text-blue-200/80 text-xs mt-1.5 mb-10 font-semibold tracking-[0.2em] uppercase">
             {ORG_SUBTITLE}
           </p>
 
@@ -115,16 +120,16 @@ export default function HomePage() {
       </div>
 
       {/* ── Right panel — form ───────────────────────────────────────────── */}
-      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 bg-background">
+      <div className="flex-1 flex flex-col items-center justify-center p-6 sm:p-10 bg-background login-right-panel">
 
         {/* Mobile logo (hidden on desktop) */}
         <div className="lg:hidden mb-8 text-center">
           <Image
             src={ORG_LOGO_PATH}
             alt={ORG_NAME}
-            width={72}
-            height={72}
-            className="h-14 w-auto object-contain mx-auto mb-3"
+            width={120}
+            height={120}
+            className="h-24 w-auto object-contain mx-auto mb-3 ds-logo-float-mobile"
             priority
           />
           <h1 className="text-lg font-bold text-foreground">{ORG_NAME}</h1>
