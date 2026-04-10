@@ -184,7 +184,7 @@ export function MidwifeANCVisits({ openNewOnMount = false }: MidwifeANCVisitsPro
     } catch { toast.error("Delete failed") } finally { setDeleting(false) }
   }
 
-  const canEdit = user?.role === "Midwife" || user?.role === "Hospital Admin" || user?.role === "Doctor"
+  const canEdit = user?.role === "Midwife" || user?.role === "Hospital Admin" || user?.role === "Clinician"
 
   return (
     <div className="space-y-4 p-1">

@@ -59,6 +59,14 @@ export default function DashboardPage() {
       router.replace("/radiologist")
       return
     }
+    if (user.role === "Clinician") {
+      router.replace("/clinician")
+      return
+    }
+    if (user.role === "Cashier") {
+      router.replace("/cashier")
+      return
+    }
     if (user.emailVerified === false) {
       setShowVerificationModal(true)
     }

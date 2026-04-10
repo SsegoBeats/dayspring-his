@@ -156,7 +156,7 @@ export default function TestConnectionPage() {
                 access localhost:5432.
               </p>
               <div className="bg-muted p-3 rounded font-mono text-xs">
-                DATABASE_URL=postgresql://postgres:Admin2025@localhost:5432/dayspring_medical_center
+                DATABASE_URL=postgresql://&lt;user&gt;:&lt;password&gt;@&lt;host&gt;:5432/dayspring_medical_center
               </div>
             </div>
           </CardContent>

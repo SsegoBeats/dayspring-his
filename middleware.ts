@@ -63,7 +63,32 @@ export function middleware(req: NextRequest) {
 
   // ── Protected page routes (redirect unauthenticated users) ────────────────
   const token = req.cookies.get("session")?.value || req.cookies.get("session_dev")?.value
-  const protectedPrefixes = ["/appointments", "/billing", "/medical-history"]
+  const protectedPrefixes = [
+    "/appointments",
+    "/billing",
+    "/medical-history",
+    "/admin",
+    "/clinician",
+    "/doctor",
+    "/nurse",
+    "/midwife",
+    "/dentist",
+    "/radiologist",
+    "/lab-tech",
+    "/lab-tests",
+    "/pharmacist",
+    "/cashier",
+    "/receptionist",
+    "/dashboard",
+    "/settings",
+    "/run-migrations",
+    "/test-connection",
+    "/migrate-settings",
+    "/qz-test",
+    "/patient-receipt",
+    "/doctor-schedules",
+    "/exports",
+  ]
 
   if (protectedPrefixes.some((p) => pathname.startsWith(p))) {
     if (!token) {

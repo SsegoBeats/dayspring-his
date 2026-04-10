@@ -1,12 +1,30 @@
 "use client"
 
-import { useState } from "react"
+import { useState, useEffect } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { Button } from "@/components/ui/button"
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card"
 
 export default function MigrateSettingsPage() {
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
   const [running, setRunning] = useState(false)
   const [message, setMessage] = useState("")
+
+  useEffect(() => {
+    if (isLoading) return
+    if (!user) {
+      router.replace("/")
+      return
+    }
+    if (user.role !== "Hospital Admin") {
+      router.replace("/dashboard")
+      return
+    }
+  }, [user, isLoading, router])
+
+  if (isLoading || !user || user.role !== "Hospital Admin") return null
 
   const runMigration = async () => {
     setRunning(true)

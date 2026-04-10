@@ -44,6 +44,10 @@ temp-*.py
 temp-*.ps1
 tmp_*.txt
 
+# backup files — never commit these
+*.bak
+*.backup
+
 # server log files
 *.log
 

@@ -1,10 +1,14 @@
 "use client"
 
 import { useEffect, useState } from "react"
+import { useRouter } from "next/navigation"
+import { useAuth } from "@/lib/auth-context"
 import { isQzEnabled, loadQz, initQz, listPrinters, getDefaultPrinterName, printCurrentPageViaQz } from "@/lib/printing"
 import { ORG_NAME, ORG_SUBTITLE } from "@/lib/org-constants"
 
 export default function QzTestPage() {
+  const { user, isLoading } = useAuth()
+  const router = useRouter()
   const [status, setStatus] = useState<string>("")
   const [printers, setPrinters] = useState<string[]>([])
   const [selected, setSelected] = useState<string>("")
@@ -12,8 +16,23 @@ export default function QzTestPage() {
   const [enabled] = useState(isQzEnabled())
 
   useEffect(() => {
+    if (isLoading) return
+    if (!user) {
+      router.replace("/")
+      return
+    }
+    if (user.role !== "Hospital Admin") {
+      router.replace("/dashboard")
+      return
+    }
+  }, [user, isLoading, router])
+
+  useEffect(() => {
     setStatus(enabled ? "QZ feature flag is ON" : "QZ feature flag is OFF (using browser print)")
   }, [enabled])
+
+  if (isLoading || !user) return null
+  if (user.role !== "Hospital Admin") return null
 
   const connect = async () => {
     try {

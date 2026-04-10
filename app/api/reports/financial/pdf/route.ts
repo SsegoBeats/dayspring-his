@@ -1,6 +1,8 @@
 import { NextRequest } from "next/server"
+import { cookies } from "next/headers"
 import { pdf } from "@react-pdf/renderer"
 import { FinancialReportPdf } from "@/lib/reports/financial-pdf"
+import { verifyToken, can } from "@/lib/security"
 import React from "react"
 import type { FinancialReportPayload } from "@/types/financial"
 
@@ -8,6 +10,17 @@ export const runtime = "nodejs"
 export const maxDuration = 90
 
 export async function POST(req: NextRequest) {
+  // Authentication required — only Hospital Admin and Cashier can generate financial reports
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth) {
+    return new Response(JSON.stringify({ error: "Unauthorized" }), { status: 401, headers: { "Content-Type": "application/json" } })
+  }
+  if (!can(auth.role, "billing", "read")) {
+    return new Response(JSON.stringify({ error: "Forbidden" }), { status: 403, headers: { "Content-Type": "application/json" } })
+  }
+
   try {
     const body = (await req.json()) as FinancialReportPayload
 
