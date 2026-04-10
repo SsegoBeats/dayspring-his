@@ -33,7 +33,8 @@ function CsrfFetchInterceptor() {
             return originalFetch("/api/csrf", { credentials: "include" }).then(() => {
               const newCsrf = getCsrfFromCookie()
               const headers = new Headers(init?.headers)
-              if (newCsrf && !headers.has("x-csrf-token")) headers.set("x-csrf-token", newCsrf)
+              // Force-set the header (override any empty value set by callers)
+              if (newCsrf) headers.set("x-csrf-token", newCsrf)
               return originalFetch.call(this, input, { ...init, headers })
             })
           }
