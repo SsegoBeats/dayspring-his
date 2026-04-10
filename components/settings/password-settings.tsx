@@ -61,11 +61,9 @@ export function PasswordSettings() {
     e.preventDefault()
     setSaving(true)
     try {
-      await fetch("/api/csrf", { credentials: "include" }).catch(() => null)
-      const csrf = (document.cookie.split(";").find((c) => c.trim().startsWith("csrfToken=")) || "").split("=")[1] || ""
       const r = await fetch("/api/settings/change-password", {
         method: "POST",
-        headers: { "Content-Type": "application/json", "x-csrf-token": csrf },
+        headers: { "Content-Type": "application/json" },
         credentials: "include",
         body: JSON.stringify({ currentPassword, newPassword }),
       })
