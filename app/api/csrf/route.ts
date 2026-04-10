@@ -11,6 +11,7 @@ export async function GET() {
     secure: process.env.NODE_ENV === "production",
     sameSite: "strict",
     path: "/",
+    maxAge: 60 * 60 * 8, // 8 hours — persists across page refreshes
   })
   return res
 }
