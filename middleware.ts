@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
+import { verifyToken } from "@/lib/security"
 
-// ─── CSRF protection (double-submit cookie pattern) ───────────────────────────
+// ──── CSRF protection (double-submit cookie pattern) ────────────────────────────────────────
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
 
 const CSRF_EXEMPT_PREFIXES = [
@@ -21,7 +22,21 @@ function isCsrfExempt(pathname: string): boolean {
   return CSRF_EXEMPT_PREFIXES.some((p) => pathname.startsWith(p))
 }
 
-export function middleware(req: NextRequest) {
+// ──── Role-to-portal mapping ────────────────────────────────────────────────────────────────
+const ROLE_PORTAL_MAP: Record<string, string> = {
+  "Hospital Admin": "/admin",
+  "Receptionist": "/receptionist",
+  "Clinician": "/clinician",
+  "Nurse": "/nurse",
+  "Midwife": "/midwife",
+  "Dentist": "/dentist",
+  "Radiologist": "/radiologist",
+  "Lab Tech": "/lab-tech",
+  "Pharmacist": "/pharmacist",
+  "Cashier": "/cashier",
+}
+
+export async function middleware(req: NextRequest) {
   const url = req.nextUrl
   const pathname = url.pathname
 
@@ -39,7 +54,7 @@ export function middleware(req: NextRequest) {
     req.headers.get("x-request-id") ||
     (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`)
 
-  // ── CSRF enforcement for /api/ mutation routes ────────────────────────────
+  // ── CSRF enforcement for /api/ mutation routes ───────────────────────────────────────────
   if (pathname.startsWith("/api/") && !SAFE_METHODS.has(req.method) && !isCsrfExempt(pathname)) {
     const headerToken = req.headers.get("x-csrf-token")
     const cookieToken = req.cookies.get("csrfToken")?.value
@@ -61,7 +76,7 @@ export function middleware(req: NextRequest) {
     }
   }
 
-  // ── Protected page routes (redirect unauthenticated users) ────────────────
+  // ── Protected page routes (redirect unauthenticated users) ──────────────────────────────
   const token = req.cookies.get("session")?.value || req.cookies.get("session_dev")?.value
   const protectedPrefixes = [
     "/appointments",
@@ -92,6 +107,34 @@ export function middleware(req: NextRequest) {
 
   if (protectedPrefixes.some((p) => pathname.startsWith(p))) {
     if (!token) {
+      const res = NextResponse.redirect(new URL("/", url))
+      res.headers.set("x-request-id", requestId)
+      return res
+    }
+
+    // ✅ NEW: Verify role-to-portal access
+    try {
+      const payload = await verifyToken(token)
+      const userRole = payload?.role as string | undefined
+      
+      if (userRole && ROLE_PORTAL_MAP[userRole]) {
+        const allowedPortal = ROLE_PORTAL_MAP[userRole]
+        
+        // Check if user is trying to access a portal they're not authorized for
+        const portalPrefixes = Object.values(ROLE_PORTAL_MAP)
+        const accessingWrongPortal = portalPrefixes.some(portal => 
+          pathname.startsWith(portal) && portal !== allowedPortal
+        )
+
+        if (accessingWrongPortal) {
+          // Redirect to their correct portal
+          const res = NextResponse.redirect(new URL(allowedPortal, url))
+          res.headers.set("x-request-id", requestId)
+          return res
+        }
+      }
+    } catch (err) {
+      // Invalid token - redirect to login
       const res = NextResponse.redirect(new URL("/", url))
       res.headers.set("x-request-id", requestId)
       return res

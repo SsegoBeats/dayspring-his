@@ -118,8 +118,7 @@ export function NursingProvider({ children }: { children: ReactNode }) {
     fetchedVitals.current.delete(patientId)
     fetchedNotes.current.delete(patientId)
     await Promise.all([loadVitals(patientId, true), loadNotes(patientId, true)])
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
+  }, []) // Dependencies are correctly empty - loadVitals and loadNotes are stable functions
 
   const addVitalSigns = async (
     vitals: Omit<VitalSigns, "id">,
@@ -260,4 +259,3 @@ export function useNursing() {
   }
   return context
 }
-

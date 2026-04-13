@@ -65,13 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })()
   }, [refreshUser])
 
-  const login = async (email: string, password: string, _role?: UserRole): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string, role: UserRole): Promise<{ success: boolean; error?: string }> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, role }), // ✅ Send selected role for validation
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

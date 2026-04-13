@@ -9,6 +9,7 @@ import { query } from "@/lib/db"
 const LoginSchema = z.object({
   email: z.string().email(),
   password: z.string().min(8),
+  role: z.string().optional(),
 })
 
 export async function POST(req: Request) {
@@ -19,7 +20,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { email, password } = LoginSchema.parse(body)
+    const { email, password, role: selectedRole } = LoginSchema.parse(body)
 
     // Per-account rate limiting: prevents credential stuffing from distributed IPs
     if (!(await rateLimitPg(`login:account:${email.toLowerCase()}`, 5, 900))) {
@@ -51,31 +52,67 @@ export async function POST(req: Request) {
         action: "LOGIN_FAILED", 
         entityType: "User", 
         entityId: user.id, 
-        details: { category: "AUTHENTICATION", description: `Failed login attempt for ${user.email}` },
+        details: { category: "AUTHENTICATION", description: `Failed login attempt for ${user.email}` }, 
         ip 
       })
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
     }
 
-      const token = generateToken(user.id, user.email, user.role)
-      const res = NextResponse.json({
-        id: user.id,
-        email: user.email,
-        name: user.name,
-        role: user.role,
-        emailVerified: !!user.email_verified_at,
+    // ✅ NEW: Validate selected role matches database role
+    if (selectedRole && selectedRole !== user.role) {
+      await writeAuditLog({ 
+        action: "LOGIN_FAILED", 
+        entityType: "User", 
+        entityId: user.id, 
+        details: { 
+          category: "AUTHENTICATION", 
+          description: `Role mismatch login attempt for ${user.email} - selected: ${selectedRole}, actual: ${user.role}` 
+        }, 
+        ip 
       })
-      const isProduction = process.env.NODE_ENV === "production"
-      res.cookies.set("session", token, {
+      return NextResponse.json({ 
+        error: `You are not authorized to access the ${selectedRole} portal. Your account is registered as ${user.role}.` 
+      }, { status: 403 })
+    }
+
+    const token = generateToken(user.id, user.email, user.role)
+    const res = NextResponse.json({
+      id: user.id,
+      email: user.email,
+      name: user.name,
+      role: user.role,
+      emailVerified: !!user.email_verified_at,
+    })
+    const isProduction = process.env.NODE_ENV === "production"
+    res.cookies.set("session", token, {
+      httpOnly: true,
+      secure: isProduction,
+      sameSite: "lax",
+      path: "/",
+      maxAge: 60 * 60 * 8,
+    })
+    // Non-HttpOnly fallback in development for browsers that ignore dev Set-Cookie
+    if (!isProduction) {
+      res.cookies.set("session_dev", token, {
+        httpOnly: false,
+        secure: false,
+        sameSite: "lax",
+        path: "/",
+        maxAge: 60 * 60 * 8,
+      })
+    }
+    // Also set in the request cookie store (dev quirk in some browsers)
+    try {
+      const store = await cookies()
+      store.set("session", token, {
         httpOnly: true,
         secure: isProduction,
         sameSite: "lax",
         path: "/",
         maxAge: 60 * 60 * 8,
       })
-      // Non-HttpOnly fallback in development for browsers that ignore dev Set-Cookie
       if (!isProduction) {
-        res.cookies.set("session_dev", token, {
+        store.set("session_dev", token, {
           httpOnly: false,
           secure: false,
           sameSite: "lax",
@@ -83,26 +120,7 @@ export async function POST(req: Request) {
           maxAge: 60 * 60 * 8,
         })
       }
-      // Also set in the request cookie store (dev quirk in some browsers)
-      try {
-        const store = await cookies()
-        store.set("session", token, {
-          httpOnly: true,
-          secure: isProduction,
-          sameSite: "lax",
-          path: "/",
-          maxAge: 60 * 60 * 8,
-        })
-        if (!isProduction) {
-          store.set("session_dev", token, {
-            httpOnly: false,
-            secure: false,
-            sameSite: "lax",
-            path: "/",
-            maxAge: 60 * 60 * 8,
-          })
-        }
-      } catch {}
+    } catch {}
     // Update last_login timestamp for activity and department status
     try { await query(`UPDATE users SET last_login = NOW() WHERE id = $1`, [user.id]) } catch {}
     await writeAuditLog({ 
@@ -110,7 +128,7 @@ export async function POST(req: Request) {
       action: "LOGIN", 
       entityType: "User", 
       entityId: user.id, 
-      details: { category: "AUTHENTICATION", description: `User ${user.name} logged in as ${user.role}` },
+      details: { category: "AUTHENTICATION", description: `User ${user.name} logged in as ${user.role}` }, 
       ip 
     })
     return res
@@ -122,6 +140,3 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: "Login failed" }, { status: 500 })
   }
 }
-
-
-

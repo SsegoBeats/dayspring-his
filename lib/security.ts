@@ -1,282 +1,124 @@
-
-
+import { SignJWT, jwtVerify } from "jose"
 import bcrypt from "bcryptjs"
-import jwt from "jsonwebtoken"
-import crypto from "crypto"
-import { z } from "zod"
 
-// Password hashing
+const JWT_SECRET = new TextEncoder().encode(
+  process.env.JWT_SECRET || "dev-secret-change-in-production-min-32-chars-required-for-security"
+)
+
+const ALGORITHM = "HS256"
+const TOKEN_EXPIRY = "8h"
+
+export function generateToken(userId: string, email: string, role: string): string {
+  const payload = {
+    sub: userId,
+    email,
+    role,
+    iat: Math.floor(Date.now() / 1000),
+  }
+
+  return new SignJWT(payload)
+    .setProtectedHeader({ alg: ALGORITHM })
+    .setIssuedAt()
+    .setExpirationTime(TOKEN_EXPIRY)
+    .sign(JWT_SECRET)
+    .then((token) => token)
+    .catch(() => {
+      throw new Error("Failed to generate JWT")
+    })
+}
+
+export async function verifyToken(token: string): Promise<{ sub: string; email: string; role: string } | null> {
+  try {
+    const { payload } = await jwtVerify(token, JWT_SECRET, {
+      algorithms: [ALGORITHM],
+    })
+    return {
+      sub: payload.sub as string,
+      email: payload.email as string,
+      role: payload.role as string,
+    }
+  } catch (error) {
+    console.error("JWT verification failed:", error)
+    return null
+  }
+}
+
 export async function hashPassword(password: string): Promise<string> {
   const saltRounds = 10
   return bcrypt.hash(password, saltRounds)
 }
 
 export async function verifyPassword(password: string, hash: string): Promise<boolean> {
-  return bcrypt.compare(password, hash)
-}
-
-// Password strength validation
-export function validatePasswordStrength(password: string): { valid: boolean; errors: string[] } {
-  const errors: string[] = []
-
-  if (password.length < 8) {
-    errors.push("Password must be at least 8 characters long")
-  }
-  if (!/[A-Z]/.test(password)) {
-    errors.push("Password must contain at least one uppercase letter")
-  }
-  if (!/[a-z]/.test(password)) {
-    errors.push("Password must contain at least one lowercase letter")
-  }
-  if (!/[0-9]/.test(password)) {
-    errors.push("Password must contain at least one number")
-  }
-  if (!/[!@#$%^&*(),.?":{}|<>]/.test(password)) {
-    errors.push("Password must contain at least one special character")
-  }
-
-  return {
-    valid: errors.length === 0,
-    errors,
-  }
-}
-
-// JWT token generation
-export function generateToken(userId: string, email: string, role: string): string {
-  const secret = process.env.JWT_SECRET
-  if (!secret) {
-    throw new Error("JWT_SECRET is not set")
-  }
-  return jwt.sign({ sub: userId, email, role, iss: "dayspring-his", aud: "dayspring-his" }, secret, {
-    algorithm: "HS256",
-    expiresIn: "8h",
-  })
-}
-
-export function verifyToken(token: string): { userId: string; email: string; role: string } | null {
   try {
-    const secret = process.env.JWT_SECRET
-    if (!secret) {
-      throw new Error("JWT_SECRET is not set")
-    }
-    const decoded = jwt.verify(token, secret, { audience: "dayspring-his", issuer: "dayspring-his" }) as any
-    return { userId: decoded.sub, email: decoded.email, role: decoded.role }
+    return await bcrypt.compare(password, hash)
   } catch (error) {
-    console.error("[v0] Token verification failed:", error)
-    return null
+    console.error("Password verification error:", error)
+    return false
   }
 }
 
-// RBAC
-type Role =
-  | "Receptionist"
-  | "Clinician"
-  | "Radiologist"
-  | "Nurse"
-  | "Lab Tech"
-  | "Hospital Admin"
-  | "Cashier"
-  | "Pharmacist"
-  | "Midwife"
-  | "Dentist"
-type Action = "read" | "create" | "update" | "delete"
-type Resource =
-  | "patients"
-  | "appointments"
-  | "billing"
-  | "medical"
-  | "pharmacy"
-  | "lab"
-  | "radiology"
-  | "users"
-  | "email"
-  | "exports"
-  | "beds"
-  | "checkins"
-  | "queues"
-  | "payments"
-  | "documents"
-  | "insurance"
-  | "non_medication_inventory"
-  | "purchase_orders"
-
-const rolePolicies: Record<Role, Partial<Record<Resource, Action[]>>> = {
-  Receptionist: {
-    patients: ["read", "create", "update"],
-    appointments: ["read", "create", "update"],
-    beds: ["read"], // Can view bed availability for patient admission
-    checkins: ["read", "create", "update"],
-    queues: ["read", "create", "update", "delete"],
-    // Receptionist should NOT create payments; Cashier handles collection.
-    payments: ["read"],
-    documents: ["read", "create", "delete"],
-    insurance: ["read", "create", "update", "delete"],
-    exports: ["read", "create"], // Allow receptionist to export register/dashboard/daily
-  },
-  Midwife: {
-    patients: ["read"],
-    medical: ["read", "create", "update", "delete"],
-    appointments: ["read", "update"],
-    lab: ["read", "create"],
-    radiology: ["read", "create"],
-    pharmacy: ["read"],
-    billing: ["create"],
-    beds: ["read"],
-    exports: ["create"],
-  },
-  Dentist: {
-    patients: ["read"],
-    medical: ["read", "create", "update", "delete"],
-    appointments: ["read", "update"],
-    lab: ["read", "create"],
-    radiology: ["read", "create"],
-    pharmacy: ["read"],
-    billing: ["create"],
-    beds: ["read"], // Can view bed status for patient care decisions
-    exports: ["create"], // Dental export (date-range summaries)
-  },
-  Clinician: {
-    patients: ["read"],
-    medical: ["read", "create", "update"],
-    appointments: ["read", "update"],
-    lab: ["read", "create"],
-    radiology: ["read", "create"],
-    pharmacy: ["read"],
-    billing: ["create"],
-    beds: ["read"], // Can view bed status for patient care decisions
-  },
-  Radiologist: {
-    medical: ["read", "create"], // Lab/radiology worklist and Add Scan
-    radiology: ["read", "create", "update"],
-    patients: ["read"],
-    documents: ["create", "read"], // Upload Study (manual uploads)
-    exports: ["create"],
-    beds: ["read"], // Can view bed status for patient care decisions
-  },
-  Nurse: {
-    patients: ["read", "update"],
-    medical: ["read", "create"],
-    appointments: ["read", "update"],
-    beds: ["read", "update"], // Can edit bed status and assign patients
-    lab: ["read", "create"], // Can order and view lab tests
-  },
-  "Lab Tech": {
-    lab: ["read", "create", "update"],
-    patients: ["read"],
-    documents: ["read", "create"],
-    exports: ["create"],
-    beds: ["read"], // Can view bed status for patient care decisions
-  },
-  "Hospital Admin": {
-    users: ["read", "create", "update", "delete"],
-    patients: ["read", "delete"],
-    appointments: ["read", "create", "update", "delete"],
-    billing: ["read", "create", "update", "delete"],
-    medical: ["read", "create", "update", "delete"],
-    pharmacy: ["read", "create", "update", "delete"],
-    lab: ["read", "create", "update", "delete"],
-    radiology: ["read", "create", "update", "delete"],
-    email: ["create"],
-    exports: ["read", "create", "delete"],
-    beds: ["read", "create", "update", "delete"], // Full bed management control
-    checkins: ["read", "create", "update", "delete"],
-    queues: ["read", "create", "update", "delete"],
-    payments: ["read", "create", "update", "delete"],
-    documents: ["read", "create", "update", "delete"],
-    insurance: ["read", "create", "update", "delete"],
-    non_medication_inventory: ["read", "create", "update", "delete"], // Admin owns non-medication inventory
-    purchase_orders: ["read", "create", "update", "delete"],
-  },
-  Cashier: {
-    billing: ["read", "create", "update"],
-    patients: ["read"],
-    exports: ["read", "create"], // Allow cashiers to export billing data
-    beds: ["read"], // Can view bed status for billing purposes
-    payments: ["read", "create", "update"],
-  },
-  Pharmacist: {
-    pharmacy: ["read", "create", "update"],
-    patients: ["read"],
-    beds: ["read"], // Can view bed status for medication delivery
-    purchase_orders: ["read", "create", "update"],
-  },
-}
-
-export function can(role: string, resource: Resource, action: Action): boolean {
-  const r = (role || "") as Role
-  const policies = rolePolicies[r]
-  if (!policies) return false
-  const allowed = policies[resource]
-  return !!allowed && allowed.includes(action)
-}
-
-// Generate secure random token for password reset
-export function generateResetToken(): string {
-  return crypto.randomBytes(32).toString("hex")
-}
-
-// Generate barcode data
-export function generateBarcodeData(type: string, id: string, data: any): string {
-  // Create a JSON string with the data
-  const barcodeData = {
-    type, // 'prescription', 'payment', 'lab', etc.
-    id,
-    data,
-    timestamp: new Date().toISOString(),
+/**
+ * CSRF token generation (UUID v4)
+ */
+export function generateCsrfToken(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID()
   }
-
-  // Encode as base64 for barcode
-  return Buffer.from(JSON.stringify(barcodeData)).toString("base64")
+  // Fallback for environments without crypto.randomUUID
+  return `${Date.now()}-${Math.random().toString(36).substring(2, 15)}`
 }
 
-const BarcodeSchema = z.object({
-  type: z.string(),
-  id: z.string(),
-  data: z.unknown(),
-  timestamp: z.string(),
-})
-
-export function decodeBarcodeData(barcode: string): z.infer<typeof BarcodeSchema> | null {
-  try {
-    const decoded = Buffer.from(barcode, "base64").toString("utf-8")
-    const parsed = JSON.parse(decoded)
-    return BarcodeSchema.parse(parsed)
-  } catch (error) {
-    console.error("[v0] Barcode decoding failed:", error)
-    return null
-  }
-}
-
-// Input sanitization
+/**
+ * Sanitize user input to prevent XSS
+ */
 export function sanitizeInput(input: string): string {
-  // Remove potentially dangerous characters
   return input
-    .replace(/[<>]/g, "") // Remove < and >
-    .replace(/javascript:/gi, "") // Remove javascript: protocol
-    .replace(/on\w+=/gi, "") // Remove event handlers
+    .replace(/[<>"']/g, "")
     .trim()
+    .substring(0, 10000)
 }
 
-// Generate receipt number
-export function generateReceiptNumber(): string {
-  const date = new Date()
-  const year = date.getFullYear().toString().slice(-2)
-  const month = (date.getMonth() + 1).toString().padStart(2, "0")
-  const day = date.getDate().toString().padStart(2, "0")
-  const random = Math.floor(Math.random() * 10000)
-    .toString()
-    .padStart(4, "0")
-
-  return `DMC${year}${month}${day}${random}`
+/**
+ * Validate email format
+ */
+export function isValidEmail(email: string): boolean {
+  const emailRegex = /^[^\s@]+@[^\s@]+\.[^\s@]+$/
+  return emailRegex.test(email) && email.length <= 255
 }
 
-// Generate patient number
-export async function generatePatientNumber(): Promise<string> {
-  const date = new Date()
-  const year = date.getFullYear().toString().slice(-2)
-  const random = Math.floor(Math.random() * 100000)
-    .toString()
-    .padStart(5, "0")
+/**
+ * Generate secure random token for password reset / email verification
+ */
+export function generateSecureToken(): string {
+  if (typeof globalThis.crypto?.randomUUID === "function") {
+    return globalThis.crypto.randomUUID().replace(/-/g, "")
+  }
+  return Array.from({ length: 32 }, () => Math.random().toString(36)[2]).join("")
+}
 
-  return `P${year}${random}`
+/**
+ * Rate limit key generation
+ */
+export function getRateLimitKey(prefix: string, identifier: string): string {
+  return `${prefix}:${identifier}`.toLowerCase()
+}
+
+/**
+ * Audit log sanitization - remove sensitive data before logging
+ */
+export function sanitizeForAudit(data: any): any {
+  if (!data || typeof data !== "object") return data
+  
+  const sensitiveKeys = ["password", "password_hash", "token", "secret", "apiKey", "api_key"]
+  const sanitized = Array.isArray(data) ? [...data] : { ...data }
+  
+  for (const key of Object.keys(sanitized)) {
+    if (sensitiveKeys.some(sk => key.toLowerCase().includes(sk))) {
+      sanitized[key] = "[REDACTED]"
+    } else if (typeof sanitized[key] === "object" && sanitized[key] !== null) {
+      sanitized[key] = sanitizeForAudit(sanitized[key])
+    }
+  }
+  
+  return sanitized
 }
