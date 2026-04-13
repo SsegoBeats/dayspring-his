@@ -139,22 +139,70 @@ A lab test is not a single number. A **CBC** has 8+ separate measurements (WBC, 
 
 ### Fix
 
-**Step A — Parameter definitions (`lib/lab-parameters.ts`)**
+**Step A — Parameter data: three-tier strategy**
 
-Create a lookup map keyed by test name / LOINC class that returns a list of parameter templates:
+The system already has a `loinc_tests` table (used by `/api/lab-catalog`) but no panel hierarchy table. Parameters are resolved in order:
+
+---
+
+**Tier 1 — Hardcoded templates (`lib/lab-parameters.ts`)**
+
+A static map keyed by canonical test name / LOINC class. Covers the ~20 tests ordered in 80% of hospital visits. Works offline, zero latency.
 
 ```ts
 interface LabParameter {
-  name: string       // e.g. "Hemoglobin"
-  units: string      // e.g. "g/dL"
-  reference: string  // e.g. "12.0 - 16.0" (or gender/age-specific string)
+  name: string        // e.g. "Hemoglobin"
+  units: string       // e.g. "g/dL"
+  reference: string   // e.g. "12.0–16.0"
 }
 ```
 
-Include pre-built templates for the most common tests ordered in this system:
-CBC, LFT (Liver Function), RFT (Renal Function), Lipid Panel, Thyroid Panel (TSH/T3/T4), Urinalysis, Electrolytes, Blood Gas, CRP/ESR, Malaria RDT, HIV Rapid, Blood Culture.
+Included: **CBC**, **LFT** (Liver Function), **RFT** (Renal Function / U&E), **Lipid Panel**, **Thyroid** (TSH/T3/T4/fT4), **Urinalysis**, **Electrolytes**, **ABG** (Blood Gas), **CRP**, **ESR**, **FBS/HbA1c**, **Malaria RDT**, **HIV Rapid**, **Blood Culture**, **Coagulation** (PT/INR/APTT), **Widal**, **Pregnancy Test (urine β-hCG)**, **Sickle Cell Screening**.
 
-For unrecognised test names → fall back to one generic parameter row (current behaviour).
+---
+
+**Tier 2 — Seeded LOINC panel hierarchy table (new DB table: `loinc_panels`)**
+
+The LOINC organisation publishes a free `PanelsAndForms` file that maps parent panel LOINC codes to their member component LOINC codes. Two source options:
+
+- **Option A (recommended):** Download the LOINC Panels CSV from the publicly accessible GitHub mirror at `https://github.com/loinc/relma` or the NLM-hosted VSAC export, seed it into a `loinc_panels` DB table via a one-time migration endpoint.
+- **Option B:** Use the free NLM Clinical Tables API (`https://clinicaltables.nlm.nih.gov/api/loinc_items/v3/search`) at runtime to fetch components for a LOINC panel code. No registration needed, public API.
+
+New table (added by idempotent migration):
+```sql
+CREATE TABLE IF NOT EXISTS loinc_panels (
+  panel_loinc_code TEXT NOT NULL,
+  member_loinc_code TEXT NOT NULL,
+  member_name TEXT NOT NULL,
+  units TEXT,
+  reference TEXT,
+  PRIMARY KEY (panel_loinc_code, member_loinc_code)
+);
+```
+
+New API endpoint: `GET /api/lab-panels?loincCode=58410-2` → returns parameter list for that panel. Results are cached in `loinc_panels` after first fetch so subsequent opens are instant.
+
+---
+
+**Tier 3 — Manual entry (always available)**
+
+For fully custom test names (not in Tier 1, no LOINC code): the lab tech starts with one blank row and can add as many parameters as needed. As they type a parameter name, autocomplete suggestions are drawn from `loinc_tests.component` column (already populated) so common parameter names surface automatically.
+
+---
+
+**Resolution order at runtime:**
+
+```
+Test opened by lab tech
+  ↓
+Has LOINC code?
+  → Yes: check loinc_panels table → if hit, load rows
+          if miss, call NLM API → cache result → load rows
+  → No: fuzzy-match test name against Tier 1 templates
+          if match → load template rows
+          if no match → start with 1 blank row + autocomplete
+Lab tech can always add/remove/edit any row
+```
 
 **Step B — Multi-parameter grid in `LabTestDetails`**
 
