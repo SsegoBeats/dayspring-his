@@ -158,18 +158,24 @@ For unrecognised test names → fall back to one generic parameter row (current 
 
 **Step B — Multi-parameter grid in `LabTestDetails`**
 
-Replace the single-value "Structured Result Entry" with a **parameter grid** when the test has a known template:
+Replace the single-value "Structured Result Entry" with a **parameter grid** when the test has a known template.
 
-| Parameter | Value | Units | Reference | Flag |
-|-----------|-------|-------|-----------|------|
-| Hemoglobin | [input] | g/dL | 12.0–16.0 | [auto] |
-| WBC | [input] | 10³/µL | 4.0–11.0 | [auto] |
-| ... | | | | |
-| + Add row | | | | |
+**Key UX principle: parameters are pre-loaded automatically.** When the lab tech opens a CBC test, all CBC parameters are already present as rows — no setup required. The lab tech only needs to fill in the values.
 
-- **Flag** is auto-computed: if value is numeric and within reference range → Normal; below → Low; above → High. Lab tech can override.
-- "Add row" button allows adding any custom parameter not in the template.
-- The lab tech can also delete rows they don't need.
+Each row has a **checkbox** on the left so the lab tech can untick any parameter they are not running (e.g. instrument only ran 6 of 8 CBC parameters today). Ticked rows are required to have a value before submission; unticked rows are skipped.
+
+| ✓ | Parameter | Value | Units | Reference | Flag |
+|---|-----------|-------|-------|-----------|------|
+| ✓ | Hemoglobin | [input] | g/dL | 12.0–16.0 | [auto] |
+| ✓ | WBC | [input] | 10³/µL | 4.0–11.0 | [auto] |
+| ☐ | Platelets | — | 10³/µL | 150–400 | — |
+| ... | | | | | |
+| + Add custom row | | | | | |
+
+- Parameters load **automatically** from the template the moment the test is opened in "In Progress" state.
+- **Flag** is auto-computed from the value vs. reference range: Normal / Low / High / Critical. Lab tech can override the flag.
+- **"+ Add custom row"** allows adding any parameter not in the template.
+- Rows can be deleted (×) if they're truly not applicable.
 
 **Storage:** The existing `result_json` JSONB column stores the new shape:
 ```json
