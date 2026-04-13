@@ -490,24 +490,33 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                     <CardContent className="space-y-4">
                       <div className="grid gap-3 md:grid-cols-3">
                         <div className="space-y-1">
-                          <Label className="text-xs">Value</Label>
+                          <Label htmlFor="lab-result-value" className="text-xs">Value</Label>
                           <Input
+                            id="lab-result-value"
+                            name="labResultValue"
+                            autoComplete="off"
                             value={structured.value}
                             onChange={(event) => setStructured((current) => ({ ...current, value: event.target.value }))}
                             placeholder="Enter value"
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Units</Label>
+                          <Label htmlFor="lab-result-units" className="text-xs">Units</Label>
                           <Input
+                            id="lab-result-units"
+                            name="labResultUnits"
+                            autoComplete="off"
                             value={structured.units}
                             onChange={(event) => setStructured((current) => ({ ...current, units: event.target.value }))}
                             placeholder={test.loincUnits || "Units"}
                           />
                         </div>
                         <div className="space-y-1">
-                          <Label className="text-xs">Reference Range</Label>
+                          <Label htmlFor="lab-result-reference" className="text-xs">Reference Range</Label>
                           <Input
+                            id="lab-result-reference"
+                            name="labResultReference"
+                            autoComplete="off"
                             value={structured.reference}
                             onChange={(event) => setStructured((current) => ({ ...current, reference: event.target.value }))}
                             placeholder="e.g. 3.9-7.8"

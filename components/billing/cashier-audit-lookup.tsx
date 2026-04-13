@@ -138,6 +138,9 @@ export function CashierAuditLookup({ onOpenBill }: CashierAuditLookupProps) {
         <div className="relative">
           <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
           <Input
+            id="audit-lookup-search"
+            name="auditSearch"
+            autoComplete="off"
             value={query}
             onChange={(event) => setQuery(event.target.value)}
             placeholder="Search invoice, receipt, or payment reference..."

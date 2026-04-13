@@ -268,7 +268,7 @@ export const emailTemplates = {
                       <tr>
                         <td>
                           <p style="margin: 0; color: #991b1b; font-size: 14px; line-height: 20px;">
-                            ⏰ <strong>Important:</strong> This verification code will expire in <strong>24 hours</strong>. If you don't verify within this time, please contact your administrator to resend the code.
+                            ⏰ <strong>Important:</strong> This verification code will expire in <strong>10 minutes</strong>. If the code expires, you can request a new one from the verification screen.
                           </p>
                         </td>
                       </tr>

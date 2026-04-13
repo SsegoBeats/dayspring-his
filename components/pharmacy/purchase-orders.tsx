@@ -331,20 +331,26 @@ function NewLPODialog({
                   </div>
                   <div className="grid grid-cols-2 gap-3">
                     <div>
-                      <Label className="text-xs">Qty Ordered *</Label>
+                      <Label htmlFor={`po-item-qty-${idx}`} className="text-xs">Qty Ordered *</Label>
                       <Input
+                        id={`po-item-qty-${idx}`}
+                        name={`poItemQty-${idx}`}
                         type="number"
                         min={1}
+                        autoComplete="off"
                         className="mt-1"
                         value={item.quantity_ordered}
                         onChange={(e) => updateItem(idx, "quantity_ordered", e.target.value)}
                       />
                     </div>
                     <div>
-                      <Label className="text-xs">Unit Cost (UGX)</Label>
+                      <Label htmlFor={`po-item-cost-${idx}`} className="text-xs">Unit Cost (UGX)</Label>
                       <Input
+                        id={`po-item-cost-${idx}`}
+                        name={`poItemCost-${idx}`}
                         type="number"
                         min={0}
+                        autoComplete="off"
                         className="mt-1"
                         placeholder="Optional"
                         value={item.unit_cost}
@@ -353,8 +359,11 @@ function NewLPODialog({
                     </div>
                   </div>
                   <div>
-                    <Label className="text-xs">Notes</Label>
+                    <Label htmlFor={`po-item-notes-${idx}`} className="text-xs">Notes</Label>
                     <Input
+                      id={`po-item-notes-${idx}`}
+                      name={`poItemNotes-${idx}`}
+                      autoComplete="off"
                       className="mt-1"
                       placeholder="Optional"
                       value={item.notes}

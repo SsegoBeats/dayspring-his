@@ -442,7 +442,7 @@ export function AuditLogViewer() {
                     Delete logs older than:
                   </label>
                   <Select value={cleanupDays.toString()} onValueChange={(v) => setCleanupDays(parseInt(v))}>
-                    <SelectTrigger className="w-32">
+                    <SelectTrigger id="cleanup-days" className="w-32">
                       <SelectValue />
                     </SelectTrigger>
                     <SelectContent>
@@ -470,6 +470,9 @@ export function AuditLogViewer() {
                 </p>
                 <div className="flex items-center gap-2">
                   <Input
+                    id="delete-all-confirm"
+                    name="deleteAllConfirm"
+                    autoComplete="off"
                     value={deleteAllConfirm}
                     onChange={(e) => setDeleteAllConfirm(e.target.value)}
                     placeholder='Type "DELETE ALL" to confirm'
@@ -507,7 +510,7 @@ export function AuditLogViewer() {
           </div>
 
           <Select value={categoryFilter} onValueChange={(v) => setCategoryFilter(v as any)}>
-            <SelectTrigger className="w-[180px]">
+            <SelectTrigger id="audit-category-filter" className="w-[180px]">
               <SelectValue placeholder="Category" />
             </SelectTrigger>
             <SelectContent>
@@ -529,7 +532,7 @@ export function AuditLogViewer() {
           </Select>
 
           <Select value={actionFilter} onValueChange={(v) => setActionFilter(v as any)}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger id="audit-action-filter" className="w-[150px]">
               <SelectValue placeholder="Action" />
             </SelectTrigger>
             <SelectContent>
@@ -543,7 +546,7 @@ export function AuditLogViewer() {
           </Select>
 
           <Select value={dateRange} onValueChange={(v) => setDateRange(v as any)}>
-            <SelectTrigger className="w-[150px]">
+            <SelectTrigger id="audit-date-range" className="w-[150px]">
               <SelectValue placeholder="Date Range" />
             </SelectTrigger>
             <SelectContent>

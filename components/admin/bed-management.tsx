@@ -783,6 +783,9 @@ export function BedManagement() {
             <div className="relative w-full md:max-w-md">
               <Search className="absolute left-3 top-1/2 transform -translate-y-1/2 h-4 w-4 text-muted-foreground" />
               <Input
+                id="bed-search"
+                name="bedSearch"
+                autoComplete="off"
                 placeholder="Search by bed number, ward, location, or patient name..."
                 value={searchTerm}
                 onChange={(e) => setSearchTerm(e.target.value)}
@@ -815,7 +818,7 @@ export function BedManagement() {
               <div>
                 <Label htmlFor="status-filter">Status</Label>
                 <Select value={filters.status || "all"} onValueChange={(value) => setFilters({ ...filters, status: value === "all" ? "" : value })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="status-filter">
                     <SelectValue placeholder="All Statuses" />
                   </SelectTrigger>
                   <SelectContent>
@@ -830,7 +833,7 @@ export function BedManagement() {
               <div>
                 <Label htmlFor="ward-filter">Ward</Label>
                 <Select value={filters.ward || "all"} onValueChange={(value) => setFilters({ ...filters, ward: value === "all" ? "" : value })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="ward-filter">
                     <SelectValue placeholder="All Wards" />
                   </SelectTrigger>
                   <SelectContent>
@@ -845,7 +848,7 @@ export function BedManagement() {
               <div>
                 <Label htmlFor="bedtype-filter">Bed Type</Label>
                 <Select value={filters.bedType || "all"} onValueChange={(value) => setFilters({ ...filters, bedType: value === "all" ? "" : value })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="bedtype-filter">
                     <SelectValue placeholder="All Types" />
                   </SelectTrigger>
                   <SelectContent>
@@ -860,7 +863,7 @@ export function BedManagement() {
               <div>
                 <Label htmlFor="equipment-filter">Equipment</Label>
                 <Select value={filters.equipment || "all"} onValueChange={(value) => setFilters({ ...filters, equipment: value === "all" ? "" : value })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="equipment-filter">
                     <SelectValue placeholder="Any Equipment" />
                   </SelectTrigger>
                   <SelectContent>
@@ -875,7 +878,7 @@ export function BedManagement() {
               <div>
                 <Label htmlFor="patient-filter">Patient Assignment</Label>
                 <Select value={filters.hasPatient || "all"} onValueChange={(value) => setFilters({ ...filters, hasPatient: value === "all" ? "" : value })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="patient-filter">
                     <SelectValue placeholder="All Beds" />
                   </SelectTrigger>
                   <SelectContent>
@@ -893,7 +896,7 @@ export function BedManagement() {
             <div className="flex items-center gap-2">
               <Label htmlFor="sort-by">Sort by:</Label>
               <Select value={sortBy} onValueChange={(value: any) => setSortBy(value)}>
-                <SelectTrigger className="w-40">
+                <SelectTrigger id="sort-by" className="w-40">
                   <SelectValue />
                 </SelectTrigger>
                 <SelectContent>
@@ -970,7 +973,7 @@ export function BedManagement() {
               <div>
                 <Label htmlFor="ward">Ward</Label>
                 <Select value={formData.ward} onValueChange={(value) => setFormData({ ...formData, ward: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="ward">
                     <SelectValue placeholder="Select ward" />
                   </SelectTrigger>
                   <SelectContent>
@@ -983,7 +986,7 @@ export function BedManagement() {
               <div>
                 <Label htmlFor="bedType">Bed Type</Label>
                 <Select value={formData.bedType} onValueChange={(value) => setFormData({ ...formData, bedType: value })}>
-                  <SelectTrigger>
+                  <SelectTrigger id="bedType">
                     <SelectValue placeholder="Select bed type" />
                   </SelectTrigger>
                   <SelectContent>
@@ -1062,7 +1065,7 @@ export function BedManagement() {
             <div>
               <Label htmlFor="edit-ward">Ward</Label>
               <Select value={formData.ward} onValueChange={(value) => setFormData({ ...formData, ward: value })}>
-                <SelectTrigger>
+                <SelectTrigger id="edit-ward">
                   <SelectValue placeholder="Select ward" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1075,7 +1078,7 @@ export function BedManagement() {
             <div>
               <Label htmlFor="edit-bedType">Bed Type</Label>
               <Select value={formData.bedType} onValueChange={(value) => setFormData({ ...formData, bedType: value })}>
-                <SelectTrigger>
+                <SelectTrigger id="edit-bedType">
                   <SelectValue placeholder="Select bed type" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1092,7 +1095,7 @@ export function BedManagement() {
                   setEditingBed({ ...editingBed, status: value })
                 }
               }}>
-                <SelectTrigger>
+                <SelectTrigger id="edit-status">
                   <SelectValue placeholder="Select status" />
                 </SelectTrigger>
                 <SelectContent>
@@ -1208,7 +1211,7 @@ export function BedManagement() {
             <div>
               <Label htmlFor="transfer-target">Target Bed</Label>
               <Select value={transferTargetBedId} onValueChange={setTransferTargetBedId}>
-                <SelectTrigger>
+                <SelectTrigger id="transfer-target">
                   <SelectValue placeholder="Select available bed" />
                 </SelectTrigger>
                 <SelectContent>

@@ -553,6 +553,9 @@ export function GoodsReceivedNote() {
                         {/* Batch Number */}
                         <TableCell>
                           <Input
+                            id={`grn-batch-${row._key}`}
+                            name={`grnBatch-${row._key}`}
+                            autoComplete="off"
                             className="h-8"
                             value={row.batch_number}
                             onChange={(e) => updateItem(row._key, "batch_number", e.target.value)}
@@ -563,6 +566,9 @@ export function GoodsReceivedNote() {
                         {/* Expiry Date */}
                         <TableCell>
                           <Input
+                            id={`grn-expiry-${row._key}`}
+                            name={`grnExpiry-${row._key}`}
+                            autoComplete="off"
                             className="h-8"
                             type="date"
                             value={row.expiry_date}
@@ -573,6 +579,9 @@ export function GoodsReceivedNote() {
                         {/* Qty Ordered */}
                         <TableCell className="text-right">
                           <Input
+                            id={`grn-qty-ordered-${row._key}`}
+                            name={`grnQtyOrdered-${row._key}`}
+                            autoComplete="off"
                             className="h-8 text-right"
                             type="number"
                             min={0}
@@ -586,6 +595,9 @@ export function GoodsReceivedNote() {
                         {/* Qty Received */}
                         <TableCell className="text-right">
                           <Input
+                            id={`grn-qty-received-${row._key}`}
+                            name={`grnQtyReceived-${row._key}`}
+                            autoComplete="off"
                             className="h-8 text-right"
                             type="number"
                             min={1}
@@ -599,6 +611,9 @@ export function GoodsReceivedNote() {
                         {/* Unit Cost */}
                         <TableCell className="text-right">
                           <Input
+                            id={`grn-unit-cost-${row._key}`}
+                            name={`grnUnitCost-${row._key}`}
+                            autoComplete="off"
                             className="h-8 text-right"
                             type="number"
                             min={0}

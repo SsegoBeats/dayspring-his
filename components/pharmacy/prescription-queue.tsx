@@ -64,6 +64,9 @@ export function PrescriptionQueue({
             <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
             <Input
               ref={searchInputRef}
+              id="rx-queue-search"
+              name="rxSearch"
+              autoComplete="off"
               placeholder="Filter by patient, clinician, or medication (Ctrl+K or /)"
               value={query}
               onChange={(e) => setQuery(e.target.value)}

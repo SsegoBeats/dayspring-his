@@ -357,6 +357,9 @@ export function PharmacistDashboard() {
               </p>
               <div className="flex flex-col gap-2 md:flex-row md:items-center">
                 <Input
+                  id="pharma-bill-scan"
+                  name="billScan"
+                  autoComplete="off"
                   ref={scanInputRef}
                   placeholder="Scan QR/barcode or paste bill token"
                   value={scanValue}

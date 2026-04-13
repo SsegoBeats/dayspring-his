@@ -468,6 +468,9 @@ export function MedicationInventory() {
                 <div className="relative">
                   <Barcode className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                   <Input
+                    id="med-barcode-scan"
+                    name="barcodeScan"
+                    autoComplete="off"
                     ref={barcodeInputRef}
                     placeholder="Scan medication barcode or enter code manually"
                     value={scanCode}
@@ -484,8 +487,11 @@ export function MedicationInventory() {
                   />
                 </div>
                 <Input
+                  id="med-scan-qty"
+                  name="scanQty"
                   type="number"
                   min={1}
+                  autoComplete="off"
                   placeholder="Qty"
                   value={scanQty}
                   onChange={(e) => setScanQty(e.target.value)}
@@ -524,6 +530,9 @@ export function MedicationInventory() {
             <div className="relative flex-1">
               <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
               <Input
+                id="med-inventory-search"
+                name="medSearch"
+                autoComplete="off"
                 ref={searchInputRef}
                 placeholder="Search by name, category, or barcode (Ctrl+K or /)"
                 value={searchQuery}
@@ -890,62 +899,56 @@ export function MedicationInventory() {
                 <div className="mt-2 grid gap-3 text-sm sm:grid-cols-2">
                   <div>
                     <p className="text-muted-foreground">Medication name</p>
-                    <Input
+                    <Input id="edit-med-name" name="medName" autoComplete="off"
                       value={editForm.name}
                       onChange={(e) => setEditForm({ ...editForm, name: e.target.value })}
                     />
                   </div>
                   <div>
                     <p className="text-muted-foreground">Category</p>
-                    <Input
+                    <Input id="edit-med-category" name="medCategory" autoComplete="off"
                       value={editForm.category}
                       onChange={(e) => setEditForm({ ...editForm, category: e.target.value })}
                     />
                   </div>
                   <div>
                     <p className="text-muted-foreground">Manufacturer</p>
-                    <Input
+                    <Input id="edit-med-manufacturer" name="medManufacturer" autoComplete="off"
                       value={editForm.manufacturer}
                       onChange={(e) => setEditForm({ ...editForm, manufacturer: e.target.value })}
                     />
                   </div>
                   <div>
                     <p className="text-muted-foreground">Batch number</p>
-                    <Input
+                    <Input id="edit-med-batch" name="medBatch" autoComplete="off"
                       value={editForm.batchNumber}
                       onChange={(e) => setEditForm({ ...editForm, batchNumber: e.target.value })}
                     />
                   </div>
                   <div>
                     <p className="text-muted-foreground">Current stock</p>
-                    <Input
-                      type="number"
+                    <Input id="edit-med-stock" name="medStock" type="number" autoComplete="off"
                       value={editForm.stockQuantity}
                       onChange={(e) => setEditForm({ ...editForm, stockQuantity: e.target.value })}
                     />
                   </div>
                   <div>
                     <p className="text-muted-foreground">Reorder level</p>
-                    <Input
-                      type="number"
+                    <Input id="edit-med-reorder" name="medReorder" type="number" autoComplete="off"
                       value={editForm.reorderLevel}
                       onChange={(e) => setEditForm({ ...editForm, reorderLevel: e.target.value })}
                     />
                   </div>
                   <div>
                     <p className="text-muted-foreground">Unit price</p>
-                    <Input
-                      type="number"
-                      step="0.01"
+                    <Input id="edit-med-unit-price" name="medUnitPrice" type="number" step="0.01" autoComplete="off"
                       value={editForm.unitPrice}
                       onChange={(e) => setEditForm({ ...editForm, unitPrice: e.target.value })}
                     />
                   </div>
                   <div>
                     <p className="text-muted-foreground">Cost price (optional)</p>
-                    <Input
-                      type="number"
-                      step="0.01"
+                    <Input id="edit-med-cost-price" name="medCostPrice" type="number" step="0.01" autoComplete="off"
                       value={editForm.costPrice}
                       onChange={(e) => setEditForm({ ...editForm, costPrice: e.target.value })}
                       placeholder="Purchase cost"
@@ -953,16 +956,14 @@ export function MedicationInventory() {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Expiry date</p>
-                    <Input
-                      type="date"
+                    <Input id="edit-med-expiry" name="medExpiry" type="date" autoComplete="off"
                       value={editForm.expiryDate}
                       onChange={(e) => setEditForm({ ...editForm, expiryDate: e.target.value })}
                     />
                   </div>
                   <div>
                     <p className="text-muted-foreground">Minimum stock level (optional)</p>
-                    <Input
-                      type="number"
+                    <Input id="edit-med-min-stock" name="medMinStock" type="number" autoComplete="off"
                       value={editForm.minStockLevel}
                       onChange={(e) => setEditForm({ ...editForm, minStockLevel: e.target.value })}
                       placeholder="Critical threshold"
@@ -970,8 +971,7 @@ export function MedicationInventory() {
                   </div>
                   <div>
                     <p className="text-muted-foreground">Maximum stock level (optional)</p>
-                    <Input
-                      type="number"
+                    <Input id="edit-med-max-stock" name="medMaxStock" type="number" autoComplete="off"
                       value={editForm.maxStockLevel}
                       onChange={(e) => setEditForm({ ...editForm, maxStockLevel: e.target.value })}
                       placeholder="Max capacity"
@@ -979,7 +979,7 @@ export function MedicationInventory() {
                   </div>
                   <div className="sm:col-span-2">
                     <p className="text-muted-foreground">Barcode (optional)</p>
-                    <Input
+                    <Input id="edit-med-barcode" name="medBarcode" autoComplete="off"
                       value={editForm.barcode}
                       onChange={(e) => setEditForm({ ...editForm, barcode: e.target.value })}
                       placeholder="Scan or enter barcode"

@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { z } from "zod"
 import { query } from "@/lib/db"
-import { sendEmailServer } from "@/lib/email-service"
+import { sendEmailServer, emailTemplates } from "@/lib/email-service"
 import { rateLimitPg } from "@/lib/rate-limit-pg"
 import { ORG_NAME, ORG_SUBTITLE, ORG_EMAIL, ORG_ADDRESS } from "@/lib/org-constants"
 import { issueEmailVerificationToken } from "@/lib/email-verification"
@@ -46,105 +46,65 @@ export async function POST(req: Request) {
       return NextResponse.json({ error: "That email address is already in use by another account." }, { status: 409 })
     }
 
-    const template = {
-      subject: isInitialVerification
-        ? `Verify Your Email - ${ORG_NAME}`
-        : `Email Verification Code - ${ORG_NAME}`,
-      html: `
+    // Use the dedicated verificationCode template for initial email verification,
+    // and an inline template for email-change verification
+    const template = isInitialVerification
+      ? emailTemplates.verificationCode(userName, otp)
+      : {
+          subject: `Email Change Verification - ${ORG_NAME}`,
+          html: `
       <!DOCTYPE html>
       <html>
       <head>
         <meta charset="UTF-8">
         <meta name="viewport" content="width=device-width, initial-scale=1.0">
       </head>
-      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa; mso-line-height-rule: exactly;">
-        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; mso-line-height-rule: exactly; padding: 40px 20px;">
+      <body style="margin: 0; padding: 0; font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, 'Helvetica Neue', Arial, sans-serif; background-color: #f5f7fa;">
+        <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #f5f7fa; padding: 40px 20px;">
           <tr>
             <td align="center">
-              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-collapse: collapse; border-radius: 12px; box-shadow: 0 4px 6px rgba(0, 0, 0, 0.05);">
+              <table width="100%" cellpadding="0" cellspacing="0" style="max-width: 600px; background-color: #ffffff; border-radius: 12px; box-shadow: 0 4px 6px rgba(0,0,0,0.05);">
                 <tr>
-                  <td style="background-color: #2563eb; background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td>
-                          <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">${isInitialVerification ? "Verify Your Email" : "Email Verification Code"}</h1>
-                        </td>
-                      </tr>
-                    </table>
+                  <td style="background: linear-gradient(135deg, #2563eb 0%, #1d4ed8 100%); padding: 32px 40px; border-radius: 12px 12px 0 0;">
+                    <h1 style="margin: 0; color: #ffffff; font-size: 24px; font-weight: 600;">Email Change Verification</h1>
                   </td>
                 </tr>
                 <tr>
                   <td style="padding: 40px;">
-                    <p style="margin: 0 0 16px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      Hello <strong>${userName}</strong>,
-                    </p>
+                    <p style="margin: 0 0 16px 0; color: #374151; font-size: 16px; line-height: 24px;">Hello <strong>${userName}</strong>,</p>
                     <p style="margin: 0 0 24px 0; color: #374151; font-size: 16px; line-height: 24px;">
-                      ${isInitialVerification
-                        ? `To complete your ${ORG_NAME} account setup, please verify your email address using the code below.`
-                        : `We received a request to change your email address for your ${ORG_NAME} account. To complete this change, please use the verification code below:`}
+                      We received a request to change the email address on your ${ORG_NAME} account. Use the code below to confirm this change.
                     </p>
-
                     <table width="100%" cellpadding="0" cellspacing="0">
                       <tr>
                         <td align="center" style="padding: 0 0 32px 0;">
-                          <div style="background-color: #f0f9ff; background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px dashed #0ea5e9; border-radius: 12px; padding: 24px 32px; display: inline-block;">
-                            <div style="font-size: 36px; font-weight: 700; color: #0369a1; letter-spacing: 8px; font-family: 'Courier New', monospace; line-height: 1.2;">
-                              ${otp}
-                            </div>
+                          <div style="background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%); border: 2px dashed #0ea5e9; border-radius: 12px; padding: 24px 32px; display: inline-block;">
+                            <p style="margin: 0 0 12px 0; color: #0369a1; font-size: 14px; font-weight: 600;">Your Verification Code:</p>
+                            <div style="font-size: 36px; font-weight: 700; color: #0369a1; letter-spacing: 8px; font-family: 'Courier New', monospace;">${otp}</div>
                           </div>
                         </td>
                       </tr>
                     </table>
-
-                    <table width="100%" cellpadding="0" cellspacing="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; margin: 0 0 24px 0; padding: 16px;">
-                      <tr>
-                        <td>
-                          <p style="margin: 0; color: #92400e; font-size: 14px; line-height: 20px;">
-                            <strong>Important:</strong> This verification code will expire in <strong>10 minutes</strong> for your security.
-                          </p>
-                        </td>
-                      </tr>
+                    <table width="100%" cellpadding="16" cellspacing="0" style="background-color: #fef3c7; border-left: 4px solid #f59e0b; border-radius: 8px; margin: 0 0 24px 0;">
+                      <tr><td><p style="margin: 0; color: #92400e; font-size: 14px; line-height: 20px;"><strong>Important:</strong> This code expires in <strong>10 minutes</strong>.</p></td></tr>
                     </table>
-
-                    <p style="margin: 0 0 16px 0; color: #374151; font-size: 14px; line-height: 22px;">
-                      Here's what to do next:
-                    </p>
-                    <ul style="margin: 0 0 24px 0; padding-left: 24px; color: #374151; font-size: 14px; line-height: 22px;">
-                      <li style="margin: 0 0 8px 0;">Enter the 6-digit code above in the verification field</li>
-                      <li style="margin: 0 0 8px 0;">${isInitialVerification ? "Your account will be verified and you can continue using the system." : "Your email address will be updated immediately upon verification."}</li>
-                      <li style="margin: 0;">For your security, this code can only be used once</li>
-                    </ul>
-
                     <div style="background-color: #fef2f2; border-left: 4px solid #ef4444; border-radius: 8px; padding: 16px; margin: 0 0 32px 0;">
                       <p style="margin: 0; color: #991b1b; font-size: 14px; line-height: 20px;">
-                        <strong>Security Notice:</strong> If you didn't request this email change, please ignore this message and contact our support team immediately. Your account remains secure.
+                        <strong>Security Notice:</strong> If you did not request this change, please contact our support team immediately.
                       </p>
                     </div>
-
                     <p style="margin: 0; color: #6b7280; font-size: 14px; line-height: 20px; text-align: center;">
-                      Need help? Contact our support team at
-                      <a href="mailto:${ORG_EMAIL}" style="color: #2563eb; text-decoration: none;"> ${ORG_EMAIL}</a>
+                      Need help? Contact us at <a href="mailto:${ORG_EMAIL}" style="color: #2563eb; text-decoration: none;">${ORG_EMAIL}</a>
                     </p>
                   </td>
                 </tr>
-
                 <tr>
                   <td style="background-color: #f9fafb; padding: 24px 40px; border-radius: 0 0 12px 12px; border-top: 1px solid #e5e7eb;">
-                    <table width="100%" cellpadding="0" cellspacing="0">
-                      <tr>
-                        <td align="center">
-                          <p style="margin: 0 0 8px 0; color: #6b7280; font-size: 12px; line-height: 18px;">
-                            ${ORG_NAME} - ${ORG_SUBTITLE}
-                          </p>
-                          <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            (c) ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.
-                          </p>
-                          <p style="margin: 8px 0 0 0; color: #9ca3af; font-size: 11px; line-height: 16px;">
-                            ${ORG_ADDRESS} | Trusted Healthcare Since 2024
-                          </p>
-                        </td>
-                      </tr>
-                    </table>
+                    <p style="margin: 0; color: #9ca3af; font-size: 11px; line-height: 16px; text-align: center;">
+                      ${ORG_NAME} - ${ORG_SUBTITLE}<br>
+                      © ${new Date().getFullYear()} ${ORG_NAME}. All rights reserved.<br>
+                      ${ORG_ADDRESS} | Trusted Healthcare Since 2024
+                    </p>
                   </td>
                 </tr>
               </table>
@@ -154,7 +114,7 @@ export async function POST(req: Request) {
       </body>
       </html>
     `,
-    }
+        }
 
     const delivery = await sendEmailServer(normalizedEmail, template)
     await query(`INSERT INTO audit_logs (user_id, action, entity_type, details) VALUES ($1,$2,$3,$4)`, [

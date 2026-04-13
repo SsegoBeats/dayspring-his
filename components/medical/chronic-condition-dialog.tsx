@@ -112,6 +112,9 @@ export function ChronicConditionDialog({ open, onOpenChange, patientId }: Chroni
             <Label>Medications</Label>
             <div className="flex gap-2">
               <Input
+                id="chronic-medication-input"
+                name="medicationInput"
+                autoComplete="off"
                 value={medicationInput}
                 onChange={(e) => setMedicationInput(e.target.value)}
                 placeholder="e.g., Metformin 500mg"

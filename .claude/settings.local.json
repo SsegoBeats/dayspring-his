@@ -6,7 +6,8 @@
       "Bash(git commit:*)",
       "Bash(git push:*)",
       "Bash(grep -n \"recorded_at\\\\|current_status\" c:/Users/ssego/Documents/dayspring-his/app/api/opd/queue/[patientId]/status/route.ts)",
-      "Bash(cat c:/Users/ssego/Documents/dayspring-his/app/api/opd/queue/[patientId]/route.ts)"
+      "Bash(cat c:/Users/ssego/Documents/dayspring-his/app/api/opd/queue/[patientId]/route.ts)",
+      "Bash(grep -l \"dental\" /c/Users/ssego/Documents/dayspring-his/migrations/*.sql)"
     ]
   }
 }

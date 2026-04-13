@@ -943,6 +943,9 @@ export function NonMedicationInventory() {
                 <div className="relative">
                   <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-slate-400" />
                   <Input
+                    id="non-med-search"
+                    name="nonMedSearch"
+                    autoComplete="off"
                     placeholder="Search name, barcode, location, manufacturer, serial number, or notes"
                     value={searchQuery}
                     onChange={(event) => setSearchQuery(event.target.value)}

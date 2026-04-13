@@ -183,15 +183,21 @@ export function CreatePurchaseOrderDialog({ open, onOpenChange }: CreatePurchase
                     </Select>
                   </div>
                   <Input
+                    id={`cpo-qty-${index}`}
+                    name={`cpoQty-${index}`}
                     type="number"
+                    autoComplete="off"
                     placeholder="Quantity"
                     value={item.quantity_ordered || ""}
                     onChange={(e) => handleItemChange(index, "quantity_ordered", Number.parseInt(e.target.value))}
                     required
                   />
                   <Input
+                    id={`cpo-price-${index}`}
+                    name={`cpoPrice-${index}`}
                     type="number"
                     step="0.01"
+                    autoComplete="off"
                     placeholder="Unit Price"
                     value={item.unit_cost || ""}
                     onChange={(e) => handleItemChange(index, "unit_cost", Number.parseFloat(e.target.value))}

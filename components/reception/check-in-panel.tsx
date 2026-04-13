@@ -211,6 +211,9 @@ export function CheckInPanel() {
         <div className="grid gap-3 md:grid-cols-3">
           <div className="space-y-2 md:col-span-2">
             <Input
+              id="checkin-patient-search"
+              name="patientSearch"
+              autoComplete="off"
               aria-label="Search patients by name, number, or phone"
               placeholder="Search by name, number, or phone (min 2 characters)"
               value={q}
@@ -218,7 +221,6 @@ export function CheckInPanel() {
                 setQ(e.target.value)
                 setErrorMsg("")
               }}
-              autoComplete="off"
             />
             {selectedPatientId && (
               <div className="flex items-center gap-2 text-xs text-muted-foreground">

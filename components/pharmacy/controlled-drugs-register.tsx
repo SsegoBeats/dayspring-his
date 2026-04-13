@@ -158,9 +158,12 @@ export function ControlledDrugsRegister() {
         {/* Toolbar */}
         <div className="print:hidden flex flex-wrap items-end gap-3">
           <div className="flex flex-col gap-1">
-            <Label className="text-xs">Date From</Label>
+            <Label htmlFor="cd-date-from" className="text-xs">Date From</Label>
             <Input
+              id="cd-date-from"
+              name="cdDateFrom"
               type="date"
+              autoComplete="off"
               value={filters.from}
               onChange={(e) => {
                 setFilters((f) => ({ ...f, from: e.target.value }))
@@ -170,9 +173,12 @@ export function ControlledDrugsRegister() {
             />
           </div>
           <div className="flex flex-col gap-1">
-            <Label className="text-xs">Date To</Label>
+            <Label htmlFor="cd-date-to" className="text-xs">Date To</Label>
             <Input
+              id="cd-date-to"
+              name="cdDateTo"
               type="date"
+              autoComplete="off"
               value={filters.to}
               onChange={(e) => {
                 setFilters((f) => ({ ...f, to: e.target.value }))

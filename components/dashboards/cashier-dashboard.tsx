@@ -485,6 +485,9 @@ export function CashierDashboard() {
                   <div className="relative min-w-[240px]">
                     <Search className="absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-muted-foreground" />
                     <Input
+                      id="cashier-search"
+                      name="cashierSearch"
+                      autoComplete="off"
                       placeholder="Search patient or invoice..."
                       value={searchTerm}
                       onChange={(event) => syncSearch(event.target.value)}

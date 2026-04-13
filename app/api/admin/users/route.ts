@@ -162,25 +162,9 @@ export async function POST(req: Request) {
     throw error
   }
 
-  // Ensure table exists, then store verification token for new user
-  const { issueEmailVerificationToken } = await import('@/lib/email-verification')
-
-  let otp: string | undefined
+  // Send welcome email (no verification code — a separate verify email is sent on first login)
   try {
-    const issued = await issueEmailVerificationToken({
-      userId,
-      email: input.email,
-      ttlMinutes: 24 * 60,
-    })
-    otp = issued.token
-  } catch (e) {
-    otp = undefined
-    if (process.env.NODE_ENV === 'development') console.warn('[User Creation] email_verification_tokens insert failed:', (e as Error)?.message)
-  }
-
-  // Send single welcome email that includes the verification code (if issued)
-  try {
-    const welcomeTpl = emailTemplates.welcome(input.name, input.email, input.password, input.role, otp)
+    const welcomeTpl = emailTemplates.welcome(input.name, input.email, input.password, input.role)
     await sendEmailServer(input.email, welcomeTpl)
   } catch {
     // Don't fail user creation if email fails

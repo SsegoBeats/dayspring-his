@@ -1,0 +1,118 @@
+import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { verifyToken } from "@/lib/security"
+import { queryWithSession } from "@/lib/db"
+
+export const runtime = 'nodejs'
+export const maxDuration = 240
+
+const STREAM_POLL_MS = 15_000
+const STREAM_LIFETIME_MS = 235_000
+
+export async function GET(req: Request) {
+  const cookieStore = await cookies()
+  const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+  const auth = token ? verifyToken(token) : null
+  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+
+  const enc = new TextEncoder()
+  let lastPayload = ''
+  let timer: ReturnType<typeof setInterval> | undefined
+  let lifetimeTimer: ReturnType<typeof setTimeout> | undefined
+  let closed = false
+  const cleanup = () => {
+    closed = true
+    if (timer) clearInterval(timer)
+    if (lifetimeTimer) clearTimeout(lifetimeTimer)
+  }
+  async function load() {
+    let patientFilter = ''
+    let params: any[] = []
+    try { const u = new URL(req.url); const pid = u.searchParams.get('patientId'); if (pid) { patientFilter = 'WHERE lt.patient_id = $1'; params.push(pid) } } catch {}
+    const { rows } = await queryWithSession({ role: auth!.role, userId: auth!.userId },
+      `SELECT lt.id, lt.patient_id, p.first_name, p.last_name, p.gender, p.date_of_birth, lt.doctor_id, d.name AS doctor_name,
+              lt.test_name, lt.test_type, lt.status, lt.results, lt.notes, lt.lab_tech_id, t.name AS lab_tech_name,
+              lt.ordered_at, lt.completed_at, lt.priority, lt.specimen_type, lt.accession_number, lt.collected_at, lt.collected_by,
+              lt.reviewed_by, lt.reviewed_at,
+              lt.loinc_code, lt.loinc_long_name, lt.loinc_property, lt.loinc_scale, lt.loinc_system, lt.loinc_time_aspct, lt.loinc_class, lt.loinc_units, lt.result_json
+         FROM lab_tests lt
+         LEFT JOIN patients p ON p.id = lt.patient_id
+         LEFT JOIN users d ON d.id = lt.doctor_id
+         LEFT JOIN users t ON t.id = lt.lab_tech_id
+        ${patientFilter}
+        ORDER BY COALESCE(lt.completed_at, lt.ordered_at) DESC
+        LIMIT 500`, params)
+    const tests = rows.map((r:any)=>({
+      id: r.id,
+      patientId: r.patient_id,
+      patientName: [r.first_name, r.last_name].filter(Boolean).join(' '),
+      doctorId: r.doctor_id,
+      doctorName: r.doctor_name || '',
+      testName: r.test_name,
+      testType: r.test_type,
+      status: r.status,
+      results: r.results || '',
+      notes: r.notes || '',
+      labTechId: r.lab_tech_id || null,
+      labTechName: r.lab_tech_name || '',
+      orderedAt: r.ordered_at,
+      completedAt: r.completed_at || null,
+      priority: r.priority || 'Routine',
+      specimenType: r.specimen_type || null,
+      accessionNumber: r.accession_number || null,
+      collectedAt: r.collected_at || null,
+      collectedBy: r.collected_by || null,
+      reviewedBy: r.reviewed_by || null,
+      reviewedAt: r.reviewed_at || null,
+      patientGender: r.gender || null,
+      patientDob: r.date_of_birth || null,
+      loincCode: r.loinc_code || null,
+      loincLongName: r.loinc_long_name || null,
+      loincProperty: r.loinc_property || null,
+      loincScale: r.loinc_scale || null,
+      loincSystem: r.loinc_system || null,
+      loincTimeAspct: r.loinc_time_aspct || null,
+      loincClass: r.loinc_class || null,
+      loincUnits: r.loinc_units || null,
+      resultJson: r.result_json || {},
+    }))
+    const payload = JSON.stringify({ tests })
+    return { payload }
+  }
+
+  const stream = new ReadableStream<Uint8Array>({
+    async start(controller) {
+      const send = async () => {
+        if (closed) return
+        try {
+          const { payload } = await load()
+          if (payload !== lastPayload) {
+            lastPayload = payload
+            controller.enqueue(enc.encode(`data: ${payload}\n\n`))
+          } else {
+            controller.enqueue(enc.encode(`: keep-alive\n\n`))
+          }
+        } catch {
+          // emit error event but keep connection
+          try { controller.enqueue(enc.encode(`event: error\n`+`data: {"message":"stream error"}\n\n`)) } catch {}
+        }
+      }
+      controller.enqueue(enc.encode("retry: 5000\n\n"))
+      await send()
+      timer = setInterval(() => { void send() }, STREAM_POLL_MS)
+      lifetimeTimer = setTimeout(() => {
+        if (closed) return
+        cleanup()
+        try { controller.enqueue(enc.encode(`event: close\ndata: {"reason":"refresh"}\n\n`)) } catch {}
+        try { controller.close() } catch {}
+      }, STREAM_LIFETIME_MS)
+    },
+    cancel() {
+      cleanup()
+    }
+  })
+  return new NextResponse(stream as any, {
+    status: 200,
+    headers: { 'Content-Type': 'text/event-stream', 'Cache-Control': 'no-cache, no-transform', 'Connection': 'keep-alive', 'X-Accel-Buffering': 'no' }
+  })
+}

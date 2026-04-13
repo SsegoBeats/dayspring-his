@@ -112,6 +112,9 @@ function PatientPicker({
   return (
     <div className="space-y-3">
       <Input
+        id="rad-patient-search"
+        name="patientSearch"
+        autoComplete="off"
         value={query}
         onChange={(event) => onQueryChange(event.target.value)}
         placeholder="Search by patient name, P.ID, or phone"
@@ -899,6 +902,9 @@ export function RadiologistDashboard() {
                   </SelectContent>
                 </Select>
                 <Input
+                  id="rad-study-search"
+                  name="studySearch"
+                  autoComplete="off"
                   value={searchTerm}
                   onChange={(event) => setSearchTerm(event.target.value)}
                   placeholder="Search patient, P.ID, study, accession"

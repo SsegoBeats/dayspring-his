@@ -326,9 +326,9 @@ export function PaymentsPanel() {
                   <div className="text-sm text-muted-foreground">Capture co-pays and print the receipt immediately after save.</div>
                 </div>
                 <div className="grid gap-2">
-                  <Input placeholder="Amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
+                  <Input id="payments-amount" name="paymentAmount" autoComplete="off" placeholder="Amount" inputMode="decimal" value={amount} onChange={(e) => setAmount(e.target.value.replace(/[^0-9.]/g, ""))} />
                   <Select value={paymentMethod} onValueChange={(value: PaymentMethod) => setPaymentMethod(value)}>
-                    <SelectTrigger><SelectValue /></SelectTrigger>
+                    <SelectTrigger id="payments-method"><SelectValue /></SelectTrigger>
                     <SelectContent>
                       <SelectItem value="cash">Cash</SelectItem>
                       <SelectItem value="card">Card</SelectItem>
