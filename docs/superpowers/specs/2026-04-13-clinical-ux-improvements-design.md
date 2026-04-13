@@ -122,13 +122,76 @@ END $$;
 
 ---
 
-## 6. Lab tech parameter inputs
+## 6. Lab tech parameter inputs (multi-parameter result grid)
 
-**Affected file:** `components/dashboards/lab-tech-dashboard.tsx`
+**Affected files:**
+- `components/lab/lab-test-details.tsx`
+- `lib/lab-parameters.ts` (new — parameter definitions per test type)
+- `components/dashboards/lab-tech-dashboard.tsx` (make rows clickable)
 
-**Current situation:** `lab-test-details.tsx` already renders structured `resultJson` parameter inputs. But in the lab-tech dashboard test queue, tests are shown as a table row without a clear way to open the details form.
+### What "parameters" means
 
-**Fix:** Make each test row in the lab-tech queue table clickable (or add an explicit "Enter Results" button per row) that opens the existing `LabTestDetails` dialog with that test's ID. No new component needed — the dialog is already built.
+A lab test is not a single number. A **CBC** has 8+ separate measurements (WBC, RBC, Hemoglobin, Hematocrit, MCV, MCH, MCHC, Platelets). A **Liver Function Test** has ALT, AST, ALP, GGT, Total Bilirubin, Direct Bilirubin, Albumin, Total Protein. Each measurement is a **parameter** with its own value, units, reference range, and flag.
+
+### Current situation
+
+`LabTestDetails` has a "Structured Result Entry" with exactly **4 generic fields** (one Value, one Units, one Reference, one Interpretation). This only works for single-value tests.
+
+### Fix
+
+**Step A — Parameter definitions (`lib/lab-parameters.ts`)**
+
+Create a lookup map keyed by test name / LOINC class that returns a list of parameter templates:
+
+```ts
+interface LabParameter {
+  name: string       // e.g. "Hemoglobin"
+  units: string      // e.g. "g/dL"
+  reference: string  // e.g. "12.0 - 16.0" (or gender/age-specific string)
+}
+```
+
+Include pre-built templates for the most common tests ordered in this system:
+CBC, LFT (Liver Function), RFT (Renal Function), Lipid Panel, Thyroid Panel (TSH/T3/T4), Urinalysis, Electrolytes, Blood Gas, CRP/ESR, Malaria RDT, HIV Rapid, Blood Culture.
+
+For unrecognised test names → fall back to one generic parameter row (current behaviour).
+
+**Step B — Multi-parameter grid in `LabTestDetails`**
+
+Replace the single-value "Structured Result Entry" with a **parameter grid** when the test has a known template:
+
+| Parameter | Value | Units | Reference | Flag |
+|-----------|-------|-------|-----------|------|
+| Hemoglobin | [input] | g/dL | 12.0–16.0 | [auto] |
+| WBC | [input] | 10³/µL | 4.0–11.0 | [auto] |
+| ... | | | | |
+| + Add row | | | | |
+
+- **Flag** is auto-computed: if value is numeric and within reference range → Normal; below → Low; above → High. Lab tech can override.
+- "Add row" button allows adding any custom parameter not in the template.
+- The lab tech can also delete rows they don't need.
+
+**Storage:** The existing `result_json` JSONB column stores the new shape:
+```json
+{
+  "parameters": [
+    { "name": "Hemoglobin", "value": "13.5", "units": "g/dL", "reference": "12.0–16.0", "flag": "Normal" },
+    { "name": "WBC", "value": "12.1", "units": "10³/µL", "reference": "4.0–11.0", "flag": "High" }
+  ]
+}
+```
+No DB migration needed — `result_json` is already JSONB and the old `{ value, units, reference, interpretation }` shape is handled gracefully for existing records.
+
+**Compiled results text** (the `results TEXT` column) is auto-built from the parameters grid on submit, e.g.:
+```
+Hemoglobin: 13.5 g/dL (Ref: 12.0–16.0) [Normal]
+WBC: 12.1 10³/µL (Ref: 4.0–11.0) [HIGH]
+```
+The free-text `results` textarea remains available below the grid for additional narrative.
+
+**Step C — Lab-tech dashboard queue**
+
+Make each ordered test row in the lab-tech dashboard table have an "Enter Results" button (or make the row itself clickable) that opens the `LabTestDetails` component/dialog for that test ID.
 
 ---
 
