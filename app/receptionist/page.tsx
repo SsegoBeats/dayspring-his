@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { ReceptionistDashboard } from "@/components/dashboards/receptionist-dashboard"
+import { EmailVerificationModal } from "@/components/email-verification-modal"
 
 export default function ReceptionistPage() {
   const { user, isLoading } = useAuth()
@@ -35,8 +36,15 @@ export default function ReceptionistPage() {
   }
 
   return (
-    <DashboardLayout>
-      <ReceptionistDashboard />
-    </DashboardLayout>
+    <>
+      <EmailVerificationModal
+        isOpen={user.emailVerified === false}
+        userName={user.name}
+        userEmail={user.email}
+      />
+      <DashboardLayout>
+        <ReceptionistDashboard />
+      </DashboardLayout>
+    </>
   )
 }

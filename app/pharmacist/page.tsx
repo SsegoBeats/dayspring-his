@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { PharmacistDashboard } from "@/components/dashboards/pharmacist-dashboard"
+import { EmailVerificationModal } from "@/components/email-verification-modal"
 
 export default function PharmacistPage() {
   const { user, isLoading } = useAuth()
@@ -38,8 +39,15 @@ export default function PharmacistPage() {
   }
 
   return (
-    <DashboardLayout>
-      <PharmacistDashboard />
-    </DashboardLayout>
+    <>
+      <EmailVerificationModal
+        isOpen={user.emailVerified === false}
+        userName={user.name}
+        userEmail={user.email}
+      />
+      <DashboardLayout>
+        <PharmacistDashboard />
+      </DashboardLayout>
+    </>
   )
 }

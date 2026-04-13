@@ -27,6 +27,11 @@ export default function DashboardPage() {
       router.push("/")
       return
     }
+    // Block access until email is verified — must come before role redirects
+    if (user.emailVerified === false) {
+      setShowVerificationModal(true)
+      return
+    }
     if (user.role === "Receptionist") {
       router.replace("/receptionist")
       return
@@ -66,9 +71,6 @@ export default function DashboardPage() {
     if (user.role === "Cashier") {
       router.replace("/cashier")
       return
-    }
-    if (user.emailVerified === false) {
-      setShowVerificationModal(true)
     }
   }, [user, isLoading, router])
 

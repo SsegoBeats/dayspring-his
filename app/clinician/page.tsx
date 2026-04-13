@@ -10,6 +10,7 @@ import { Label } from "@/components/ui/label"
 import { Separator } from "@/components/ui/separator"
 import { toast } from "sonner"
 import { Download, FileText, TableIcon } from "lucide-react"
+import { EmailVerificationModal } from "@/components/email-verification-modal"
 
 const CLINICIAN_ROLES = ["Clinician", "Dentist", "Midwife", "Hospital Admin"]
 
@@ -71,6 +72,12 @@ export default function ClinicianPage() {
   if (isLoading || !user) return null
 
   return (
+    <>
+      <EmailVerificationModal
+        isOpen={user.emailVerified === false}
+        userName={user.name}
+        userEmail={user.email}
+      />
     <div className="space-y-6">
       <DoctorDashboard />
 
@@ -150,5 +157,6 @@ export default function ClinicianPage() {
         </Card>
       </div>
     </div>
+    </>
   )
 }

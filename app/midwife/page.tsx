@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { MidwifeDashboard } from "@/components/dashboards/midwife-dashboard"
+import { EmailVerificationModal } from "@/components/email-verification-modal"
 
 export default function MidwifePage() {
   const { user, isLoading } = useAuth()
@@ -35,8 +36,15 @@ export default function MidwifePage() {
   }
 
   return (
-    <DashboardLayout>
-      <MidwifeDashboard />
-    </DashboardLayout>
+    <>
+      <EmailVerificationModal
+        isOpen={user.emailVerified === false}
+        userName={user.name}
+        userEmail={user.email}
+      />
+      <DashboardLayout>
+        <MidwifeDashboard />
+      </DashboardLayout>
+    </>
   )
 }

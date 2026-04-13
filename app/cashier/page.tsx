@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { CashierDashboard } from "@/components/dashboards/cashier-dashboard"
+import { EmailVerificationModal } from "@/components/email-verification-modal"
 
 export default function CashierPage() {
   const { user, isLoading } = useAuth()
@@ -36,8 +37,15 @@ export default function CashierPage() {
   }
 
   return (
-    <DashboardLayout>
-      <CashierDashboard />
-    </DashboardLayout>
+    <>
+      <EmailVerificationModal
+        isOpen={user.emailVerified === false}
+        userName={user.name}
+        userEmail={user.email}
+      />
+      <DashboardLayout>
+        <CashierDashboard />
+      </DashboardLayout>
+    </>
   )
 }

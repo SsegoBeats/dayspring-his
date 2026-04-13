@@ -5,6 +5,7 @@ import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { AdminDashboard } from "@/components/dashboards/admin-dashboard"
+import { EmailVerificationModal } from "@/components/email-verification-modal"
 
 export default function AdminPage() {
   const { user, isLoading } = useAuth()
@@ -37,8 +38,15 @@ export default function AdminPage() {
   }
 
   return (
-    <DashboardLayout>
-      <AdminDashboard />
-    </DashboardLayout>
+    <>
+      <EmailVerificationModal
+        isOpen={user.emailVerified === false}
+        userName={user.name}
+        userEmail={user.email}
+      />
+      <DashboardLayout>
+        <AdminDashboard />
+      </DashboardLayout>
+    </>
   )
 }
