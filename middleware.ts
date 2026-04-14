@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import type { NextRequest } from "next/server"
-import { verifyToken } from "@/lib/security"
+import { verifyTokenEdge } from "@/lib/jwt-edge"
 
 // ──── CSRF protection (double-submit cookie pattern) ────────────────────────────────────────
 const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
@@ -114,7 +114,7 @@ export async function middleware(req: NextRequest) {
 
     // ✅ NEW: Verify role-to-portal access
     try {
-      const payload = await verifyToken(token)
+      const payload = await verifyTokenEdge(token)
       const userRole = payload?.role as string | undefined
       
       if (userRole && ROLE_PORTAL_MAP[userRole]) {
