@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, Save, XCircle, PlayCircle, Loader2, Printer, AlertCircle, FileDown } from "lucide-react"
+import { ArrowLeft, Save, XCircle, PlayCircle, Loader2, Printer, AlertCircle, FileDown, Plus, Trash2 } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -19,6 +19,7 @@ import { BarcodeGenerator } from "@/components/barcode-generator"
 import { LabTestAttachments } from "@/components/lab/lab-test-attachments"
 import { formatPatientNumber } from "@/lib/patients"
 import { toast } from "sonner"
+import { type ParameterRow, buildParameterRows, computeFlag, getTemplateForTest } from "@/lib/lab-parameters"
 
 interface LabTestDetailsProps {
   testId: string
@@ -59,6 +60,8 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
   const [notes, setNotes] = useState("")
   const [specimenType, setSpecimenType] = useState("")
   const [structured, setStructured] = useState<StructuredResult>(buildStructuredResult(contextTest))
+  const [paramRows, setParamRows] = useState<ParameterRow[]>([])
+  const [loadingParams, setLoadingParams] = useState(false)
   const [verified, setVerified] = useState(false)
   const [saving, setSaving] = useState(false)
   const [starting, setStarting] = useState(false)
@@ -132,12 +135,76 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
     }))
   }, [test?.loincUnits])
 
+  // Auto-load parameter rows when test opens in "In Progress" state
+  useEffect(() => {
+    if (!test || test.status.toLowerCase() !== "in progress") return
+
+    // If existing resultJson already has parameters, restore them
+    const existing = test.resultJson
+    if (existing && typeof existing === "object" && Array.isArray((existing as any).parameters)) {
+      const savedParams: ParameterRow[] = (existing as any).parameters.map((p: any) => ({
+        name: p.name || "",
+        value: p.value || "",
+        units: p.units || "",
+        reference: p.reference || "",
+        flag: p.flag || "",
+        active: p.active !== false,
+      }))
+      if (savedParams.length > 0) {
+        setParamRows(savedParams)
+        return
+      }
+    }
+
+    // Tier 1: hardcoded template
+    const tier1 = getTemplateForTest(test.testName || "")
+    if (tier1 && tier1.length > 0) {
+      setParamRows(buildParameterRows(tier1))
+      return
+    }
+
+    // Tier 2: LOINC panel API
+    if (test.loincCode) {
+      setLoadingParams(true)
+      fetch(`/api/lab-panels?loincCode=${encodeURIComponent(test.loincCode)}`, { credentials: "include" })
+        .then((r) => r.json())
+        .then((data) => {
+          const params = Array.isArray(data.parameters) ? data.parameters : []
+          if (params.length > 0) {
+            setParamRows(buildParameterRows(params))
+          } else {
+            // Tier 3: start with one blank row
+            setParamRows([{ name: "", value: "", units: "", reference: "", flag: "", active: true }])
+          }
+        })
+        .catch(() => {
+          setParamRows([{ name: "", value: "", units: "", reference: "", flag: "", active: true }])
+        })
+        .finally(() => setLoadingParams(false))
+      return
+    }
+
+    // Tier 3: no template, no LOINC — one blank row
+    setParamRows([{ name: "", value: "", units: "", reference: "", flag: "", active: true }])
+  }, [test?.id, test?.status]) // eslint-disable-line react-hooks/exhaustive-deps
+
   const patchLocalTest = (updates: Partial<LabTest>) => {
     updateTest(testId, updates)
     setRemoteTest((current) => (current ? { ...current, ...updates } : current))
   }
 
   const buildCompiledResults = () => {
+    // Build from parameter rows if any active rows have values
+    const activeRows = paramRows.filter((r) => r.active && r.value.trim())
+    if (activeRows.length > 0) {
+      const lines = activeRows.map((r) => {
+        const ref = r.reference ? ` (Ref: ${r.reference})` : ""
+        const flag = r.flag && r.flag !== "Normal" ? ` [${r.flag.toUpperCase()}]` : r.flag === "Normal" ? " [Normal]" : ""
+        return `${r.name}: ${r.value}${r.units ? ` ${r.units}` : ""}${ref}${flag}`
+      })
+      return [lines.join("\n"), results.trim()].filter(Boolean).join("\n\n")
+    }
+    // Fallback: legacy single-value structured entry
     const summaryParts: string[] = []
     if (structured.value) {
       summaryParts.push(`Value: ${structured.value}${structured.units ? ` ${structured.units}` : ""}`)
@@ -210,7 +277,9 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
           status: "Completed",
           results: compiledResults,
           notes,
-          resultJson: structured,
+          resultJson: paramRows.some((r) => r.active && r.value.trim())
+            ? { parameters: paramRows.filter((r) => r.active) }
+            : structured,
           specimenType: specimenType.trim() || test.specimenType,
         }),
       })
@@ -483,55 +552,147 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                   ) : null}
 
                   <Card className="border-slate-200 bg-white">
-                    <CardHeader>
-                      <CardTitle className="text-sm">Structured Result Entry</CardTitle>
-                      <CardDescription>{loincTitle}</CardDescription>
+                    <CardHeader className="pb-2">
+                      <CardTitle className="text-sm">Result Parameters — {loincTitle}</CardTitle>
+                      <CardDescription>
+                        Tick parameters you are running. Unticked rows are skipped. Values outside the reference range are flagged automatically.
+                      </CardDescription>
                     </CardHeader>
-                    <CardContent className="space-y-4">
-                      <div className="grid gap-3 md:grid-cols-3">
-                        <div className="space-y-1">
-                          <Label htmlFor="lab-result-value" className="text-xs">Value</Label>
-                          <Input
-                            id="lab-result-value"
-                            name="labResultValue"
-                            autoComplete="off"
-                            value={structured.value}
-                            onChange={(event) => setStructured((current) => ({ ...current, value: event.target.value }))}
-                            placeholder="Enter value"
-                          />
+                    <CardContent className="space-y-3">
+                      {loadingParams ? (
+                        <div className="flex items-center gap-2 text-sm text-muted-foreground py-2">
+                          <Loader2 className="h-4 w-4 animate-spin" />
+                          Loading parameters…
                         </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="lab-result-units" className="text-xs">Units</Label>
-                          <Input
-                            id="lab-result-units"
-                            name="labResultUnits"
-                            autoComplete="off"
-                            value={structured.units}
-                            onChange={(event) => setStructured((current) => ({ ...current, units: event.target.value }))}
-                            placeholder={test.loincUnits || "Units"}
-                          />
-                        </div>
-                        <div className="space-y-1">
-                          <Label htmlFor="lab-result-reference" className="text-xs">Reference Range</Label>
-                          <Input
-                            id="lab-result-reference"
-                            name="labResultReference"
-                            autoComplete="off"
-                            value={structured.reference}
-                            onChange={(event) => setStructured((current) => ({ ...current, reference: event.target.value }))}
-                            placeholder="e.g. 3.9-7.8"
-                          />
-                        </div>
-                      </div>
-                      <div className="space-y-1">
-                        <Label className="text-xs">Interpretation</Label>
-                        <Textarea
-                          rows={3}
-                          value={structured.interpretation}
-                          onChange={(event) => setStructured((current) => ({ ...current, interpretation: event.target.value }))}
-                          placeholder="Clinical interpretation or analyzer comments"
-                        />
-                      </div>
+                      ) : (
+                        <>
+                          {/* Column headers */}
+                          <div className="grid grid-cols-[auto_1fr_18%_14%_22%_12%] gap-2 items-center text-xs font-semibold text-muted-foreground pb-1 border-b">
+                            <span />
+                            <span>Parameter</span>
+                            <span>Value</span>
+                            <span>Units</span>
+                            <span>Reference</span>
+                            <span>Flag</span>
+                          </div>
+                          {paramRows.map((row, idx) => (
+                            <div key={idx} className="grid grid-cols-[auto_1fr_18%_14%_22%_12%] gap-2 items-center">
+                              {/* Active checkbox */}
+                              <Checkbox
+                                id={`param-active-${idx}`}
+                                checked={row.active}
+                                onCheckedChange={(checked) =>
+                                  setParamRows((prev) =>
+                                    prev.map((r, i) => i === idx ? { ...r, active: checked === true } : r)
+                                  )
+                                }
+                              />
+                              {/* Parameter name */}
+                              <Input
+                                id={`param-name-${idx}`}
+                                name={`paramName${idx}`}
+                                autoComplete="off"
+                                value={row.name}
+                                onChange={(e) =>
+                                  setParamRows((prev) =>
+                                    prev.map((r, i) => i === idx ? { ...r, name: e.target.value } : r)
+                                  )
+                                }
+                                placeholder="Parameter name"
+                                className="text-xs h-8"
+                                disabled={!row.active}
+                              />
+                              {/* Value */}
+                              <Input
+                                id={`param-value-${idx}`}
+                                name={`paramValue${idx}`}
+                                autoComplete="off"
+                                value={row.value}
+                                onChange={(e) => {
+                                  const val = e.target.value
+                                  setParamRows((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx
+                                        ? { ...r, value: val, flag: computeFlag(val, r.reference) }
+                                        : r
+                                    )
+                                  )
+                                }}
+                                placeholder="—"
+                                className="text-xs h-8"
+                                disabled={!row.active}
+                              />
+                              {/* Units */}
+                              <Input
+                                id={`param-units-${idx}`}
+                                name={`paramUnits${idx}`}
+                                autoComplete="off"
+                                value={row.units}
+                                onChange={(e) =>
+                                  setParamRows((prev) =>
+                                    prev.map((r, i) => i === idx ? { ...r, units: e.target.value } : r)
+                                  )
+                                }
+                                placeholder="—"
+                                className="text-xs h-8"
+                                disabled={!row.active}
+                              />
+                              {/* Reference */}
+                              <Input
+                                id={`param-ref-${idx}`}
+                                name={`paramRef${idx}`}
+                                autoComplete="off"
+                                value={row.reference}
+                                onChange={(e) => {
+                                  const ref = e.target.value
+                                  setParamRows((prev) =>
+                                    prev.map((r, i) =>
+                                      i === idx
+                                        ? { ...r, reference: ref, flag: computeFlag(r.value, ref) }
+                                        : r
+                                    )
+                                  )
+                                }}
+                                placeholder="e.g. 4.0–11.0"
+                                className="text-xs h-8"
+                                disabled={!row.active}
+                              />
+                              {/* Flag + delete */}
+                              <div className="flex items-center gap-1">
+                                <span className={`text-xs font-medium w-14 truncate ${
+                                  row.flag === "High" || row.flag === "Critical" ? "text-red-600" :
+                                  row.flag === "Low" ? "text-amber-600" :
+                                  row.flag === "Normal" ? "text-emerald-600" : "text-muted-foreground"
+                                }`}>
+                                  {row.flag || "—"}
+                                </span>
+                                <button
+                                  type="button"
+                                  aria-label="Remove row"
+                                  onClick={() => setParamRows((prev) => prev.filter((_, i) => i !== idx))}
+                                  className="text-muted-foreground hover:text-destructive"
+                                >
+                                  <Trash2 className="h-3.5 w-3.5" />
+                                </button>
+                              </div>
+                            </div>
+                          ))}
+                          {/* Add custom row */}
+                          <button
+                            type="button"
+                            onClick={() =>
+                              setParamRows((prev) => [
+                                ...prev,
+                                { name: "", value: "", units: "", reference: "", flag: "", active: true },
+                              ])
+                            }
+                            className="flex items-center gap-1.5 text-xs text-sky-600 hover:text-sky-700 mt-1"
+                          >
+                            <Plus className="h-3.5 w-3.5" />
+                            Add custom row
+                          </button>
+                        </>
+                      )}
                     </CardContent>
                   </Card>
 

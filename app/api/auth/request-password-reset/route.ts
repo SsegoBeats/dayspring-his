@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { z } from "zod"
-import crypto from "crypto"
+import * as crypto from "crypto"
 import { query } from "@/lib/db"
 import { emailTemplates, sendEmail } from "@/lib/email-service"
 import { rateLimitPg } from "@/lib/rate-limit-pg"

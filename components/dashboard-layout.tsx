@@ -53,7 +53,7 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
   return (
     <div className="flex min-h-screen flex-col">
       <header className="sticky top-0 z-50 border-b border-border bg-card print:hidden">
-        <div className="flex h-16 items-center justify-between px-6">
+        <div className="flex min-h-16 items-center justify-between px-3 md:px-6">
           <div className="flex items-center gap-3">
             <Image
               src={ORG_LOGO_PATH}
@@ -65,11 +65,11 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
             />
             <div>
               <h1 className="text-lg font-semibold text-foreground">{ORG_NAME}</h1>
-              <p className="text-xs text-muted-foreground">{ORG_SUBTITLE}</p>
+              <p className="hidden sm:block text-xs text-muted-foreground">{ORG_SUBTITLE}</p>
             </div>
           </div>
-          <div className="flex items-center gap-4">
-            <div className="text-right">
+          <div className="flex flex-wrap items-center justify-end gap-2">
+            <div className="hidden sm:block text-right">
               <p className="text-sm font-medium text-foreground">{user?.name}</p>
               <p className="text-xs text-muted-foreground">{user && getRoleLabel(user.role)}</p>
             </div>

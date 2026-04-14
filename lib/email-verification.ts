@@ -1,5 +1,5 @@
 import { query } from "@/lib/db"
-import crypto from "crypto"
+import * as crypto from "crypto"
 
 type EmailVerificationTokenRow = {
   id: string

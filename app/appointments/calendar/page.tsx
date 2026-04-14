@@ -7,6 +7,7 @@ import { Button } from "@/components/ui/button"
 import { ArrowLeft } from "lucide-react"
 import { useRouter } from "next/navigation"
 import { useAuth } from "@/lib/auth-context"
+import { DashboardLayout } from "@/components/dashboard-layout"
 
 export default function AppointmentCalendarPage() {
   const router = useRouter()
@@ -29,6 +30,7 @@ export default function AppointmentCalendarPage() {
   }
 
   return (
+    <DashboardLayout>
     <PatientProvider>
     <div className="container mx-auto p-6 space-y-6">
       <Button variant="outline" onClick={() => router.back()}>
@@ -38,5 +40,6 @@ export default function AppointmentCalendarPage() {
       <AppointmentCalendar />
     </div>
     </PatientProvider>
+    </DashboardLayout>
   )
 }

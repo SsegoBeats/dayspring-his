@@ -5,10 +5,13 @@ import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } f
 import { Label } from "@/components/ui/label"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { Checkbox } from "@/components/ui/checkbox"
 import { Button } from "@/components/ui/button"
 import { useLab } from "@/lib/lab-context"
 import { Badge } from "@/components/ui/badge"
 import { ScrollArea } from "@/components/ui/scroll-area"
+
+const SPECIMEN_OPTIONS = ["Blood", "Serum", "Plasma", "Urine", "Stool", "Sputum", "Swab", "CSF"]
 
 interface LabCatalogItem {
   loincCode: string | null
@@ -26,7 +29,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
   const [selected, setSelected] = useState<LabCatalogItem[]>([])
   const [manualName, setManualName] = useState("")
   const [priority, setPriority] = useState("Routine")
-  const [specimenType, setSpecimenType] = useState("Blood")
+  const [specimenTypes, setSpecimenTypes] = useState<string[]>(["Blood"])
   const [notes, setNotes] = useState("")
   const [saving, setSaving] = useState(false)
   const [loading, setLoading] = useState(false)
@@ -76,6 +79,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
     if (!selected.length) return
     setSaving(true)
     try {
+      const specimenType = specimenTypes.join(", ") || "Blood"
       await orderTest({
         patientId,
         priority,
@@ -93,6 +97,7 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
       setSelected([])
       setSearch("")
       setNotes("")
+      setSpecimenTypes(["Blood"])
     } finally { setSaving(false) }
   }
 
@@ -134,19 +139,34 @@ export function OrderLabTest({ patientId, open, onOpenChange }: { patientId: str
                   </SelectContent>
                 </Select>
               </div>
-              <div className="space-y-1">
-                <Label>Specimen</Label>
-                <Select value={specimenType} onValueChange={setSpecimenType}>
-                  <SelectTrigger><SelectValue placeholder="Select"/></SelectTrigger>
-                  <SelectContent>
-                    <SelectItem value="Blood">Blood</SelectItem>
-                    <SelectItem value="Serum">Serum</SelectItem>
-                    <SelectItem value="Plasma">Plasma</SelectItem>
-                    <SelectItem value="Urine">Urine</SelectItem>
-                    <SelectItem value="Stool">Stool</SelectItem>
-                    <SelectItem value="Sputum">Sputum</SelectItem>
-                  </SelectContent>
-                </Select>
+              <div className="space-y-1 col-span-2">
+                <Label>Specimen (select one or more)</Label>
+                {specimenTypes.length > 0 && (
+                  <div className="flex flex-wrap gap-1 mb-1">
+                    {specimenTypes.map((s) => (
+                      <Badge key={s} variant="secondary" className="flex items-center gap-1 text-xs">
+                        {s}
+                        <button aria-label={`Remove ${s}`} onClick={() => setSpecimenTypes((prev) => prev.filter((x) => x !== s))} className="ml-0.5 text-xs">×</button>
+                      </Badge>
+                    ))}
+                  </div>
+                )}
+                <div className="flex flex-wrap gap-3">
+                  {SPECIMEN_OPTIONS.map((opt) => (
+                    <label key={opt} className="flex items-center gap-1.5 cursor-pointer text-sm">
+                      <Checkbox
+                        id={`specimen-${opt}`}
+                        checked={specimenTypes.includes(opt)}
+                        onCheckedChange={(checked) =>
+                          setSpecimenTypes((prev) =>
+                            checked ? [...prev, opt] : prev.filter((x) => x !== opt)
+                          )
+                        }
+                      />
+                      {opt}
+                    </label>
+                  ))}
+                </div>
               </div>
             </div>
             <div className="flex justify-end gap-2">

@@ -1,6 +1,6 @@
 import bcrypt from "bcryptjs"
 import jwt from "jsonwebtoken"
-import crypto from "crypto"
+import * as crypto from "crypto"
 import { z } from "zod"
 
 // Password hashing

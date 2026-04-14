@@ -35,8 +35,9 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
   const [formData, setFormData] = useState({
     firstName: "",
     lastName: "",
-    
-    ageYears: "",
+
+    ageValue: "",
+    ageUnit: "years" as "years" | "months" | "days",
     department: "",
     sendToDepartment: true,
     gender: "male" as "male" | "female" | "other",
@@ -73,10 +74,12 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
       const nextErrors: { [k: string]: string } = {}
       if (!formData.firstName.trim()) nextErrors.firstName = "First name is required"
       if (!formData.lastName.trim()) nextErrors.lastName = "Last name is required"
-      if (!formData.ageYears) { nextErrors.ageYears = "Age is required" }
-      if (formData.ageYears) {
-        const n = Number(formData.ageYears)
-        if (isNaN(n) || n < 0 || n > 130) nextErrors.ageYears = "Age must be 0-130"
+      if (!formData.ageValue) { nextErrors.ageValue = "Age is required" }
+      if (formData.ageValue) {
+        const n = Number(formData.ageValue)
+        const maxMap = { years: 130, months: 11, days: 30 }
+        const max = maxMap[formData.ageUnit]
+        if (isNaN(n) || n < 0 || n > max) nextErrors.ageValue = `Age must be 0–${max} ${formData.ageUnit}`
       }
       const e164 = /^\+\d{10,15}$/
       if (!e164.test(formData.phone || "")) nextErrors.phone = "Phone must be in +countrycode format"
@@ -90,7 +93,7 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
           const idMap: Record<string,string> = {
             firstName: 'firstName',
             lastName: 'lastName',
-            ageYears: 'ageYears',
+            ageValue: 'ageValue',
             phone: 'phone',
             emergencyPhone: 'emergencyPhone',
             nin: 'nin',
@@ -113,7 +116,9 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
           firstName: formData.firstName,
           lastName: formData.lastName,
           dateOfBirth: null,
-          ageYears: formData.ageYears ? Number(formData.ageYears) : null,
+          ageYears: formData.ageUnit === "years" && formData.ageValue ? Number(formData.ageValue) : null,
+          ageValue: formData.ageValue ? Number(formData.ageValue) : null,
+          ageUnit: formData.ageUnit,
           gender: formData.gender === "male" ? "Male" : formData.gender === "female" ? "Female" : "Other",
           phone: formData.phone,
           address: formData.address || null,
@@ -228,8 +233,9 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
       setFormData({
         firstName: "",
         lastName: "",
-        
-        ageYears: "",
+
+        ageValue: "",
+        ageUnit: "years",
         department: "",
         sendToDepartment: true,
         gender: "male",
@@ -359,17 +365,35 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
             <CollapsibleContent>
               <div className="grid gap-4 p-4 pt-0 md:grid-cols-2">
                 <div className="space-y-2">
-                  <Label htmlFor="ageYears">Age (years) *</Label>
-                  <Input
-                    id="ageYears"
-                    type="number"
-                    min={0}
-                    max={130}
-                    value={formData.ageYears}
-                    onChange={(e) => setFormData({ ...formData, ageYears: e.target.value.replace(/[^0-9]/g,'') })}
-                    placeholder="e.g., 35"
-                  />
-                  {errors.ageYears && <div className="text-xs text-red-600">{errors.ageYears}</div>}
+                  <Label htmlFor="ageValue">Age *</Label>
+                  <div className="flex gap-2">
+                    <Input
+                      id="ageValue"
+                      name="ageValue"
+                      autoComplete="off"
+                      type="number"
+                      min={0}
+                      max={formData.ageUnit === "years" ? 130 : formData.ageUnit === "months" ? 11 : 30}
+                      value={formData.ageValue}
+                      onChange={(e) => setFormData({ ...formData, ageValue: e.target.value.replace(/[^0-9]/g, '') })}
+                      placeholder={formData.ageUnit === "years" ? "e.g., 35" : formData.ageUnit === "months" ? "0–11" : "0–30"}
+                      className="w-24"
+                    />
+                    <Select
+                      value={formData.ageUnit}
+                      onValueChange={(v) => setFormData({ ...formData, ageUnit: v as "years" | "months" | "days" })}
+                    >
+                      <SelectTrigger id="ageUnit" className="w-28">
+                        <SelectValue />
+                      </SelectTrigger>
+                      <SelectContent>
+                        <SelectItem value="years">Years</SelectItem>
+                        <SelectItem value="months">Months</SelectItem>
+                        <SelectItem value="days">Days</SelectItem>
+                      </SelectContent>
+                    </Select>
+                  </div>
+                  {errors.ageValue && <div className="text-xs text-red-600">{errors.ageValue}</div>}
                 </div>
                 <div className="space-y-2">
                   <Label htmlFor="gender">Gender *</Label>

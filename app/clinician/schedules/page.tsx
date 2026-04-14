@@ -8,6 +8,7 @@ import { Label } from "@/components/ui/label"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Input } from "@/components/ui/input"
 import { useAuth } from "@/lib/auth-context"
+import { DashboardLayout } from "@/components/dashboard-layout"
 import { toast } from "sonner"
 import { Pencil, Trash2 } from "lucide-react"
 import {
@@ -172,6 +173,7 @@ export default function ClinicianSchedulesPage() {
   }
 
   return (
+    <DashboardLayout>
     <div className="container mx-auto p-6 space-y-6">
       <Card>
         <CardHeader>
@@ -392,5 +394,6 @@ export default function ClinicianSchedulesPage() {
         </DialogContent>
       </Dialog>
     </div>
+    </DashboardLayout>
   )
 }

@@ -3,7 +3,7 @@ import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { z } from "zod"
 import { query } from "@/lib/db"
-import crypto from "crypto"
+import * as crypto from "crypto"
 import { emailTemplates, sendEmailServer } from "@/lib/email-service"
 import { rateLimitPg } from "@/lib/rate-limit-pg"
 

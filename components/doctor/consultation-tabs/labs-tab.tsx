@@ -53,7 +53,7 @@ export function LabsTab({ patient, user: _user, labStream }: LabsTabProps) {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ status: "Reviewed" }),
+        body: JSON.stringify({ reviewed: true }),
       })
       if (!res.ok) throw new Error("Failed to mark reviewed")
       toast.success("Result marked as reviewed.")

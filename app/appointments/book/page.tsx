@@ -10,15 +10,18 @@ import { Input } from "@/components/ui/input"
 import { usePatients, PatientProvider } from "@/lib/patient-context"
 import { useAuth } from "@/lib/auth-context"
 import { toast } from "sonner"
+import { DashboardLayout } from "@/components/dashboard-layout"
 
 type Doctor = { id: string; name: string; email: string; role: string }
 type Slot = { time: string; capacity: number; available: number }
 
 export default function BookAppointmentPage() {
   return (
-    <PatientProvider>
-      <BookAppointmentInner />
-    </PatientProvider>
+    <DashboardLayout>
+      <PatientProvider>
+        <BookAppointmentInner />
+      </PatientProvider>
+    </DashboardLayout>
   )
 }
 

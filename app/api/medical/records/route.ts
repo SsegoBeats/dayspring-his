@@ -42,6 +42,8 @@ export async function POST(req: Request) {
     const body = (await req.json().catch(() => ({}))) as {
       patientId?: string
       chiefComplaint?: string
+      history?: string
+      impression?: string
       diagnosis?: string
       treatmentPlan?: string
       notes?: string
@@ -60,6 +62,8 @@ export async function POST(req: Request) {
     }
 
     const chiefComplaint = body.chiefComplaint || null
+    const history = body.history || null
+    const impression = body.impression || null
     const diagnosis = body.diagnosis || null
     const treatmentPlan = body.treatmentPlan || null
     const notes = body.notes || null
@@ -67,10 +71,10 @@ export async function POST(req: Request) {
     const { rows } = await queryWithSession(
       { role: auth.role, userId: auth.userId },
       `INSERT INTO medical_records (
-         patient_id, doctor_id, chief_complaint, diagnosis, treatment_plan, notes
-       ) VALUES ($1,$2,$3,$4,$5,$6)
-       RETURNING id, patient_id, doctor_id, visit_date, chief_complaint, diagnosis, treatment_plan, notes`,
-      [patientId, auth.userId, chiefComplaint, diagnosis, treatmentPlan, notes],
+         patient_id, doctor_id, chief_complaint, history, impression, diagnosis, treatment_plan, notes
+       ) VALUES ($1,$2,$3,$4,$5,$6,$7,$8)
+       RETURNING id, patient_id, doctor_id, visit_date, chief_complaint, history, impression, diagnosis, treatment_plan, notes`,
+      [patientId, auth.userId, chiefComplaint, history, impression, diagnosis, treatmentPlan, notes],
     )
 
     const record = rows[0]

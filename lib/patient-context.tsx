@@ -11,6 +11,7 @@ export interface Patient {
   lastName: string
   dateOfBirth?: string | null
   ageYears?: number | null
+  ageUnit?: "years" | "months" | "days" | null
   gender: string
   phone: string
   email?: string
@@ -117,6 +118,7 @@ export function PatientProvider({ children }: { children: ReactNode }) {
             lastName: p.last_name,
             dateOfBirth: p.date_of_birth,
             ageYears: typeof p.age_years === "number" ? p.age_years : undefined,
+            ageUnit: (p.age_unit as "years" | "months" | "days") || undefined,
             gender: (p.gender || "Other").toString().toLowerCase(),
             phone: p.phone || "",
             email: p.email || undefined,
@@ -238,7 +240,9 @@ export function PatientProvider({ children }: { children: ReactNode }) {
         firstName: patient.firstName,
         lastName: patient.lastName,
         dateOfBirth: null,
-        ageYears: patient.ageYears ?? null,
+        ageYears: patient.ageUnit === "years" ? (patient.ageYears ?? null) : null,
+        ageValue: patient.ageYears ?? null,
+        ageUnit: patient.ageUnit ?? "years",
         gender: (patient.gender || 'other').toString().replace(/\b\w/g, (c) => c.toUpperCase()),
         phone: patient.phone,
         address: patient.address || null,

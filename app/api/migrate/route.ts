@@ -1165,6 +1165,61 @@ export async function GET() {
       console.error("[v0] Schema creation encountered an error but will be treated as non-fatal:", e?.message || e)
     }
 
+    // --- Clinical UX improvements migrations (2026-04-13) ---
+    // age_unit on patients
+    try {
+      await client.query(`
+        DO $$ BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'patients' AND column_name = 'age_unit'
+          ) THEN
+            ALTER TABLE patients
+              ADD COLUMN age_unit TEXT DEFAULT 'years'
+              CHECK (age_unit IN ('years', 'months', 'days'));
+          END IF;
+        END $$;
+      `)
+    } catch (e: any) {
+      console.error("[migrate] age_unit:", e?.message)
+    }
+    // history + impression on medical_records
+    try {
+      await client.query(`
+        DO $$ BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'medical_records' AND column_name = 'history'
+          ) THEN
+            ALTER TABLE medical_records ADD COLUMN history TEXT;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'medical_records' AND column_name = 'impression'
+          ) THEN
+            ALTER TABLE medical_records ADD COLUMN impression TEXT;
+          END IF;
+        END $$;
+      `)
+    } catch (e: any) {
+      console.error("[migrate] history/impression:", e?.message)
+    }
+    // loinc_panels table for Tier-2 parameter lookup
+    try {
+      await client.query(`
+        CREATE TABLE IF NOT EXISTS loinc_panels (
+          panel_loinc_code TEXT NOT NULL,
+          member_loinc_code TEXT NOT NULL,
+          member_name TEXT NOT NULL,
+          units TEXT,
+          reference TEXT,
+          PRIMARY KEY (panel_loinc_code, member_loinc_code)
+        );
+      `)
+    } catch (e: any) {
+      console.error("[migrate] loinc_panels:", e?.message)
+    }
+
     return NextResponse.json({
       success: true,
       message: "Database migration completed successfully.",

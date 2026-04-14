@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import crypto from "crypto"
+import * as crypto from "crypto"
 
 export async function GET() {
   const token = crypto.randomBytes(24).toString("hex")

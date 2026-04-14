@@ -12,6 +12,8 @@ export interface MedicalRecord {
   date: string
   diagnosis: string
   symptoms: string
+  history?: string
+  impression?: string
   treatment: string
   notes?: string
   vitalSigns?: {
@@ -111,7 +113,7 @@ interface MedicalContextType {
   immunizations: Immunization[]
   chronicConditions: ChronicCondition[]
   refreshMedicalData: () => Promise<void>
-  addMedicalRecord: (record: Omit<MedicalRecord, "id">) => void
+  addMedicalRecord: (record: Omit<MedicalRecord, "id">) => Promise<boolean>
   addPrescription: (prescription: Omit<Prescription, "id">) => void
   updatePrescription: (id: string, updates: Partial<Prescription>) => void
   addLabResult: (labResult: Omit<LabResult, "id">) => void
@@ -179,6 +181,8 @@ async function fetchAndMapMedicalData(): Promise<{
       date: r.visit_date,
       diagnosis: r.diagnosis || "",
       symptoms: r.chief_complaint || "",
+      history: r.history || "",
+      impression: r.impression || "",
       treatment: r.treatment_plan || "",
       ...(vitalSigns && { vitalSigns }),
     }
@@ -338,34 +342,36 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMedicalAccess])
 
-  const addMedicalRecord = (record: Omit<MedicalRecord, "id">) => {
+  const addMedicalRecord = async (record: Omit<MedicalRecord, "id">): Promise<boolean> => {
     const newRecord: MedicalRecord = {
       ...record,
       id: `MR${String(medicalRecords.length + 1).padStart(3, "0")}`,
     }
-    setMedicalRecords([...medicalRecords, newRecord])
-    ;(async () => {
-      try {
-        const res = await fetch("/api/medical/records", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            patientId: record.patientId,
-            chiefComplaint: record.symptoms,
-            diagnosis: record.diagnosis,
-            treatmentPlan: record.treatment,
-            notes: record.notes,
-            ...(record.vitalSigns && Object.keys(record.vitalSigns).length > 0
-              ? { vitalSigns: record.vitalSigns }
-              : {}),
-          }),
-        })
-        if (res.ok) await loadMedicalData()
-      } catch {
-        // Non-fatal: local state already updated; server is source of truth when available.
-      }
-    })()
+    try {
+      const res = await fetch("/api/medical/records", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          patientId: record.patientId,
+          chiefComplaint: record.symptoms,
+          history: record.history,
+          impression: record.impression,
+          diagnosis: record.diagnosis,
+          treatmentPlan: record.treatment,
+          notes: record.notes,
+          ...(record.vitalSigns && Object.keys(record.vitalSigns).length > 0
+            ? { vitalSigns: record.vitalSigns }
+            : {}),
+        }),
+      })
+      if (!res.ok) return false
+      setMedicalRecords((prev) => [...prev, newRecord])
+      await loadMedicalData()
+      return true
+    } catch {
+      return false
+    }
   }
 
   const addPrescription = (prescription: Omit<Prescription, "id">) => {

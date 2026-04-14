@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server"
-import crypto from "crypto"
+import * as crypto from "crypto"
 import fs from "fs"
 import path from "path"
 import { cookies } from "next/headers"
