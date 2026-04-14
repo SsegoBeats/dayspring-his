@@ -1,6 +1,13 @@
 import { jwtVerify } from "jose"
 
-export async function verifyTokenEdge(token: string): Promise<{ sub: string; email: string; role: string } | null> {
+export type TokenPayloadEdge = {
+  sub: string
+  userId: string
+  email: string
+  role: string
+}
+
+export async function verifyTokenEdge(token: string): Promise<TokenPayloadEdge | null> {
   try {
     const secret = process.env.JWT_SECRET
     if (!secret) {
@@ -20,6 +27,7 @@ export async function verifyTokenEdge(token: string): Promise<{ sub: string; ema
 
     return {
       sub: payload.sub,
+      userId: payload.sub,
       email: payload.email,
       role: payload.role,
     }

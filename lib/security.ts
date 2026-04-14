@@ -51,14 +51,26 @@ export function generateToken(userId: string, email: string, role: string): stri
   })
 }
 
-export function verifyToken(token: string): { sub: string; email: string; role: string } | null {
+export type TokenPayload = {
+  sub: string
+  userId: string
+  email: string
+  role: string
+}
+
+export function verifyToken(token: string): TokenPayload | null {
   try {
     const secret = process.env.JWT_SECRET
     if (!secret) {
       throw new Error("JWT_SECRET is not set")
     }
     const decoded = jwt.verify(token, secret, { audience: "dayspring-his", issuer: "dayspring-his" }) as any
-    return { sub: decoded.sub, email: decoded.email, role: decoded.role }
+    return {
+      sub: decoded.sub,
+      userId: decoded.sub,
+      email: decoded.email,
+      role: decoded.role,
+    }
   } catch (error) {
     console.error("[v0] Token verification failed:", error)
     return null
