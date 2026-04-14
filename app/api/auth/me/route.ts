@@ -19,7 +19,7 @@ export async function GET() {
     const payload = verifyToken(token)
     if (!payload) return notAuthenticatedResponse()
 
-    const { rows } = await query("SELECT id, email, name, role, is_active, email_verified_at FROM users WHERE id = $1", [payload.userId])
+    const { rows } = await query("SELECT id, email, name, role, is_active, email_verified_at FROM users WHERE id = $1", [payload.sub])
     const user = rows[0]
     if (!user || !user.is_active) return notAuthenticatedResponse()
     return NextResponse.json({ user })

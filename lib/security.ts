@@ -51,8 +51,7 @@ export function generateToken(userId: string, email: string, role: string): stri
   })
 }
 
-// ✅ FIXED: Made async to work with middleware, but still uses jsonwebtoken
-export async function verifyToken(token: string): Promise<{ sub: string; email: string; role: string } | null> {
+export function verifyToken(token: string): { sub: string; email: string; role: string } | null {
   try {
     const secret = process.env.JWT_SECRET
     if (!secret) {
