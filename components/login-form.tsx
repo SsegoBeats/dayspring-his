@@ -3,7 +3,7 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth } from "@/lib/auth-context"
+import { useAuth, ROLE_REDIRECT_MAP } from "@/lib/auth-context"
 import { Eye, EyeOff, AlertCircle, Mail } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
 
@@ -31,22 +31,7 @@ export function LoginForm() {
         }
         setError(result.error || "Invalid credentials. Please check your email and password.")
       } else {
-        // Role-based redirect using the authenticated user's role from the backend
-        const redirectPath = (() => {
-          switch (result.role) {
-            case "Nurse":          return "/nurse"
-            case "Clinician":      return "/clinician"
-            case "Receptionist":   return "/receptionist"
-            case "Hospital Admin": return "/admin"
-            case "Cashier":        return "/cashier"
-            case "Pharmacist":     return "/pharmacist"
-            case "Lab Tech":       return "/lab-tech"
-            case "Radiologist":    return "/radiologist"
-            case "Dentist":        return "/dentist"
-            case "Midwife":        return "/midwife"
-            default:               return "/dashboard"
-          }
-        })()
+        const redirectPath = (result.role ? ROLE_REDIRECT_MAP[result.role] : null) ?? "/dashboard"
         if (typeof window !== "undefined") {
           window.location.assign(redirectPath)
         } else {

@@ -24,10 +24,23 @@ export interface User {
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<{ success: boolean; role?: string; error?: string }>
+  login: (email: string, password: string) => Promise<{ success: boolean; role?: UserRole; error?: string }>
   logout: () => void
   refreshUser: () => Promise<void>
   isLoading: boolean
+}
+
+export const ROLE_REDIRECT_MAP: Record<UserRole, string> = {
+  Nurse: "/nurse",
+  Clinician: "/clinician",
+  Receptionist: "/receptionist",
+  "Hospital Admin": "/admin",
+  Cashier: "/cashier",
+  Pharmacist: "/pharmacist",
+  "Lab Tech": "/lab-tech",
+  Radiologist: "/radiologist",
+  Dentist: "/dentist",
+  Midwife: "/midwife",
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined)
@@ -65,7 +78,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })()
   }, [refreshUser])
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; role?: string; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; role?: UserRole; error?: string }> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
@@ -87,19 +100,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await refreshUser()
         if (typeof window !== "undefined" && !document.cookie.match(/(?:^|;\s)session=/)) {
           // Fallback: force a full navigation so Set-Cookie is applied
-          const roleRedirectMap: Record<string, string> = {
-            "Nurse": "/nurse",
-            "Clinician": "/clinician",
-            "Receptionist": "/receptionist",
-            "Hospital Admin": "/admin",
-            "Cashier": "/cashier",
-            "Pharmacist": "/pharmacist",
-            "Lab Tech": "/lab-tech",
-            "Radiologist": "/radiologist",
-            "Dentist": "/dentist",
-            "Midwife": "/midwife",
-          }
-          window.location.href = roleRedirectMap[data.role] ?? "/dashboard"
+          window.location.href = ROLE_REDIRECT_MAP[data.role as UserRole] ?? "/dashboard"
         }
       } catch {}
       if (typeof window !== "undefined") {
@@ -114,7 +115,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         window.dispatchEvent(event)
       }
-      return { success: true, role: data.role }
+      return { success: true, role: data.role as UserRole }
     } catch {
       return { success: false, error: "An error occurred" }
     }
