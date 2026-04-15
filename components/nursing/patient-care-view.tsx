@@ -57,8 +57,8 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
   const [vitalAlerts, setVitalAlerts] = useState<Array<{ type: "critical" | "warning" | "normal"; message: string; field: string }>>([])
 
   const storageKey = `nurse-care-tab:${patientId}`
-  const vitalHistory = getPatientVitals(patientId)
-  const noteHistory = getPatientNotes(patientId)
+  const vitalHistory = getPatientVitals(patientId) ?? []
+  const noteHistory = getPatientNotes(patientId) ?? []
 
   const [vitalsForm, setVitalsForm] = useState({
     bloodPressure: "", temperature: "", heartRate: "", respiratoryRate: "",
@@ -254,7 +254,7 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
               {patient.bloodGroup}
             </span>
           )}
-          {patient.allergies && patient.allergies.trim().toLowerCase() !== "none" && (
+          {patient.allergies && typeof patient.allergies === "string" && patient.allergies.trim().toLowerCase() !== "none" && (
             <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-700">
               ⚠ Allergies: {patient.allergies}
             </span>

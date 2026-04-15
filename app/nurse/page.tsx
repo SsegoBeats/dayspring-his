@@ -6,6 +6,7 @@ import { useAuth } from "@/lib/auth-context"
 import { DashboardLayout } from "@/components/dashboard-layout"
 import { NurseDashboard } from "@/components/dashboards/nurse-dashboard"
 import { EmailVerificationModal } from "@/components/email-verification-modal"
+import { ErrorBoundary } from "@/components/error-boundary"
 
 /**
  * Nurse portal home. Renders the nurse dashboard (patient vitals, nursing notes, triage).
@@ -47,7 +48,12 @@ export default function NursePortalPage() {
         userEmail={user.email}
       />
       <DashboardLayout>
-        <NurseDashboard />
+        <ErrorBoundary
+          fallbackTitle="Nurse portal error"
+          fallbackDescription="Something failed while rendering the nurse dashboard. Open the browser console for details."
+        >
+          <NurseDashboard />
+        </ErrorBoundary>
       </DashboardLayout>
     </>
   )

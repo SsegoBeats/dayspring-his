@@ -342,6 +342,7 @@ export function PatientCareList({ onSelectPatient }: PatientCareListProps) {
                             {patient.firstName} {patient.lastName}
                           </span>
                           {patient.allergies &&
+                            typeof patient.allergies === "string" &&
                             patient.allergies.trim().toLowerCase() !== "none" && (
                               <span className="rounded-full border border-red-200 bg-red-50 px-2 py-0.5 text-xs text-red-700">
                                 Allergies
