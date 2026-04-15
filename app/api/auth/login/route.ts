@@ -20,7 +20,7 @@ export async function POST(req: Request) {
     }
 
     const body = await req.json()
-    const { email, password, role: selectedRole } = LoginSchema.parse(body)
+    const { email, password } = LoginSchema.parse(body)
 
     // Per-account rate limiting: prevents credential stuffing from distributed IPs
     if (!(await rateLimitPg(`login:account:${email.toLowerCase()}`, 5, 900))) {
@@ -56,23 +56,6 @@ export async function POST(req: Request) {
         ip 
       })
       return NextResponse.json({ error: "Invalid credentials" }, { status: 401 })
-    }
-
-    // ✅ NEW: Validate selected role matches database role
-    if (selectedRole && selectedRole !== user.role) {
-      await writeAuditLog({ 
-        action: "LOGIN_FAILED", 
-        entityType: "User", 
-        entityId: user.id, 
-        details: { 
-          category: "AUTHENTICATION", 
-          description: `Role mismatch login attempt for ${user.email} - selected: ${selectedRole}, actual: ${user.role}` 
-        }, 
-        ip 
-      })
-      return NextResponse.json({ 
-        error: `You are not authorized to access the ${selectedRole} portal. Your account is registered as ${user.role}.` 
-      }, { status: 403 })
     }
 
     const token = generateToken(user.id, user.email, user.role)

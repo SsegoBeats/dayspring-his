@@ -24,7 +24,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string, role: UserRole) => Promise<{ success: boolean; error?: string }>
+  login: (email: string, password: string) => Promise<{ success: boolean; role?: string; error?: string }>
   logout: () => void
   refreshUser: () => Promise<void>
   isLoading: boolean
@@ -65,13 +65,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })()
   }, [refreshUser])
 
-  const login = async (email: string, password: string, role: UserRole): Promise<{ success: boolean; error?: string }> => {
+  const login = async (email: string, password: string): Promise<{ success: boolean; role?: string; error?: string }> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password, role }), // ✅ Send selected role for validation
+        body: JSON.stringify({ email, password }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
@@ -87,7 +87,19 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         await refreshUser()
         if (typeof window !== "undefined" && !document.cookie.match(/(?:^|;\s)session=/)) {
           // Fallback: force a full navigation so Set-Cookie is applied
-          window.location.href = "/dashboard"
+          const roleRedirectMap: Record<string, string> = {
+            "Nurse": "/nurse",
+            "Clinician": "/clinician",
+            "Receptionist": "/receptionist",
+            "Hospital Admin": "/admin",
+            "Cashier": "/cashier",
+            "Pharmacist": "/pharmacist",
+            "Lab Tech": "/lab-tech",
+            "Radiologist": "/radiologist",
+            "Dentist": "/dentist",
+            "Midwife": "/midwife",
+          }
+          window.location.href = roleRedirectMap[data.role] ?? "/dashboard"
         }
       } catch {}
       if (typeof window !== "undefined") {
@@ -102,7 +114,7 @@ export function AuthProvider({ children }: { children: ReactNode }) {
         })
         window.dispatchEvent(event)
       }
-      return { success: true }
+      return { success: true, role: data.role }
     } catch {
       return { success: false, error: "An error occurred" }
     }

@@ -3,28 +3,13 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth, type UserRole } from "@/lib/auth-context"
-import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
-import { Eye, EyeOff, AlertCircle, Mail, ChevronDown } from "lucide-react"
+import { useAuth } from "@/lib/auth-context"
+import { Eye, EyeOff, AlertCircle, Mail } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
-
-const roles: { value: UserRole; label: string }[] = [
-  { value: "Receptionist",  label: "Receptionist" },
-  { value: "Clinician",     label: "Clinician" },
-  { value: "Midwife",       label: "Midwifery" },
-  { value: "Dentist",       label: "Dentist" },
-  { value: "Radiologist",   label: "Radiologist" },
-  { value: "Nurse",         label: "Nurse" },
-  { value: "Lab Tech",      label: "Lab Technician" },
-  { value: "Hospital Admin",label: "Hospital Admin" },
-  { value: "Cashier",       label: "Cashier" },
-  { value: "Pharmacist",    label: "Pharmacist" },
-]
 
 export function LoginForm() {
   const [email,           setEmail]           = useState("")
   const [password,        setPassword]        = useState("")
-  const [role,            setRole]            = useState<UserRole>("Receptionist")
   const [error,           setError]           = useState("")
   const [isLoading,       setIsLoading]       = useState(false)
   const [showPassword,    setShowPassword]    = useState(false)
@@ -39,17 +24,33 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
-      const result = await login(email, password, role)
+      const result = await login(email, password)
       if (!result.success) {
         if (result.error?.includes("deactivated") || result.error?.includes("Account Deactivated")) {
           setIsAccountInactive(true)
         }
-        setError(result.error || "Invalid credentials. Please check your email, password, and role selection.")
+        setError(result.error || "Invalid credentials. Please check your email and password.")
       } else {
+        // Role-based redirect using the authenticated user's role from the backend
+        const redirectPath = (() => {
+          switch (result.role) {
+            case "Nurse":          return "/nurse"
+            case "Clinician":      return "/clinician"
+            case "Receptionist":   return "/receptionist"
+            case "Hospital Admin": return "/admin"
+            case "Cashier":        return "/cashier"
+            case "Pharmacist":     return "/pharmacist"
+            case "Lab Tech":       return "/lab-tech"
+            case "Radiologist":    return "/radiologist"
+            case "Dentist":        return "/dentist"
+            case "Midwife":        return "/midwife"
+            default:               return "/dashboard"
+          }
+        })()
         if (typeof window !== "undefined") {
-          window.location.assign("/dashboard")
+          window.location.assign(redirectPath)
         } else {
-          router.push("/dashboard")
+          router.push(redirectPath)
         }
       }
     } catch {
@@ -114,29 +115,6 @@ export function LoginForm() {
                 : <Eye    className="h-4 w-4" />}
             </button>
           </div>
-        </div>
-
-        {/* Role */}
-        <div className="space-y-1.5">
-          <label htmlFor="role" className="block text-sm font-medium text-foreground">
-            Role
-          </label>
-          <Select name="role" value={role} onValueChange={(v) => setRole(v as UserRole)}>
-            <SelectTrigger
-              id="role"
-              aria-label="Role"
-              className="login-input-field w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/15 focus:outline-none transition-all h-auto"
-            >
-              <SelectValue />
-            </SelectTrigger>
-            <SelectContent>
-              {roles.map((r) => (
-                <SelectItem key={r.value} value={r.value}>
-                  {r.label}
-                </SelectItem>
-              ))}
-            </SelectContent>
-          </Select>
         </div>
 
         {/* Error states */}
