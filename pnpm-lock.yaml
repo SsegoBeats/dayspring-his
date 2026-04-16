@@ -226,6 +226,9 @@ importers:
       '@types/nodemailer':
         specifier: ^7.0.3
         version: 7.0.9
+      '@types/pdfkit':
+        specifier: ^0.17.5
+        version: 0.17.5
       '@types/pg':
         specifier: ^8.15.6
         version: 8.15.6
@@ -2107,6 +2110,9 @@ packages:
 
   '@types/pako@2.0.4':
     resolution: {integrity: sha512-VWDCbrLeVXJM9fihYodcLiIv0ku+AlOa/TQ1SvYOaBuyrSKgEcro95LJyIsJ4vSo6BXIxOKxiJAat04CmST9Fw==}
+
+  '@types/pdfkit@0.17.5':
+    resolution: {integrity: sha512-T3ZHnvF91HsEco5ClhBCOuBwobZfPcI2jaiSHybkkKYq4KhVIIurod94JVKvDIG0JXT6o3KiERC0X0//m8dyrg==}
 
   '@types/pg-pool@2.0.7':
     resolution: {integrity: sha512-U4CwmGVQcbEuqpyju8/ptOKg6gEC+Tqsvj2xS9o1g71bUh8twxnC6ZL5rZKCsGN0iyH0CwgUyc9VR5owNQF9Ng==}
@@ -6891,6 +6897,10 @@ snapshots:
       '@types/node': 22.19.10
 
   '@types/pako@2.0.4': {}
+
+  '@types/pdfkit@0.17.5':
+    dependencies:
+      '@types/node': 22.19.10
 
   '@types/pg-pool@2.0.7':
     dependencies:
