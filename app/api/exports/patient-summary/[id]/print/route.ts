@@ -6,9 +6,10 @@ import { writeAuditLog } from "@/lib/audit"
 
 export async function PATCH(
   _req: Request,
-  { params }: { params: { id: string } }
+  { params }: { params: Promise<{ id: string }> }
 ) {
   try {
+    const { id } = await params
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -20,7 +21,7 @@ export async function PATCH(
 
     const result = await query<{ id: string; status: string }>(
       `UPDATE patient_summaries SET status = 'printed' WHERE id = $1 AND status = 'pending_print' RETURNING id, status`,
-      [params.id]
+      [id]
     )
     if (!result.rows[0]) {
       return NextResponse.json({ error: "Summary not found or already printed" }, { status: 404 })
@@ -30,11 +31,11 @@ export async function PATCH(
       userId: payload.sub,
       action: "SUMMARY_PRINTED",
       entityType: "PatientSummary",
-      entityId: params.id,
+      entityId: id,
       details: { category: "CLINICAL" },
     })
 
-    return NextResponse.json({ id: params.id, status: "printed" })
+    return NextResponse.json({ id, status: "printed" })
   } catch (error: unknown) {
     const msg = error instanceof Error ? error.message : "Failed to mark as printed"
     return NextResponse.json({ error: msg }, { status: 500 })
