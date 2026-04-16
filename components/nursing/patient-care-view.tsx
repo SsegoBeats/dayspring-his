@@ -11,13 +11,14 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Separator } from "@/components/ui/separator"
 import { formatPatientNumber } from "@/lib/patients"
-import { Activity, FileText, Clock, AlertCircle, Loader2 } from "lucide-react"
+import { Activity, FileText, Clock, AlertCircle, Loader2, Pill } from "lucide-react"
 import { TriageForm } from "@/components/patient/triage-form"
+import { MARView } from "@/components/nursing/mar-view"
 import { toast } from "sonner"
 import { validateVitalSigns, parseBloodPressure, extractNumericValue } from "@/lib/vital-signs-validation"
 import { fmtBP, fmtTemp, fmtBpm, fmtRR, fmtSpO2, fmtKg, fmtCm } from "@/lib/vital-formatting"
 
-type CareTab = "vitals" | "notes" | "history" | "triage"
+type CareTab = "vitals" | "notes" | "history" | "triage" | "mar"
 
 type NoteCategory = "assessment" | "medication" | "procedure" | "observation" | "other"
 
@@ -74,7 +75,7 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
     if (initialTab) { setActiveTab(initialTab); return }
     try {
       const saved = typeof window !== "undefined" ? localStorage.getItem(storageKey) : null
-      if (saved && ["vitals", "notes", "history", "triage"].includes(saved)) setActiveTab(saved as CareTab)
+      if (saved && ["vitals", "notes", "history", "triage", "mar"].includes(saved)) setActiveTab(saved as CareTab)
     } catch {}
   }, [initialTab, storageKey])
 
@@ -226,6 +227,7 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
     { value: "notes", label: "Note", Icon: FileText },
     { value: "history", label: "History", Icon: Clock },
     { value: "triage", label: "Triage", Icon: AlertCircle },
+    { value: "mar", label: "MAR", Icon: Pill },
   ]
 
   return (
@@ -477,6 +479,13 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
                 }}
               />
             </div>
+          </div>
+        )}
+
+        {/* MAR TAB */}
+        {activeTab === "mar" && (
+          <div className="mt-4">
+            <MARView patientId={patientId} />
           </div>
         )}
       </div>

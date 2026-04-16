@@ -68,7 +68,28 @@ export async function GET(req: Request) {
     }
 
     const url = new URL(req.url)
-    const prescriptionId = url.searchParams.get('prescriptionId')
+    const searchParams = url.searchParams
+    const prescriptionId = searchParams.get('prescriptionId')
+
+    const patientId = searchParams.get("patientId")
+    if (patientId) {
+      const result = await query<{
+        id: string; prescription_id: string; administered_at: string
+        dose_given: string; route: string | null; notes: string | null
+        nurse_name: string | null
+      }>(
+        `SELECT pa.id, pa.prescription_id, pa.administered_at, pa.dose_given, pa.route, pa.notes,
+                u.name AS nurse_name
+         FROM prescription_administrations pa
+         LEFT JOIN users u ON u.id = pa.administered_by
+         WHERE pa.prescription_id IN (
+           SELECT id FROM prescriptions WHERE patient_id = $1
+         )
+         ORDER BY pa.administered_at DESC`,
+        [patientId]
+      )
+      return NextResponse.json({ administrations: result.rows })
+    }
 
     if (!prescriptionId) {
       return NextResponse.json({ error: 'Prescription ID required' }, { status: 400 })
