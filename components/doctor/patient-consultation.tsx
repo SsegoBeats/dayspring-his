@@ -5,7 +5,8 @@ import { useMedical } from "@/lib/medical-context"
 import { useAuth } from "@/lib/auth-context"
 import { useLab } from "@/lib/lab-context"
 import { Button } from "@/components/ui/button"
-import { Printer, X } from "lucide-react"
+import { FileText, Loader2, Printer, X } from "lucide-react"
+import { toast } from "sonner"
 import { cn } from "@/lib/utils"
 import { formatPatientNumber } from "@/lib/patients"
 import { ConsultationTab } from "./consultation-tabs/consultation-tab"
@@ -54,6 +55,41 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
 
   const [activeTab, setActiveTab] = useState<ConsultTab>(initialTab)
   const [dentalHistory, setDentalHistory] = useState<DentalRecordSummary[]>([])
+  const [generatingSummary, setGeneratingSummary] = useState(false)
+
+  const handleGenerateSummary = async () => {
+    if (!patientId) return
+    try {
+      setGeneratingSummary(true)
+      // Fetch the latest medical record for this patient to get visitId
+      const recordRes = await fetch(`/api/medical/records?patientId=${patientId}`, {
+        credentials: "include",
+      })
+      if (!recordRes.ok) throw new Error("Could not retrieve visit record")
+      const recordData = await recordRes.json()
+      const latestRecord = recordData.records?.[0]
+      if (!latestRecord?.id) throw new Error("No consultation record found. Save the consultation first.")
+
+      const res = await fetch("/api/exports/patient-summary", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({
+          patientId,
+          visitId: latestRecord.id,
+          type: "avs",
+        }),
+      })
+      const data = await res.json()
+      if (!res.ok) throw new Error(data.error || "Failed to generate summary")
+      toast.success("Patient summary generated. Hospital Admin has been notified to print.")
+    } catch (err: unknown) {
+      const msg = err instanceof Error ? err.message : "Failed to generate summary"
+      toast.error(msg)
+    } finally {
+      setGeneratingSummary(false)
+    }
+  }
 
   // SSE stream for live lab updates — kept in state so it can be passed to LabsTab during render
   const [labStream, setLabStream] = useState<EventSource | null>(null)
@@ -125,6 +161,20 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
             </div>
           </div>
           <div className="flex items-center gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={handleGenerateSummary}
+              disabled={generatingSummary}
+              aria-label="Generate patient after-visit summary"
+            >
+              {generatingSummary ? (
+                <Loader2 className="mr-1.5 h-4 w-4 animate-spin" />
+              ) : (
+                <FileText className="mr-1.5 h-4 w-4" />
+              )}
+              {generatingSummary ? "Generating…" : "Generate Summary"}
+            </Button>
             <Button variant="outline" size="sm" onClick={() => window.print()} aria-label="Print consultation summary">
               <Printer className="mr-1.5 h-4 w-4" />
               Print
