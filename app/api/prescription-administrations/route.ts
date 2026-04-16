@@ -44,9 +44,10 @@ export async function POST(req: Request) {
     )
 
     return NextResponse.json({ id: result.rows[0].id, success: true })
-  } catch (error: any) {
-    if (error?.name === 'ZodError') {
-      return NextResponse.json({ error: 'Validation error', details: error.issues }, { status: 400 })
+  } catch (error: unknown) {
+    if (error instanceof Error && error.name === 'ZodError') {
+      const zodErr = error as Error & { issues: unknown }
+      return NextResponse.json({ error: 'Validation error', details: zodErr.issues }, { status: 400 })
     }
     console.error('[prescription-administrations] POST error:', error)
     return NextResponse.json({ error: 'Failed to record administration' }, { status: 500 })
@@ -105,7 +106,7 @@ export async function GET(req: Request) {
     )
 
     return NextResponse.json({ administrations: result.rows })
-  } catch (error: any) {
+  } catch (error: unknown) {
     console.error('[prescription-administrations] GET error:', error)
     return NextResponse.json({ error: 'Failed to fetch administrations' }, { status: 500 })
   }

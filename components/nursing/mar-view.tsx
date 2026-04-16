@@ -130,7 +130,11 @@ export function MARView({ patientId }: MARViewProps) {
   }
 
   useEffect(() => {
-    if (patientId) void loadData()
+    if (!patientId) return
+    void loadData()
+    // Refresh every 5 minutes so upcoming doses enter the 1-hour window automatically
+    const timer = setInterval(() => void loadData(), 5 * 60 * 1000)
+    return () => clearInterval(timer)
   }, [patientId])
 
   const openGiveDialog = (row: MARRow) => {
@@ -204,12 +208,12 @@ export function MARView({ patientId }: MARViewProps) {
             </TableRow>
           </TableHeader>
           <TableBody>
-            {marRows.map((row, i) => {
+            {marRows.map((row) => {
               const cfg = STATUS_CONFIG[row.status]
               const Icon = cfg.icon
               const canGive = ["due", "delayed", "missed", "stat-pending"].includes(row.status)
               return (
-                <TableRow key={`${row.prescriptionId}-${i}`}>
+                <TableRow key={`${row.prescriptionId}-${row.scheduledAt?.getTime() ?? "stat"}`}>
                   <TableCell className="font-medium">{row.medication}</TableCell>
                   <TableCell className="text-sm text-muted-foreground">
                     {row.scheduledAt

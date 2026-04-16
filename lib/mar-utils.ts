@@ -50,11 +50,10 @@ export function calculateScheduledTimes(
   const anchor = new Date(startTime)
   anchor.setMinutes(0, 0, 0)
 
+  const intervalMs = (intervalHours * 60 * 60 * 1000)
   for (let day = 0; day < daysWindow; day++) {
     for (let dose = 0; dose < dosesPerDay; dose++) {
-      const t = new Date(anchor)
-      t.setDate(t.getDate() + day)
-      t.setHours(t.getHours() + dose * intervalHours)
+      const t = new Date(anchor.getTime() + day * 24 * 60 * 60 * 1000 + dose * intervalMs)
       times.push(t)
     }
   }
