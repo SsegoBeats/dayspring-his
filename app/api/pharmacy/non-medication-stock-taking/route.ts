@@ -167,7 +167,6 @@ export async function PATCH(req: Request) {
 
     // If approved and applyAdjustment is true, adjust the stock
     if (status === "Approved" && body.applyAdjustment && variance !== 0) {
-      const adjustmentType = variance > 0 ? "Issue" : "Receive"
       const quantity = Math.abs(variance)
 
       // Update item stock

@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
-import { queryWithSession } from "@/lib/db"
+import { withSession } from "@/lib/db"
 
 export async function POST(req: Request) {
   try {
@@ -34,30 +34,41 @@ export async function POST(req: Request) {
     const reference = body.reference ? String(body.reference).trim() || null : null
     const barcodeSnapshot = body.barcode ? String(body.barcode).trim() || null : null
 
-    // Update last_restocked_at when receiving stock
-    await queryWithSession(
+    const updatedMedication = await withSession(
       { role: auth.role, userId: auth.userId },
-      `UPDATE medications SET last_restocked_at = CURRENT_TIMESTAMP WHERE id = $1`,
-      [medicationId],
+      async (client) => {
+        const { rows } = await client.query(
+          `UPDATE medications
+             SET stock_quantity = stock_quantity + $1,
+                 last_restocked_at = CURRENT_TIMESTAMP
+           WHERE id = $2
+           RETURNING id, stock_quantity`,
+          [qty, medicationId],
+        )
+
+        if (!rows.length) {
+          throw new Error("Medication not found")
+        }
+
+        await client.query(
+          `INSERT INTO medication_stock_movements (
+             medication_id,
+             movement_type,
+             quantity,
+             reference,
+             batch_number,
+             expiry_date,
+             barcode_snapshot,
+             created_by
+           ) VALUES ($1,'Receive',$2,$3,$4,$5,$6,$7)`,
+          [medicationId, qty, reference, batchNumber, expiryDate, barcodeSnapshot, auth.userId],
+        )
+
+        return rows[0]
+      },
     )
 
-    // Insert a movement record; stock increment is handled by the UI via /pharmacy/medications/[id].
-    await queryWithSession(
-      { role: auth.role, userId: auth.userId },
-      `INSERT INTO medication_stock_movements (
-         medication_id,
-         movement_type,
-         quantity,
-         reference,
-         batch_number,
-         expiry_date,
-         barcode_snapshot,
-         created_by
-       ) VALUES ($1,'Receive',$2,$3,$4,$5,$6,$7)`,
-      [medicationId, qty, reference, batchNumber, expiryDate, barcodeSnapshot, auth.userId],
-    )
-
-    return NextResponse.json({ ok: true })
+    return NextResponse.json({ ok: true, medication: updatedMedication })
   } catch (err: any) {
     return NextResponse.json({ error: "Failed to record stock receipt" }, { status: 500 })
   }

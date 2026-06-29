@@ -32,7 +32,7 @@ type ExpiryFilter = "all" | "expiring" | "expired" | "none"
 type SortKey = "name" | "manufacturer" | "stock" | "expiry" | "price"
 
 export function MedicationInventory() {
-  const { medications, getLowStockMedications, updateMedication, getExpiringMedications, deleteMedication } =
+  const { medications, getLowStockMedications, updateMedication, getExpiringMedications, deleteMedication, refreshMedications } =
     usePharmacy()
   const formatCurrency = useFormatCurrency()
   const { toast } = useToast()
@@ -330,7 +330,6 @@ export function MedicationInventory() {
       return
     }
     const newQty = med.stockQuantity + qty
-    updateMedication(med.id, { stockQuantity: newQty })
     try {
       const res = await fetch("/api/pharmacy/stock-receipts", {
         method: "POST",
@@ -345,26 +344,28 @@ export function MedicationInventory() {
           reference: "Manual scan receive",
         }),
       })
-      if (res.ok) {
-        setScanSummary({ name: med.name, quantity: qty, newStock: newQty })
-        setScanMessage(`Received ${qty} units into ${med.name}. New stock: ${newQty}.`)
-        toast({
-          title: "Stock received",
-          description: `Successfully received ${qty} units of ${med.name}. New stock level: ${newQty}.`,
-          variant: "default",
-        })
-      } else {
+      if (!res.ok) {
         toast({
           title: "Warning",
-          description: "Stock updated locally but failed to record receipt. Please verify.",
-          variant: "default",
+          description: "Failed to receive stock. Please verify the transaction.",
+          variant: "destructive",
         })
+        return
       }
+
+      await refreshMedications()
+      setScanSummary({ name: med.name, quantity: qty, newStock: newQty })
+      setScanMessage(`Received ${qty} units into ${med.name}. New stock: ${newQty}.`)
+      toast({
+        title: "Stock received",
+        description: `Successfully received ${qty} units of ${med.name}. New stock level: ${newQty}.`,
+        variant: "default",
+      })
     } catch (error) {
       toast({
         title: "Warning",
-        description: "Stock updated locally but failed to record receipt. Please verify.",
-        variant: "default",
+        description: "Failed to receive stock. Please verify the transaction.",
+        variant: "destructive",
       })
     }
     setScanCode("")
