@@ -30,8 +30,6 @@ interface PrescriptionDispenseProps {
   prescriptionId: string
   onBack: () => void
   onSuccess?: () => void
-  /** @deprecated Pass nothing — bill status is now fetched automatically */
-  billingPaid?: boolean
 }
 
 export function PrescriptionDispense({ prescriptionId, onBack, onSuccess }: PrescriptionDispenseProps) {

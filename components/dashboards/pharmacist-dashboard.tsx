@@ -184,17 +184,10 @@ export function PharmacistDashboard() {
   }
 
   if (selectedPrescriptionId) {
-    const isScannedPatient =
-      !!scannedInfo &&
-      prescriptions.some((p) => p.id === selectedPrescriptionId && p.patientId === scannedInfo.patientId)
-
-    const billingPaid = isScannedPatient ? scannedInfo?.billStatus === "paid" : undefined
-
     return (
       <PrescriptionDispense
         prescriptionId={selectedPrescriptionId}
         onBack={() => setSelectedPrescriptionId(null)}
-        billingPaid={billingPaid}
       />
     )
   }

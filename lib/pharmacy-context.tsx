@@ -209,20 +209,38 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
 
   const refreshSuppliers = useCallback(async () => {
     try {
-      const res = await fetch("/api/pharmacy/suppliers")
-      if (!res.ok) return
+      const res = await fetch("/api/pharmacy/suppliers", { credentials: "include" })
+      if (!res.ok) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[PharmacyContext] Failed to fetch suppliers:", res.status, res.statusText)
+        }
+        return
+      }
       const data = await res.json()
       setSuppliers(data.suppliers ?? [])
-    } catch {}
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[PharmacyContext] Error fetching suppliers:", err)
+      }
+    }
   }, [])
 
   const refreshPurchaseOrders = useCallback(async () => {
     try {
-      const res = await fetch("/api/pharmacy/purchase-orders")
-      if (!res.ok) return
+      const res = await fetch("/api/pharmacy/purchase-orders", { credentials: "include" })
+      if (!res.ok) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[PharmacyContext] Failed to fetch purchase orders:", res.status, res.statusText)
+        }
+        return
+      }
       const data = await res.json()
       setPurchaseOrders(data.purchase_orders ?? [])
-    } catch {}
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[PharmacyContext] Error fetching purchase orders:", err)
+      }
+    }
   }, [])
 
   const createPurchaseOrder = useCallback(async (data: {
@@ -234,6 +252,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
   }) => {
     const res = await fetch("/api/pharmacy/purchase-orders", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     })
@@ -248,6 +267,7 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
 
   const approvePurchaseOrder = useCallback(async (id: string) => {
     const res = await fetch(`/api/pharmacy/purchase-orders/${id}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "approve" }),
@@ -260,18 +280,28 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
   }, [refreshPurchaseOrders])
 
   const cancelPurchaseOrder = useCallback(async (id: string, reason?: string) => {
-    const res = await fetch(`/api/pharmacy/purchase-orders/${id}`, {
+    cocredentials: "include",
+      nst res = await fetch(`/api/pharmacy/purchase-orders/${id}`, {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "cancel", cancellation_reason: reason }),
     })
     if (!res.ok) {
-      const err = await res.json().catch(() => ({}))
-      throw new Error((err as { error?: string }).error || "Failed to cancel purchase order")
-    }
-    await refreshPurchaseOrders()
+      if (!res.ok) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[PharmacyContext] Failed to fetch GRNs:", res.status, res.statusText)
+        }
+        return
+      }
+      const data = await res.json()
+      setGrns(data.grns ?? [])
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[PharmacyContext] Error fetching GRNs:", err)
+      }
+    }eshPurchaseOrders()
   }, [refreshPurchaseOrders])
-
+, { credentials: "include" }
   const refreshGrns = useCallback(async () => {
     try {
       const res = await fetch("/api/pharmacy/grn")
@@ -288,7 +318,8 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     invoice_number?: string
     notes?: string
   }) => {
-    const res = await fetch("/api/pharmacy/grn", {
+    cocredentials: "include",
+      nst res = await fetch("/api/pharmacy/grn", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -296,12 +327,21 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       throw new Error((err as { error?: string }).error || "Failed to create GRN")
-    }
-    const result = await res.json()
-    await refreshGrns()
-    return result.grn
+      if (!res.ok) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[PharmacyContext] Failed to fetch pharmacy settings:", res.status, res.statusText)
+        }
+        return
+      }
+      const data = await res.json()
+      setPharmacySettings(data.settings ?? null)
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[PharmacyContext] Error fetching pharmacy settings:", err)
+      }
+    }ult.grn
   }, [refreshGrns])
-
+, { credentials: "include" }
   const refreshPharmacySettings = useCallback(async () => {
     try {
       const res = await fetch("/api/pharmacy/settings")
@@ -312,7 +352,8 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
   }, [])
 
   const updatePharmacySettings = useCallback(async (data: Partial<PharmacySettings>) => {
-    const res = await fetch("/api/pharmacy/settings", {
+    cocredentials: "include",
+      nst res = await fetch("/api/pharmacy/settings", {
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
@@ -362,24 +403,17 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
           schedule_class: medication.schedule_class,
         }),
       })
-      if (res.ok) {
-        // Refresh medications from server to get the actual ID
-        await refreshMedications()
-      } else {
-        // Optimistic update if server fails
-        const newMedication: Medication = {
-          ...medication,
-          id: `MED${String(medications.length + 1).padStart(3, "0")}`,
-        }
-        setMedications([...medications, newMedication])
+      if (!res.ok) {
+        const err = await res.json().catch(() => ({}))
+        throw new Error((err as { error?: string }).error || "Failed to add medication")
       }
+      // Refresh medications from server to get the actual ID and ensure consistency
+      await refreshMedications()
     } catch (error) {
-      // Optimistic update on error
-      const newMedication: Medication = {
-        ...medication,
-        id: `MED${String(medications.length + 1).padStart(3, "0")}`,
+      if (process.env.NODE_ENV === "development") {
+        console.error("[PharmacyContext] Error adding medication:", error)
       }
-      setMedications([...medications, newMedication])
+      throw error
     }
   }
 
