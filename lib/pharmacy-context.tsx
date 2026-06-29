@@ -280,28 +280,19 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
   }, [refreshPurchaseOrders])
 
   const cancelPurchaseOrder = useCallback(async (id: string, reason?: string) => {
-    cocredentials: "include",
-      nst res = await fetch(`/api/pharmacy/purchase-orders/${id}`, {
+    const res = await fetch(`/api/pharmacy/purchase-orders/${id}`, {
+      credentials: "include",
       method: "PATCH",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({ action: "cancel", cancellation_reason: reason }),
     })
     if (!res.ok) {
-      if (!res.ok) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[PharmacyContext] Failed to fetch GRNs:", res.status, res.statusText)
-        }
-        return
-      }
-      const data = await res.json()
-      setGrns(data.grns ?? [])
-    } catch (err) {
-      if (process.env.NODE_ENV === "development") {
-        console.warn("[PharmacyContext] Error fetching GRNs:", err)
-      }
-    }eshPurchaseOrders()
+      const err = await res.json().catch(() => ({}))
+      throw new Error((err as { error?: string }).error || "Failed to cancel purchase order")
+    }
+    await refreshPurchaseOrders()
   }, [refreshPurchaseOrders])
-, { credentials: "include" }
+
   const refreshGrns = useCallback(async () => {
     try {
       const res = await fetch("/api/pharmacy/grn")
@@ -318,43 +309,38 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     invoice_number?: string
     notes?: string
   }) => {
-    cocredentials: "include",
-      nst res = await fetch("/api/pharmacy/grn", {
+    const res = await fetch("/api/pharmacy/grn", {
       method: "POST",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     })
     if (!res.ok) {
       const err = await res.json().catch(() => ({}))
       throw new Error((err as { error?: string }).error || "Failed to create GRN")
-      if (!res.ok) {
-        if (process.env.NODE_ENV === "development") {
-          console.warn("[PharmacyContext] Failed to fetch pharmacy settings:", res.status, res.statusText)
-        }
-        return
-      }
+    }
+    const result = await res.json()
+    await refreshGrns()
+    return result.grn
+  }, [refreshGrns])
+
+  const refreshPharmacySettings = useCallback(async () => {
+    try {
+      const res = await fetch("/api/pharmacy/settings", { credentials: "include" })
+      if (!res.ok) return
       const data = await res.json()
       setPharmacySettings(data.settings ?? null)
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[PharmacyContext] Error fetching pharmacy settings:", err)
       }
-    }ult.grn
-  }, [refreshGrns])
-, { credentials: "include" }
-  const refreshPharmacySettings = useCallback(async () => {
-    try {
-      const res = await fetch("/api/pharmacy/settings")
-      if (!res.ok) return
-      const data = await res.json()
-      setPharmacySettings(data.settings ?? null)
-    } catch {}
+    }
   }, [])
 
   const updatePharmacySettings = useCallback(async (data: Partial<PharmacySettings>) => {
-    cocredentials: "include",
-      nst res = await fetch("/api/pharmacy/settings", {
+    const res = await fetch("/api/pharmacy/settings", {
       method: "PATCH",
+      credentials: "include",
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify(data),
     })
