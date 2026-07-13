@@ -9,6 +9,7 @@ import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@
 import { toast } from "sonner"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { usePatients } from "@/lib/patient-context"
+import { buildPatchPayload } from "@/lib/patch-payload"
 
 export interface EditPatientDialogProps {
   open: boolean
@@ -98,11 +99,12 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
         nextOfKinRelation: form.nextOfKinRelation.trim() || null,
         nextOfKinResidence: form.nextOfKinResidence.trim() || null,
       }
+      const normalizedPayload = buildPatchPayload(payload)
       const res = await fetch('/api/patients', {
         method: 'PATCH',
         headers: { 'Content-Type': 'application/json' },
         credentials: 'include',
-        body: JSON.stringify(payload),
+        body: JSON.stringify(normalizedPayload),
       })
       if (!res.ok) {
         const e = await res.json().catch(()=>({}))

@@ -9,6 +9,7 @@ import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
+import { buildPatchPayload } from "@/lib/patch-payload"
 
 interface HistoryTabProps {
   patient: Patient
@@ -187,10 +188,11 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
       if (editForm.edd) payload.edd = editForm.edd
       if (editForm.fundalHeightCm) payload.fundalHeightCm = Number(editForm.fundalHeightCm)
       if (editForm.fetalHeartRate) payload.fetalHeartRate = Number(editForm.fetalHeartRate)
+      const normalizedPayload = buildPatchPayload(payload)
       const res = await fetch(`/api/obstetrics/assessments/${editingId}`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(normalizedPayload),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))

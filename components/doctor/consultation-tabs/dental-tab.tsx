@@ -9,6 +9,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
 import { toast } from "sonner"
 import { FdiToothChart, type ToothChartData } from "@/components/dentist/fdi-tooth-chart"
+import { buildPatchPayload } from "@/lib/patch-payload"
 
 interface DentalTabProps {
   patient: Patient
@@ -121,10 +122,11 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
         toothChart: Object.keys(editForm.toothChart).length > 0 ? editForm.toothChart : null,
       }
       if (editForm.visitDate) payload.visitDate = editForm.visitDate
+      const normalizedPayload = buildPatchPayload(payload)
       const res = await fetch(`/api/dental/records/${editingId}`, {
         method: "PATCH", credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify(payload),
+        body: JSON.stringify(normalizedPayload),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
