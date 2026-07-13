@@ -20,6 +20,7 @@ import { AddMedicationDialog } from "./add-medication-dialog"
 import { StockMovements } from "./stock-movements"
 import { MedicationBatches } from "./medication-batches"
 import { AdvancedSearchDialog, type AdvancedSearchFilters } from "./advanced-search-dialog"
+import { buildMedicationUpdatePayload } from "@/lib/pharmacy-update-payload"
 
 type ScanSummary = {
   name: string
@@ -280,28 +281,37 @@ export function MedicationInventory() {
 
   const saveEdits = () => {
     if (!selectedMedication || !editForm) return
+    const parsedStock = Number.parseInt(editForm.stockQuantity, 10)
+    const parsedReorder = Number.parseInt(editForm.reorderLevel, 10)
+    const parsedMinStock = editForm.minStockLevel ? Number.parseInt(editForm.minStockLevel, 10) : undefined
+    const parsedMaxStock = editForm.maxStockLevel ? Number.parseInt(editForm.maxStockLevel, 10) : undefined
+    const parsedUnitPrice = Number.parseFloat(editForm.unitPrice)
+    const parsedCostPrice = editForm.costPrice ? Number.parseFloat(editForm.costPrice) : undefined
+
     const updated: Partial<Medication> = {
       name: editForm.name,
       category: editForm.category,
       manufacturer: editForm.manufacturer,
       batchNumber: editForm.batchNumber,
-      stockQuantity: Number.parseInt(editForm.stockQuantity) || 0,
-      reorderLevel: Number.parseInt(editForm.reorderLevel) || 0,
-      minStockLevel: editForm.minStockLevel ? Number.parseInt(editForm.minStockLevel) : undefined,
-      maxStockLevel: editForm.maxStockLevel ? Number.parseInt(editForm.maxStockLevel) : undefined,
-      unitPrice: Number.parseFloat(editForm.unitPrice) || 0,
-      costPrice: editForm.costPrice ? Number.parseFloat(editForm.costPrice) : undefined,
+      stockQuantity: Number.isFinite(parsedStock) ? parsedStock : 0,
+      reorderLevel: Number.isFinite(parsedReorder) ? parsedReorder : 0,
+      minStockLevel: Number.isFinite(parsedMinStock) ? parsedMinStock : undefined,
+      maxStockLevel: Number.isFinite(parsedMaxStock) ? parsedMaxStock : undefined,
+      unitPrice: Number.isFinite(parsedUnitPrice) ? parsedUnitPrice : 0,
+      costPrice: Number.isFinite(parsedCostPrice) ? parsedCostPrice : undefined,
       expiryDate: editForm.expiryDate,
       barcode: editForm.barcode || undefined,
       is_controlled: editForm.is_controlled,
       schedule_class: editForm.schedule_class || null,
     }
+
+    const payload = buildMedicationUpdatePayload(updated)
     updateMedication(selectedMedication.id, updated)
     setSelectedMedication({ ...selectedMedication, ...updated })
     setIsEditing(false)
     toast({
       title: "Medication updated",
-      description: `"${updated.name}" has been updated successfully.`,
+      description: `"${payload.name || selectedMedication.name}" has been updated successfully.`,
       variant: "default",
     })
   }

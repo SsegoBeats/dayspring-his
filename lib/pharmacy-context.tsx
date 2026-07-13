@@ -4,6 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, type React
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/security"
 import { ORG_NAME, ORG_EMAIL } from "@/lib/org-constants"
+import { buildMedicationUpdatePayload } from "@/lib/pharmacy-update-payload"
 
 export interface Medication {
   id: string
@@ -407,23 +408,12 @@ export function PharmacyProvider({ children }: { children: ReactNode }) {
     // Optimistic update
     setMedications(medications.map((m) => (m.id === id ? { ...m, ...updates } : m)))
     try {
+      const payload = buildMedicationUpdatePayload(updates)
       const res = await fetch(`/api/pharmacy/medications/${encodeURIComponent(id)}`, {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({
-          name: updates.name,
-          category: updates.category,
-          manufacturer: updates.manufacturer,
-          stockQuantity: updates.stockQuantity,
-          unitPrice: updates.unitPrice,
-          costPrice: updates.costPrice,
-          expiryDate: updates.expiryDate,
-          reorderLevel: updates.reorderLevel,
-          minStockLevel: updates.minStockLevel,
-          maxStockLevel: updates.maxStockLevel,
-          barcode: updates.barcode,
-        }),
+        body: JSON.stringify(payload),
       })
       if (res.ok) {
         // Refresh to ensure consistency
