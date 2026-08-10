@@ -3,19 +3,21 @@
 import type React from "react"
 import { useState } from "react"
 import { useRouter } from "next/navigation"
-import { useAuth, ROLE_REDIRECT_MAP } from "@/lib/auth-context"
+import { useAuth, ROLE_REDIRECT_MAP, type UserRole } from "@/lib/auth-context"
 import { Eye, EyeOff, AlertCircle, Mail } from "lucide-react"
 import { Spinner } from "@/components/ui/spinner"
+import { ROLE_OPTIONS, normalizeRole } from "@/lib/auth-roles"
 
 export function LoginForm() {
-  const [email,           setEmail]           = useState("")
-  const [password,        setPassword]        = useState("")
-  const [error,           setError]           = useState("")
-  const [isLoading,       setIsLoading]       = useState(false)
-  const [showPassword,    setShowPassword]    = useState(false)
+  const [email, setEmail] = useState("")
+  const [password, setPassword] = useState("")
+  const [role, setRole] = useState<UserRole>("Receptionist")
+  const [error, setError] = useState("")
+  const [isLoading, setIsLoading] = useState(false)
+  const [showPassword, setShowPassword] = useState(false)
   const [isAccountInactive, setIsAccountInactive] = useState(false)
   const { login } = useAuth()
-  const router    = useRouter()
+  const router = useRouter()
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
@@ -24,12 +26,18 @@ export function LoginForm() {
     setIsLoading(true)
 
     try {
-      const result = await login(email, password)
+      const normalizedRole = normalizeRole(role)
+      if (!normalizedRole) {
+        setError("Please select a valid role.")
+        return
+      }
+
+      const result = await login(email, password, normalizedRole)
       if (!result.success) {
         if (result.error?.includes("deactivated") || result.error?.includes("Account Deactivated")) {
           setIsAccountInactive(true)
         }
-        setError(result.error || "Invalid credentials. Please check your email and password.")
+        setError(result.error || "Invalid credentials. Please check your email, password, and role selection.")
       } else {
         const redirectPath = (result.role ? ROLE_REDIRECT_MAP[result.role] : null) ?? "/dashboard"
         if (typeof window !== "undefined") {
@@ -100,6 +108,27 @@ export function LoginForm() {
                 : <Eye    className="h-4 w-4" />}
             </button>
           </div>
+        </div>
+
+        {/* Role */}
+        <div className="space-y-1.5">
+          <label htmlFor="role" className="block text-sm font-medium text-foreground">
+            Role
+          </label>
+          <select
+            id="role"
+            name="role"
+            value={role}
+            onChange={(e) => setRole(e.target.value as UserRole)}
+            required
+            className="login-input-field w-full rounded-lg border border-input bg-background px-3.5 py-2.5 text-sm text-foreground focus:border-primary focus:ring-2 focus:ring-primary/15 focus:outline-none transition-all"
+          >
+            {ROLE_OPTIONS.map((option) => (
+              <option key={option.value} value={option.value}>
+                {option.label}
+              </option>
+            ))}
+          </select>
         </div>
 
         {/* Error states */}

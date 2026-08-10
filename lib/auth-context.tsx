@@ -24,7 +24,7 @@ export interface User {
 
 interface AuthContextType {
   user: User | null
-  login: (email: string, password: string) => Promise<{ success: boolean; role?: UserRole; error?: string }>
+  login: (email: string, password: string, role?: UserRole) => Promise<{ success: boolean; role?: UserRole; error?: string }>
   logout: () => void
   refreshUser: () => Promise<void>
   isLoading: boolean
@@ -78,13 +78,13 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     })()
   }, [refreshUser])
 
-  const login = async (email: string, password: string): Promise<{ success: boolean; role?: UserRole; error?: string }> => {
+  const login = async (email: string, password: string, role?: UserRole): Promise<{ success: boolean; role?: UserRole; error?: string }> => {
     try {
       const res = await fetch("/api/auth/login", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
         credentials: "include",
-        body: JSON.stringify({ email, password }),
+        body: JSON.stringify({ email, password, role }),
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
