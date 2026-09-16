@@ -1,0 +1,226 @@
+import { NextResponse } from "next/server"
+import { cookies } from "next/headers"
+import { verifyToken, can, generateReceiptNumber, generateBarcodeData } from "@/lib/security"
+import { query, queryWithSession } from "@/lib/db"
+import { ensureNotificationInfrastructure } from "@/lib/notifications"
+
+export async function GET(req: Request) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    const auth = token ? verifyToken(token) : null
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, "billing", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    const url = new URL(req.url)
+    const search = url.searchParams.get("search")?.trim() || null
+    const status = url.searchParams.get("status")?.trim() || null
+    const limit = Math.max(1, Math.min(500, Number(url.searchParams.get("limit") || 500)))
+    const bills = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `SELECT b.id, b.bill_number, b.patient_id, p.patient_number, p.first_name, p.last_name, p.phone, p.email,
+              b.total_amount, b.tax_amount, b.discount_amount,
+              b.final_amount, b.status, b.payment_method, b.paid_amount, b.created_at, b.paid_at
+       FROM bills b
+       JOIN patients p ON p.id = b.patient_id
+       WHERE (
+         $1::text IS NULL OR
+         b.bill_number ILIKE $1 OR
+         p.patient_number ILIKE $1 OR
+         p.phone ILIKE $1 OR
+         CONCAT(p.first_name, ' ', p.last_name) ILIKE $1
+       )
+         AND ($2::text IS NULL OR LOWER(b.status) = LOWER($2))
+       ORDER BY b.created_at DESC
+       LIMIT $3`,
+      [search ? `%${search}%` : null, status, limit],
+    )
+    const billIds = bills.rows.map((bill: any) => bill.id).filter(Boolean)
+    const itemsRes =
+      billIds.length > 0
+        ? await queryWithSession(
+            { role: auth.role, userId: auth.userId },
+            `SELECT bill_id, description, quantity, unit_price, total_price
+               FROM bill_items
+              WHERE bill_id = ANY($1::uuid[])`,
+            [billIds],
+          )
+        : { rows: [] as any[] }
+    return NextResponse.json({ bills: bills.rows, items: itemsRes.rows })
+  } catch (err: any) {
+    return NextResponse.json({ error: "Failed to fetch bills" }, { status: 500 })
+  }
+}
+
+export async function POST(req: Request) {
+  try {
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
+    const auth = token ? verifyToken(token) : null
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, "billing", "create")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+    const body = (await req.json().catch(() => ({}))) as {
+      patientId?: string
+      source?: string
+      medications?: { name: string; dosage?: string; frequency?: string; duration?: string }[]
+      items?: {
+        description: string
+        quantity?: number
+        unitPrice?: number
+        total?: number
+        itemType?: "medication" | "service"
+        serviceCategory?: string
+      }[]
+      taxAmount?: number
+      discountAmount?: number
+    }
+
+    const patientId = (body.patientId || "").trim()
+    if (!patientId) {
+      return NextResponse.json({ error: "patientId is required" }, { status: 400 })
+    }
+
+    const medications = Array.isArray(body.medications) ? body.medications : []
+    const manualItems = Array.isArray(body.items) ? body.items : []
+
+    if (medications.length === 0 && manualItems.length === 0) {
+      return NextResponse.json({ error: "At least one item or medication is required" }, { status: 400 })
+    }
+
+    let items: { description: string; quantity: number; unitPrice: number; totalPrice: number }[] = []
+
+    if (medications.length > 0) {
+      // Prescription-derived bill: look up unit prices in medications table
+      const lowerNames = medications.map((m) => m.name.toLowerCase())
+      let priceMap = new Map<string, number>()
+      try {
+        const priceRes = await queryWithSession(
+          { role: auth.role, userId: auth.userId },
+          `SELECT name, unit_price FROM medications WHERE LOWER(name) = ANY($1::text[])`,
+          [lowerNames],
+        )
+        priceMap = new Map<string, number>(
+          priceRes.rows.map((r: any) => [String(r.name).toLowerCase(), Number(r.unit_price) || 0]),
+        )
+      } catch {
+        priceMap = new Map()
+      }
+
+      items = medications.map((m) => {
+        const key = m.name.toLowerCase()
+        const unitPrice = priceMap.get(key) ?? 0
+        const quantity = 1
+        const totalPrice = unitPrice * quantity
+        const descriptionParts = [m.name, m.dosage, m.frequency, m.duration].filter(Boolean)
+        return {
+          description: descriptionParts.join(" - "),
+          quantity,
+          unitPrice,
+          totalPrice,
+        }
+      })
+    } else {
+      // Manual bill created by cashier (medication items with unitPrice, or service items with total)
+      items = manualItems.map((it) => {
+        const quantity = Number(it.quantity) && Number(it.quantity) > 0 ? Number(it.quantity) : 1
+        const isService = it.itemType === "service" || (it.total != null && it.total > 0 && (it.unitPrice == null || it.unitPrice === 0))
+        let totalPrice: number
+        let unitPrice: number
+        if (isService && it.total != null && Number(it.total) >= 0) {
+          totalPrice = Number(it.total)
+          unitPrice = quantity > 0 ? totalPrice / quantity : 0
+        } else {
+          unitPrice = Number(it.unitPrice) && Number(it.unitPrice) >= 0 ? Number(it.unitPrice) : 0
+          totalPrice = quantity * unitPrice
+        }
+        return {
+          description: String(it.description || "").trim(),
+          quantity,
+          unitPrice,
+          totalPrice,
+        }
+      })
+    }
+
+    const subtotal = items.reduce((sum, i) => sum + i.totalPrice, 0)
+    const taxAmount = body.taxAmount !== undefined ? Number(body.taxAmount) : 0
+    const discountAmount = body.discountAmount !== undefined ? Number(body.discountAmount) : 0
+    const finalAmount = subtotal + taxAmount - discountAmount
+
+    const billNumber = generateReceiptNumber()
+
+    const billInsert = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `INSERT INTO bills (
+         bill_number, patient_id, total_amount, tax_amount, discount_amount,
+         final_amount, status, payment_method, paid_amount, barcode, cashier_id
+       ) VALUES ($1,$2,$3,$4,$5,$6,'Pending',NULL,0,NULL,$7)
+       RETURNING id`,
+      [billNumber, patientId, subtotal, taxAmount, discountAmount, finalAmount, auth.userId],
+    )
+
+    const billId = billInsert.rows[0].id as string
+
+    const isMedicationBill = medications.length > 0
+    const barcodePayload = generateBarcodeData("payment", billId, {
+      patientId,
+      source: body.source || (isMedicationBill ? "prescription" : "manual"),
+      // Include medication items for pharmacist receipt verification (name, qty, amount)
+      items: isMedicationBill
+        ? items.map((i) => ({
+            d: i.description.slice(0, 40),
+            q: i.quantity,
+            u: i.unitPrice,
+            t: i.totalPrice,
+          }))
+        : undefined,
+    })
+
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `UPDATE bills SET barcode = $1 WHERE id = $2`,
+      [barcodePayload, billId],
+    )
+
+    for (const item of items) {
+      await queryWithSession(
+        { role: auth.role, userId: auth.userId },
+        `INSERT INTO bill_items (bill_id, description, quantity, unit_price, total_price)
+         VALUES ($1,$2,$3,$4,$5)`,
+        [billId, item.description, item.quantity, item.unitPrice, item.totalPrice],
+      )
+    }
+
+    // Route new upstream bills into the cashier notification stream without depending on an internal HTTP call.
+    if (auth.role !== "Cashier") {
+      try {
+        await ensureNotificationInfrastructure()
+        const sourceLabel =
+          medications.length > 0
+            ? "prescription"
+            : body.source === "manual"
+              ? "manual bill"
+              : "billing request"
+        await query(
+          `INSERT INTO notifications (user_id, department, role, title, message, type, priority, payload)
+           VALUES (NULL, $1, $2, $3, $4, $5, $6, $7)`,
+          [
+            "cashier",
+            "Cashier",
+            "New bill ready for collection",
+            `A ${sourceLabel} has been sent to cashier for collection.`,
+            "Payment",
+            medications.length > 0 ? "High" : "Normal",
+            JSON.stringify({ billId, patientId, billNumber, source: body.source || (medications.length > 0 ? "prescription" : "manual") }),
+          ],
+        )
+      } catch {
+        // Non-fatal
+      }
+    }
+
+    return NextResponse.json({ id: billId, billNumber })
+  } catch (err: any) {
+    return NextResponse.json({ error: "Failed to create bill" }, { status: 500 })
+  }
+}

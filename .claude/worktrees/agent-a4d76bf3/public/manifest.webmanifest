@@ -1,0 +1,14 @@
+{
+  "name": "Dayspring Community Health Care HIS",
+  "short_name": "Dayspring HIS",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#ffffff",
+  "theme_color": "#0ea5e9",
+  "icons": [
+    { "src": "/logo0.png", "sizes": "192x192", "type": "image/png" },
+    { "src": "/logo0.png", "sizes": "512x512", "type": "image/png" }
+  ]
+}
+
+

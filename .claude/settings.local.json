@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(grep -E \"^CREATE TABLE\" /c/Users/STEPH/Documents/dayspring-his/migrations/*.sql)",
+      "Bash(git add:*)",
+      "Bash(git commit:*)",
+      "Bash(git push:*)",
+      "Bash(grep -n \"recorded_at\\\\|current_status\" c:/Users/STEPH/Documents/dayspring-his/app/api/opd/queue/[patientId]/status/route.ts)",
+      "Bash(cat c:/Users/STEPH/Documents/dayspring-his/app/api/opd/queue/[patientId]/route.ts)",
+      "Bash(grep -l \"dental\" /c/Users/STEPH/Documents/dayspring-his/migrations/*.sql)"
+    ]
+  }
+}

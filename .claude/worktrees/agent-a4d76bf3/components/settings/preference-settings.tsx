@@ -1,0 +1,787 @@
+"use client"
+
+import { useState, useEffect, useMemo, useRef } from "react"
+import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
+import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
+import { Button } from "@/components/ui/button"
+import { Switch } from "@/components/ui/switch"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { User, Bell, Palette, RotateCcw } from "lucide-react"
+import { toast } from "sonner"
+import { useAuth } from "@/lib/auth-context"
+import { useTheme } from "next-themes"
+import { useSettings } from "@/lib/settings-context"
+
+const DEFAULT_NOTIFICATIONS = {
+  emailReminders: true,
+  appointmentAlerts: true,
+  labResults: true,
+  systemUpdates: false,
+  emergencyAlerts: true,
+}
+
+const DEFAULT_PREFERENCES = {
+  theme: "system",
+  locale: "en-GB",
+  timezone: "Africa/Kampala",
+  dateFormat: "DD/MM/YYYY",
+  defaultDashboard: "overview",
+  queue_wait_warn: 30,
+  queue_wait_crit: 60,
+  service_warn: 30,
+  service_crit: 60,
+}
+
+export function ProfileSettings() {
+  const { refreshUser } = useAuth()
+  const [profile, setProfile] = useState({
+    name: "",
+    phone: "",
+    department: "",
+    signature: ""
+  })
+  const [originalProfile, setOriginalProfile] = useState({
+    name: "",
+    phone: "",
+    department: "",
+    signature: ""
+  })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    const fetchProfile = async () => {
+      try {
+        const res = await fetch("/api/settings/profile", { credentials: "include" })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.profile) {
+            const fetched = {
+              name: data.profile.name || "",
+              phone: data.profile.phone || "",
+              department: data.profile.department || "",
+              signature: data.profile.signature || ""
+            }
+            setProfile(fetched)
+            setOriginalProfile(fetched)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch profile:", error)
+      }
+    }
+    fetchProfile()
+  }, [])
+
+  const saveProfile = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch("/api/settings/profile", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(profile)
+      })
+      
+      if (res.ok) {
+        await refreshUser()
+        setOriginalProfile({ ...profile })
+        toast.success("Profile updated successfully")
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to update profile")
+      }
+    } catch (error) {
+      toast.error("Failed to update profile")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="overflow-hidden rounded-[28px] border-sky-100/80 bg-white/90 shadow-[0_28px_80px_-54px_rgba(14,116,144,0.42)] backdrop-blur">
+      <CardHeader className="border-b border-sky-100/70 bg-[linear-gradient(180deg,rgba(239,246,255,0.92),rgba(255,255,255,0.92))]">
+        <CardTitle className="flex items-center gap-2">
+          <User className="h-5 w-5 text-blue-600" />
+          Profile Information
+        </CardTitle>
+        <CardDescription>
+          Update your personal information and professional details.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-4 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="name">Full Name</Label>
+            <Input 
+              id="name"
+              name="name"
+              autoComplete="name"
+              value={profile.name}
+              onChange={(e) => setProfile(prev => ({ ...prev, name: e.target.value }))}
+              placeholder="Enter your full name"
+              className="h-12 rounded-2xl border-slate-200 bg-white/95"
+            />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="phone">Phone Number</Label>
+            <Input 
+              id="phone"
+              name="phone"
+              type="tel"
+              autoComplete="tel"
+              value={profile.phone}
+              onChange={(e) => setProfile(prev => ({ ...prev, phone: e.target.value }))}
+              placeholder="+256 700 000 000"
+              className="h-12 rounded-2xl border-slate-200 bg-white/95"
+            />
+          </div>
+        </div>
+
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="department">Department</Label>
+            <Select 
+              name="department"
+              value={profile.department} 
+              onValueChange={(value) => setProfile(prev => ({ ...prev, department: value }))}
+            >
+              <SelectTrigger id="department" className="h-12 rounded-2xl border-slate-200 bg-white/95">
+                <SelectValue placeholder="Select department" />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="emergency">Emergency</SelectItem>
+                <SelectItem value="cardiology">Cardiology</SelectItem>
+                <SelectItem value="pediatrics">Pediatrics</SelectItem>
+                <SelectItem value="surgery">Surgery</SelectItem>
+                <SelectItem value="radiology">Radiology</SelectItem>
+                <SelectItem value="laboratory">Laboratory</SelectItem>
+                <SelectItem value="pharmacy">Pharmacy</SelectItem>
+                <SelectItem value="administration">Administration</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="signature">Digital Signature</Label>
+            <Input 
+              id="signature"
+              name="signature"
+              autoComplete="organization"
+              value={profile.signature}
+              onChange={(e) => setProfile(prev => ({ ...prev, signature: e.target.value }))}
+              placeholder="e.g. Your name or title"
+              className="h-12 rounded-2xl border-slate-200 bg-white/95"
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setProfile(originalProfile)}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Discard Changes
+          </Button>
+          <Button onClick={saveProfile} disabled={saving} className="min-w-[150px] rounded-2xl">
+            {saving ? "Saving..." : "Save Profile"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export function NotificationSettings() {
+  const [notifications, setNotifications] = useState({
+    emailReminders: true,
+    appointmentAlerts: true,
+    labResults: true,
+    systemUpdates: false,
+    emergencyAlerts: true
+  })
+  const [saving, setSaving] = useState(false)
+
+  useEffect(() => {
+    const fetchNotifications = async () => {
+      try {
+        const res = await fetch("/api/settings/notifications", { credentials: "include" })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.notifications) {
+            setNotifications(data.notifications)
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch notifications:", error)
+      }
+    }
+    fetchNotifications()
+  }, [])
+
+  const saveNotifications = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch("/api/settings/notifications", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify(notifications)
+      })
+      
+      if (res.ok) {
+        toast.success("Notification preferences updated")
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to update notifications")
+      }
+    } catch (error) {
+      toast.error("Failed to update notifications")
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="overflow-hidden rounded-[28px] border-sky-100/80 bg-white/90 shadow-[0_28px_80px_-54px_rgba(30,64,175,0.4)] backdrop-blur">
+      <CardHeader className="border-b border-sky-100/70 bg-[linear-gradient(180deg,rgba(248,250,252,0.96),rgba(255,255,255,0.92))]">
+        <CardTitle className="flex items-center gap-2">
+          <Bell className="h-5 w-5 text-blue-600" />
+          Notification Preferences
+        </CardTitle>
+        <CardDescription>
+          Choose how you want to be notified about important events.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5 p-6">
+        <div className="space-y-3">
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
+            <div>
+              <Label htmlFor="emailReminders">Email Reminders</Label>
+              <p className="text-sm text-muted-foreground">Receive email notifications for appointments and tasks</p>
+            </div>
+            <Switch 
+              id="emailReminders"
+              name="emailReminders"
+              checked={notifications.emailReminders}
+              onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, emailReminders: checked }))}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
+            <div>
+              <Label htmlFor="appointmentAlerts">Appointment Alerts</Label>
+              <p className="text-sm text-muted-foreground">Get notified about upcoming appointments</p>
+            </div>
+            <Switch 
+              id="appointmentAlerts"
+              name="appointmentAlerts"
+              checked={notifications.appointmentAlerts}
+              onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, appointmentAlerts: checked }))}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
+            <div>
+              <Label htmlFor="labResults">Lab Results</Label>
+              <p className="text-sm text-muted-foreground">Notifications when lab results are ready</p>
+            </div>
+            <Switch 
+              id="labResults"
+              name="labResults"
+              checked={notifications.labResults}
+              onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, labResults: checked }))}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
+            <div>
+              <Label htmlFor="systemUpdates">System Updates</Label>
+              <p className="text-sm text-muted-foreground">General system announcements and updates</p>
+            </div>
+            <Switch 
+              id="systemUpdates"
+              name="systemUpdates"
+              checked={notifications.systemUpdates}
+              onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, systemUpdates: checked }))}
+            />
+          </div>
+          
+          <div className="flex items-center justify-between rounded-2xl border border-slate-200/80 bg-slate-50/80 px-4 py-3">
+            <div>
+              <Label htmlFor="emergencyAlerts">Emergency Alerts</Label>
+              <p className="text-sm text-muted-foreground">Critical alerts that require immediate attention</p>
+            </div>
+            <Switch 
+              id="emergencyAlerts"
+              name="emergencyAlerts"
+              checked={notifications.emergencyAlerts}
+              onCheckedChange={(checked) => setNotifications(prev => ({ ...prev, emergencyAlerts: checked }))}
+            />
+          </div>
+        </div>
+
+        <div className="flex items-center justify-between gap-4 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => setNotifications(DEFAULT_NOTIFICATIONS)}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restore Defaults
+          </Button>
+          <Button onClick={saveNotifications} disabled={saving} className="min-w-[170px] rounded-2xl">
+            {saving ? "Saving..." : "Save Preferences"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+export function PreferenceSettings() {
+  const { user } = useAuth()
+  const { setTheme } = useTheme()
+  const previewedRef = useRef(false)
+  const { refreshSettings, settings } = useSettings()
+  const [preferences, setPreferences] = useState({
+    theme: "system",
+    locale: "en-GB",
+    timezone: "Africa/Kampala",
+    dateFormat: "DD/MM/YYYY",
+    defaultDashboard: "overview",
+    queue_wait_warn: 30,
+    queue_wait_crit: 60,
+    service_warn: 30,
+    service_crit: 60,
+  })
+  const [originalPreferences, setOriginalPreferences] = useState({
+    theme: "system",
+    locale: "en-GB",
+    timezone: "Africa/Kampala",
+    dateFormat: "DD/MM/YYYY",
+    defaultDashboard: "overview",
+    queue_wait_warn: 30,
+    queue_wait_crit: 60,
+    service_warn: 30,
+    service_crit: 60,
+  })
+  const [hasUnsavedChanges, setHasUnsavedChanges] = useState(false)
+  const [saving, setSaving] = useState(false)
+  const [loading, setLoading] = useState(true)
+  const normalizedRole = (user?.role || "").toLowerCase()
+  const portalHomeOptions = useMemo(() => {
+    if (normalizedRole === "hospital admin" || normalizedRole === "admin") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "admin-users", label: "User Management" },
+        { value: "admin-beds", label: "Bed Management" },
+        { value: "admin-patients", label: "Patient Management" },
+        { value: "admin-financial", label: "Financial Reports" },
+        { value: "admin-audit", label: "Audit Trail" },
+        { value: "admin-inventory", label: "Non-Medication Inventory" },
+      ]
+    }
+    if (normalizedRole === "radiologist") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "radiology-worklist", label: "Radiology Worklist" },
+        { value: "radiology-analytics", label: "Radiology Analytics" },
+        { value: "radiology-exports", label: "Radiology Exports" },
+      ]
+    }
+    if (normalizedRole === "nurse") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "patient-care", label: "Patient Care" },
+        { value: "latest-vitals", label: "Latest Vitals" },
+      ]
+    }
+    if (normalizedRole === "lab tech") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "lab-queue", label: "Pending Queue" },
+        { value: "lab-analytics", label: "Analytics" },
+        { value: "lab-exports", label: "Exports" },
+      ]
+    }
+    if (normalizedRole === "receptionist") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "reception-patients", label: "Patient Register" },
+        { value: "reception-checkin", label: "Check-In Desk" },
+        { value: "reception-queue", label: "Queue Board" },
+        { value: "reception-payments", label: "Payments" },
+        { value: "reception-reports", label: "Reports" },
+      ]
+    }
+    if (normalizedRole === "cashier") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "cashier-queue", label: "Collections Queue" },
+        { value: "cashier-create", label: "Create Bill" },
+        { value: "cashier-overdue", label: "Overdue Bills" },
+        { value: "cashier-reports", label: "Financial Reports" },
+        { value: "cashier-exports", label: "Exports" },
+      ]
+    }
+    if (normalizedRole === "pharmacist") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "prescriptions", label: "Prescriptions Queue" },
+        { value: "inventory", label: "Inventory" },
+        { value: "analytics", label: "Analytics" },
+      ]
+    }
+    if (normalizedRole === "doctor" || normalizedRole === "clinician" || normalizedRole === "dentist" || normalizedRole === "midwife") {
+      return [
+        { value: "overview", label: "Overview" },
+        { value: "consult", label: "Patient Consultation" },
+        { value: "prescriptions", label: "Prescriptions" },
+      ]
+    }
+    return [{ value: "overview", label: "Overview" }]
+  }, [normalizedRole])
+
+  useEffect(() => {
+    const fetchPreferences = async () => {
+      try {
+        setLoading(true)
+        const res = await fetch("/api/settings/preferences", { credentials: "include" })
+        if (res.ok) {
+          const data = await res.json()
+          if (data.preferences) {
+            const fetchedPreferences = {
+              theme: data.preferences.theme || "system",
+              locale: data.preferences.locale || "en-GB",
+              timezone: data.preferences.timezone || "Africa/Kampala",
+              currency: data.preferences.currency || "UGX",
+              dateFormat: data.preferences.dateFormat || "DD/MM/YYYY",
+              defaultDashboard: data.preferences.defaultDashboard || "overview",
+              queue_wait_warn: Number(data.preferences.queue_wait_warn ?? 30),
+              queue_wait_crit: Number(data.preferences.queue_wait_crit ?? 60),
+              service_warn: Number(data.preferences.service_warn ?? 30),
+              service_crit: Number(data.preferences.service_crit ?? 60),
+            }
+            if (!previewedRef.current) {
+              setPreferences(fetchedPreferences)
+            }
+            setOriginalPreferences({
+              theme: fetchedPreferences.theme,
+              locale: fetchedPreferences.locale,
+              timezone: fetchedPreferences.timezone,
+              dateFormat: fetchedPreferences.dateFormat,
+              defaultDashboard: fetchedPreferences.defaultDashboard,
+              queue_wait_warn: fetchedPreferences.queue_wait_warn,
+              queue_wait_crit: fetchedPreferences.queue_wait_crit,
+              service_warn: fetchedPreferences.service_warn,
+              service_crit: fetchedPreferences.service_crit,
+            })
+            // Apply theme on load
+            if (!previewedRef.current) {
+              setTheme(fetchedPreferences.theme)
+            }
+          }
+        }
+      } catch (error) {
+        console.error("Failed to fetch preferences:", error)
+      } finally {
+        setLoading(false)
+      }
+    }
+    fetchPreferences()
+  }, [setTheme, previewedRef])
+
+  useEffect(() => {
+    if (portalHomeOptions.some((option) => option.value === preferences.defaultDashboard)) return
+    setPreferences((prev) => ({ ...prev, defaultDashboard: "overview" }))
+  }, [portalHomeOptions, preferences.defaultDashboard])
+
+  // Track unsaved changes (including queue SLA thresholds used by reception queue board).
+  // Currency is admin-only (org-level), not editable here.
+  useEffect(() => {
+    if (loading) return
+    const hasChanges =
+      preferences.theme !== originalPreferences.theme ||
+      preferences.locale !== originalPreferences.locale ||
+      preferences.timezone !== originalPreferences.timezone ||
+      preferences.dateFormat !== originalPreferences.dateFormat ||
+      preferences.defaultDashboard !== originalPreferences.defaultDashboard ||
+      preferences.queue_wait_warn !== originalPreferences.queue_wait_warn ||
+      preferences.queue_wait_crit !== originalPreferences.queue_wait_crit ||
+      preferences.service_warn !== originalPreferences.service_warn ||
+      preferences.service_crit !== originalPreferences.service_crit
+    setHasUnsavedChanges(hasChanges)
+  }, [preferences, originalPreferences, loading])
+
+  const savePreferences = async () => {
+    setSaving(true)
+    try {
+      const res = await fetch("/api/settings/preferences", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        credentials: "include",
+        body: JSON.stringify({ ...preferences, currency: settings?.currency || "UGX" })
+      })
+      
+      if (res.ok) {
+        // Update original preferences to match saved values (including queue SLA)
+        setOriginalPreferences({
+          theme: preferences.theme,
+          locale: preferences.locale,
+          timezone: preferences.timezone,
+          dateFormat: preferences.dateFormat,
+          defaultDashboard: preferences.defaultDashboard,
+          queue_wait_warn: preferences.queue_wait_warn,
+          queue_wait_crit: preferences.queue_wait_crit,
+          service_warn: preferences.service_warn,
+          service_crit: preferences.service_crit,
+        })
+        setHasUnsavedChanges(false)
+        // Refresh settings context so currency and timezone updates everywhere
+        setTheme(preferences.theme)
+        try { (window as any).localStorage?.setItem('lastThemeUser', (await (await fetch('/api/auth/me', { credentials: 'include' })).json()).user?.id || '') } catch {}
+        await refreshSettings()
+        toast.success("Preferences updated successfully")
+      } else {
+        const data = await res.json()
+        toast.error(data.error || "Failed to update preferences")
+        // Revert preferences if save failed
+        setTheme(originalPreferences.theme)
+        setPreferences(prev => ({
+          ...prev,
+          theme: originalPreferences.theme,
+          locale: originalPreferences.locale,
+          timezone: originalPreferences.timezone,
+          dateFormat: originalPreferences.dateFormat,
+          defaultDashboard: originalPreferences.defaultDashboard,
+          queue_wait_warn: originalPreferences.queue_wait_warn,
+          queue_wait_crit: originalPreferences.queue_wait_crit,
+          service_warn: originalPreferences.service_warn,
+          service_crit: originalPreferences.service_crit,
+        }))
+      }
+    } catch (error) {
+      toast.error("Failed to update preferences")
+      setTheme(originalPreferences.theme)
+      setPreferences(prev => ({
+        ...prev,
+        theme: originalPreferences.theme,
+        locale: originalPreferences.locale,
+        timezone: originalPreferences.timezone,
+        dateFormat: originalPreferences.dateFormat,
+        defaultDashboard: originalPreferences.defaultDashboard,
+        queue_wait_warn: originalPreferences.queue_wait_warn,
+        queue_wait_crit: originalPreferences.queue_wait_crit,
+        service_warn: originalPreferences.service_warn,
+        service_crit: originalPreferences.service_crit,
+      }))
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Card className="overflow-hidden rounded-[28px] border-sky-100/80 bg-white/90 shadow-[0_28px_80px_-54px_rgba(14,116,144,0.48)] backdrop-blur">
+      <CardHeader className="border-b border-sky-100/70 bg-[linear-gradient(180deg,rgba(255,247,237,0.92),rgba(255,255,255,0.92))]">
+        <CardTitle className="flex items-center gap-2">
+          <Palette className="h-5 w-5 text-blue-600" />
+          Display Preferences
+        </CardTitle>
+        <CardDescription>
+          Customize how the system looks and behaves for you.
+        </CardDescription>
+      </CardHeader>
+      <CardContent className="space-y-5 p-6">
+        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div className="space-y-2">
+            <Label htmlFor="theme">Theme</Label>
+            <Select 
+              name="theme"
+              value={preferences.theme} 
+              onValueChange={(value) => {
+                setPreferences(prev => ({ ...prev, theme: value }))
+                // Apply theme immediately for preview and mark as user-initiated
+                previewedRef.current = true
+                setTheme(value)
+              }}
+            >
+              <SelectTrigger id="theme" className="h-12 rounded-2xl border-slate-200 bg-white/95">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="light">Light</SelectItem>
+                <SelectItem value="dark">Dark</SelectItem>
+                <SelectItem value="system">System</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="language">Language</Label>
+            <Select 
+              name="language"
+              value={preferences.locale} 
+              onValueChange={(value) => setPreferences(prev => ({ ...prev, locale: value }))}
+            >
+              <SelectTrigger id="language" className="h-12 rounded-2xl border-slate-200 bg-white/95">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="en-GB">English (UK)</SelectItem>
+                <SelectItem value="en-US">English (American)</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          
+          <div className="space-y-2">
+            <Label htmlFor="timezone">Timezone</Label>
+            <Select 
+              name="timezone"
+              value={preferences.timezone} 
+              onValueChange={(value) => setPreferences(prev => ({ ...prev, timezone: value }))}
+            >
+              <SelectTrigger id="timezone" className="h-12 rounded-2xl border-slate-200 bg-white/95">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="Africa/Kampala">Africa/Kampala (EAT)</SelectItem>
+                <SelectItem value="Africa/Nairobi">Africa/Nairobi (EAT)</SelectItem>
+                <SelectItem value="UTC">UTC</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="dateFormat">Date Format</Label>
+            <Select
+              name="dateFormat"
+              value={preferences.dateFormat}
+              onValueChange={(value) => setPreferences(prev => ({ ...prev, dateFormat: value }))}
+            >
+              <SelectTrigger id="dateFormat" className="h-12 rounded-2xl border-slate-200 bg-white/95">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                <SelectItem value="DD/MM/YYYY">DD/MM/YYYY</SelectItem>
+                <SelectItem value="MM/DD/YYYY">MM/DD/YYYY</SelectItem>
+                <SelectItem value="YYYY-MM-DD">YYYY-MM-DD</SelectItem>
+              </SelectContent>
+            </Select>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="defaultDashboard">Portal Home</Label>
+            <Select
+              name="defaultDashboard"
+              value={preferences.defaultDashboard}
+              onValueChange={(value) => setPreferences(prev => ({ ...prev, defaultDashboard: value }))}
+            >
+              <SelectTrigger id="defaultDashboard" className="h-12 rounded-2xl border-slate-200 bg-white/95">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {portalHomeOptions.map((option) => (
+                  <SelectItem key={option.value} value={option.value}>
+                    {option.label}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
+          {/* Currency is admin-only; set in Organization Settings. */}
+        </div>
+
+        {/* Queue SLA Thresholds (minutes) */}
+        <div className="mt-6 border-t border-slate-200/80 pt-5">
+          <h4 className="text-sm font-semibold mb-2">Queue SLA Thresholds (minutes)</h4>
+          <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
+            <div className="space-y-1">
+              <Label htmlFor="queue_wait_warn">Waiting Warn</Label>
+              <Input
+                id="queue_wait_warn"
+                type="number"
+                min={0}
+                max={600}
+                value={preferences.queue_wait_warn}
+                onChange={(e) => setPreferences(prev => ({ ...prev, queue_wait_warn: Number(e.target.value || 0) }))}
+                className="h-12 rounded-2xl border-slate-200 bg-white/95"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="queue_wait_crit">Waiting Critical</Label>
+              <Input
+                id="queue_wait_crit"
+                type="number"
+                min={0}
+                max={600}
+                value={preferences.queue_wait_crit}
+                onChange={(e) => setPreferences(prev => ({ ...prev, queue_wait_crit: Number(e.target.value || 0) }))}
+                className="h-12 rounded-2xl border-slate-200 bg-white/95"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="service_warn">In Service Warn</Label>
+              <Input
+                id="service_warn"
+                type="number"
+                min={0}
+                max={600}
+                value={preferences.service_warn}
+                onChange={(e) => setPreferences(prev => ({ ...prev, service_warn: Number(e.target.value || 0) }))}
+                className="h-12 rounded-2xl border-slate-200 bg-white/95"
+              />
+            </div>
+            <div className="space-y-1">
+              <Label htmlFor="service_crit">In Service Critical</Label>
+              <Input
+                id="service_crit"
+                type="number"
+                min={0}
+                max={600}
+                value={preferences.service_crit}
+                onChange={(e) => setPreferences(prev => ({ ...prev, service_crit: Number(e.target.value || 0) }))}
+                className="h-12 rounded-2xl border-slate-200 bg-white/95"
+              />
+            </div>
+          </div>
+          <p className="text-xs text-muted-foreground mt-2">
+            These thresholds control queue coloring and averages in the Queue board.
+          </p>
+        </div>
+
+        {hasUnsavedChanges && (
+          <p className="text-sm text-amber-600 dark:text-amber-400 text-center">
+            You have unsaved changes. Changes are in preview mode.
+          </p>
+        )}
+        
+        <div className="flex items-center justify-between gap-4 pt-2">
+          <Button
+            variant="ghost"
+            size="sm"
+            onClick={() => {
+              setPreferences(prev => ({ ...prev, ...DEFAULT_PREFERENCES }))
+              previewedRef.current = true
+              setTheme(DEFAULT_PREFERENCES.theme)
+            }}
+            className="gap-2 text-muted-foreground hover:text-foreground"
+          >
+            <RotateCcw className="h-3.5 w-3.5" />
+            Restore Defaults
+          </Button>
+          <Button onClick={savePreferences} disabled={saving || loading} className="min-w-[170px] rounded-2xl">
+            {loading ? "Loading..." : saving ? "Saving..." : "Save Preferences"}
+          </Button>
+        </div>
+      </CardContent>
+    </Card>
+  )
+}
+
+
+
+
+
+

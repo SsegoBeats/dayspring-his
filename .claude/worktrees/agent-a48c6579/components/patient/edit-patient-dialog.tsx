@@ -1,0 +1,264 @@
+"use client"
+
+import { useState, useEffect } from "react"
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from "@/components/ui/dialog"
+import { Button } from "@/components/ui/button"
+import { Input } from "@/components/ui/input"
+import { Label } from "@/components/ui/label"
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
+import { toast } from "sonner"
+import { Alert, AlertDescription } from "@/components/ui/alert"
+import { usePatients } from "@/lib/patient-context"
+
+export interface EditPatientDialogProps {
+  open: boolean
+  onOpenChange: (v: boolean) => void
+  patient: {
+    id: string
+    firstName: string
+    lastName: string
+    ageYears?: number | null
+    gender: string
+    phone: string
+    address?: string
+    bloodGroup?: string | null
+    emergencyContact?: string
+    emergencyPhone?: string
+    nextOfKinName?: string | null
+    nextOfKinPhone?: string | null
+    nextOfKinRelation?: string | null
+    nextOfKinResidence?: string | null
+  }
+  onSaved?: () => void
+}
+
+export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: EditPatientDialogProps) {
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
+  const { updatePatient } = usePatients()
+  const [form, setForm] = useState({
+    firstName: "",
+    lastName: "",
+    ageYears: "",
+    gender: "other",
+    phone: "",
+    address: "",
+    bloodGroup: "",
+    emergencyContactName: "",
+    emergencyContactPhone: "",
+    nextOfKinFirstName: "",
+    nextOfKinLastName: "",
+    nextOfKinPhone: "",
+    nextOfKinRelation: "",
+    nextOfKinResidence: "",
+  })
+
+  useEffect(() => {
+    if (!open) return
+    const nokSplit = (patient.nextOfKinName || "").split(" ")
+    setForm({
+      firstName: patient.firstName || "",
+      lastName: patient.lastName || "",
+      ageYears: typeof patient.ageYears === 'number' ? String(patient.ageYears) : "",
+      gender: (patient.gender || 'other').toLowerCase(),
+      phone: patient.phone || "",
+      address: patient.address || "",
+      bloodGroup: patient.bloodGroup || "",
+      emergencyContactName: patient.emergencyContact || "",
+      emergencyContactPhone: patient.emergencyPhone || "",
+      nextOfKinFirstName: nokSplit[0] || "",
+      nextOfKinLastName: (nokSplit.slice(1).join(' ') || "").trim(),
+      nextOfKinPhone: patient.nextOfKinPhone || "",
+      nextOfKinRelation: patient.nextOfKinRelation || "",
+      nextOfKinResidence: patient.nextOfKinResidence || "",
+    })
+  }, [open, patient])
+
+  const submit = async (e: React.FormEvent) => {
+    e.preventDefault()
+    setSaving(true)
+    setError(null)
+    try {
+      const payload: any = {
+        id: patient.id,
+        firstName: form.firstName.trim() || undefined,
+        lastName: form.lastName.trim() || undefined,
+        ageYears: form.ageYears ? Number(form.ageYears) : undefined,
+        gender: form.gender === 'male' ? 'Male' : form.gender === 'female' ? 'Female' : 'Other',
+        phone: form.phone.trim() || undefined,
+        address: form.address.trim() || null,
+        bloodGroup: form.bloodGroup.trim() || null,
+        emergencyContactName: form.emergencyContactName.trim() || null,
+        emergencyContactPhone: form.emergencyContactPhone.trim() || null,
+        nextOfKinFirstName: form.nextOfKinFirstName.trim() || null,
+        nextOfKinLastName: form.nextOfKinLastName.trim() || null,
+        // Keep legacy combined NOK name in sync for older schemas
+        nextOfKinName: [form.nextOfKinFirstName.trim(), form.nextOfKinLastName.trim()].filter(Boolean).join(' ') || null,
+        nextOfKinPhone: form.nextOfKinPhone.trim() || null,
+        nextOfKinRelation: form.nextOfKinRelation.trim() || null,
+        nextOfKinResidence: form.nextOfKinResidence.trim() || null,
+      }
+      const res = await fetch('/api/patients', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        credentials: 'include',
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const e = await res.json().catch(()=>({}))
+        const msg = e?.error || `Failed to update patient (${res.status})`
+        throw new Error(msg)
+      }
+      const data = await res.json().catch(()=>({}))
+      const p = data?.patient
+      if (p) {
+        // Map server row (snake_case) to Patient context shape
+        const mapped: any = {
+          firstName: p.first_name,
+          lastName: p.last_name,
+          ageYears: typeof p.age_years === 'number' ? p.age_years : undefined,
+          gender: (p.gender || 'Other').toString().toLowerCase(),
+          phone: p.phone || '',
+          address: p.address || '',
+          bloodGroup: p.blood_group || undefined,
+          emergencyContact: p.emergency_contact_name || '',
+          emergencyPhone: p.emergency_contact_phone || '',
+          nextOfKinName: (p.next_of_kin_name ? p.next_of_kin_name : [p.next_of_kin_first_name, p.next_of_kin_last_name].filter(Boolean).join(' ').trim()) || null,
+          nextOfKinPhone: p.next_of_kin_phone || null,
+          nextOfKinRelation: p.next_of_kin_relation || null,
+          nextOfKinResidence: p.next_of_kin_residence || null,
+        }
+        try { updatePatient(patient.id, mapped) } catch {}
+      }
+      toast.success('Patient updated')
+      onSaved?.()
+      onOpenChange(false)
+    } catch (e) {
+      console.error(e)
+      const msg = (e as Error).message || 'Failed to save changes'
+      setError(msg)
+      toast.error(msg)
+    } finally {
+      setSaving(false)
+    }
+  }
+
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent size="xl" className="max-h-[88vh] overflow-y-auto">
+        <DialogHeader>
+          <DialogTitle>Edit Patient</DialogTitle>
+          <DialogDescription>Update patient demographics, contact information, and next of kin.</DialogDescription>
+        </DialogHeader>
+        <form onSubmit={submit} className="space-y-4">
+          {error && (
+            <Alert variant="destructive">
+              <AlertDescription>{error}</AlertDescription>
+            </Alert>
+          )}
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-patient-firstName">First Name</Label>
+              <Input id="edit-patient-firstName" name="firstName" value={form.firstName} onChange={(e)=>setForm({ ...form, firstName: e.target.value })} required />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-patient-lastName">Last Name</Label>
+              <Input id="edit-patient-lastName" name="lastName" value={form.lastName} onChange={(e)=>setForm({ ...form, lastName: e.target.value })} required />
+            </div>
+          </div>
+          <div className="grid gap-4 md:grid-cols-3">
+            <div className="space-y-2">
+              <Label htmlFor="edit-patient-ageYears">Age (years)</Label>
+              <Input id="edit-patient-ageYears" name="ageYears" type="number" inputMode="numeric" min={0} max={130} value={form.ageYears} onChange={(e)=>setForm({ ...form, ageYears: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-patient-gender">Gender</Label>
+              <Select value={form.gender} onValueChange={(v)=>setForm({ ...form, gender: v })}>
+                <SelectTrigger id="edit-patient-gender" aria-label="Gender"><SelectValue /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="male">Male</SelectItem>
+                  <SelectItem value="female">Female</SelectItem>
+                  <SelectItem value="other">Other</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-patient-phone">Phone</Label>
+              <Input id="edit-patient-phone" name="phone" value={form.phone} onChange={(e)=>setForm({ ...form, phone: e.target.value })} required />
+            </div>
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-patient-address">Address</Label>
+            <Input id="edit-patient-address" name="address" value={form.address} onChange={(e)=>setForm({ ...form, address: e.target.value })} />
+          </div>
+          <div className="space-y-2">
+            <Label htmlFor="edit-patient-bloodGroup">Blood Group</Label>
+            <Input
+              id="edit-patient-bloodGroup"
+              name="bloodGroup"
+              value={form.bloodGroup}
+              onChange={(e) => setForm({ ...form, bloodGroup: e.target.value })}
+              placeholder="e.g., O+"
+            />
+          </div>
+          <div className="grid gap-4 md:grid-cols-2">
+            <div className="space-y-2">
+              <Label htmlFor="edit-patient-emergencyContactName">Emergency Contact Name</Label>
+              <Input id="edit-patient-emergencyContactName" name="emergencyContactName" value={form.emergencyContactName} onChange={(e)=>setForm({ ...form, emergencyContactName: e.target.value })} />
+            </div>
+            <div className="space-y-2">
+              <Label htmlFor="edit-patient-emergencyContactPhone">Emergency Contact Phone</Label>
+              <Input id="edit-patient-emergencyContactPhone" name="emergencyContactPhone" value={form.emergencyContactPhone} onChange={(e)=>setForm({ ...form, emergencyContactPhone: e.target.value })} />
+            </div>
+          </div>
+          <div className="space-y-3 rounded-md border p-3">
+            <div className="font-medium">Next of Kin</div>
+            <div className="grid gap-4 md:grid-cols-2">
+              <div className="space-y-2">
+                <Label htmlFor="edit-patient-nextOfKinFirstName">First Name</Label>
+                <Input id="edit-patient-nextOfKinFirstName" name="nextOfKinFirstName" value={form.nextOfKinFirstName} onChange={(e)=>setForm({ ...form, nextOfKinFirstName: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-patient-nextOfKinLastName">Last Name</Label>
+                <Input id="edit-patient-nextOfKinLastName" name="nextOfKinLastName" value={form.nextOfKinLastName} onChange={(e)=>setForm({ ...form, nextOfKinLastName: e.target.value })} />
+              </div>
+            </div>
+            <div className="grid gap-4 md:grid-cols-3">
+              <div className="space-y-2">
+                <Label htmlFor="edit-patient-nextOfKinPhone">Phone</Label>
+                <Input id="edit-patient-nextOfKinPhone" name="nextOfKinPhone" value={form.nextOfKinPhone} onChange={(e)=>setForm({ ...form, nextOfKinPhone: e.target.value })} />
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-patient-nextOfKinRelation">Relationship</Label>
+                <Select
+                  value={form.nextOfKinRelation || ""}
+                  onValueChange={(value) => setForm({ ...form, nextOfKinRelation: value })}
+                >
+                  <SelectTrigger id="edit-patient-nextOfKinRelation" aria-label="Next of kin relationship">
+                    <SelectValue placeholder="Select relationship" />
+                  </SelectTrigger>
+                  <SelectContent>
+                    <SelectItem value="Spouse">Spouse</SelectItem>
+                    <SelectItem value="Parent">Parent</SelectItem>
+                    <SelectItem value="Child">Child</SelectItem>
+                    <SelectItem value="Sibling">Sibling</SelectItem>
+                    <SelectItem value="Guardian">Guardian</SelectItem>
+                    <SelectItem value="Other">Other</SelectItem>
+                  </SelectContent>
+                </Select>
+              </div>
+              <div className="space-y-2">
+                <Label htmlFor="edit-patient-nextOfKinResidence">Residence</Label>
+                <Input id="edit-patient-nextOfKinResidence" name="nextOfKinResidence" value={form.nextOfKinResidence} onChange={(e)=>setForm({ ...form, nextOfKinResidence: e.target.value })} />
+              </div>
+            </div>
+          </div>
+          <div className="flex justify-end gap-2">
+            <Button type="button" variant="outline" onClick={()=>onOpenChange(false)}>Cancel</Button>
+            <Button type="submit" disabled={saving}>{saving ? 'Saving...' : 'Save Changes'}</Button>
+          </div>
+        </form>
+      </DialogContent>
+    </Dialog>
+  )
+}

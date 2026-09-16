@@ -1,0 +1,157 @@
+import { NextResponse } from "next/server"
+import type { NextRequest } from "next/server"
+import { verifyTokenEdge } from "@/lib/jwt-edge"
+
+// ──── CSRF protection (double-submit cookie pattern) ────────────────────────────────────────
+const SAFE_METHODS = new Set(["GET", "HEAD", "OPTIONS"])
+
+const CSRF_EXEMPT_PREFIXES = [
+  "/api/auth/login",
+  "/api/auth/logout",
+  "/api/auth/request-password-reset",
+  "/api/auth/reset-password",
+  "/api/csrf",
+  "/api/pesapal/ipn",
+  "/api/jobs/run",
+  "/api/cron/",
+  "/api/heartbeat",
+  "/api/openapi",
+]
+
+function isCsrfExempt(pathname: string): boolean {
+  return CSRF_EXEMPT_PREFIXES.some((p) => pathname.startsWith(p))
+}
+
+// ──── Role-to-portal mapping ────────────────────────────────────────────────────────────────
+const ROLE_PORTAL_MAP: Record<string, string> = {
+  "Hospital Admin": "/admin",
+  "Receptionist": "/receptionist",
+  "Clinician": "/clinician",
+  "Nurse": "/nurse",
+  "Midwife": "/midwife",
+  "Dentist": "/dentist",
+  "Radiologist": "/radiologist",
+  "Lab Tech": "/lab-tech",
+  "Pharmacist": "/pharmacist",
+  "Cashier": "/cashier",
+}
+
+export async function middleware(req: NextRequest) {
+  const url = req.nextUrl
+  const pathname = url.pathname
+
+  // Skip static files — let Next.js handle them directly
+  const staticExtensions = [
+    ".png", ".jpg", ".jpeg", ".gif", ".svg", ".ico", ".webp",
+    ".woff", ".woff2", ".ttf", ".eot", ".css", ".js", ".json",
+    ".xml", ".pdf", ".txt", ".webmanifest",
+  ]
+  if (staticExtensions.some((ext) => pathname.endsWith(ext)) || pathname === "/sw.js") {
+    return NextResponse.next()
+  }
+
+  const requestId =
+    req.headers.get("x-request-id") ||
+    (globalThis.crypto?.randomUUID?.() || `${Date.now()}-${Math.random()}`)
+
+  // ── CSRF enforcement for /api/ mutation routes ───────────────────────────────────────────
+  if (pathname.startsWith("/api/") && !SAFE_METHODS.has(req.method) && !isCsrfExempt(pathname)) {
+    const headerToken = req.headers.get("x-csrf-token")
+    const cookieToken = req.cookies.get("csrfToken")?.value
+
+    if (!headerToken || !cookieToken) {
+      return NextResponse.json(
+        { error: "CSRF token missing. Fetch /api/csrf to obtain a token and include it as x-csrf-token." },
+        { status: 403 },
+      )
+    }
+
+    // Constant-time comparison to prevent timing attacks.
+    const hBuf = Buffer.from(headerToken, "utf8")
+    const cBuf = Buffer.from(cookieToken, "utf8")
+    const valid = hBuf.length === cBuf.length && hBuf.every((b, i) => b === cBuf[i])
+
+    if (!valid) {
+      return NextResponse.json({ error: "Invalid CSRF token." }, { status: 403 })
+    }
+  }
+
+  // ── Protected page routes (redirect unauthenticated users) ──────────────────────────────
+  const token = req.cookies.get("session")?.value || req.cookies.get("session_dev")?.value
+  const protectedPrefixes = [
+    "/appointments",
+    "/billing",
+    "/medical-history",
+    "/admin",
+    "/clinician",
+    "/doctor",
+    "/nurse",
+    "/midwife",
+    "/dentist",
+    "/radiologist",
+    "/lab-tech",
+    "/lab-tests",
+    "/pharmacist",
+    "/cashier",
+    "/receptionist",
+    "/dashboard",
+    "/settings",
+    "/run-migrations",
+    "/test-connection",
+    "/migrate-settings",
+    "/qz-test",
+    "/patient-receipt",
+    "/doctor-schedules",
+    "/exports",
+  ]
+
+  if (protectedPrefixes.some((p) => pathname.startsWith(p))) {
+    if (!token) {
+      const res = NextResponse.redirect(new URL("/", url))
+      res.headers.set("x-request-id", requestId)
+      return res
+    }
+
+    // ✅ NEW: Verify role-to-portal access
+    try {
+      const payload = await verifyTokenEdge(token)
+      const userRole = payload?.role as string | undefined
+      
+      if (userRole && ROLE_PORTAL_MAP[userRole]) {
+        const allowedPortal = ROLE_PORTAL_MAP[userRole]
+        
+        // Check if user is trying to access a portal they're not authorized for
+        const portalPrefixes = Object.values(ROLE_PORTAL_MAP)
+        const accessingWrongPortal = portalPrefixes.some(portal => 
+          pathname.startsWith(portal) && portal !== allowedPortal
+        )
+
+        if (accessingWrongPortal) {
+          // Redirect to their correct portal
+          const res = NextResponse.redirect(new URL(allowedPortal, url))
+          res.headers.set("x-request-id", requestId)
+          return res
+        }
+      }
+    } catch (err) {
+      // Invalid token - redirect to login
+      const res = NextResponse.redirect(new URL("/", url))
+      res.headers.set("x-request-id", requestId)
+      return res
+    }
+  }
+
+  const res = NextResponse.next()
+  res.headers.set("x-request-id", requestId)
+  return res
+}
+
+export const config = {
+  matcher: [
+    "/((?!_next|api/public).*)",
+    "/api/:path*",
+  ],
+}
+
+// Backwards-compatible export for Next.js "proxy" API (replaces middleware)
+export { middleware as proxy }

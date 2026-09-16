@@ -1,0 +1,11 @@
+{
+  "id": "pat-123",
+  "firstName": "Test",
+  "lastName": "Patient",
+  "dob": "1980-01-01",
+  "sex": "M",
+  "orgUnit": "DiszpKrYNg8",
+  "weight": 72,
+  "visitCount": 1,
+  "dhis2DataValues": [ { "dataElement": "hP8Nw8b8", "value": 72 } ]
+}
