@@ -14,6 +14,7 @@ import { toast } from "sonner"
 import { PhoneInput } from "@/components/ui/phone-input"
 import { RECEPTION_DEPARTMENTS } from "@/lib/constants/departments"
 import { isQzEnabled, printUrlViaQz } from "@/lib/printing"
+import { isValidPhoneNumber, normalizePhoneNumber } from "@/lib/phone"
 import { Printer, X, ChevronDown, User, MapPin, Heart, Phone, FileText, Users, Briefcase } from "lucide-react"
 import { Collapsible, CollapsibleContent, CollapsibleTrigger } from "@/components/ui/collapsible"
 
@@ -81,9 +82,8 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
         const max = maxMap[formData.ageUnit]
         if (isNaN(n) || n < 0 || n > max) nextErrors.ageValue = `Age must be 0–${max} ${formData.ageUnit}`
       }
-      const e164 = /^\+\d{10,15}$/
-      if (!e164.test(formData.phone || "")) nextErrors.phone = "Phone must be in +countrycode format"
-      if (formData.emergencyPhone && !e164.test(formData.emergencyPhone)) nextErrors.emergencyPhone = "Invalid emergency phone format"
+      if (!isValidPhoneNumber(formData.phone)) nextErrors.phone = "Phone must be a valid international number with country code"
+      if (formData.emergencyPhone && !isValidPhoneNumber(formData.emergencyPhone)) nextErrors.emergencyPhone = "Invalid emergency phone format"
       if (formData.nin && !/^[A-Z0-9]{14}$/i.test(formData.nin)) nextErrors.nin = "NIN must be 14 letters/digits"
       if (Object.keys(nextErrors).length) {
         setErrors(nextErrors)
@@ -120,7 +120,7 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
           ageValue: formData.ageValue ? Number(formData.ageValue) : null,
           ageUnit: formData.ageUnit,
           gender: formData.gender === "male" ? "Male" : formData.gender === "female" ? "Female" : "Other",
-          phone: formData.phone,
+          phone: normalizePhoneNumber(formData.phone, "UG"),
           address: formData.address || null,
           nin: formData.nin || null,
           district: formData.district || null,

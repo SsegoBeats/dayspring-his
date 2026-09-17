@@ -4,18 +4,7 @@ import { useState, useEffect } from "react"
 import { Input } from "@/components/ui/input"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Label } from "@/components/ui/label"
-
-// Country codes and phone formats for East Africa and common countries
-export const COUNTRY_PHONE_FORMATS: Record<string, { code: string; format: string; example: string; pattern: RegExp }> = {
-  "UG": { code: "+256", format: "+256 xxx xxx xxx", example: "+256 700 123 456", pattern: /^\+256\d{9}$/ },
-  "KE": { code: "+254", format: "+254 xxx xxx xxx", example: "+254 712 123 456", pattern: /^\+254\d{9}$/ },
-  "TZ": { code: "+255", format: "+255 xxx xxx xxx", example: "+255 712 123 456", pattern: /^\+255\d{9}$/ },
-  "RW": { code: "+250", format: "+250 xxx xxx xxx", example: "+250 788 123 456", pattern: /^\+250\d{9}$/ },
-  "SS": { code: "+211", format: "+211 xxx xxx xxx", example: "+211 977 123 456", pattern: /^\+211\d{9}$/ },
-  "ET": { code: "+251", format: "+251 xxx xxx xxx", example: "+251 911 123 456", pattern: /^\+251\d{9}$/ },
-  "US": { code: "+1", format: "+1 (xxx) xxx-xxxx", example: "+1 (202) 555-1234", pattern: /^\+1\d{10}$/ },
-  "GB": { code: "+44", format: "+44 xxxx xxxxxx", example: "+44 20 7123 4567", pattern: /^\+44\d{10,11}$/ },
-}
+import { COUNTRY_PHONE_FORMATS, normalizePhoneNumber, formatPhoneForDisplay } from "@/lib/phone"
 
 export interface PhoneInputProps {
   value: string
@@ -107,12 +96,11 @@ export function PhoneInput({
   const [country, setCountry] = useState<string>(defaultCountry)
   const [displayValue, setDisplayValue] = useState<string>(value)
 
-  // Initialize country from value if provided
   useEffect(() => {
     if (value) {
       const detectedCountry = getCountryFromPhone(value)
       setCountry(detectedCountry)
-      setDisplayValue(value)
+      setDisplayValue(formatPhoneForDisplay(value, detectedCountry))
     } else {
       setDisplayValue("")
     }
@@ -121,35 +109,25 @@ export function PhoneInput({
   const handleCountryChange = (newCountry: string) => {
     setCountry(newCountry)
     const countryData = COUNTRY_PHONE_FORMATS[newCountry]
-    if (countryData && displayValue) {
-      // Remove old country code and add new one
-      const digits = displayValue.replace(/[^\d]/g, "")
-      const currentCode = COUNTRY_PHONE_FORMATS[country].code.replace("+", "")
-      if (digits.startsWith(currentCode)) {
-        const numberWithoutCode = digits.substring(currentCode.length)
-        const formatted = formatPhoneNumber(numberWithoutCode, newCountry)
-        setDisplayValue(formatted)
-        onChange(formatted.replace(/\s/g, ""))
-      } else {
-        const formatted = formatPhoneNumber(digits, newCountry)
-        setDisplayValue(formatted)
-        onChange(formatted.replace(/\s/g, ""))
-      }
-    } else {
-      // Clear and show placeholder
+    if (!countryData) {
       setDisplayValue("")
       onChange("")
+      return
     }
+
+    const digits = displayValue.replace(/\D/g, "") || value.replace(/\D/g, "") || ""
+    const normalized = normalizePhoneNumber(digits, newCountry)
+    const formatted = formatPhoneForDisplay(normalized, newCountry)
+    setDisplayValue(formatted)
+    onChange(normalizePhoneNumber(normalized, newCountry))
   }
 
   const handlePhoneChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const input = e.target.value
-    const formatted = formatPhoneNumber(input, country)
+    const normalized = normalizePhoneNumber(input, country)
+    const formatted = formatPhoneForDisplay(normalized, country)
     setDisplayValue(formatted)
-    
-    // Send formatted value without spaces for storage
-    const cleaned = formatted.replace(/\s/g, "")
-    onChange(cleaned)
+    onChange(normalized)
   }
 
   const countryData = COUNTRY_PHONE_FORMATS[country]

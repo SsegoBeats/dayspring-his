@@ -32,15 +32,15 @@ export function SettingsLayout({ children, title, description, icon }: SettingsL
 
   return (
     <div className="mx-auto w-full max-w-[1440px] space-y-8 px-4 pb-10 pt-4 sm:px-6 xl:px-10">
-      <section className="relative overflow-hidden rounded-[32px] border border-sky-100/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(240,249,255,0.92)_45%,rgba(255,247,237,0.94))] p-6 shadow-[0_28px_90px_-48px_rgba(14,116,144,0.55)] backdrop-blur xl:p-8">
-        <div className="pointer-events-none absolute inset-y-0 right-0 w-[42%] bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.18),transparent_58%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.14),transparent_52%)]" />
+      <section className="relative overflow-hidden rounded-[32px] border border-sky-100/80 bg-[linear-gradient(135deg,rgba(255,255,255,0.94),rgba(240,249,255,0.92)_45%,rgba(255,247,237,0.94))] p-6 shadow-[0_28px_90px_-48px_rgba(14,116,144,0.55)] backdrop-blur xl:p-8 dark:border-slate-700 dark:bg-[linear-gradient(135deg,rgba(15,23,42,0.96),rgba(15,23,42,0.9)_45%,rgba(30,41,59,0.96))] dark:shadow-[0_28px_90px_-48px_rgba(2,6,23,0.9)]">
+        <div className="pointer-events-none absolute inset-y-0 right-0 w-[42%] bg-[radial-gradient(circle_at_top,rgba(14,165,233,0.18),transparent_58%),radial-gradient(circle_at_bottom,rgba(249,115,22,0.14),transparent_52%)] dark:opacity-80" />
         <div className="relative grid gap-6 xl:grid-cols-[minmax(0,1.3fr)_320px] xl:items-start">
           <div className="space-y-5">
             <div className="flex flex-wrap items-center gap-3">
-              <Badge className="rounded-full border-0 bg-slate-950 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.28em] text-white shadow-sm">
+              <Badge className="rounded-full border-0 bg-slate-950 px-3 py-1 text-[11px] font-medium uppercase tracking-[0.28em] text-white shadow-sm dark:bg-slate-100 dark:text-slate-900">
                 Settings Workspace
               </Badge>
-              <Badge variant="outline" className="rounded-full border-sky-200 bg-white/80 px-3 py-1 text-sky-700">
+              <Badge variant="outline" className="rounded-full border-sky-200 bg-white/80 px-3 py-1 text-sky-700 dark:border-sky-700 dark:bg-slate-900/80 dark:text-sky-300">
                 {normalizedRole}
               </Badge>
             </div>
@@ -49,17 +49,17 @@ export function SettingsLayout({ children, title, description, icon }: SettingsL
                 {icon}
               </div>
               <div className="space-y-2">
-                <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl">{title}</h1>
-                <p className="max-w-3xl text-sm leading-6 text-slate-600 sm:text-base">{description}</p>
+                <h1 className="text-3xl font-semibold tracking-tight text-slate-950 sm:text-4xl dark:text-slate-50">{title}</h1>
+                <p className="max-w-3xl text-sm leading-6 text-slate-600 sm:text-base dark:text-slate-300">{description}</p>
               </div>
             </div>
             <div className="grid gap-3 sm:grid-cols-3">
-              <div className="rounded-[22px] border border-white/70 bg-white/75 p-4 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.45)] backdrop-blur">
-                <div className="flex items-center gap-2 text-sm font-medium text-slate-900">
+              <div className="rounded-[22px] border border-white/70 bg-white/75 p-4 shadow-[0_18px_45px_-30px_rgba(15,23,42,0.45)] backdrop-blur dark:border-slate-700 dark:bg-slate-900/80">
+                <div className="flex items-center gap-2 text-sm font-medium text-slate-900 dark:text-slate-100">
                   <ShieldCheck className="h-4 w-4 text-emerald-600" />
                   Secure by default
                 </div>
-                <p className="mt-2 text-sm leading-6 text-slate-600">
+                <p className="mt-2 text-sm leading-6 text-slate-600 dark:text-slate-300">
                   Profile, password, email verification, and notification controls stay scoped to the signed-in user.
                 </p>
               </div>
@@ -83,16 +83,16 @@ export function SettingsLayout({ children, title, description, icon }: SettingsL
               </div>
             </div>
           </div>
-          <div className="rounded-[28px] border border-white/75 bg-white/85 p-5 shadow-[0_22px_55px_-36px_rgba(15,23,42,0.55)] backdrop-blur">
-            <div className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500">Workspace notes</div>
+          <div className="rounded-[28px] border border-white/75 bg-white/85 p-5 shadow-[0_22px_55px_-36px_rgba(15,23,42,0.55)] backdrop-blur dark:border-slate-700 dark:bg-slate-900/80">
+            <div className="text-xs font-semibold uppercase tracking-[0.25em] text-slate-500 dark:text-slate-400">Workspace notes</div>
             <div className="mt-4 space-y-4">
-              <div className="rounded-2xl bg-slate-950 px-4 py-4 text-white">
+              <div className="rounded-2xl bg-slate-950 px-4 py-4 text-white dark:bg-slate-100 dark:text-slate-900">
                 <div className="text-sm font-medium">Account &amp; preferences</div>
-                <p className="mt-2 text-sm leading-6 text-slate-300">
+                <p className="mt-2 text-sm leading-6 text-slate-300 dark:text-slate-700">
                   Update profile, email, password, notifications, and portal defaults from one place.
                 </p>
               </div>
-              <div className="space-y-3 text-sm leading-6 text-slate-600">
+              <div className="space-y-3 text-sm leading-6 text-slate-600 dark:text-slate-300">
                 <p>Use the left column for identity and portal behavior, then the right column for security and delivery settings.</p>
                 <p>Admins also get organization-wide currency controls without changing the rest of the account flow.</p>
               </div>

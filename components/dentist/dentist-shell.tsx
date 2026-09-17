@@ -34,18 +34,18 @@ export function DentistShell() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Portal header strip */}
-      <div className="bg-white border-b border-cyan-100 shadow-sm">
+      <div className="bg-white border-b border-cyan-100 shadow-sm dark:border-slate-700 dark:bg-slate-900">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             {/* Identity */}
             <div>
-              <p className="text-sm font-bold text-slate-800">
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">
                 Dayspring HIS — Dental
               </p>
               {user && (
-                <p className="text-xs text-cyan-600">
+                <p className="text-xs text-cyan-600 dark:text-cyan-400">
                   {user.name} · Dental Surgeon
                 </p>
               )}
@@ -58,7 +58,7 @@ export function DentistShell() {
                 <button
                   type="button"
                   aria-label="Settings"
-                  className="rounded-lg p-2 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors"
+                  className="rounded-lg p-2 text-slate-400 hover:text-cyan-600 hover:bg-cyan-50 transition-colors dark:text-slate-300 dark:hover:text-cyan-400 dark:hover:bg-slate-800"
                 >
                   <Settings className="h-5 w-5" />
                 </button>
@@ -76,8 +76,8 @@ export function DentistShell() {
                 className={cn(
                   "px-4 py-3 text-sm transition-colors border-b-2",
                   activeTab === tab.id
-                    ? "border-cyan-600 text-cyan-700 font-semibold"
-                    : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200",
+                    ? "border-cyan-600 text-cyan-700 font-semibold dark:text-cyan-300 dark:border-cyan-400"
+                    : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200 dark:text-slate-300 dark:hover:text-slate-100 dark:hover:border-slate-700",
                 )}
               >
                 {tab.label}

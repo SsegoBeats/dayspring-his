@@ -48,16 +48,16 @@ export function MidwifeShell() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950">
       {/* Portal header */}
-      <div className="bg-white border-b border-rose-100 shadow-sm shadow-rose-100/40">
+      <div className="bg-white border-b border-rose-100 shadow-sm shadow-rose-100/40 dark:border-slate-700 dark:bg-slate-900 dark:shadow-none">
         <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8">
           <div className="flex items-center justify-between h-14">
             {/* Identity */}
             <div>
-              <p className="text-sm font-bold text-slate-800">Dayspring HIS — Midwifery</p>
+              <p className="text-sm font-bold text-slate-800 dark:text-slate-100">Dayspring HIS — Midwifery</p>
               {user && (
-                <p className="text-xs text-rose-600">
+                <p className="text-xs text-rose-600 dark:text-rose-400">
                   {user.name} · Midwife
                 </p>
               )}
@@ -70,7 +70,7 @@ export function MidwifeShell() {
                 <button
                   type="button"
                   aria-label="Settings"
-                  className="rounded-lg p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors"
+                  className="rounded-lg p-2 text-slate-400 hover:text-rose-600 hover:bg-rose-50 transition-colors dark:text-slate-300 dark:hover:text-rose-400 dark:hover:bg-slate-800"
                 >
                   <Settings className="h-5 w-5" />
                 </button>
@@ -88,8 +88,8 @@ export function MidwifeShell() {
                 className={cn(
                   "whitespace-nowrap px-4 py-3 text-sm transition-colors border-b-2 shrink-0",
                   activeTab === tab.id
-                    ? "border-rose-600 text-rose-700 font-semibold"
-                    : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200",
+                    ? "border-rose-600 text-rose-700 font-semibold dark:text-rose-300 dark:border-rose-400"
+                    : "border-transparent text-slate-500 hover:text-slate-700 hover:border-slate-200 dark:text-slate-300 dark:hover:text-slate-100 dark:hover:border-slate-700",
                 )}
               >
                 {tab.label}

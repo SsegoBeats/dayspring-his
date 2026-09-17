@@ -3,9 +3,11 @@ import { z } from "zod"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { query, queryWithSession } from "@/lib/db"
+import { isValidPhoneNumber, normalizePhoneNumber } from "@/lib/phone"
 
-// Phone validation - accepts international format with country code
-const PhoneSchema = z.string().regex(/^\+\d{10,15}$/, "Phone must be in international format (e.g., +256700123456)")
+const PhoneSchema = z.string().transform((value) => normalizePhoneNumber(value, "UG")).refine((value) => isValidPhoneNumber(value), {
+  message: "Phone must be a valid international number with country code (e.g., +256700123456)",
+})
 const UgNIN = z.string().regex(/^[A-Z0-9]{14}$/).optional().nullable()
 
 const PatientSchema = z.object({
