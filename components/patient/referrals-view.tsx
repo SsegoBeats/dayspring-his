@@ -16,6 +16,7 @@ import { useAuth } from "@/lib/auth-context"
 interface Referral {
   id: string
   type: string
+  receiving_user_id?: string | null
   referring_user_name?: string
   receiving_user_name?: string
   receiving_department?: string
@@ -26,6 +27,62 @@ interface Referral {
   status: string
   created_at: string
   notes?: string
+  handoff_snapshot?: unknown
+  accepted_at?: string
+  completed_at?: string
+}
+
+interface HandoffSnapshot {
+  capturedAt?: string
+  patient?: {
+    id?: string
+    patientNumber?: string | null
+    name?: string
+  }
+  latestClinicalRecord?: {
+    chief_complaint?: string | null
+    history?: string | null
+    impression?: string | null
+    diagnosis?: string | null
+    treatment_plan?: string | null
+    notes?: string | null
+  } | null
+  latestVitals?: {
+    blood_pressure_systolic?: number | null
+    blood_pressure_diastolic?: number | null
+    heart_rate?: number | null
+    temperature?: number | null
+    respiratory_rate?: number | null
+    oxygen_saturation?: number | null
+    notes?: string | null
+  } | null
+  recentPrescriptions?: Array<{
+    medication_name?: string | null
+    dosage?: string | null
+    frequency?: string | null
+    status?: string | null
+  }>
+  recentLabResults?: Array<{
+    test_name?: string | null
+    results?: string | null
+    status?: string | null
+    priority?: string | null
+  }>
+  requestedProcedures?: Array<{
+    id?: string
+    name?: string | null
+    type?: string | null
+    status?: string | null
+    performer?: string | null
+    reason?: string | null
+    findings?: string | null
+    notes?: string | null
+    outcome?: string | null
+    followUpInstructions?: string | null
+    performedAt?: string | null
+  }>
+  followUpRequirements?: string | null
+  instructions?: string | null
 }
 
 interface ReferralsViewProps {
@@ -52,14 +109,29 @@ export function ReferralsView({ patientId }: ReferralsViewProps) {
   const [urgency, setUrgency] = useState('routine')
   const [notes, setNotes] = useState('')
   const [submitting, setSubmitting] = useState(false)
+  const [statusFilter, setStatusFilter] = useState('__all_status__')
+  const [urgencyFilter, setUrgencyFilter] = useState('__all_urgency__')
 
-  const canCreateReferral = user?.role && ['Clinician', 'Nurse', 'Hospital Admin'].includes(user.role)
+  const canCreateReferral = user?.role && ['Clinician', 'Nurse', 'Midwife', 'Hospital Admin'].includes(user.role)
+
+  const toSnapshot = (value: unknown): HandoffSnapshot | null => {
+    if (!value) return null
+    try {
+      if (typeof value === 'string') return JSON.parse(value) as HandoffSnapshot
+      if (typeof value === 'object') return value as HandoffSnapshot
+      return null
+    } catch {
+      return null
+    }
+  }
 
   const loadReferrals = async () => {
     try {
       setLoading(true)
       const qs = new URLSearchParams({ patientId })
       if (user?.facilityId) qs.set('facilityId', user.facilityId)
+      if (statusFilter !== '__all_status__') qs.set('status', statusFilter)
+      if (urgencyFilter !== '__all_urgency__') qs.set('urgency', urgencyFilter)
       const res = await fetch(`/api/referrals?${qs.toString()}`, { credentials: 'include' })
       if (!res.ok) throw new Error('Failed to load referrals')
       const data = await res.json()
@@ -87,7 +159,24 @@ export function ReferralsView({ patientId }: ReferralsViewProps) {
       void loadReferrals()
       void loadClinicians()
     }
-  }, [patientId])
+  }, [patientId, user?.facilityId, statusFilter, urgencyFilter])
+
+  const updateHandoffStatus = async (referral: Referral, status: "accepted" | "completed") => {
+    try {
+      const res = await fetch(`/api/referrals/${encodeURIComponent(referral.id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ status }),
+      })
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) throw new Error(data.error || "Could not update handoff status")
+      toast.success(status === "accepted" ? "Handoff accepted" : "Handoff completed")
+      await loadReferrals()
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Could not update handoff status")
+    }
+  }
 
   const handleCreate = async () => {
     if (!reason.trim()) {
@@ -155,7 +244,7 @@ export function ReferralsView({ patientId }: ReferralsViewProps) {
       setExternalContact('')
       await loadReferrals()
     } catch (error: any) {
-      toast.error(error?.message || 'Failed to create referral')
+      toast.error(error?.message || 'Referral was not saved. Please try again.')
     } finally {
       setSubmitting(false)
     }
@@ -298,7 +387,61 @@ export function ReferralsView({ patientId }: ReferralsViewProps) {
         )}
       </div>
 
-      {referrals.length === 0 ? (
+      <div className="flex flex-wrap items-center gap-2">
+        <div className="w-44">
+          <Label htmlFor="referral-status-filter" className="sr-only">Status filter</Label>
+          <Select value={statusFilter} onValueChange={setStatusFilter}>
+            <SelectTrigger id="referral-status-filter">
+              <SelectValue placeholder="Filter status" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all_status__">All Statuses</SelectItem>
+              <SelectItem value="pending">Pending</SelectItem>
+              <SelectItem value="accepted">Accepted</SelectItem>
+              <SelectItem value="completed">Completed</SelectItem>
+              <SelectItem value="cancelled">Cancelled</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        <div className="w-44">
+          <Label htmlFor="referral-urgency-filter" className="sr-only">Urgency filter</Label>
+          <Select value={urgencyFilter} onValueChange={setUrgencyFilter}>
+            <SelectTrigger id="referral-urgency-filter">
+              <SelectValue placeholder="Filter urgency" />
+            </SelectTrigger>
+            <SelectContent>
+              <SelectItem value="__all_urgency__">All Urgencies</SelectItem>
+              <SelectItem value="emergency">Emergency</SelectItem>
+              <SelectItem value="Very Urgent">Very Urgent</SelectItem>
+              <SelectItem value="urgent">Urgent</SelectItem>
+              <SelectItem value="routine">Routine</SelectItem>
+              <SelectItem value="low">Low</SelectItem>
+            </SelectContent>
+          </Select>
+        </div>
+        {(statusFilter !== '__all_status__' || urgencyFilter !== '__all_urgency__') && (
+          <Button
+            variant="outline"
+            size="sm"
+            onClick={() => {
+              setStatusFilter('__all_status__')
+              setUrgencyFilter('__all_urgency__')
+            }}
+          >
+            Clear Filters
+          </Button>
+        )}
+      </div>
+
+      {loading && (
+        <Card>
+          <CardContent className="p-6">
+            <p className="text-sm text-muted-foreground">Loading referrals...</p>
+          </CardContent>
+        </Card>
+      )}
+
+      {!loading && referrals.length === 0 ? (
         <Card>
           <CardContent className="p-6">
             <p className="text-sm text-muted-foreground">No referrals for this patient.</p>
@@ -306,7 +449,13 @@ export function ReferralsView({ patientId }: ReferralsViewProps) {
         </Card>
       ) : (
         <div className="space-y-3">
-          {referrals.map((ref) => (
+          {referrals.map((ref) => {
+            const isHandoffRecipient = !!user && (
+              user.role === "Hospital Admin"
+              || ref.receiving_user_id === user.id
+              || (!ref.receiving_user_id && ref.receiving_department?.toLowerCase() === user.role.toLowerCase())
+            )
+            return (
             <Card key={ref.id}>
               <CardHeader className="pb-3">
                 <div className="flex items-start justify-between">
@@ -330,13 +479,102 @@ export function ReferralsView({ patientId }: ReferralsViewProps) {
                     <p><strong>To:</strong> {ref.external_clinician_name}</p>
                   )}
                   {ref.notes && <p className="text-muted-foreground"><strong>Notes:</strong> {ref.notes}</p>}
+                  {(() => {
+                    const snapshot = toSnapshot(ref.handoff_snapshot)
+                    if (!snapshot) return null
+                    const vitals = snapshot.latestVitals
+                    const clinical = snapshot.latestClinicalRecord
+                    const meds = Array.isArray(snapshot.recentPrescriptions) ? snapshot.recentPrescriptions.slice(0, 5) : []
+                    const labs = Array.isArray(snapshot.recentLabResults) ? snapshot.recentLabResults.slice(0, 5) : []
+                    return (
+                      <details open={ref.type === "internal" && ref.status === "pending"} className="rounded border border-teal-100 bg-teal-50/40 p-3">
+                        <summary className="cursor-pointer text-xs font-semibold uppercase tracking-widest text-teal-700">
+                          Handoff Snapshot
+                        </summary>
+                        <div className="mt-2 space-y-2 text-xs text-slate-700">
+                          {snapshot.patient?.name && (
+                            <p><strong>Patient:</strong> {snapshot.patient.name}{snapshot.patient.patientNumber ? ` (${snapshot.patient.patientNumber})` : ""}</p>
+                          )}
+                          {clinical?.chief_complaint && <p><strong>Chief Complaint:</strong> {clinical.chief_complaint}</p>}
+                          {clinical?.history && <p><strong>Relevant History:</strong> {clinical.history}</p>}
+                          {clinical?.impression && <p><strong>Impression:</strong> {clinical.impression}</p>}
+                          {clinical?.diagnosis && <p><strong>Diagnosis:</strong> {clinical.diagnosis}</p>}
+                          {clinical?.treatment_plan && <p><strong>Treatment Plan:</strong> {clinical.treatment_plan}</p>}
+                          {snapshot.instructions && <p><strong>Instructions:</strong> {snapshot.instructions}</p>}
+                          {vitals && (
+                            <p>
+                              <strong>Latest Vitals:</strong>{" "}
+                              {vitals.blood_pressure_systolic != null && vitals.blood_pressure_diastolic != null ? `BP ${vitals.blood_pressure_systolic}/${vitals.blood_pressure_diastolic} ` : ""}
+                              {vitals.temperature != null ? `Temp ${vitals.temperature} ` : ""}
+                              {vitals.heart_rate != null ? `HR ${vitals.heart_rate} ` : ""}
+                              {vitals.respiratory_rate != null ? `RR ${vitals.respiratory_rate} ` : ""}
+                              {vitals.oxygen_saturation != null ? `SpO2 ${vitals.oxygen_saturation}%` : ""}
+                            </p>
+                          )}
+                          {meds.length > 0 && (
+                            <p>
+                              <strong>Requested/Recent Medications:</strong>{" "}
+                              {meds.map((m) => [m.medication_name, m.dosage, m.frequency].filter(Boolean).join(" ")).filter(Boolean).join("; ")}
+                            </p>
+                          )}
+                          {labs.length > 0 && (
+                            <div>
+                              <strong>Relevant Labs:</strong>
+                              <ul className="ml-4 list-disc">
+                                {labs.map((lab, index) => (
+                                  <li key={`${lab.test_name || "lab"}-${index}`}>
+                                    {[lab.test_name, lab.status ? `(${lab.status})` : "", lab.priority ? `[${lab.priority}]` : "", lab.results].filter(Boolean).join(" — ")}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          )}
+                          {snapshot.requestedProcedures?.length ? (
+                            <div>
+                              <strong>Requested / Recent Procedures:</strong>
+                              <ul className="ml-4 list-disc">
+                                {snapshot.requestedProcedures.map((procedure, index) => (
+                                  <li key={procedure.id || `${procedure.name || "procedure"}-${index}`}>
+                                    <span className="font-medium">{procedure.name || "Procedure"}</span>
+                                    {procedure.status ? ` (${procedure.status})` : ""}
+                                    {procedure.reason ? ` — Indication: ${procedure.reason}` : ""}
+                                    {procedure.notes ? ` — Instructions: ${procedure.notes}` : ""}
+                                    {procedure.findings ? ` — Findings: ${procedure.findings}` : ""}
+                                    {procedure.outcome ? ` — Outcome: ${procedure.outcome}` : ""}
+                                    {procedure.followUpInstructions ? ` — Follow-up: ${procedure.followUpInstructions}` : ""}
+                                  </li>
+                                ))}
+                              </ul>
+                            </div>
+                          ) : null}
+                          {snapshot.followUpRequirements && (
+                            <p><strong>Follow-up Requirements:</strong> {snapshot.followUpRequirements}</p>
+                          )}
+                          {snapshot.capturedAt && <p className="text-[11px] text-slate-500">Snapshot captured: {new Date(snapshot.capturedAt).toLocaleString()}</p>}
+                        </div>
+                      </details>
+                    )
+                  })()}
+                  {ref.accepted_at && <p className="text-xs text-muted-foreground">Accepted: {new Date(ref.accepted_at).toLocaleString()}</p>}
+                  {ref.completed_at && <p className="text-xs text-muted-foreground">Completed: {new Date(ref.completed_at).toLocaleString()}</p>}
+                  {ref.type === "internal" && isHandoffRecipient && ref.status === "pending" && (
+                    <Button size="sm" onClick={() => void updateHandoffStatus(ref, "accepted")}>
+                      Accept Handoff
+                    </Button>
+                  )}
+                  {ref.type === "internal" && isHandoffRecipient && ref.status === "accepted" && (
+                    <Button size="sm" variant="outline" onClick={() => void updateHandoffStatus(ref, "completed")}>
+                      Complete Handoff
+                    </Button>
+                  )}
                   <p className="text-xs text-muted-foreground">
                     Created: {new Date(ref.created_at).toLocaleString()}
                   </p>
                 </div>
               </CardContent>
             </Card>
-          ))}
+            )
+          })}
         </div>
       )}
     </div>

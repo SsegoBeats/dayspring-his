@@ -43,16 +43,30 @@ export async function PATCH(
         return NextResponse.json({ error: "Invalid status" }, { status: 400 })
     }
 
+    const isAdmin = auth.role === "Hospital Admin"
+    const hasMedicalUpdate = can(auth.role, "medical", "update")
+    const hasPharmacyUpdate = can(auth.role, "pharmacy", "update")
+
+    const whereScope = isAdmin
+      ? "id = $3"
+      : hasPharmacyUpdate && !hasMedicalUpdate
+        ? "id = $3"
+        : "id = $3 AND doctor_id = $4"
+
+    const updateParams = whereScope.includes("$4")
+      ? [dbStatus, auth.userId, id, auth.userId]
+      : [dbStatus, auth.userId, id]
+
     const { rows } = await queryWithSession(
       { role: auth.role, userId: auth.userId },
       `UPDATE prescriptions
           SET status = $1,
               dispensed_by = CASE WHEN $1 = 'Dispensed' THEN $2 ELSE dispensed_by END,
               dispensed_at = CASE WHEN $1 = 'Dispensed' THEN NOW() ELSE dispensed_at END
-        WHERE id = $3
+        WHERE ${whereScope}
         RETURNING id, patient_id, doctor_id, medication_name, dosage, frequency, duration,
                   instructions, quantity, status, dispensed_by, dispensed_at, created_at`,
-      [dbStatus, auth.userId, id],
+      updateParams,
     )
 
     if (!rows.length) {

@@ -7,7 +7,7 @@ import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
 
 type ExportFormat = "csv" | "xlsx" | "pdf"
-type Dataset = "obstetrics" | "labor" | "postnatal"
+type Dataset = "obstetrics" | "labor" | "labor_vital_events" | "postnatal" | "immunizations" | "family_planning"
 
 interface DatasetConfig {
   id: Dataset
@@ -29,10 +29,28 @@ const DATASETS: DatasetConfig[] = [
       "Intrapartum records. Each row includes admission date, delivery date, delivery type, duration of labour, presentation, complications, and baby details (sex, weight, APGAR scores, condition).",
   },
   {
+    id: "labor_vital_events",
+    title: "Labor Vital Events",
+    description:
+      "Partograph-like labor vital checkpoints. Each row includes measured time, maternal vitals, fetal heart rate, contraction frequency, cervical dilation, urine output, and recorder.",
+  },
+  {
     id: "postnatal",
     title: "Postnatal Visits",
     description:
       "Postnatal follow-up records. Each row includes visit date, days postpartum, blood pressure, temperature, lochia, wound healing, breastfeeding status, baby weight, and condition.",
+  },
+  {
+    id: "immunizations",
+    title: "Immunization Records",
+    description:
+      "Immunization history and schedule data. Each row includes vaccine, administration date, age/time bucket, dose, status, due dates, administrator, and lot details.",
+  },
+  {
+    id: "family_planning",
+    title: "Family Planning Events",
+    description:
+      "Family planning longitudinal events. Each row includes encounter date, event type, method, status, postpartum context, reason, follow-up date, and recording clinician.",
   },
 ]
 

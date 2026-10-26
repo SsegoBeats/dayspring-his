@@ -94,6 +94,9 @@ import { MedicalRecordsDataset } from "@/lib/exports/datasets/medical-records"
 import { PrescriptionsDataset } from "@/lib/exports/datasets/prescriptions"
 import { RadiologyLabTestsDataset } from "@/lib/exports/datasets/radiology-lab-tests"
 import { UsersDataset } from "@/lib/exports/datasets/users"
+import { ImmunizationsDataset } from "@/lib/exports/datasets/immunizations"
+import { FamilyPlanningDataset } from "@/lib/exports/datasets/family-planning"
+import { LaborVitalEventsDataset } from "@/lib/exports/datasets/labor-vitals"
 
 export const Datasets: Record<string, Dataset> = {
   appointments: new AppointmentsDataset(),
@@ -113,10 +116,13 @@ export const Datasets: Record<string, Dataset> = {
   reception_daily: new ReceptionDailyDataset(),
   obstetrics: new ObstetricsDataset(),
   labor: new LaborDataset(),
+  labor_vital_events: new LaborVitalEventsDataset(),
   postnatal: new PostnatalDataset(),
   dental: new DentalDataset(),
   medical_records: new MedicalRecordsDataset(),
   prescriptions: new PrescriptionsDataset(),
+  immunizations: new ImmunizationsDataset(),
+  family_planning: new FamilyPlanningDataset(),
 }
 
 

@@ -1,6 +1,6 @@
 "use client"
 
-import { useEffect, useMemo, useState } from "react"
+import { useEffect, useMemo, useRef, useState } from "react"
 import { useLab, type LabTest } from "@/lib/lab-context"
 import { useAuth } from "@/lib/auth-context"
 import { usePatients } from "@/lib/patient-context"
@@ -11,7 +11,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Input } from "@/components/ui/input"
 import { Badge } from "@/components/ui/badge"
 import { Alert, AlertDescription } from "@/components/ui/alert"
-import { ArrowLeft, Save, XCircle, PlayCircle, Loader2, Printer, AlertCircle, FileDown, Plus, Trash2 } from "lucide-react"
+import { ArrowLeft, Save, XCircle, PlayCircle, Loader2, Printer, AlertCircle, FileDown, Plus, Trash2, Upload, Download } from "lucide-react"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogDescription } from "@/components/ui/dialog"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { Checkbox } from "@/components/ui/checkbox"
@@ -20,6 +20,7 @@ import { LabTestAttachments } from "@/components/lab/lab-test-attachments"
 import { formatPatientNumber } from "@/lib/patients"
 import { toast } from "sonner"
 import { type ParameterRow, buildParameterRows, computeFlag, getTemplateForTest } from "@/lib/lab-parameters"
+import { isCbcTest, parseCbcMachineCsv, type CbcImportRow } from "@/lib/cbc-machine-import"
 
 interface LabTestDetailsProps {
   testId: string
@@ -70,6 +71,11 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
   const [rejectDialogOpen, setRejectDialogOpen] = useState(false)
   const [rejectionReason, setRejectionReason] = useState(DEFAULT_REJECTION_REASON)
   const [customRejectionReason, setCustomRejectionReason] = useState("")
+  const cbcImportInputRef = useRef<HTMLInputElement>(null)
+  const [pendingCbcImport, setPendingCbcImport] = useState<CbcImportRow[] | null>(null)
+  const [cbcImportFileName, setCbcImportFileName] = useState("")
+  const [cbcImportError, setCbcImportError] = useState("")
+  const [cbcImportSource, setCbcImportSource] = useState<{ type: string; fileName: string; importedAt: string } | null>(null)
 
   const role = (user?.role || "").toLowerCase()
   const isLabTech = role.includes("lab")
@@ -126,6 +132,10 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
     setVerified(test.status.toLowerCase() === "completed")
     setRejectionReason(DEFAULT_REJECTION_REASON)
     setCustomRejectionReason("")
+    setPendingCbcImport(null)
+    setCbcImportFileName("")
+    setCbcImportError("")
+    setCbcImportSource(null)
   }, [test])
 
   useEffect(() => {
@@ -214,6 +224,68 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
     return [summaryParts.join("\n"), results.trim()].filter(Boolean).join("\n\n")
   }
 
+  const handleCbcCsvSelected = async (file?: File) => {
+    setPendingCbcImport(null)
+    setCbcImportError("")
+    if (!file || !test) return
+    if (file.size > 1_000_000) {
+      setCbcImportError("CSV file exceeds the 1 MB limit.")
+      return
+    }
+    try {
+      const imported = parseCbcMachineCsv(await file.text(), test.accessionNumber || "", patientNumber)
+      setPendingCbcImport(imported.rows)
+      setCbcImportFileName(file.name)
+    } catch (error) {
+      setCbcImportError(error instanceof Error ? error.message : "Could not read CBC CSV.")
+    }
+    if (cbcImportInputRef.current) cbcImportInputRef.current.value = ""
+  }
+
+  const applyCbcCsvImport = () => {
+    if (!pendingCbcImport?.length) return
+    const importedByName = new Map(pendingCbcImport.map((row) => [row.name.trim().toLowerCase(), row]))
+    const mergedRows = paramRows.map((row) => {
+      const key = row.name.trim().toLowerCase()
+      const imported = importedByName.get(key)
+      if (!imported) return { ...row, value: "", flag: "" as const, active: false }
+      importedByName.delete(key)
+      const reference = imported.reference || row.reference
+      return {
+        ...row,
+        ...imported,
+        units: imported.units || row.units,
+        reference,
+        flag: imported.flag || computeFlag(imported.value, reference),
+      }
+    })
+    mergedRows.push(...Array.from(importedByName.values()))
+    setParamRows(mergedRows)
+    setCbcImportSource({
+      type: "normalized-csv",
+      fileName: cbcImportFileName,
+      importedAt: new Date().toISOString(),
+    })
+    setVerified(false)
+    setPendingCbcImport(null)
+    toast.success("CSV values loaded. Review the parameters before submission.")
+  }
+
+  const downloadCbcCsvTemplate = () => {
+    const contents = [
+      "accession_number,patient_number,parameter,value,units,reference,flag",
+      `${test?.accessionNumber || ""},${patientNumber},,,,,`,
+      "",
+    ].join("\r\n")
+    const blob = new Blob([contents], { type: "text/csv;charset=utf-8" })
+    const url = URL.createObjectURL(blob)
+    const link = document.createElement("a")
+    link.href = url
+    link.download = "cbc-machine-import-template.csv"
+    link.click()
+    URL.revokeObjectURL(url)
+  }
+
   const handleStartCollection = async () => {
     if (!test || !specimenType.trim()) {
       toast.error("Enter a specimen type before starting collection")
@@ -267,6 +339,13 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
       return
     }
 
+    const resultJson = paramRows.some((r) => r.active && r.value.trim())
+      ? {
+          parameters: paramRows.filter((r) => r.active),
+          ...(cbcImportSource ? { importSource: cbcImportSource } : {}),
+        }
+      : { ...structured, ...(cbcImportSource ? { importSource: cbcImportSource } : {}) }
+
     setSaving(true)
     try {
       const response = await fetch(`/api/lab-tests/${test.id}`, {
@@ -277,9 +356,7 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
           status: "Completed",
           results: compiledResults,
           notes,
-          resultJson: paramRows.some((r) => r.active && r.value.trim())
-            ? { parameters: paramRows.filter((r) => r.active) }
-            : structured,
+          resultJson,
           specimenType: specimenType.trim() || test.specimenType,
         }),
       })
@@ -293,7 +370,7 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
         completedAt: new Date().toISOString(),
         results: compiledResults,
         notes,
-        resultJson: structured,
+        resultJson,
         specimenType: specimenType.trim() || test.specimenType,
         labTechId: user?.id || test.labTechId || null,
         labTechName: user?.name || test.labTechName,
@@ -379,6 +456,14 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
       setRejecting(false)
     }
   }
+
+  const hivArtSummary = useMemo(() => parseHivArtSummary(test), [test])
+  const hasHivArtSummary = Boolean(
+    hivArtSummary.hivStatus || hivArtSummary.cd4Value || hivArtSummary.viralLoadValue || hivArtSummary.artStatus,
+  )
+  const cbcImportDetails = test?.resultJson && typeof test.resultJson === "object"
+    ? test.resultJson.importSource
+    : null
 
   if (loadingTest && !test) {
     return (
@@ -566,7 +651,74 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                         </div>
                       ) : (
                         <>
-                          {/* Column headers */}
+                          {isCbcTest(test) ? (
+                            <div className="space-y-2 rounded-lg border border-sky-100 bg-sky-50/60 p-3">
+                              <div className="flex flex-wrap items-center gap-2">
+                                <input
+                                  ref={cbcImportInputRef}
+                                  type="file"
+                                  accept=".csv,text/csv"
+                                  className="hidden"
+                                  aria-label="Choose CBC analyzer CSV"
+                                  onChange={(event) => void handleCbcCsvSelected(event.target.files?.[0])}
+                                />
+                                <Button type="button" variant="outline" size="sm" onClick={() => cbcImportInputRef.current?.click()}>
+                                  <Upload className="mr-2 h-4 w-4" />
+                                  Import analyzer CSV
+                                </Button>
+                                <Button type="button" variant="ghost" size="sm" onClick={downloadCbcCsvTemplate}>
+                                  <Download className="mr-2 h-4 w-4" />
+                                  CSV template
+                                </Button>
+                              </div>
+                              <p className="text-xs leading-5 text-muted-foreground">
+                                The analyzer output must be exported or mapped to this CSV format. Required columns: accession_number, parameter, value. Optional: patient_number, units, reference, flag. Each row must match this order’s accession.
+                              </p>
+                              <p className="text-xs text-muted-foreground">
+                                The downloaded template pre-fills this order’s identifiers. Add one row per result and fill in parameter and value; remove the empty starter row if you add rows below it.
+                              </p>
+                              {cbcImportError && <p role="alert" className="text-xs font-medium text-destructive">{cbcImportError}</p>}
+                              {pendingCbcImport && (
+                                <div className="space-y-2 rounded-md border bg-background p-3">
+                                  <p className="text-sm font-medium">
+                                    {pendingCbcImport.length} result(s) parsed from {cbcImportFileName}
+                                  </p>
+                                  <div className="max-h-36 overflow-auto">
+                                    <table className="w-full text-xs">
+                                      <thead>
+                                        <tr className="border-b text-left text-muted-foreground">
+                                          <th className="p-1">Parameter</th>
+                                          <th className="p-1">Value</th>
+                                          <th className="p-1">Units</th>
+                                          <th className="p-1">Flag</th>
+                                        </tr>
+                                      </thead>
+                                      <tbody>
+                                        {pendingCbcImport.slice(0, 10).map((row) => (
+                                          <tr key={row.name} className="border-b last:border-0">
+                                            <td className="p-1">{row.name}</td>
+                                            <td className="p-1">{row.value}</td>
+                                            <td className="p-1">{row.units || "—"}</td>
+                                            <td className="p-1">{row.flag || "—"}</td>
+                                          </tr>
+                                        ))}
+                                      </tbody>
+                                    </table>
+                                    {pendingCbcImport.length > 10 && (
+                                      <p className="p-1 text-muted-foreground">And {pendingCbcImport.length - 10} more…</p>
+                                    )}
+                                  </div>
+                                  <p className="text-xs text-amber-700">
+                                    Applying replaces current parameter values. Verify all imported results and flags before submission.
+                                  </p>
+                                  <div className="flex gap-2">
+                                    <Button type="button" size="sm" onClick={applyCbcCsvImport}>Apply to results</Button>
+                                    <Button type="button" size="sm" variant="outline" onClick={() => setPendingCbcImport(null)}>Discard</Button>
+                                  </div>
+                                </div>
+                              )}
+                            </div>
+                          ) : null}
                           <div className="grid grid-cols-[auto_1fr_18%_14%_22%_12%] gap-2 items-center text-xs font-semibold text-muted-foreground pb-1 border-b">
                             <span />
                             <span>Parameter</span>
@@ -577,7 +729,6 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                           </div>
                           {paramRows.map((row, idx) => (
                             <div key={idx} className="grid grid-cols-[auto_1fr_18%_14%_22%_12%] gap-2 items-center">
-                              {/* Active checkbox */}
                               <Checkbox
                                 id={`param-active-${idx}`}
                                 checked={row.active}
@@ -587,7 +738,6 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                                   )
                                 }
                               />
-                              {/* Parameter name */}
                               <Input
                                 id={`param-name-${idx}`}
                                 name={`paramName${idx}`}
@@ -602,7 +752,6 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                                 className="text-xs h-8"
                                 disabled={!row.active}
                               />
-                              {/* Value */}
                               <Input
                                 id={`param-value-${idx}`}
                                 name={`paramValue${idx}`}
@@ -622,7 +771,6 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                                 className="text-xs h-8"
                                 disabled={!row.active}
                               />
-                              {/* Units */}
                               <Input
                                 id={`param-units-${idx}`}
                                 name={`paramUnits${idx}`}
@@ -637,7 +785,6 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                                 className="text-xs h-8"
                                 disabled={!row.active}
                               />
-                              {/* Reference */}
                               <Input
                                 id={`param-ref-${idx}`}
                                 name={`paramRef${idx}`}
@@ -657,7 +804,6 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                                 className="text-xs h-8"
                                 disabled={!row.active}
                               />
-                              {/* Flag + delete */}
                               <div className="flex items-center gap-1">
                                 <span className={`text-xs font-medium w-14 truncate ${
                                   row.flag === "High" || row.flag === "Critical" ? "text-red-600" :
@@ -677,7 +823,6 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                               </div>
                             </div>
                           ))}
-                          {/* Add custom row */}
                           <button
                             type="button"
                             onClick={() =>
@@ -791,6 +936,12 @@ export function LabTestDetails({ testId, onBack }: LabTestDetailsProps) {
                     <div className="text-xs text-muted-foreground">
                       Reviewed {new Date(test.reviewedAt).toLocaleString()}
                       {test.reviewedBy ? ` by ${test.reviewedBy}` : ""}
+                    </div>
+                  ) : null}
+                  {cbcImportDetails?.type === "normalized-csv" ? (
+                    <div className="text-xs text-muted-foreground">
+                      Imported from CSV: {cbcImportDetails.fileName || "analyzer export"}
+                      {cbcImportDetails.importedAt ? ` · ${new Date(cbcImportDetails.importedAt).toLocaleString()}` : ""}
                     </div>
                   ) : null}
                 </div>
@@ -907,4 +1058,30 @@ function InfoTile({ label, value }: { label: string; value: string }) {
       <div className={`mt-2 text-sm font-medium ${empty ? "text-muted-foreground/60" : "text-foreground"}`}>{value}</div>
     </div>
   )
+}
+
+function parseHivArtSummary(test?: LabTest | null) {
+  const source = typeof test?.resultJson === "object" && test.resultJson ? test.resultJson : {}
+  const params = Array.isArray((source as any).parameters) ? (source as any).parameters : []
+  const text = (test?.results || "").toString()
+  const getValue = (pattern: RegExp) => {
+    const match = text.match(pattern)
+    if (match?.[1]) return match[1].trim()
+    return params.find((entry: any) => {
+      const name = String(entry?.name || "").toLowerCase()
+      return name.includes(pattern.source.toLowerCase().replace(/[\\^$.*+?()[\]{}|]/g, ""))
+    })?.value || ""
+  }
+
+  const hivStatus = getValue(/(?:hiv(?:-1\/2)?\s*(?:antibody|status)|hiv\s*result|hiv\s*rapid)\s*[:=]\s*([^\n]+)/i)
+  const cd4Value = getValue(/cd4(?:\s*(?:count|c))?\s*[:=]\s*([^\n]+)/i)
+  const viralLoadValue = getValue(/viral\s*load\s*[:=]\s*([^\n]+)/i)
+  const artStatus = getValue(/art\s*(?:adherence|status|review)\s*[:=]\s*([^\n]+)/i)
+
+  return {
+    hivStatus: hivStatus || (text.toLowerCase().includes("reactive") ? "Reactive" : text.toLowerCase().includes("non-reactive") ? "Non-reactive" : ""),
+    cd4Value: cd4Value || (text.match(/CD4\s*[:=]?\s*([0-9]+(?:\.[0-9]+)?)\s*(?:cells\/µL|cells\/ul|cells\/uL|cells)/i)?.[1] || ""),
+    viralLoadValue: viralLoadValue || (text.match(/viral\s*load\s*[:=]?\s*([0-9,]+(?:\.[0-9]+)?)\s*(?:copies\/mL|copies)/i)?.[1] || ""),
+    artStatus: artStatus || (text.toLowerCase().includes("adherent") ? "Adherent" : text.toLowerCase().includes("non-adherent") ? "Non-adherent" : ""),
+  }
 }

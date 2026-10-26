@@ -11,9 +11,16 @@
         "migrate:create": "node-pg-migrate create -m ./migrations",
         "migrate:up": "node-pg-migrate up -m ./migrations",
         "migrate:down": "node-pg-migrate down -m ./migrations",
+        "db:bootstrap:integration": "node scripts/bootstrap-integration-db.js",
             "migrate:radiologist": "node scripts/run-radiologist-lab-rls.js",
             "dhis2:cli": "node scripts/dhis2-cli.js",
-        "test:integration": "node tests/integration/mappings.test.js"
+        "test:integration": "node tests/integration/mappings.test.js && node tests/integration/family-planning-removal.test.js && node tests/integration/clinical-persistence-referrals.test.js && node tests/integration/referrals-filter-matrix.test.js",
+        "test:integration:family-planning": "node tests/integration/family-planning-removal.test.js",
+        "test:integration:clinical-persistence-referrals": "node tests/integration/clinical-persistence-referrals.test.js",
+        "test:integration:referrals-filter-matrix": "node tests/integration/referrals-filter-matrix.test.js",
+        "test:integration:referrals:smoke": "pnpm run db:bootstrap:integration && pnpm run test:integration:clinical-persistence-referrals && pnpm run test:integration:referrals-filter-matrix",
+        "test:immunization:schedule": "node tests/immunization-schedule.test.ts",
+        "test:immunization:validation": "node tests/immunization-validation.test.ts"
     },
     "dependencies": {
         "@fontsource/inter": "^5.1.0",

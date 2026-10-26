@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { verifyToken } from "@/lib/security"
+import { can, verifyToken } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
 import { formatPatientNumber } from "@/lib/patients"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
@@ -313,6 +313,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, "queues", "read") && !can(auth.role, "checkins", "read")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     const { id } = await params
     const { rows } = await queryWithSession(

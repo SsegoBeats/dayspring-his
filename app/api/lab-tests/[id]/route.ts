@@ -1,6 +1,6 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
-import { verifyToken } from "@/lib/security"
+import { can, verifyToken } from "@/lib/security"
 import { query, queryWithSession } from "@/lib/db"
 import { formatPatientNumber } from "@/lib/patients"
 import { writeAuditLog } from "@/lib/audit"
@@ -13,8 +13,10 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const token = cookieStore.get('session')?.value || cookieStore.get('session_dev')?.value
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+    if (!can(auth.role, 'lab', 'read')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
-    const { rows } = await query(
+    const { rows } = await queryWithSession(
+      { role: auth.role, userId: auth.userId },
       `SELECT lt.id, lt.patient_id, p.first_name, p.last_name, p.patient_number, p.gender, p.date_of_birth,
               lt.doctor_id, d.name AS doctor_name,
               lt.test_name, lt.test_type, lt.status, lt.results, lt.notes,
@@ -30,7 +32,8 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
          LEFT JOIN users t ON t.id = lt.lab_tech_id
          LEFT JOIN users rb ON rb.id = lt.reviewed_by
          LEFT JOIN users ar ON ar.id = lt.assigned_radiologist_id
-        WHERE lt.id = $1`, [id]
+        WHERE lt.id = $1`,
+      [id],
     )
     if (!rows.length) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     const r:any = rows[0]
@@ -178,7 +181,26 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
         return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
       }
       try {
-        await queryWithSession({ role, userId: auth.userId }, `UPDATE lab_tests SET ${fields.join(', ')} WHERE id = $${params2.length}`, params2)
+        let whereScope = `id = $${params2.length}`
+        if (role === 'Lab Tech') {
+          params2.push(auth.userId)
+          whereScope += ` AND (lab_tech_id = $${params2.length} OR lab_tech_id IS NULL)`
+        } else if (role === 'Radiologist') {
+          params2.push(auth.userId)
+          whereScope += ` AND assigned_radiologist_id = $${params2.length}`
+        } else if (role === 'Clinician') {
+          params2.push(auth.userId)
+          whereScope += ` AND doctor_id = $${params2.length}`
+        }
+
+        const updateRes = await queryWithSession<{ id: string }>(
+          { role, userId: auth.userId },
+          `UPDATE lab_tests SET ${fields.join(', ')} WHERE ${whereScope} RETURNING id`,
+          params2,
+        )
+        if (updateRes.rows.length === 0) {
+          return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
+        }
       } catch (err: any) {
         const msg = String(err?.message || '')
         const friendly =
@@ -458,5 +480,4 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     return NextResponse.json({ error: 'Failed to update lab test' }, { status: 500 })
   }
 }
-
 

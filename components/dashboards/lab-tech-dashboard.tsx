@@ -151,7 +151,7 @@ export function LabTechDashboard() {
                 Process specimens. Release results. Keep the hospital in sync.
               </h2>
               <p className="mt-2 max-w-2xl text-sm leading-6 text-slate-500">
-                Queue control, analyte entry, result exports, and cross-portal notifications — all from one surface.
+                Queue control, analyte entry, and result workflow — all from one surface.
               </p>
             </div>
             <div className="flex flex-wrap gap-2 text-xs text-slate-700">
@@ -169,8 +169,7 @@ export function LabTechDashboard() {
             </div>
             <div className="grid gap-2.5">
               <QuickButton label={`Pending queue${pendingTests.length ? ` (${pendingTests.length})` : ""}`} onClick={() => { setActiveTab("pending"); queueRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) }} />
-              <QuickButton label="Turnaround analytics" onClick={() => analyticsRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} />
-              <QuickButton label="Export studio" onClick={() => exportRef.current?.scrollIntoView({ behavior: "smooth", block: "start" })} />
+              <QuickButton label="Enter results" onClick={() => { setActiveTab("inprogress"); queueRef.current?.scrollIntoView({ behavior: "smooth", block: "start" }) }} />
               <Button variant="outline" className="rounded-2xl border-slate-200 hover:border-cyan-300 hover:bg-cyan-50/60" onClick={() => refresh().then(() => { setLastUpdated(new Date()); toast.success("Lab queue refreshed") }).catch(() => toast.error("Failed to refresh lab queue"))} disabled={loading}>
                 <RefreshCw className={`mr-2 h-4 w-4 ${loading ? "animate-spin" : ""}`} />
                 {loading ? "Refreshing…" : "Refresh Queue"}
@@ -183,55 +182,14 @@ export function LabTechDashboard() {
       <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-4">
         <MetricCard label="Pending" value={pendingTests.length} hint={overdueTests.length ? `${overdueTests.length} overdue >4 h` : "Awaiting collection or processing"} icon={<AlertCircle className="h-4 w-4 text-amber-500" />} tone="amber" urgent={overdueTests.length > 0} />
         <MetricCard label="In Progress" value={inProgressTests.length} hint={`${assignedToMe.length} assigned to you`} icon={<Activity className="h-4 w-4 text-cyan-500" />} tone="cyan" />
-        <MetricCard label="Completed" value={completedTests.length} hint={completedTests.length ? `Avg TAT ${tat.avg} min` : "Results will appear here"} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} tone="emerald" />
+        <MetricCard label="Completed" value={completedTests.length} hint={completedTests.length ? `${completedTests.length} finalized` : "Results will appear here"} icon={<CheckCircle className="h-4 w-4 text-emerald-500" />} tone="emerald" />
         <MetricCard label="Unassigned" value={unassignedTests.length} hint="Ready for delegation" icon={<TestTube className="h-4 w-4 text-slate-500" />} tone="slate" urgent={unassignedTests.length > 3} />
-      </div>
-
-      <div className="grid gap-4 xl:grid-cols-[1.3fr_0.95fr]">
-        <Card ref={analyticsRef} className="border-slate-200 bg-white/90 shadow-sm">
-          <CardHeader className="border-b border-slate-100 pb-4">
-            <CardTitle className="flex items-center gap-2 text-base"><TrendingUp className="h-4 w-4 text-cyan-600" />Turnaround Analytics</CardTitle>
-            <CardDescription>Bench pace across {completedTests.length} completed test{completedTests.length !== 1 ? "s" : ""}. Spot slowdowns before they reach clinicians.</CardDescription>
-          </CardHeader>
-          <CardContent className="grid gap-4 pt-4 md:grid-cols-3">
-            <MiniStat label="Average TAT" value={completedTests.length ? `${tat.avg} min` : "No data"} accent="cyan" />
-            <MiniStat label="Fastest" value={completedTests.length ? `${tat.min} min` : "—"} accent="emerald" />
-            <MiniStat label="Slowest" value={completedTests.length ? `${tat.max} min` : "—"} accent="amber" />
-          </CardContent>
-        </Card>
-
-        <Card className="border-red-100 bg-[linear-gradient(160deg,_rgba(254,242,242,0.95),_rgba(255,255,255,0.98))] shadow-sm">
-          <CardHeader className="border-b border-red-50 pb-4">
-            <CardTitle className="flex items-center gap-2 text-base"><AlertCircle className="h-4 w-4 text-red-500" />Priority Bench</CardTitle>
-            <CardDescription>Tests pending beyond 4 hours. Address these first.</CardDescription>
-          </CardHeader>
-          <CardContent className="space-y-2.5 pt-4">
-            {overdueTests.length === 0 ? (
-              <div className="flex items-center gap-3 rounded-2xl border border-emerald-100 bg-emerald-50/70 px-4 py-5 text-sm text-emerald-800">
-                <CheckCircle className="h-4 w-4 shrink-0 text-emerald-500" />
-                All tests are within turnaround target.
-              </div>
-            ) : overdueTests.slice(0, 4).map((test) => {
-              const overdueMins = Math.round((Date.now() - new Date(test.orderedAt).getTime()) / 60000)
-              return (
-                <button key={test.id} type="button" onClick={() => setSelectedTestId(test.id)} className="group w-full rounded-2xl border border-red-200 bg-red-50/80 px-4 py-3 text-left transition hover:border-red-300 hover:bg-red-50 hover:shadow-sm">
-                  <div className="flex items-center justify-between">
-                    <div className="font-medium text-foreground">{test.testName}</div>
-                    <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-semibold text-red-700">{overdueMins >= 60 ? `${Math.floor(overdueMins / 60)}h ${overdueMins % 60}m` : `${overdueMins}m`}</span>
-                  </div>
-                  <div className="mt-0.5 text-xs text-muted-foreground">{test.patientName} · {test.accessionNumber || "No accession"}</div>
-                </button>
-              )
-            })}
-            {overdueTests.length > 4 && <p className="text-center text-xs text-muted-foreground">+{overdueTests.length - 4} more overdue</p>}
-          </CardContent>
-        </Card>
       </div>
 
       <Card ref={exportRef} className="border-cyan-100 bg-[linear-gradient(160deg,_rgba(236,254,255,0.92),_rgba(255,255,255,0.98))] shadow-sm">
         <CardHeader className="border-b border-cyan-50 pb-4">
           <CardTitle className="flex items-center gap-2 text-base"><Files className="h-4 w-4 text-cyan-600" />Export Studio</CardTitle>
-          <CardDescription>Worklist exports, analyte reports (CSV / XLSX / PDF with sex- &amp; age-adjusted reference ranges), and batch printing.</CardDescription>
+          <CardDescription>Worklist exports and analyte reports for the relevant results section.</CardDescription>
         </CardHeader>
         <CardContent className="pt-5">
           <ExportStudio />

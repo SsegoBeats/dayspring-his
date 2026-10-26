@@ -9,7 +9,7 @@ interface NurseNotif {
   id: string
   title: string
   message: string
-  payload?: { patientId?: string } | null
+  payload?: { patientId?: string; referralId?: string } | null
   read_at: string | null
   created_at: string
 }
@@ -30,9 +30,10 @@ export function NurseNotificationBell() {
       if (!res.ok) return
       const data = await res.json().catch(() => ({}))
       const list: NurseNotif[] = Array.isArray(data?.notifications) ? data.notifications : []
-      setNotifications(
-        list.filter((n) => String(n.title || "").includes("New Patient Registered"))
-      )
+      setNotifications(list.filter((n) =>
+        String(n.title || "").includes("New Patient Registered")
+        || String(n.title || "").includes("Clinical Handoff")
+      ))
     } catch {
       // silent — bell is non-critical
     }
@@ -53,7 +54,12 @@ export function NurseNotificationBell() {
     if (patientId) {
       window.dispatchEvent(
         new CustomEvent("openNursePatientCare", {
-          detail: { patientId, initialTab: "triage", notificationId: notif.id },
+          detail: {
+            patientId,
+            initialTab: notif.title.includes("Clinical Handoff") ? "referrals" : "triage",
+            notificationId: notif.id,
+            referralId: notif.payload?.referralId,
+          },
         })
       )
     }
@@ -139,7 +145,9 @@ export function NurseNotificationBell() {
                   {String(notif.message || "").replace(" has been registered.", "")}
                 </div>
                 <div className="mt-0.5 flex items-center justify-between">
-                  <span className="text-xs text-slate-500">New patient registered</span>
+                  <span className="text-xs text-slate-500">
+                    {notif.title.includes("Clinical Handoff") ? "Clinician handoff" : "New patient registered"}
+                  </span>
                   <span className="text-xs text-slate-400">{timeAgo(notif.created_at)}</span>
                 </div>
               </button>

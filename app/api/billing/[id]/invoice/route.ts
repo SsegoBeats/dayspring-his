@@ -43,6 +43,29 @@ type PaymentRow = {
   created_at: string
 }
 
+async function canAccessBillByFacility(auth: { role: string; userId: string }, billId: string) {
+  if (auth.role === "Hospital Admin") return true
+
+  const userRes = await queryWithSession<{ facility_id?: string }>(
+    { role: auth.role, userId: auth.userId },
+    `SELECT facility_id FROM users WHERE id = $1 LIMIT 1`,
+    [auth.userId],
+  )
+  const facilityId = userRes.rows[0]?.facility_id
+  if (!facilityId) return true
+
+  const billRes = await queryWithSession(
+    { role: auth.role, userId: auth.userId },
+    `SELECT 1
+       FROM bills b
+       JOIN patients p ON p.id = b.patient_id
+      WHERE b.id = $1 AND p.facility_id::text = $2
+      LIMIT 1`,
+    [billId, String(facilityId)],
+  )
+  return billRes.rows.length > 0
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const cookieStore = await cookies()
@@ -54,6 +77,12 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { id } = await params
+    if (!id) return NextResponse.json({ error: "Bill id is required" }, { status: 400 })
+
+    if (!(await canAccessBillByFacility({ role: auth.role, userId: auth.userId }, id))) {
+      return NextResponse.json({ error: "Invoice not found" }, { status: 404 })
+    }
+
     await ensurePaymentsBillLink()
 
     const [billRes, itemsRes, paymentsRes] = await Promise.all([

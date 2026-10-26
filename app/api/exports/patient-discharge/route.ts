@@ -1,8 +1,28 @@
 import { NextResponse } from "next/server"
-import { query } from "@/lib/db"
+import { cookies } from "next/headers"
+import { query, queryWithSession } from "@/lib/db"
 import { verifyToken } from "@/lib/security"
 import { ORG_NAME, ORG_ADDRESS, ORG_PHONE, ORG_EMAIL } from "@/lib/org-constants"
 import PDFDocument from "pdfkit"
+
+async function canAccessPatientByFacility(auth: { role: string; userId: string }, patientId: string) {
+  if (auth.role === "Hospital Admin") return true
+
+  const userRes = await queryWithSession<{ facility_id?: string }>(
+    { role: auth.role, userId: auth.userId },
+    `SELECT facility_id FROM users WHERE id = $1 LIMIT 1`,
+    [auth.userId],
+  )
+  const facilityId = userRes.rows[0]?.facility_id
+  if (!facilityId) return true
+
+  const patientRes = await queryWithSession(
+    { role: auth.role, userId: auth.userId },
+    `SELECT 1 FROM patients WHERE id = $1 AND facility_id::text = $2 LIMIT 1`,
+    [patientId, String(facilityId)],
+  )
+  return patientRes.rows.length > 0
+}
 
 interface DischargeData {
   patient: {
@@ -36,15 +56,19 @@ interface DischargeData {
 export async function POST(req: Request) {
   try {
     // Authorization check
-    const token = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1] || 
-                  req.headers.get("cookie")?.match(/session_dev=([^;]+)/)?.[1]
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const payload = await verifyToken(token)
-    if (!payload || !['Clinician', 'Hospital Admin'].includes(payload.role)) {
+    if (!payload) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (!['Clinician', 'Hospital Admin'].includes(payload.role)) {
       return NextResponse.json({ 
         error: "Only Clinicians and Hospital Admins can export discharge summaries" 
       }, { status: 403 })
@@ -55,6 +79,9 @@ export async function POST(req: Request) {
 
     if (!patientId) {
       return NextResponse.json({ error: "Patient ID is required" }, { status: 400 })
+    }
+    if (!(await canAccessPatientByFacility({ role: payload.role, userId: payload.userId }, patientId))) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 })
     }
 
     // Fetch patient data
@@ -189,7 +216,7 @@ export async function POST(req: Request) {
     // Generate PDF
     const pdfBuffer = await generateDischargePDF(dischargeData)
 
-    return new NextResponse(pdfBuffer, {
+    return new NextResponse(new Uint8Array(pdfBuffer), {
       headers: {
         'Content-Type': 'application/pdf',
         'Content-Disposition': `attachment; filename="discharge-summary-${patient.patient_number}.pdf"`,

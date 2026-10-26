@@ -1,7 +1,31 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
-import { query } from "@/lib/db"
+import { query, queryWithSession } from "@/lib/db"
+
+async function canAccessSummaryByFacility(auth: { role: string; userId: string }, summaryId: string) {
+  if (auth.role === "Hospital Admin") return true
+
+  const userRes = await queryWithSession<{ facility_id?: string }>(
+    { role: auth.role, userId: auth.userId },
+    `SELECT facility_id FROM users WHERE id = $1 LIMIT 1`,
+    [auth.userId],
+  )
+  const facilityId = userRes.rows[0]?.facility_id
+  if (!facilityId) return true
+
+  const scoped = await queryWithSession(
+    { role: auth.role, userId: auth.userId },
+    `SELECT 1
+       FROM patient_summaries ps
+       JOIN patients p ON p.id = ps.patient_id
+      WHERE ps.id = $1
+        AND p.facility_id::text = $2
+      LIMIT 1`,
+    [summaryId, String(facilityId)],
+  )
+  return scoped.rows.length > 0
+}
 
 export async function GET(
   _req: Request,
@@ -14,8 +38,12 @@ export async function GET(
     if (!token) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
 
     const payload = await verifyToken(token)
-    if (!payload || !["Hospital Admin", "Clinician"].includes(payload.role)) {
+    if (!payload) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!["Hospital Admin", "Clinician"].includes(payload.role)) {
       return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
+    if (!(await canAccessSummaryByFacility({ role: payload.role, userId: payload.userId }, id))) {
+      return NextResponse.json({ error: "Summary not found" }, { status: 404 })
     }
 
     const result = await query<{ pdf_data: Buffer; patient_number: string; status: string }>(

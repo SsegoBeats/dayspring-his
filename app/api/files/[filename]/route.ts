@@ -1,10 +1,46 @@
 import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
+import { queryWithSession } from "@/lib/db"
 import { promises as fs } from "fs"
 import path from "path"
 
 export const runtime = "nodejs"
+
+async function canAccessLinkedDocumentByFacility(auth: { role: string; userId: string }, filename: string) {
+  if (auth.role === "Hospital Admin") return true
+
+  const session = { role: auth.role, userId: auth.userId }
+  const encoded = encodeURIComponent(filename)
+  const apiPath = `/api/files/${encoded}`
+
+  const userRes = await queryWithSession<{ facility_id?: string }>(
+    session,
+    `SELECT facility_id FROM users WHERE id = $1 LIMIT 1`,
+    [auth.userId],
+  )
+  const facilityId = userRes.rows[0]?.facility_id
+  if (!facilityId) return true
+
+  const anyRef = await queryWithSession(
+    session,
+    `SELECT 1 FROM documents WHERE file_url = $1 OR file_url LIKE $2 LIMIT 1`,
+    [apiPath, `%${apiPath}`],
+  )
+  if (!anyRef.rows.length) return true
+
+  const scopedRef = await queryWithSession(
+    session,
+    `SELECT 1
+       FROM documents d
+       JOIN patients p ON p.id = d.patient_id
+      WHERE (d.file_url = $1 OR d.file_url LIKE $2)
+        AND p.facility_id::text = $3
+      LIMIT 1`,
+    [apiPath, `%${apiPath}`, String(facilityId)],
+  )
+  return scopedRef.rows.length > 0
+}
 
 // Serve uploaded files from the private uploads directory.
 // Only authenticated users with documents:read permission may download.
@@ -30,6 +66,10 @@ export async function GET(
   // <uuid>-<safename>.<ext>  (UUID is 36 chars)
   if (!/^[0-9a-f-]{36}-.+\.[a-z0-9]+$/i.test(safe)) {
     return NextResponse.json({ error: "Invalid filename" }, { status: 400 })
+  }
+
+  if (!(await canAccessLinkedDocumentByFacility({ role: auth.role, userId: auth.userId }, safe))) {
+    return NextResponse.json({ error: "File not found" }, { status: 404 })
   }
 
   const uploadDir = path.join(process.cwd(), "private-uploads")

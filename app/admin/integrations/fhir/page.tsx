@@ -14,14 +14,14 @@ export default function FhirAdminPage() {
 
   useEffect(() => {
     if (!user) return
-    fetch('/api/admin/integrations/fhir', { headers: { Authorization: `Bearer ${user.token}` } })
+    fetch('/api/admin/integrations/fhir', { credentials: 'include' })
       .then(r => r.json())
       .then(data => { if (data.ok) setMappings(data.rows); setLoading(false) })
       .catch(() => setLoading(false))
   }, [user])
 
   async function create() {
-    const res = await fetch('/api/admin/integrations/fhir', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` }, body: JSON.stringify(form) })
+    const res = await fetch('/api/admin/integrations/fhir', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
     const data = await res.json()
     if (data.ok) setMappings([data.mapping, ...mappings])
   }

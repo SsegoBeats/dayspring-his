@@ -28,6 +28,7 @@ const AUDIT_CATEGORIES = [
   "PAYMENT",
   "PHARMACY",
   "NURSING",
+  "CLINICAL",
   "USER_MANAGEMENT",
   "SYSTEM",
 ] as const
@@ -526,6 +527,7 @@ export function AuditLogViewer() {
               <SelectItem value="PAYMENT">Payment</SelectItem>
               <SelectItem value="PHARMACY">Pharmacy</SelectItem>
               <SelectItem value="NURSING">Nursing</SelectItem>
+              <SelectItem value="CLINICAL">Clinical</SelectItem>
               <SelectItem value="USER_MANAGEMENT">User Management</SelectItem>
               <SelectItem value="SYSTEM">System</SelectItem>
             </SelectContent>

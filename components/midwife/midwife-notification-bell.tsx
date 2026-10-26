@@ -17,7 +17,7 @@ interface MidwifeNotif {
 const MIDWIFE_KEYWORDS = [
   "anc", "obstetric", "labor", "labour", "delivery", "postnatal",
   "maternity", "midwif", "patient queued", "patient assigned",
-  "appointment", "reminder", "lab", "result",
+  "appointment", "reminder", "lab", "result", "referral", "handoff",
 ]
 
 function isMidwifeNotif(n: MidwifeNotif): boolean {
@@ -34,7 +34,6 @@ function timeAgo(dateStr: string): string {
 export function MidwifeNotificationBell() {
   const [notifications, setNotifications] = useState<MidwifeNotif[]>([])
   const [open, setOpen] = useState(false)
-  const sseRef = useRef<EventSource | null>(null)
   const intervalRef = useRef<ReturnType<typeof setInterval> | null>(null)
 
   const fetchNotifications = useCallback(async () => {
@@ -51,30 +50,41 @@ export function MidwifeNotificationBell() {
 
   useEffect(() => {
     void fetchNotifications()
-    const es = new EventSource("/api/notifications/stream", { withCredentials: true })
-    sseRef.current = es
-    es.onmessage = () => { void fetchNotifications() }
-    es.onerror = () => {
-      es.close()
-      if (!intervalRef.current) {
-        intervalRef.current = setInterval(() => { void fetchNotifications() }, 30_000)
-      }
+    // Use polling rather than EventSource to avoid HTTP/2 SSE issues
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(() => { void fetchNotifications() }, 15_000)
     }
     return () => {
-      es.close()
       if (intervalRef.current) clearInterval(intervalRef.current)
     }
   }, [fetchNotifications])
 
   const markAllRead = async () => {
     try {
+      const ids = notifications.filter((n) => !n.read_at).map((n) => n.id)
+      if (!ids.length) return
       await fetch("/api/notifications", {
         method: "PATCH",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ markAllRead: true }),
+        body: JSON.stringify({ ids }),
       })
       setNotifications((prev) => prev.map((n) => ({ ...n, read_at: new Date().toISOString() })))
+    } catch {
+      // silent
+    }
+  }
+
+  const markOneRead = async (n: MidwifeNotif) => {
+    if (n.read_at) return
+    try {
+      await fetch("/api/notifications", {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ ids: [n.id] }),
+      })
+      setNotifications((prev) => prev.map((x) => (x.id === n.id ? { ...x, read_at: new Date().toISOString() } : x)))
     } catch {
       // silent
     }
@@ -112,17 +122,25 @@ export function MidwifeNotificationBell() {
             <p className="px-4 py-6 text-center text-sm text-muted-foreground">No notifications</p>
           ) : (
             notifications.map((n) => (
-              <div
+              <button
                 key={n.id}
+                type="button"
+                onClick={() => {
+                  void markOneRead(n)
+                  const patientId = n.payload?.patientId
+                  if (patientId) {
+                    window.dispatchEvent(new CustomEvent("midwife:open-patient", { detail: { patientId } }))
+                  }
+                }}
                 className={cn(
-                  "px-4 py-3 text-sm transition-colors",
+                  "w-full text-left px-4 py-3 text-sm transition-colors hover:bg-rose-50/40",
                   n.read_at ? "opacity-60" : "bg-rose-50/40",
                 )}
               >
                 <p className="font-medium text-slate-700 leading-tight">{n.title}</p>
                 <p className="text-xs text-slate-500 mt-0.5 leading-snug">{n.message}</p>
                 <p className="text-[11px] text-rose-400 mt-1">{timeAgo(n.created_at)}</p>
-              </div>
+              </button>
             ))
           )}
         </div>

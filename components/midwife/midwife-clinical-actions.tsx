@@ -422,15 +422,25 @@ function WriteReferral() {
     if (!reason.trim()) { toast.error("Enter a referral reason"); return }
     setSaving(true)
     try {
-      const res = await fetch("/api/medical/records", {
+      const mappedUrgency =
+        urgency === "Emergency"
+          ? "emergency"
+          : urgency === "Urgent"
+            ? "urgent"
+            : urgency === "Semi-Urgent"
+              ? "Very Urgent"
+              : "routine"
+      const res = await fetch("/api/referrals", {
         method: "POST",
         credentials: "include",
         headers: { "Content-Type": "application/json" },
         body: JSON.stringify({
           patientId: patient.id,
-          chiefComplaint: `Referral to ${department}`,
-          treatmentPlan: reason.trim(),
-          notes: `Urgency: ${urgency}`,
+          type: "internal",
+          receivingDepartment: department,
+          reason: reason.trim(),
+          urgency: mappedUrgency,
+          notes: `Created from Midwife portal`,
         }),
       })
       if (!res.ok) {

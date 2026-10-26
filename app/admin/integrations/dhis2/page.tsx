@@ -14,26 +14,26 @@ export default function Dhis2AdminPage() {
 
   useEffect(() => {
     if (!user) return
-    fetch('/api/admin/integrations/dhis2', { headers: { Authorization: `Bearer ${user.token}` } })
+    fetch('/api/admin/integrations/dhis2', { credentials: 'include' })
       .then(r => r.json())
       .then(data => { if (data.ok) setMappings(data.rows); setLoading(false) })
       .catch(() => setLoading(false))
   }, [user])
 
   async function create() {
-    const res = await fetch('/api/admin/integrations/dhis2', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` }, body: JSON.stringify(form) })
+    const res = await fetch('/api/admin/integrations/dhis2', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
     const data = await res.json()
     if (data.ok) setMappings([data.mapping, ...mappings])
   }
 
   async function update(id: number, patch: Partial<Mapping>) {
-    const res = await fetch(`/api/admin/integrations/dhis2/${id}`, { method: 'PUT', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` }, body: JSON.stringify(patch) })
+    const res = await fetch(`/api/admin/integrations/dhis2/${id}`, { method: 'PUT', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(patch) })
     const data = await res.json()
     if (data.ok) setMappings(mappings.map(m => m.id === id ? data.mapping : m))
   }
 
   async function remove(id: number) {
-    await fetch(`/api/admin/integrations/dhis2/${id}`, { method: 'DELETE', headers: { Authorization: `Bearer ${user?.token}` } })
+    await fetch(`/api/admin/integrations/dhis2/${id}`, { method: 'DELETE', credentials: 'include' })
     setMappings(mappings.filter(m => m.id !== id))
   }
 

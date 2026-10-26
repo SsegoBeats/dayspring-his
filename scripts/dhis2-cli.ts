@@ -14,7 +14,7 @@ async function run() {
   const cmd = process.argv[2]
   if (cmd === 'test-patient') {
     const patient = JSON.parse(fs.readFileSync(path.resolve(__dirname, '../tests/fixtures/patient.json'), 'utf8'))
-    const dataValues = mapResourceToDataValues('Patient', patient, process.env.FACILITY_ID)
+    const dataValues = await mapResourceToDataValues('Patient', patient, process.env.FACILITY_ID)
     const dvs = buildDataValueSet('202608', patient.orgUnit || 'UNKNOWN', dataValues)
     console.log('DRY RUN')
     console.log(JSON.stringify(await pushDataValueSet(dvs, { dryRun: true }), null, 2))

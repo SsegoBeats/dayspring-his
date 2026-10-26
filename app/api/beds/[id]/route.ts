@@ -3,6 +3,8 @@ import { query } from "@/lib/db"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 
+type AuthUser = { id: string; role: string; facilityId?: string | null }
+
 // Helper function to check authentication and role
 async function checkAuth(allowedRoles: string[] = []) {
   const cookieStore = await cookies()
@@ -18,7 +20,7 @@ async function checkAuth(allowedRoles: string[] = []) {
   }
   
   // Get user role from database
-  const { rows } = await query("SELECT role, is_active FROM users WHERE id = $1", [payload.userId])
+  const { rows } = await query("SELECT role, is_active, facility_id FROM users WHERE id = $1", [payload.userId])
   const user = rows[0]
   
   if (!user || !user.is_active) {
@@ -29,7 +31,42 @@ async function checkAuth(allowedRoles: string[] = []) {
     return { error: "Insufficient permissions", status: 403 }
   }
   
-  return { user: { id: payload.userId, role: user.role } }
+  return { user: { id: payload.userId, role: user.role, facilityId: user.facility_id } }
+}
+
+async function canAccessBedByFacility(user: AuthUser, bedId: string, nextWard?: string) {
+  if (user.role === "Hospital Admin") return true
+  if (!user.facilityId) return true
+
+  const activeAssignmentScope = await query<{ facility_id: string | null }>(
+    `SELECT p.facility_id::text AS facility_id
+       FROM bed_assignments ba
+       JOIN patients p ON p.id = ba.patient_id
+      WHERE ba.bed_id = $1 AND ba.status = 'Active'
+      ORDER BY ba.assigned_at DESC
+      LIMIT 1`,
+    [bedId],
+  )
+
+  if (activeAssignmentScope.rows.length > 0) {
+    return String(activeAssignmentScope.rows[0].facility_id || "") === String(user.facilityId)
+  }
+
+  try {
+    const wardResult = await query<{ ward: string }>(`SELECT ward FROM beds WHERE id = $1 LIMIT 1`, [bedId])
+    if (!wardResult.rows.length) return false
+    const wardName = (nextWard || wardResult.rows[0].ward || "").trim()
+    if (!wardName) return false
+
+    const wardScope = await query(
+      `SELECT 1 FROM wards WHERE facility_id::text = $1 AND name = $2 LIMIT 1`,
+      [String(user.facilityId), wardName],
+    )
+    return wardScope.rows.length > 0
+  } catch {
+    // Backward-compatible fallback for environments without wards table migration.
+    return true
+  }
 }
 
 // DELETE /api/beds/[id] - Delete specific bed
@@ -108,6 +145,13 @@ export async function PUT(request: Request, { params }: { params: Promise<{ id: 
       return NextResponse.json(
         { error: "Bed ID is required" },
         { status: 400 }
+      )
+    }
+
+    if (!(await canAccessBedByFacility(authResult.user as AuthUser, bedId, ward))) {
+      return NextResponse.json(
+        { error: "Bed not found" },
+        { status: 404 }
       )
     }
 

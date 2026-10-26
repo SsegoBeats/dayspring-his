@@ -88,13 +88,13 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Failed to save")
+        throw new Error(data.error || "Dental record was not saved.")
       }
       toast.success("Dental record saved.")
       setForm(EMPTY_DENTAL)
       await loadRecords(patient.id)
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to save dental record")
+      toast.error(e instanceof Error ? e.message : "Dental record was not saved. Please try again.")
     } finally { setSaving(false) }
   }
 
@@ -130,13 +130,13 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Failed to update")
+        throw new Error(data.error || "Dental update was not saved.")
       }
       toast.success("Dental record updated.")
       setEditingId(null)
       await loadRecords(patient.id)
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to update")
+      toast.error(e instanceof Error ? e.message : "Dental update was not saved. Please try again.")
     } finally { setSavingEdit(false) }
   }
 
@@ -146,12 +146,12 @@ export function DentalTab({ patient, user, onRecordsChange }: DentalTabProps) {
       const res = await fetch(`/api/dental/records/${id}`, { method: "DELETE", credentials: "include" })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Failed to delete")
+        throw new Error(data.error || "Dental deletion was not saved.")
       }
       toast.success("Dental record deleted.")
       await loadRecords(patient.id)
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to delete")
+      toast.error(e instanceof Error ? e.message : "Dental deletion was not saved. Please try again.")
     } finally { setDeletingId(null) }
   }
 

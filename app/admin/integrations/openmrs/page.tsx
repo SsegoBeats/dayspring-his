@@ -14,14 +14,14 @@ export default function OpenmrsAdminPage() {
 
   useEffect(() => {
     if (!user) return
-    fetch('/api/admin/integrations/openmrs', { headers: { Authorization: `Bearer ${user.token}` } })
+    fetch('/api/admin/integrations/openmrs', { credentials: 'include' })
       .then(r => r.json())
       .then(data => { if (data.ok) setMappings(data.rows); setLoading(false) })
       .catch(() => setLoading(false))
   }, [user])
 
   async function create() {
-    const res = await fetch('/api/admin/integrations/openmrs', { method: 'POST', headers: { 'Content-Type': 'application/json', Authorization: `Bearer ${user?.token}` }, body: JSON.stringify(form) })
+    const res = await fetch('/api/admin/integrations/openmrs', { method: 'POST', credentials: 'include', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(form) })
     const data = await res.json()
     if (data.ok) setMappings([data.mapping, ...mappings])
   }

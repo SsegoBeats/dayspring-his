@@ -9,15 +9,30 @@ export const COUNTRY_PHONE_FORMATS: Record<string, { code: string; format: strin
   GB: { code: "+44", format: "+44 xxxx xxxxxx", example: "+44 20 7123 4567", pattern: /^\+44\d{10,11}$/, nationalLength: 10 },
 }
 
+function getCountryInfoForInput(raw: string): { code: string; info: (typeof COUNTRY_PHONE_FORMATS)[string] } | null {
+  const trimmed = raw.trim()
+  if (!trimmed) return null
+
+  const match = Object.entries(COUNTRY_PHONE_FORMATS).find(([, info]) => trimmed.startsWith(info.code) || trimmed.replace(/\s+/g, "").startsWith(info.code.replace("+", "")))
+  if (!match) return null
+
+  const [country, info] = match
+  return { code: country, info }
+}
+
 export function isValidPhoneNumber(input?: string | null): boolean {
-  if (!input) return false
-  const normalized = normalizePhoneNumber(input)
+  if (input === undefined || input === null) return false
+
+  const trimmed = String(input).trim()
+  if (!trimmed) return false
+
+  const normalized = normalizePhoneNumber(trimmed)
   if (!normalized) return false
   return Object.values(COUNTRY_PHONE_FORMATS).some((info) => info.pattern.test(normalized))
 }
 
 export function normalizePhoneNumber(input?: string | null, defaultCountry = "UG"): string {
-  if (!input) return ""
+  if (input === undefined || input === null) return ""
 
   const raw = String(input).trim()
   if (!raw) return ""
@@ -26,9 +41,8 @@ export function normalizePhoneNumber(input?: string | null, defaultCountry = "UG
   if (!digitsOnly) return ""
 
   const defaultInfo = COUNTRY_PHONE_FORMATS[defaultCountry] ?? COUNTRY_PHONE_FORMATS.UG
-  const countryCodeMap = Object.entries(COUNTRY_PHONE_FORMATS)
-  const detectedCountry = countryCodeMap.find(([, info]) => raw.startsWith(info.code))
-  const countryCode = detectedCountry?.[1]?.code ?? defaultInfo.code
+  const countryProfile = getCountryInfoForInput(raw) ?? { code: defaultCountry, info: defaultInfo }
+  const countryCode = countryProfile.info.code
   const countryDigits = countryCode.replace("+", "")
 
   let national = digitsOnly
@@ -40,17 +54,13 @@ export function normalizePhoneNumber(input?: string | null, defaultCountry = "UG
   }
 
   if (countryCode === "+1") {
-    if (digitsOnly.length === 10) return `${countryCode}${digitsOnly}`
-    if (digitsOnly.length > 10) return `${countryCode}${digitsOnly.slice(-10)}`
+    const digits = digitsOnly.replace(/^1+/, "").slice(-10)
+    return digits.length === 10 ? `${countryCode}${digits}` : `${countryCode}${national}`.slice(0, 12)
   }
 
-  if (countryCode !== "+1") {
-    const digits = national.replace(/^0+/, "")
-    if (digits.length === 0) return countryCode
-    return `${countryCode}${digits}`
-  }
-
-  return `${countryCode}${national}`
+  const digits = national.replace(/^0+/, "")
+  if (!digits) return countryCode
+  return `${countryCode}${digits}`
 }
 
 export function formatPhoneForDisplay(input?: string | null, defaultCountry = "UG"): string {

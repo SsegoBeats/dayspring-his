@@ -10,6 +10,7 @@ import { toast } from "sonner"
 import { Alert, AlertDescription } from "@/components/ui/alert"
 import { usePatients } from "@/lib/patient-context"
 import { buildPatchPayload } from "@/lib/patch-payload"
+import { isValidPhoneNumber } from "@/lib/phone"
 
 export interface EditPatientDialogProps {
   open: boolean
@@ -80,13 +81,19 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
     setSaving(true)
     setError(null)
     try {
+      if (form.phone.trim() && !isValidPhoneNumber(form.phone)) {
+        setError("Phone must be a valid international number with country code")
+        setSaving(false)
+        return
+      }
+
       const payload: any = {
         id: patient.id,
         firstName: form.firstName.trim() || undefined,
         lastName: form.lastName.trim() || undefined,
         ageYears: form.ageYears ? Number(form.ageYears) : undefined,
         gender: form.gender === 'male' ? 'Male' : form.gender === 'female' ? 'Female' : 'Other',
-        phone: form.phone.trim() || undefined,
+        phone: form.phone.trim() || null,
         address: form.address.trim() || null,
         bloodGroup: form.bloodGroup.trim() || null,
         emergencyContactName: form.emergencyContactName.trim() || null,
@@ -186,7 +193,7 @@ export function EditPatientDialog({ open, onOpenChange, patient, onSaved }: Edit
             </div>
             <div className="space-y-2">
               <Label htmlFor="edit-patient-phone">Phone</Label>
-              <Input id="edit-patient-phone" name="phone" value={form.phone} onChange={(e)=>setForm({ ...form, phone: e.target.value })} required />
+              <Input id="edit-patient-phone" name="phone" value={form.phone} onChange={(e)=>setForm({ ...form, phone: e.target.value })} />
             </div>
           </div>
           <div className="space-y-2">

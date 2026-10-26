@@ -54,23 +54,12 @@ export function ClinicianNotificationBell() {
   useEffect(() => {
     void fetchNotifications()
 
-    // SSE-first: open a server-sent events stream; fall back to 60s polling on error
-    const es = new EventSource("/api/notifications/stream", { withCredentials: true })
-    sseRef.current = es
-
-    es.onmessage = () => { void fetchNotifications() }
-
-    es.onerror = () => {
-      es.close()
-      sseRef.current = null
-      if (!intervalRef.current) {
-        intervalRef.current = setInterval(() => void fetchNotifications(), 60000)
-      }
+    // Use polling rather than EventSource to avoid HTTP/2 SSE issues
+    if (!intervalRef.current) {
+      intervalRef.current = setInterval(() => void fetchNotifications(), 15000)
     }
 
     return () => {
-      es.close()
-      sseRef.current = null
       if (intervalRef.current) {
         clearInterval(intervalRef.current)
         intervalRef.current = null

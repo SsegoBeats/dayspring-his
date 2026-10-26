@@ -1,5 +1,12 @@
 export function buildPersonPayload(local: any) {
-  const person = {
+  const person: {
+    names: Array<{ givenName: string; familyName: string }>
+    gender: string
+    birthdate: string | undefined
+    addresses: Array<{ address1: string }>
+    attributes: unknown[]
+    identifiers?: Array<{ identifier: string; identifierType: string }>
+  } = {
     names: [{ givenName: local.firstName || local.givenName, familyName: local.lastName || local.familyName }],
     gender: local.sex || local.gender || 'U',
     birthdate: local.dob || local.birthDate,

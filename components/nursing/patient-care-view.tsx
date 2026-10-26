@@ -152,10 +152,10 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
           refreshPatient(patient.id).catch(() => {})
           notifyUpdate("vitals")
         },
-        (error) => { toast.error(error.message || "Failed to record vital signs.") }
+        (error) => { toast.error(error.message || "Vital signs were not saved. Please try again.") }
       )
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Failed to record vital signs.")
+      toast.error(error instanceof Error ? error.message : "Vital signs were not saved. Please try again.")
     } finally {
       setSavingVitals(false)
     }
@@ -176,10 +176,10 @@ export function PatientCareView({ patientId, onBack, initialTab = "vitals", onUp
           refreshPatient(patient.id).catch(() => {})
           notifyUpdate("notes")
         },
-        (error) => { toast.error(error.message || "Failed to add nursing note.") }
+        (error) => { toast.error(error.message || "Nursing note was not saved. Please try again.") }
       )
     } catch (error: unknown) {
-      toast.error(error instanceof Error ? error.message : "Failed to add nursing note.")
+      toast.error(error instanceof Error ? error.message : "Nursing note was not saved. Please try again.")
     } finally {
       setSavingNote(false)
     }

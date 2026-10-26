@@ -5,6 +5,8 @@ import { formatPatientNumber } from "@/lib/patients"
 import { query, queryWithSession } from "@/lib/db"
 import { writeAuditLog } from "@/lib/audit"
 
+const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+
 export async function GET(req: Request) {
   try {
     const cookieStore = await cookies()
@@ -60,6 +62,7 @@ export async function GET(req: Request) {
     const tests = rows.map((r:any)=>({
       id: r.id,
       patientId: r.patient_id,
+      postnatalVisitId: r.postnatal_visit_id || null,
       patientNumber: formatPatientNumber(r.patient_number),
       patientName: [r.first_name, r.last_name].filter(Boolean).join(' '),
       doctorId: r.doctor_id,
@@ -128,6 +131,7 @@ export async function POST(req: Request) {
     }
     const body = await req.json().catch(()=> ({}))
     const patientId = String(body.patientId||'')
+    const postnatalVisitId = body.postnatalVisitId ? String(body.postnatalVisitId) : null
     const notes = body.notes ? String(body.notes) : null
     const priorityDefault = String(body.priority||'Routine')
     const specimenDefault = body.specimenType ? String(body.specimenType) : null
@@ -135,7 +139,20 @@ export async function POST(req: Request) {
       ? body.tests
       : [{ testName: body.testName, testType: body.testType, priority: body.priority, specimenType: body.specimenType, loincCode: body.loincCode }]
 
-    if (!patientId) return NextResponse.json({ error: 'patientId is required' }, { status: 400 })
+    if (!UUID_RE.test(patientId)) return NextResponse.json({ error: 'patientId must be a valid UUID' }, { status: 400 })
+    if (postnatalVisitId && !UUID_RE.test(postnatalVisitId)) {
+      return NextResponse.json({ error: 'postnatalVisitId must be a valid UUID' }, { status: 400 })
+    }
+    if (postnatalVisitId) {
+      const { rows: visits } = await queryWithSession(
+        { role: auth.role, userId: auth.userId },
+        "SELECT patient_id FROM postnatal_visits WHERE id = $1",
+        [postnatalVisitId],
+      )
+      if (!visits[0] || visits[0].patient_id !== patientId) {
+        return NextResponse.json({ error: "Postnatal visit does not match the selected patient" }, { status: 400 })
+      }
+    }
 
     const created: any[] = []
     for (const t of incomingTests) {
@@ -160,9 +177,10 @@ export async function POST(req: Request) {
         `INSERT INTO lab_tests (
            patient_id, doctor_id, test_name, test_type, status,
            notes, priority, specimen_type, accession_number, ordered_at,
-           loinc_code, loinc_long_name, loinc_property, loinc_scale, loinc_system, loinc_time_aspct, loinc_class, loinc_units
+           loinc_code, loinc_long_name, loinc_property, loinc_scale, loinc_system, loinc_time_aspct, loinc_class, loinc_units,
+           postnatal_visit_id
          ) VALUES ($1,$2,$3,$4,'Pending',$5,$6,$7,$8, NOW(),
-                   $9,$10,$11,$12,$13,$14,$15,$16)
+                   $9,$10,$11,$12,$13,$14,$15,$16,$17)
          RETURNING id, accession_number, ordered_at`,
         [
           patientId,
@@ -181,6 +199,7 @@ export async function POST(req: Request) {
           loinc?.time_aspct || null,
           loinc?.class || null,
           loinc?.units || loinc?.example_units || null,
+          postnatalVisitId,
         ]
       )
       const createdRow = rows[0]
@@ -199,7 +218,7 @@ export async function POST(req: Request) {
           action: "CREATE",
           entityType: "LabTest",
           entityId: createdRow.id,
-          details: { patientId, testName, testType, priority, specimenType, loincCode },
+          details: { patientId, testName, testType, priority, specimenType, loincCode, postnatalVisitId },
         })
       } catch {}
     }
@@ -291,8 +310,8 @@ export async function POST(req: Request) {
 
     return NextResponse.json({ tests: created })
   } catch (e:any) {
+    console.error("Error in /api/lab-tests POST:", e)
     return NextResponse.json({ error: 'Failed to order lab test' }, { status: 500 })
   }
 }
-
 

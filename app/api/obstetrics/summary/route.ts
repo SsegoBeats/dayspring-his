@@ -13,6 +13,8 @@ export async function GET(req: Request) {
   const url = new URL(req.url)
   const fromParam = url.searchParams.get("from")?.trim() || null
   const toParam = url.searchParams.get("to")?.trim() || null
+  const weeksParam = Number.parseInt(url.searchParams.get("upcomingWeeks") || "4", 10)
+  const upcomingWeeks = Number.isFinite(weeksParam) ? Math.min(12, Math.max(1, weeksParam)) : 4
 
   const session = { role: auth.role, userId: auth.userId }
 
@@ -34,7 +36,8 @@ export async function GET(req: Request) {
      FROM obstetric_assessments
      WHERE edd IS NOT NULL
        AND edd >= CURRENT_DATE
-       AND edd <= CURRENT_DATE + INTERVAL '4 weeks'`,
+       AND edd <= CURRENT_DATE + ($1 * INTERVAL '1 week')`,
+    [upcomingWeeks],
   )
   const upcomingDeliveries = parseInt(String(upcomingRows[0]?.upcoming_deliveries ?? 0), 10)
 

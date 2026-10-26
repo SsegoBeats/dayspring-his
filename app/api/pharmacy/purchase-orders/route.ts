@@ -18,6 +18,10 @@ export async function GET(req: Request) {
     let where = "WHERE 1=1"
     const params: any[] = []
     let idx = 1
+    if (auth.role !== "Hospital Admin") {
+      where += ` AND po.created_by = $${idx++}`
+      params.push(auth.userId)
+    }
     if (status) { where += ` AND po.status = $${idx++}`; params.push(status) }
     if (supplierId) { where += ` AND po.supplier_id = $${idx++}`; params.push(supplierId) }
 

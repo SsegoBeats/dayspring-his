@@ -9,6 +9,30 @@ import { groupItemsByCategory } from "@/lib/receipt-utils"
 import { ensurePaymentsBillLink } from "@/lib/billing-payments"
 import { ORG_NAME, ORG_LOGO_PATH, ORG_SUBTITLE } from "@/lib/org-constants"
 
+async function canAccessReceiptByFacility(auth: { role: string; userId: string }, receiptId: string) {
+  if (auth.role === "Hospital Admin") return true
+
+  const userRes = await queryWithSession<{ facility_id?: string }>(
+    { role: auth.role, userId: auth.userId },
+    `SELECT facility_id FROM users WHERE id = $1 LIMIT 1`,
+    [auth.userId],
+  )
+  const facilityId = userRes.rows[0]?.facility_id
+  if (!facilityId) return true
+
+  const scoped = await queryWithSession(
+    { role: auth.role, userId: auth.userId },
+    `SELECT 1
+       FROM payments pay
+       JOIN patients p ON p.id = pay.patient_id
+      WHERE pay.id = $1
+        AND p.facility_id::text = $2
+      LIMIT 1`,
+    [receiptId, String(facilityId)],
+  )
+  return scoped.rows.length > 0
+}
+
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const cookieStore = await cookies()
@@ -21,6 +45,9 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
     }
 
     const { id } = await params
+    if (!(await canAccessReceiptByFacility(auth, id))) {
+      return NextResponse.json({ error: 'Not found' }, { status: 404 })
+    }
     await ensurePaymentsBillLink()
     const { rows } = await queryWithSession(
       { role: auth.role, userId: auth.userId },

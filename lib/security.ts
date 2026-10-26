@@ -77,6 +77,20 @@ export function verifyToken(token: string): TokenPayload | null {
   }
 }
 
+export function verifyRequestToken(request: Pick<Request, "headers">): TokenPayload | null {
+  const authorization = request.headers.get("authorization")
+  const bearerToken = authorization?.match(/^Bearer\s+(.+)$/i)?.[1]
+  const cookies = request.headers
+    .get("cookie")
+    ?.split(";")
+    .map((cookie) => cookie.trim())
+  const sessionCookie = cookies?.find((cookie) => cookie.startsWith("session="))
+  const devSessionCookie = cookies?.find((cookie) => cookie.startsWith("session_dev="))
+  const cookieToken = sessionCookie?.slice("session=".length) ?? devSessionCookie?.slice("session_dev=".length)
+  const token = bearerToken || cookieToken
+  return token ? verifyToken(token) : null
+}
+
 // RBAC
 type Role =
   | "Receptionist"

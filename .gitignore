@@ -53,6 +53,11 @@ tmp_*.txt
 
 # database dumps
 *.sql
+!migrations/0047_postnatal_maternal_assessment.sql
+!migrations/0048_shared_patient_workflow.sql
+!migrations/0049_legacy_checkin_workflow_backfill.sql
+!migrations/0051_lab_specimen_catalog.sql
+!migrations/0052_expand_lab_specimen_catalog.sql
 
 .vercel
 .env*.local

@@ -3,6 +3,22 @@ import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
 
+async function canAccessGrn(auth: { role: string; userId: string }, grnId: string) {
+  if (auth.role === "Hospital Admin") return true
+
+  const { rows } = await queryWithSession(
+    { role: auth.role, userId: auth.userId },
+    `SELECT 1
+       FROM goods_received_notes g
+       LEFT JOIN purchase_orders po ON po.id = g.purchase_order_id
+      WHERE g.id = $1
+        AND (g.received_by = $2 OR po.created_by = $2)
+      LIMIT 1`,
+    [grnId, auth.userId],
+  )
+  return rows.length > 0
+}
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -11,6 +27,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "pharmacy", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!(await canAccessGrn({ role: auth.role, userId: auth.userId }, id))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     const { rows: [grn] } = await queryWithSession({ role: auth.role, userId: auth.userId },
       `SELECT g.*, s.name AS supplier_name, s.address AS supplier_address,

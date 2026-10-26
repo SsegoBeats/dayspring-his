@@ -1,3 +1,5 @@
+import { query } from "@/lib/db"
+
 export type DataValue = { dataElement: string; value: number | string }
 
 export function buildDataValueSet(period: string, orgUnit: string, dataValues: DataValue[]) {
@@ -9,9 +11,8 @@ export function buildDataValueSet(period: string, orgUnit: string, dataValues: D
 }
 
 // Map higher-level resources (Patient, Encounter, LabResult) to DHIS2 data elements.
-// This uses configuration in `process.env.DHIS2_MAPPING_JSON` (JSON string) or
-// the `dhis2_mappings` table if you implement DB-backed mappings later.
-export function mapResourceToDataValues(resourceType: string, resource: any, facilityId?: string): DataValue[] {
+// This uses configuration in `process.env.DHIS2_MAPPING_JSON` or the `dhis2_mappings` table.
+export async function mapResourceToDataValues(resourceType: string, resource: any, facilityId?: string): Promise<DataValue[]> {
   const raw = process.env.DHIS2_MAPPING_JSON || '{}'
   let cfg: Record<string, any> = {}
   try { cfg = JSON.parse(raw) } catch {
@@ -21,27 +22,15 @@ export function mapResourceToDataValues(resourceType: string, resource: any, fac
   const mapForType = cfg[resourceType] || {}
   const out: DataValue[] = []
 
-  // If DB-backed mappings are enabled, try to load them
+  // If DB-backed mappings are enabled, load them before building the payload.
   if (process.env.DHIS2_USE_DB === 'true' && process.env.DATABASE_URL) {
-    try {
-      // lazy import to avoid pulling pg in environments that don't need it
-      // eslint-disable-next-line @typescript-eslint/no-var-requires
-      const { Client } = require('pg')
-      const client = new Client({ connectionString: process.env.DATABASE_URL })
-      // synchronous pattern: connect, query, then close
-      // Note: this is intentionally simple; for production, use pooled client.
-      // eslint-disable-next-line no-await-in-loop
-      ;(async () => {
-        await client.connect()
-        const res = await client.query('SELECT field, data_element FROM dhis2_mappings WHERE resource_type = $1', [resourceType])
-        for (const row of res.rows) {
-          const val = resource[row.field]
-          if (val !== undefined && val !== null) out.push({ dataElement: String(row.data_element), value: val })
-        }
-        await client.end()
-      })()
-    } catch (e) {
-      // ignore DB errors and fall back to env/config mappings
+    const { rows } = await query<{ field: string; data_element: string }>(
+      'SELECT field, data_element FROM dhis2_mappings WHERE resource_type = $1 AND (facility_id IS NULL OR facility_id = $2)',
+      [resourceType, facilityId ?? null],
+    )
+    for (const row of rows) {
+      const val = resource[row.field]
+      if (val !== undefined && val !== null) out.push({ dataElement: String(row.data_element), value: val })
     }
   }
 
@@ -69,7 +58,10 @@ export function mapResourceToDataValues(resourceType: string, resource: any, fac
   return out
 }
 
-export async function pushDataValueSet(dvs: any, opts?: { dryRun?: boolean; retries?: number }) {
+export async function pushDataValueSet(
+  dvs: any,
+  opts: { dryRun?: boolean; retries?: number; batchSize?: number; maxRetries?: number } = {},
+) {
   const base = process.env.DHIS2_BASE_URL
   const user = process.env.DHIS2_USERNAME
   const pass = process.env.DHIS2_PASSWORD
@@ -81,8 +73,8 @@ export async function pushDataValueSet(dvs: any, opts?: { dryRun?: boolean; retr
   if (user && pass) headers['Authorization'] = 'Basic ' + Buffer.from(`${user}:${pass}`).toString('base64')
 
     // Support batching large payloads into multiple POSTs to avoid server limits
-    const batchSize = opts.batchSize || 500
-    const maxRetries = opts.maxRetries ?? 4
+    const batchSize = Math.max(1, opts.batchSize ?? 500)
+    const maxRetries = Math.max(0, opts.maxRetries ?? opts.retries ?? 4)
     const batches: any[] = []
     for (let i = 0; i < dvs.dataValues.length; i += batchSize) {
       const slice = dvs.dataValues.slice(i, i + batchSize)

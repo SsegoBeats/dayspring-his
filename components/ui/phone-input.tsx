@@ -114,9 +114,9 @@ export function PhoneInput({
       onChange("")
       return
     }
-
-    const digits = displayValue.replace(/\D/g, "") || value.replace(/\D/g, "") || ""
-    const normalized = normalizePhoneNumber(digits, newCountry)
+    // Use the raw display value (may include +) so normalization can detect country codes correctly
+    const sourceValue = displayValue || value || ""
+    const normalized = normalizePhoneNumber(sourceValue, newCountry)
     const formatted = formatPhoneForDisplay(normalized, newCountry)
     setDisplayValue(formatted)
     onChange(normalizePhoneNumber(normalized, newCountry))

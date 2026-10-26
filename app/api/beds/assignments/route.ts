@@ -4,6 +4,8 @@ import { writeAuditLog } from "@/lib/audit"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 
+type AuthUser = { id: string; role: string; facilityId?: string | null }
+
 // Helper function to check authentication and role
 async function checkAuth(allowedRoles: string[] = []) {
   const cookieStore = await cookies()
@@ -19,7 +21,7 @@ async function checkAuth(allowedRoles: string[] = []) {
   }
   
   // Get user role from database
-  const { rows } = await query("SELECT role, is_active FROM users WHERE id = $1", [payload.userId])
+  const { rows } = await query("SELECT role, is_active, facility_id FROM users WHERE id = $1", [payload.userId])
   const user = rows[0]
   
   if (!user || !user.is_active) {
@@ -30,7 +32,49 @@ async function checkAuth(allowedRoles: string[] = []) {
     return { error: "Insufficient permissions", status: 403 }
   }
   
-  return { user: { id: payload.userId, role: user.role } }
+  return { user: { id: payload.userId, role: user.role, facilityId: user.facility_id } }
+}
+
+async function canAccessPatientByFacility(user: AuthUser, patientId: string) {
+  if (user.role === "Hospital Admin") return true
+  if (!user.facilityId) return true
+  const { rows } = await query(
+    "SELECT 1 FROM patients WHERE id = $1 AND facility_id::text = $2 LIMIT 1",
+    [patientId, String(user.facilityId)],
+  )
+  return rows.length > 0
+}
+
+async function canAccessBedByFacility(user: AuthUser, bedId: string) {
+  if (user.role === "Hospital Admin") return true
+  if (!user.facilityId) return true
+  try {
+    const { rows } = await query<{ ward: string }>("SELECT ward FROM beds WHERE id = $1 LIMIT 1", [bedId])
+    if (!rows.length) return false
+    const wardName = (rows[0].ward || "").trim()
+    if (!wardName) return false
+    const wardScope = await query(
+      `SELECT 1 FROM wards WHERE facility_id::text = $1 AND name = $2 LIMIT 1`,
+      [String(user.facilityId), wardName],
+    )
+    return wardScope.rows.length > 0
+  } catch {
+    return true
+  }
+}
+
+async function canAccessAssignmentByFacility(user: AuthUser, assignmentId: string) {
+  if (user.role === "Hospital Admin") return true
+  if (!user.facilityId) return true
+  const { rows } = await query(
+    `SELECT 1
+       FROM bed_assignments ba
+       JOIN patients p ON p.id = ba.patient_id
+      WHERE ba.id = $1 AND p.facility_id::text = $2
+      LIMIT 1`,
+    [assignmentId, String(user.facilityId)],
+  )
+  return rows.length > 0
 }
 
 // GET /api/beds/assignments - Get bed assignments
@@ -120,14 +164,21 @@ export async function POST(request: Request) {
       return NextResponse.json({ error: authResult.error }, { status: authResult.status })
     }
     const body = await request.json()
-    const { bedId, patientId, assignedBy, notes } = body
+    const { bedId, patientId, notes } = body
 
     // Validate required fields
-    if (!bedId || !patientId || !assignedBy) {
+    if (!bedId || !patientId) {
       return NextResponse.json(
-        { error: "Missing required fields: bedId, patientId, assignedBy" },
+        { error: "Missing required fields: bedId, patientId" },
         { status: 400 }
       )
+    }
+
+    if (!(await canAccessPatientByFacility(authResult.user as AuthUser, patientId))) {
+      return NextResponse.json({ error: "Patient not found" }, { status: 404 })
+    }
+    if (!(await canAccessBedByFacility(authResult.user as AuthUser, bedId))) {
+      return NextResponse.json({ error: "Bed not found" }, { status: 404 })
     }
 
     // Check if bed is available
@@ -171,7 +222,7 @@ export async function POST(request: Request) {
           `INSERT INTO bed_assignments (bed_id, patient_id, assigned_by, notes)
            VALUES ($1, $2, $3, $4)
            RETURNING *`,
-          [bedId, patientId, assignedBy || authResult.user!.id, notes || null]
+          [bedId, patientId, authResult.user!.id, notes || null]
         )
 
         await client.query(
@@ -229,6 +280,10 @@ export async function PATCH(request: Request) {
 
     if (!assignmentId) {
       return NextResponse.json({ error: 'assignmentId is required' }, { status: 400 })
+    }
+
+    if (!(await canAccessAssignmentByFacility(authResult.user as AuthUser, assignmentId))) {
+      return NextResponse.json({ error: 'Assignment not found' }, { status: 404 })
     }
 
     // Get assignment and bed

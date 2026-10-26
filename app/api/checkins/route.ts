@@ -2,7 +2,7 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { z } from "zod"
 import { verifyToken, can } from "@/lib/security"
-import { queryWithSession } from "@/lib/db"
+import { queryWithSession, withSession } from "@/lib/db"
 import { writeAuditLog } from "@/lib/audit"
 import { ensureNotificationInfrastructure } from "@/lib/notifications"
 
@@ -84,12 +84,31 @@ export async function POST(req: Request) {
     // Track receptionist if column exists
     if (present.has('receptionist_id')) pushCol('receptionist_id', auth.userId)
     const sql = `INSERT INTO checkins (${insertCols.join(', ')}) VALUES (${placeholders.join(', ')}) RETURNING id`
-    const { rows } = await queryWithSession(
-      { role: auth.role, userId: auth.userId },
-      sql,
-      values,
-    )
-    const id = rows[0]?.id as string
+    const { id, initialDepartment } = await withSession({ role: auth.role, userId: auth.userId }, async (client) => {
+      const { rows } = await client.query(sql, values)
+      const id = rows[0]?.id as string
+      const { rows: appointmentRows } = appointmentId
+        ? await client.query(
+            `SELECT department FROM appointments WHERE id = $1 AND patient_id = $2 LIMIT 1`,
+            [appointmentId, data.patientId],
+          )
+        : { rows: [] }
+      const initialDepartment = data.department?.trim() || appointmentRows[0]?.department?.trim() || "Triage"
+
+      await client.query(
+        `INSERT INTO patient_routing
+           (patient_id, checkin_id, from_department, to_department, routed_by, reason, priority, status)
+         VALUES ($1, $2, 'Reception', $3, $4, 'Patient check-in', 'Standard', 'Pending')`,
+        [data.patientId, id, initialDepartment, auth.userId],
+      )
+      await client.query(
+        `UPDATE patients
+            SET current_location = $1, current_status = 'In Progress', updated_at = NOW()
+          WHERE id = $2`,
+        [initialDepartment, data.patientId],
+      )
+      return { id, initialDepartment }
+    })
 
     // Optionally place into a department queue if provided
     if (data.department) {
@@ -168,7 +187,7 @@ export async function POST(req: Request) {
 
       const context = contextRows[0]
       const patientName = context ? `${context.first_name} ${context.last_name}`.trim() : "Patient"
-      const effectiveDepartment = data.department || context?.appointment_department || null
+      const effectiveDepartment = data.department || context?.appointment_department || initialDepartment
       const payload = JSON.stringify({
         patientId: data.patientId,
         checkinId: id,

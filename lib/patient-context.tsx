@@ -4,6 +4,27 @@ import { createContext, useContext, useState, useEffect, type ReactNode } from "
 import { useAuth } from "@/lib/auth-context"
 import { can } from "@/lib/security"
 
+interface TriageObservations {
+  painLevel?: number | null
+  isPregnant?: boolean
+  pregnancyWeeks?: number | null
+  isPostpartum?: boolean
+  postpartumDays?: number | null
+  hasTrauma?: boolean
+  traumaType?: string | null
+  traumaMechanism?: string | null
+  burnsPercentage?: number | null
+  weight?: number | null
+  hasRespiratoryDistress?: boolean
+  hasChestPain?: boolean
+  hasSevereBleeding?: boolean
+  heightCm?: number | null
+  bloodGlucose?: number | null
+  capillaryRefill?: number | null
+  muacCm?: number | null
+  notes?: string | null
+}
+
 export interface Patient {
   id: string
   patientNumber?: string
@@ -23,6 +44,21 @@ export interface Patient {
   registrationDate: string
   status: "active" | "inactive" | "deceased" | string
   triageCategory?: string | null
+  triageComplaint?: string | null
+  triageDate?: string | null
+  triageDiscriminators?: string[]
+  triageObservations?: TriageObservations | null
+  triageVitals?: {
+    systolic?: number | null
+    diastolic?: number | null
+    heartRate?: number | null
+    respiratoryRate?: number | null
+    temperature?: number | null
+    spo2?: number | null
+    avpu?: string | null
+    mode?: string | null
+    mobility?: string | null
+  }
   nextOfKinName?: string | null
   nextOfKinPhone?: string | null
   nextOfKinRelation?: string | null
@@ -130,6 +166,21 @@ export function PatientProvider({ children }: { children: ReactNode }) {
             registrationDate: p.created_at?.slice(0, 10) || "",
             status: (p.current_status || "active").toString().toLowerCase() as any,
             triageCategory: p.latest_triage_category || null,
+            triageComplaint: p.latest_triage_complaint || null,
+            triageDate: p.latest_triage_date || null,
+            triageDiscriminators: Array.isArray(p.latest_triage_discriminators) ? p.latest_triage_discriminators : [],
+            triageObservations: p.latest_triage_metadata || null,
+            triageVitals: {
+              systolic: p.latest_systolic ?? null,
+              diastolic: p.latest_diastolic ?? null,
+              heartRate: p.latest_heart_rate ?? null,
+              respiratoryRate: p.latest_respiratory_rate ?? null,
+              temperature: p.latest_temperature ?? null,
+              spo2: p.latest_spo2 ?? null,
+              avpu: p.latest_avpu || null,
+              mode: p.latest_triage_mode || null,
+              mobility: p.latest_triage_mobility || null,
+            },
             nextOfKinName: (p.next_of_kin_name ? p.next_of_kin_name : [p.next_of_kin_first_name, p.next_of_kin_last_name].filter(Boolean).join(" ").trim()) || null,
             nextOfKinPhone: p.next_of_kin_phone || null,
             nextOfKinRelation: p.next_of_kin_relation || null,
@@ -183,6 +234,21 @@ export function PatientProvider({ children }: { children: ReactNode }) {
         registrationDate: p.created_at?.slice(0, 10) || new Date().toISOString().slice(0, 10),
         status: (p.current_status || "active").toString().toLowerCase() as any,
         triageCategory: p.latest_triage_category || null,
+        triageComplaint: p.latest_triage_complaint || null,
+        triageDate: p.latest_triage_date || null,
+        triageDiscriminators: Array.isArray(p.latest_triage_discriminators) ? p.latest_triage_discriminators : [],
+        triageObservations: p.latest_triage_metadata || null,
+        triageVitals: {
+          systolic: p.latest_systolic ?? null,
+          diastolic: p.latest_diastolic ?? null,
+          heartRate: p.latest_heart_rate ?? null,
+          respiratoryRate: p.latest_respiratory_rate ?? null,
+          temperature: p.latest_temperature ?? null,
+          spo2: p.latest_spo2 ?? null,
+          avpu: p.latest_avpu || null,
+          mode: p.latest_triage_mode || null,
+          mobility: p.latest_triage_mobility || null,
+        },
         emergencyContact: p.emergency_contact_name || "",
         emergencyPhone: p.emergency_contact_phone || "",
         nextOfKinName: (p.next_of_kin_name ? p.next_of_kin_name : [p.next_of_kin_first_name, p.next_of_kin_last_name].filter(Boolean).join(" ").trim()) || null,

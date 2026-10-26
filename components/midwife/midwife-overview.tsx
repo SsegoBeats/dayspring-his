@@ -52,6 +52,7 @@ interface MidwifeOverviewProps {
 
 export function MidwifeOverview({ onNavigate }: MidwifeOverviewProps) {
   const today = new Date().toISOString().slice(0, 10)
+  const [eddAlertWeeks, setEddAlertWeeks] = useState(4)
   const [summary, setSummary] = useState<ObsSummary | null>(null)
   const [loadingSummary, setLoadingSummary] = useState(true)
   const [recentVisits, setRecentVisits] = useState<RecentVisit[]>([])
@@ -59,11 +60,23 @@ export function MidwifeOverview({ onNavigate }: MidwifeOverviewProps) {
   const [todayCount, setTodayCount] = useState<number | null>(null)
 
   useEffect(() => {
+    fetch("/api/settings/preferences", { credentials: "include" })
+      .then((res) => (res.ok ? res.json() : {}))
+      .then((data: { preferences?: { midwifePrefs?: { eddAlertWeeks?: number } } }) => {
+        const weeks = Number(data?.preferences?.midwifePrefs?.eddAlertWeeks)
+        if (Number.isFinite(weeks) && weeks >= 1 && weeks <= 12) {
+          setEddAlertWeeks(weeks)
+        }
+      })
+      .catch(() => {})
+  }, [])
+
+  useEffect(() => {
     const from = encodeURIComponent(new Date(today + "T00:00:00Z").toISOString())
     const to = encodeURIComponent(new Date(today + "T23:59:59Z").toISOString())
     setLoadingSummary(true)
     Promise.all([
-      fetch("/api/obstetrics/summary", { credentials: "include" }).then((r) => r.ok ? r.json() : null),
+      fetch(`/api/obstetrics/summary?upcomingWeeks=${eddAlertWeeks}`, { credentials: "include" }).then((r) => r.ok ? r.json() : null),
       fetch(`/api/obstetrics/summary?from=${from}&to=${to}`, { credentials: "include" }).then((r) => r.ok ? r.json() : null),
     ])
       .then(([all, todaySummary]) => {
@@ -72,7 +85,7 @@ export function MidwifeOverview({ onNavigate }: MidwifeOverviewProps) {
       })
       .catch(() => {})
       .finally(() => setLoadingSummary(false))
-  }, [today])
+  }, [today, eddAlertWeeks])
 
   useEffect(() => {
     setLoadingVisits(true)
@@ -91,7 +104,7 @@ export function MidwifeOverview({ onNavigate }: MidwifeOverviewProps) {
       <div className="grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
         <StatCard title="Today's ANC Visits" value={todayCount} icon={<ClipboardList className="h-4 w-4" />} loading={loadingSummary} />
         <StatCard title="Active Pregnancies" value={summary?.activePregnancies ?? null} icon={<HeartPulse className="h-4 w-4" />} loading={loadingSummary} />
-        <StatCard title="Upcoming Deliveries (4 wks)" value={summary?.upcomingDeliveries ?? null} icon={<Baby className="h-4 w-4" />} loading={loadingSummary} />
+        <StatCard title={`Upcoming Deliveries (${eddAlertWeeks} wks)`} value={summary?.upcomingDeliveries ?? null} icon={<Baby className="h-4 w-4" />} loading={loadingSummary} />
         <StatCard title="Total ANC Patients" value={summary?.patientsCount ?? null} icon={<Users className="h-4 w-4" />} loading={loadingSummary} />
         <StatCard title="Total Assessments" value={summary?.assessmentsCount ?? null} icon={<ClipboardList className="h-4 w-4" />} loading={loadingSummary} />
 

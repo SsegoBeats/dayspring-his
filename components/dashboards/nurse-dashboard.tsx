@@ -20,6 +20,7 @@ import {
   ArrowUpRight,
   HeartPulse,
   ListChecks,
+  ArrowRightLeft,
   Settings2,
   type LucideIcon,
 } from "lucide-react"
@@ -29,6 +30,7 @@ import { usePatients } from "@/lib/patient-context"
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from "@/components/ui/table"
 import { Input } from "@/components/ui/input"
 import { Button } from "@/components/ui/button"
+import { Badge } from "@/components/ui/badge"
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select"
 import { formatPatientNumber } from "@/lib/patients"
 import { hasCriticalVitals, parseBloodPressure } from "@/lib/vital-signs-validation"
@@ -55,6 +57,18 @@ interface LatestVitalsRow {
   created_at: string | null
   nurse_name: string | null
 }
+
+interface IncomingReferral {
+  id: string
+  patient_id: string
+  patient_name: string
+  patient_number: string
+  reason: string
+  urgency: string
+  status: string
+  created_at: string
+}
+
 type DatePreset = "today" | "last7" | "month" | "custom"
 type QuickAction =
   | { label: string; description: string; icon: LucideIcon; href: string; onClick?: never }
@@ -105,6 +119,11 @@ export function NurseDashboard() {
   const [refreshKey, setRefreshKey] = useState(0)
   const [showExport, setShowExport] = useState(false)
   const [clockTime, setClockTime] = useState(() => new Date().toLocaleTimeString())
+  const [incomingReferrals, setIncomingReferrals] = useState<IncomingReferral[]>([])
+  const [incomingLoading, setIncomingLoading] = useState(false)
+  const [incomingPendingCount, setIncomingPendingCount] = useState(0)
+  const [incomingStatus, setIncomingStatus] = useState<string>("pending")
+  const [incomingUrgency, setIncomingUrgency] = useState<string>("__all_urgency__")
 
   const seenNotif = useRef<Set<string>>(new Set())
   const streamPrimed = useRef(false)
@@ -444,6 +463,49 @@ export function NurseDashboard() {
     return () => clearInterval(tick)
   }, [])
 
+  useEffect(() => {
+    if (!isEmailVerified) return
+    let cancelled = false
+
+    const loadIncomingReferrals = async () => {
+      setIncomingLoading(true)
+      try {
+        const qs = new URLSearchParams()
+        qs.set("status", incomingStatus)
+        qs.set("limit", "8")
+        if (incomingUrgency !== "__all_urgency__") qs.set("urgency", incomingUrgency)
+        const res = await fetch(`/api/referrals/incoming?${qs.toString()}`, { credentials: "include" })
+        if (!res.ok) throw new Error("Failed to load incoming referrals")
+        const data = await res.json().catch(() => ({}))
+        if (!cancelled) {
+          setIncomingReferrals(Array.isArray(data?.referrals) ? data.referrals : [])
+        }
+
+        const pendingRes = await fetch(`/api/referrals/incoming?status=pending&limit=200`, { credentials: "include" })
+        if (pendingRes.ok) {
+          const pendingData = await pendingRes.json().catch(() => ({}))
+          if (!cancelled) {
+            const pendingList = Array.isArray(pendingData?.referrals) ? pendingData.referrals : []
+            setIncomingPendingCount(pendingList.length)
+          }
+        }
+      } catch {
+        if (!cancelled) {
+          toast.error("Failed to load incoming referrals queue")
+        }
+      } finally {
+        if (!cancelled) setIncomingLoading(false)
+      }
+    }
+
+    void loadIncomingReferrals()
+    const timer = setInterval(() => { void loadIncomingReferrals() }, 30000)
+    return () => {
+      cancelled = true
+      clearInterval(timer)
+    }
+  }, [incomingStatus, incomingUrgency, isEmailVerified])
+
   return (
     <div className="space-y-6">
       <section className="relative overflow-hidden rounded-[28px] bg-gradient-to-br from-violet-950 via-violet-900 to-indigo-900 p-6 text-white shadow-[0_30px_80px_-40px_rgba(46,16,101,0.85)]">
@@ -453,6 +515,9 @@ export function NurseDashboard() {
           <div className="space-y-5">
             <div className="inline-flex items-center gap-2 rounded-full border border-white/15 bg-white/10 px-3 py-1 text-xs uppercase tracking-[0.28em] text-violet-200">
               Nurse Portal
+              <span className="rounded-full border border-white/20 bg-white/15 px-2 py-0.5 text-[10px] tracking-normal text-white/90">
+                Pending Referrals {incomingPendingCount}
+              </span>
             </div>
             <div className="space-y-3">
               <h2 className="max-w-3xl text-3xl font-bold tracking-tight md:text-4xl">
@@ -568,6 +633,70 @@ export function NurseDashboard() {
           </div>
         </div>
       </div>
+
+      <Card className="overflow-hidden rounded-2xl border-l-4 border-violet-500 shadow-sm">
+        <CardHeader className="border-b border-violet-100 bg-violet-50/40">
+          <div className="flex flex-col gap-3 sm:flex-row sm:items-center sm:justify-between">
+            <div className="flex items-center gap-2">
+              <ArrowRightLeft className="h-4 w-4 text-violet-600" />
+              <CardTitle className="text-base font-semibold">Incoming Referrals Queue</CardTitle>
+              <span className="rounded-full bg-violet-100 px-2 py-0.5 text-xs text-violet-700">{incomingReferrals.length}</span>
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <Select value={incomingStatus} onValueChange={setIncomingStatus}>
+                <SelectTrigger className="w-36"><SelectValue placeholder="Status" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="pending">Pending</SelectItem>
+                  <SelectItem value="accepted">Accepted</SelectItem>
+                  <SelectItem value="completed">Completed</SelectItem>
+                  <SelectItem value="cancelled">Cancelled</SelectItem>
+                </SelectContent>
+              </Select>
+              <Select value={incomingUrgency} onValueChange={setIncomingUrgency}>
+                <SelectTrigger className="w-40"><SelectValue placeholder="Urgency" /></SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="__all_urgency__">All Urgency</SelectItem>
+                  <SelectItem value="emergency">Emergency</SelectItem>
+                  <SelectItem value="Very Urgent">Very Urgent</SelectItem>
+                  <SelectItem value="urgent">Urgent</SelectItem>
+                  <SelectItem value="routine">Routine</SelectItem>
+                  <SelectItem value="low">Low</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+          </div>
+        </CardHeader>
+        <CardContent className="p-0">
+          {incomingLoading ? (
+            <div className="flex items-center gap-2 px-4 py-4 text-sm text-slate-500">
+              <Loader2 className="h-4 w-4 animate-spin text-violet-500" />
+              Loading incoming referrals...
+            </div>
+          ) : incomingReferrals.length === 0 ? (
+            <p className="px-4 py-4 text-sm text-slate-500">No incoming referrals for the selected filter.</p>
+          ) : (
+            <div className="divide-y divide-violet-100">
+              {incomingReferrals.map((referral) => (
+                <button
+                  key={referral.id}
+                  type="button"
+                  onClick={() => openPatientCare(referral.patient_id, "referrals")}
+                  className="flex w-full items-start justify-between gap-3 px-4 py-3 text-left transition hover:bg-violet-50"
+                >
+                  <div className="min-w-0 space-y-1">
+                    <p className="truncate text-sm font-medium text-slate-900">{referral.patient_name || "Unknown patient"}</p>
+                    <p className="truncate text-xs text-slate-500">{formatPatientNumber(referral.patient_number)} · {referral.reason}</p>
+                  </div>
+                  <div className="shrink-0 space-y-1 text-right">
+                    <Badge variant="outline" className="text-[11px]">{referral.urgency}</Badge>
+                    <p className="text-[11px] text-slate-500">{new Date(referral.created_at).toLocaleTimeString()}</p>
+                  </div>
+                </button>
+              ))}
+            </div>
+          )}
+        </CardContent>
+      </Card>
 
       <div ref={careListRef} className="space-y-3">
         <div>

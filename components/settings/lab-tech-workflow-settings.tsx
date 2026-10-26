@@ -29,6 +29,50 @@ const DEFAULTS: LabTechWorkflowPrefs = {
   showPriorResultsDefault: false,
 }
 
+const DEFAULT_SPECIMEN_OPTIONS = [
+  "any",
+  "Blood",
+  "Whole Blood",
+  "Serum",
+  "Plasma",
+  "Urine",
+  "Midstream Urine",
+  "Stool",
+  "Sputum",
+  "Saliva",
+  "Semen",
+  "CSF",
+  "Cerebrospinal Fluid",
+  "Pleural Fluid",
+  "Ascitic Fluid",
+  "Pericardial Fluid",
+  "Synovial Fluid",
+  "Amniotic Fluid",
+  "Joint Fluid",
+  "Bronchoalveolar Lavage",
+  "BAL",
+  "Wound Swab",
+  "Nasopharyngeal Swab",
+  "Throat Swab",
+  "Vaginal Swab",
+  "Cervical Swab",
+  "Urethral Swab",
+  "Rectal Swab",
+  "Ear Swab",
+  "Eye Swab",
+  "Nasal Swab",
+  "Genital Swab",
+  "Tissue",
+  "Bone Marrow",
+  "Bile",
+  "Gastric Aspirate",
+  "Peritoneal Fluid",
+  "Pleural Effusion",
+  "Body Fluid",
+  "Other fluid",
+  "Other specimen",
+]
+
 export function LabTechWorkflowSettings() {
   const [prefs, setPrefs] = useState<LabTechWorkflowPrefs>(DEFAULTS)
   const [original, setOriginal] = useState<LabTechWorkflowPrefs>(DEFAULTS)
@@ -140,13 +184,9 @@ export function LabTechWorkflowSettings() {
                   </SelectTrigger>
                   <SelectContent>
                     <SelectItem value="any">Any specimen</SelectItem>
-                    <SelectItem value="Blood">Blood</SelectItem>
-                    <SelectItem value="Urine">Urine</SelectItem>
-                    <SelectItem value="Stool">Stool</SelectItem>
-                    <SelectItem value="Swab">Swab</SelectItem>
-                    <SelectItem value="CSF">CSF</SelectItem>
-                    <SelectItem value="Sputum">Sputum</SelectItem>
-                    <SelectItem value="Tissue">Tissue biopsy</SelectItem>
+                    {DEFAULT_SPECIMEN_OPTIONS.filter((option) => option !== "any").map((option) => (
+                      <SelectItem key={option} value={option}>{option}</SelectItem>
+                    ))}
                   </SelectContent>
                 </Select>
                 <p className="text-xs text-muted-foreground">Pre-fills the specimen type field on collection start.</p>

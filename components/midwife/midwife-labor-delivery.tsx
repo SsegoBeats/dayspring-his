@@ -1,6 +1,6 @@
 "use client"
 import { useCallback, useEffect, useRef, useState } from "react"
-import { Plus, Pencil, Trash2, Loader2, Baby, ChevronDown, ChevronUp } from "lucide-react"
+import { Plus, Pencil, Trash2, Loader2, Baby, ChevronDown, ChevronUp, Activity } from "lucide-react"
 import { toast } from "sonner"
 import { Card, CardContent, CardHeader, CardTitle, CardDescription } from "@/components/ui/card"
 import { Button } from "@/components/ui/button"
@@ -43,8 +43,66 @@ interface PostnatalVisit {
   bp_systolic: number | null
   bp_diastolic: number | null
   lochia: string | null
+  nutrition_assessment: string | null
+  mother_nutrition_status: string | null
   breastfeeding_status: string | null
+  newborn_feeding_status: string | null
+  cord_status: string | null
+  newborn_patient_number: string | null
+  newborn_patient_name: string | null
   baby_weight_g: number | null
+}
+
+interface LaborVitalEvent {
+  id: string
+  measured_at: string
+  recorded_by_name: string | null
+  bp_systolic: number | null
+  bp_diastolic: number | null
+  pulse_rate: number | null
+  respiratory_rate: number | null
+  temperature_c: number | null
+  fetal_heart_rate: number | null
+  contractions_per_10min: number | null
+  cervical_dilation_cm: number | null
+  oxygen_saturation: number | null
+  urine_output_ml: number | null
+  maternal_weight_kg: number | null
+  notes: string | null
+}
+
+type LaborVitalFormState = {
+  measuredAt: string
+  bpSystolic: string
+  bpDiastolic: string
+  pulseRate: string
+  respiratoryRate: string
+  temperatureC: string
+  fetalHeartRate: string
+  contractionsPer10min: string
+  cervicalDilationCm: string
+  oxygenSaturation: string
+  urineOutputMl: string
+  maternalWeightKg: string
+  notes: string
+}
+
+function emptyVital(): LaborVitalFormState {
+  return {
+    measuredAt: new Date().toISOString().slice(0, 16),
+    bpSystolic: "",
+    bpDiastolic: "",
+    pulseRate: "",
+    respiratoryRate: "",
+    temperatureC: "",
+    fetalHeartRate: "",
+    contractionsPer10min: "",
+    cervicalDilationCm: "",
+    oxygenSaturation: "",
+    urineOutputMl: "",
+    maternalWeightKg: "",
+    notes: "",
+  }
 }
 
 interface PatientOption { id: string; patientNumber: string; firstName: string; lastName: string }
@@ -103,7 +161,12 @@ export function MidwifeLaborDelivery({ openNewOnMount = false }: MidwifeLaborDel
   const [loading, setLoading] = useState(true)
   const [expandedId, setExpandedId] = useState<string | null>(null)
   const [postnatalMap, setPostnatalMap] = useState<Record<string, PostnatalVisit[]>>({})
+  const [vitalsMap, setVitalsMap] = useState<Record<string, LaborVitalEvent[]>>({})
+  const [vitalDrafts, setVitalDrafts] = useState<Record<string, LaborVitalFormState>>({})
   const [loadingPostnatal, setLoadingPostnatal] = useState<string | null>(null)
+  const [loadingVitals, setLoadingVitals] = useState<string | null>(null)
+  const [savingVitalFor, setSavingVitalFor] = useState<string | null>(null)
+  const [deletingVitalId, setDeletingVitalId] = useState<string | null>(null)
   const [sheetOpen, setSheetOpen] = useState(false)
   const [editingRecord, setEditingRecord] = useState<LaborRecord | null>(null)
   const [form, setForm] = useState<LaborFormState>(EMPTY_LABOR)
@@ -132,6 +195,21 @@ export function MidwifeLaborDelivery({ openNewOnMount = false }: MidwifeLaborDel
   const toggleExpand = async (id: string) => {
     if (expandedId === id) { setExpandedId(null); return }
     setExpandedId(id)
+    if (!vitalDrafts[id]) {
+      setVitalDrafts((prev) => ({ ...prev, [id]: emptyVital() }))
+    }
+    if (!vitalsMap[id]) {
+      setLoadingVitals(id)
+      try {
+        const vitalsRes = await fetch(`/api/labor/vitals?laborDeliveryId=${id}`, { credentials: "include" })
+        const vitalsData = await vitalsRes.json().catch(() => ({ events: [] }))
+        setVitalsMap((prev) => ({ ...prev, [id]: Array.isArray(vitalsData.events) ? vitalsData.events : [] }))
+      } catch {
+        setVitalsMap((prev) => ({ ...prev, [id]: [] }))
+      } finally {
+        setLoadingVitals(null)
+      }
+    }
     if (!postnatalMap[id]) {
       setLoadingPostnatal(id)
       try {
@@ -196,6 +274,74 @@ export function MidwifeLaborDelivery({ openNewOnMount = false }: MidwifeLaborDel
       setRecords((prev) => prev.filter((r) => r.id !== deleteTarget.id))
       toast.success("Record deleted"); setDeleteTarget(null)
     } catch { toast.error("Delete failed") } finally { setDeleting(false) }
+  }
+
+  async function saveVitalEvent(record: LaborRecord) {
+    const draft = vitalDrafts[record.id] ?? emptyVital()
+    setSavingVitalFor(record.id)
+    try {
+      const payload = {
+        laborDeliveryId: record.id,
+        patientId: record.patient_id,
+        measuredAt: draft.measuredAt ? new Date(draft.measuredAt).toISOString() : new Date().toISOString(),
+        bpSystolic: draft.bpSystolic ? Number.parseInt(draft.bpSystolic, 10) : null,
+        bpDiastolic: draft.bpDiastolic ? Number.parseInt(draft.bpDiastolic, 10) : null,
+        pulseRate: draft.pulseRate ? Number.parseInt(draft.pulseRate, 10) : null,
+        respiratoryRate: draft.respiratoryRate ? Number.parseInt(draft.respiratoryRate, 10) : null,
+        temperatureC: draft.temperatureC ? Number.parseFloat(draft.temperatureC) : null,
+        fetalHeartRate: draft.fetalHeartRate ? Number.parseInt(draft.fetalHeartRate, 10) : null,
+        contractionsPer10min: draft.contractionsPer10min ? Number.parseInt(draft.contractionsPer10min, 10) : null,
+        cervicalDilationCm: draft.cervicalDilationCm ? Number.parseFloat(draft.cervicalDilationCm) : null,
+        oxygenSaturation: draft.oxygenSaturation ? Number.parseInt(draft.oxygenSaturation, 10) : null,
+        urineOutputMl: draft.urineOutputMl ? Number.parseInt(draft.urineOutputMl, 10) : null,
+        maternalWeightKg: draft.maternalWeightKg ? Number.parseFloat(draft.maternalWeightKg) : null,
+        notes: draft.notes || null,
+      }
+      const res = await fetch("/api/labor/vitals", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+      if (!res.ok) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to save vital event")
+        return
+      }
+      const vitalsRes = await fetch(`/api/labor/vitals?laborDeliveryId=${record.id}`, { credentials: "include" })
+      const vitalsData = await vitalsRes.json().catch(() => ({ events: [] }))
+      setVitalsMap((prev) => ({ ...prev, [record.id]: Array.isArray(vitalsData.events) ? vitalsData.events : [] }))
+      setVitalDrafts((prev) => ({ ...prev, [record.id]: emptyVital() }))
+      toast.success("Labor vital event recorded")
+    } catch {
+      toast.error("Failed to save vital event")
+    } finally {
+      setSavingVitalFor(null)
+    }
+  }
+
+  async function deleteVitalEvent(recordId: string, eventId: string) {
+    setDeletingVitalId(eventId)
+    try {
+      const res = await fetch(`/api/labor/vitals/${eventId}`, {
+        method: "DELETE",
+        credentials: "include",
+      })
+      if (!res.ok && res.status !== 204) {
+        const data = await res.json().catch(() => ({}))
+        toast.error(data.error || "Failed to delete vital event")
+        return
+      }
+      setVitalsMap((prev) => ({
+        ...prev,
+        [recordId]: (prev[recordId] ?? []).filter((event) => event.id !== eventId),
+      }))
+      toast.success("Labor vital event deleted")
+    } catch {
+      toast.error("Failed to delete vital event")
+    } finally {
+      setDeletingVitalId(null)
+    }
   }
 
   const canEdit = user?.role === "Midwife" || user?.role === "Hospital Admin" || user?.role === "Clinician"
@@ -266,10 +412,86 @@ export function MidwifeLaborDelivery({ openNewOnMount = false }: MidwifeLaborDel
                 <CardContent className="border-t border-rose-50 pt-3 space-y-3">
                   {r.complications && <div><p className="text-[11px] font-semibold uppercase tracking-wide text-rose-600 mb-0.5">Complications</p><p className="text-xs text-slate-600">{r.complications}</p></div>}
                   {r.notes && <div><p className="text-[11px] font-semibold uppercase tracking-wide text-rose-600 mb-0.5">Notes</p><p className="text-xs text-slate-600">{r.notes}</p></div>}
+                  <div className="rounded-lg border border-rose-100 bg-rose-50/30 p-3 space-y-3">
+                    <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700 flex items-center gap-1">
+                      <Activity className="h-3.5 w-3.5" /> Labor Vitals Timeline
+                    </p>
+                    {loadingVitals === r.id ? (
+                      <p className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Loading vitals...</p>
+                    ) : (vitalsMap[r.id] ?? []).length === 0 ? (
+                      <p className="text-xs text-muted-foreground">No repeated vitals recorded yet.</p>
+                    ) : (
+                      <div className="space-y-1.5">
+                        {(vitalsMap[r.id] ?? []).map((v) => (
+                          <div key={v.id} className="rounded-lg border border-rose-100 bg-white px-3 py-2 text-xs">
+                            <div className="flex items-start justify-between gap-2">
+                              <div>
+                                <p className="font-medium text-slate-700">{String(v.measured_at).slice(0, 16).replace("T", " ")}</p>
+                                <p className="text-slate-400">Recorded by {v.recorded_by_name || "Unknown"}</p>
+                                <p className="text-slate-500 mt-0.5">
+                                  {v.bp_systolic != null && v.bp_diastolic != null ? `BP ${v.bp_systolic}/${v.bp_diastolic}` : "BP -"}
+                                  {v.pulse_rate != null ? ` · PR ${v.pulse_rate}` : ""}
+                                  {v.respiratory_rate != null ? ` · RR ${v.respiratory_rate}` : ""}
+                                  {v.temperature_c != null ? ` · Temp ${v.temperature_c}C` : ""}
+                                  {v.fetal_heart_rate != null ? ` · FHR ${v.fetal_heart_rate}` : ""}
+                                  {v.cervical_dilation_cm != null ? ` · ${v.cervical_dilation_cm}cm` : ""}
+                                </p>
+                                <p className="text-slate-400 mt-0.5">
+                                  {v.contractions_per_10min != null ? `Contractions/10m ${v.contractions_per_10min}` : ""}
+                                  {v.oxygen_saturation != null ? ` · SpO2 ${v.oxygen_saturation}%` : ""}
+                                  {v.urine_output_ml != null ? ` · Urine ${v.urine_output_ml}ml` : ""}
+                                  {v.maternal_weight_kg != null ? ` · Wt ${v.maternal_weight_kg}kg` : ""}
+                                </p>
+                                {v.notes && <p className="text-slate-500 mt-1">{v.notes}</p>}
+                              </div>
+                              {canEdit && (
+                                <Button
+                                  variant="ghost"
+                                  size="icon"
+                                  className="h-7 w-7 text-red-500 hover:bg-red-50"
+                                  onClick={() => void deleteVitalEvent(r.id, v.id)}
+                                  disabled={deletingVitalId === v.id}
+                                >
+                                  {deletingVitalId === v.id ? <Loader2 className="h-3.5 w-3.5 animate-spin" /> : <Trash2 className="h-3.5 w-3.5" />}
+                                </Button>
+                              )}
+                            </div>
+                          </div>
+                        ))}
+                      </div>
+                    )}
+
+                    {canEdit && (
+                      <div className="rounded-lg border border-rose-100 bg-white p-3 space-y-2">
+                        <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-700">Add Vital Checkpoint</p>
+                        <div className="grid grid-cols-2 gap-2">
+                          <Input type="datetime-local" value={(vitalDrafts[r.id] ?? emptyVital()).measuredAt} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), measuredAt: e.target.value } }))} />
+                          <Input placeholder="BP Sys" type="number" min={0} value={(vitalDrafts[r.id] ?? emptyVital()).bpSystolic} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), bpSystolic: e.target.value } }))} />
+                          <Input placeholder="BP Dia" type="number" min={0} value={(vitalDrafts[r.id] ?? emptyVital()).bpDiastolic} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), bpDiastolic: e.target.value } }))} />
+                          <Input placeholder="Pulse" type="number" min={0} value={(vitalDrafts[r.id] ?? emptyVital()).pulseRate} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), pulseRate: e.target.value } }))} />
+                          <Input placeholder="Respiratory" type="number" min={0} value={(vitalDrafts[r.id] ?? emptyVital()).respiratoryRate} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), respiratoryRate: e.target.value } }))} />
+                          <Input placeholder="Temp (C)" type="number" min={30} max={43} step="0.1" value={(vitalDrafts[r.id] ?? emptyVital()).temperatureC} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), temperatureC: e.target.value } }))} />
+                          <Input placeholder="FHR" type="number" min={0} value={(vitalDrafts[r.id] ?? emptyVital()).fetalHeartRate} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), fetalHeartRate: e.target.value } }))} />
+                          <Input placeholder="Cx dilation (cm)" type="number" min={0} max={10} step="0.5" value={(vitalDrafts[r.id] ?? emptyVital()).cervicalDilationCm} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), cervicalDilationCm: e.target.value } }))} />
+                          <Input placeholder="Contractions /10m" type="number" min={0} value={(vitalDrafts[r.id] ?? emptyVital()).contractionsPer10min} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), contractionsPer10min: e.target.value } }))} />
+                          <Input placeholder="SpO2" type="number" min={0} max={100} value={(vitalDrafts[r.id] ?? emptyVital()).oxygenSaturation} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), oxygenSaturation: e.target.value } }))} />
+                          <Input placeholder="Urine (ml)" type="number" min={0} value={(vitalDrafts[r.id] ?? emptyVital()).urineOutputMl} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), urineOutputMl: e.target.value } }))} />
+                          <Input placeholder="Maternal wt (kg)" type="number" min={20} max={250} step="0.1" value={(vitalDrafts[r.id] ?? emptyVital()).maternalWeightKg} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), maternalWeightKg: e.target.value } }))} />
+                        </div>
+                        <Textarea rows={2} placeholder="Notes" value={(vitalDrafts[r.id] ?? emptyVital()).notes} onChange={(e) => setVitalDrafts((prev) => ({ ...prev, [r.id]: { ...(prev[r.id] ?? emptyVital()), notes: e.target.value } }))} className="resize-none" />
+                        <div className="flex justify-end">
+                          <Button size="sm" className="bg-rose-600 hover:bg-rose-700 text-white" onClick={() => void saveVitalEvent(r)} disabled={savingVitalFor === r.id}>
+                            {savingVitalFor === r.id ? <><Loader2 className="h-4 w-4 animate-spin mr-2" />Saving...</> : "Save Vital"}
+                          </Button>
+                        </div>
+                      </div>
+                    )}
+                  </div>
+
                   <div>
                     <p className="text-[11px] font-semibold uppercase tracking-wide text-rose-600 mb-2">Postnatal Visits</p>
                     {loadingPostnatal === r.id ? (
-                      <p className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Loading…</p>
+                      <p className="text-xs text-muted-foreground flex items-center gap-1"><Loader2 className="h-3 w-3 animate-spin" /> Loading...</p>
                     ) : (postnatalMap[r.id] ?? []).length === 0 ? (
                       <p className="text-xs text-muted-foreground">No postnatal visits linked to this delivery.</p>
                     ) : (
@@ -281,6 +503,12 @@ export function MidwifeLaborDelivery({ openNewOnMount = false }: MidwifeLaborDel
                             {pv.bp_systolic && pv.bp_diastolic && <span className="ml-2">BP {pv.bp_systolic}/{pv.bp_diastolic}</span>}
                             {pv.lochia && <span className="ml-2 capitalize">Lochia: {pv.lochia}</span>}
                             {pv.baby_weight_g && <span className="ml-2">Baby {pv.baby_weight_g}g</span>}
+                            {pv.newborn_patient_number && <span className="ml-2">Newborn #{pv.newborn_patient_number}</span>}
+                            {pv.newborn_patient_name && <span className="ml-2">({pv.newborn_patient_name})</span>}
+                            {pv.nutrition_assessment && <p className="text-slate-500 mt-1">Nutrition: {pv.nutrition_assessment}</p>}
+                            {pv.mother_nutrition_status && <p className="text-slate-500 mt-0.5">Maternal nutrition status: {pv.mother_nutrition_status}</p>}
+                            {pv.newborn_feeding_status && <p className="text-slate-500 mt-0.5">Newborn feeding: {pv.newborn_feeding_status}</p>}
+                            {pv.cord_status && <p className="text-slate-500 mt-0.5">Cord status: {pv.cord_status}</p>}
                           </div>
                         ))}
                       </div>

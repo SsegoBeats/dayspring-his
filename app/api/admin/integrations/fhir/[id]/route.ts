@@ -1,15 +1,14 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { verifyToken } from '@/lib/security'
+import { verifyRequestToken } from '@/lib/security'
 import { queryWithSession } from '@/lib/db'
 
 const UpdateMapping = z.object({ resourceType: z.string().optional(), field: z.string().optional(), fhirElement: z.string().optional(), facilityId: z.union([z.string(), z.null()]).optional() })
 
-export async function PUT(req: Request, { params }: { params: { id: string } }) {
+export async function PUT(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const authHeader = req.headers.get('authorization') || ''
-    const token = authHeader.replace(/^Bearer\s+/i, '')
-    const user = verifyToken(token)
+    const { id } = await params
+    const user = verifyRequestToken(req)
     if (!user || (user.role !== 'Hospital Admin' && user.role !== 'admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json()
@@ -26,7 +25,7 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
     if (cols.length === 0) return NextResponse.json({ error: 'No fields to update' }, { status: 400 })
 
     const sql = `UPDATE fhir_mappings SET ${cols.join(', ')} WHERE id = $${idx} RETURNING id, resource_type as "resourceType", field, fhir_element as "fhirElement", facility_id as "facilityId", created_at`
-    vals.push(params.id)
+    vals.push(id)
     const { rows } = await queryWithSession({ role: user.role, userId: user.userId }, sql, vals)
     if (!rows || rows.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     try {
@@ -38,18 +37,17 @@ export async function PUT(req: Request, { params }: { params: { id: string } }) 
   }
 }
 
-export async function DELETE(req: Request, { params }: { params: { id: string } }) {
+export async function DELETE(req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
-    const authHeader = req.headers.get('authorization') || ''
-    const token = authHeader.replace(/^Bearer\s+/i, '')
-    const user = verifyToken(token)
+    const { id } = await params
+    const user = verifyRequestToken(req)
     if (!user || (user.role !== 'Hospital Admin' && user.role !== 'admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const sql = 'DELETE FROM fhir_mappings WHERE id = $1 RETURNING id'
-    const { rows } = await queryWithSession({ role: user.role, userId: user.userId }, sql, [params.id])
+    const { rows } = await queryWithSession({ role: user.role, userId: user.userId }, sql, [id])
     if (!rows || rows.length === 0) return NextResponse.json({ error: 'Not found' }, { status: 404 })
     try {
-      await queryWithSession({ role: user.role, userId: user.userId }, 'INSERT INTO integration_mapping_audit (mapping_table, mapping_id, action, payload, performed_by) VALUES ($1,$2,$3,$4,$5)', ['fhir_mappings', params.id, 'delete', null, user.userId])
+      await queryWithSession({ role: user.role, userId: user.userId }, 'INSERT INTO integration_mapping_audit (mapping_table, mapping_id, action, payload, performed_by) VALUES ($1,$2,$3,$4,$5)', ['fhir_mappings', id, 'delete', null, user.userId])
     } catch (e) { }
     return NextResponse.json({ ok: true })
   } catch (err: any) {

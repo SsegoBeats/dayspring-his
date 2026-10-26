@@ -256,7 +256,7 @@ The receptionist registers every new patient into the system. Returning patients
 - **Full Name** (First, Middle, Last)
 - **Date of Birth** (or estimated age)
 - **Gender**
-- **Phone Number** (in Uganda format, e.g. 0771234567)
+- **Phone Number** — optional. If provided, use a valid format.
 - **Address** — District, Subcounty, Parish, Village
 - **National Identification Number (NIN)** — optional
 - **Blood Group** (e.g., O+, A-)
@@ -570,9 +570,18 @@ Shows all patients currently under nursing care. From this list you can:
 - Sort by triage category to prioritise RED and YELLOW patients
 - Filter by date range
 
----
+### 6.5 Receiving a Clinician Handoff and Completing Procedures
 
-### 6.5 Vital Signs Export
+When a clinician sends a patient to the Nurse or Midwife team, the recipient receives a **Clinical Handoff** notification and the patient appears in the incoming referrals queue.
+
+1. Open the handoff notification or select the patient from **Incoming Referrals**.
+2. Review the handoff snapshot before care: reason and urgency, patient identity, clinician assessment and diagnosis, latest vitals, medications, lab results, procedure requests, instructions, and follow-up requirements.
+3. Select **Accept Handoff** to acknowledge receipt.
+4. Open the patient's **Procedures** tab to review ordered procedures. After performing one, choose **Document & Complete** and record the date and time, performer, indication, findings, procedure notes, outcome, and follow-up instructions.
+5. Save nursing observations or care notes in the patient's chart. The clinician can review the same procedure history and nursing notes from the medical record.
+6. Select **Complete Handoff** once the requested care is finished and documented.
+
+### 6.6 Vital Signs Export
 
 1. Go to **Vital Signs** tab
 2. Select your date range (Today, Last 7 Days, Last Month, Custom)
@@ -642,16 +651,27 @@ The prescription appears immediately in the **Pharmacist's queue**.
 
 1. Open the patient record
 2. Click **Order Lab Test**
-3. Select the test type from the catalogue
-4. Set the **priority**:
+3. Select and add a specimen. The available tests mapped to that specimen are displayed.
+4. Select one or more tests for the specimen. Add another specimen to order tests from a different sample together.
+5. Set the **priority**:
    - **Emergency** — Life-threatening; process immediately
    - **Urgent** — Process within 2 hours
    - **Routine** — Standard processing
    - **Low** — Process when time allows
-5. Add **clinical indication** (reason for the test)
-6. Click **Submit Order**
+6. Add **clinical indication** (reason for the test)
+7. Click **Order Test(s)**
 
 The test appears immediately in the **Lab Tech's queue**.
+
+Hospital administrators can manage specimen categories, specimens, and their LOINC test mappings in **Admin Settings → Specimen Categories & Test Mappings**. Tests not mapped to a specimen can still be added through catalog search or as a custom test.
+
+The starter catalog includes blood and blood components, urine collection types, stool/fecal samples, swabs by anatomical site, respiratory samples, cerebrospinal and other body fluids, reproductive/perinatal samples, tissue and surgical pathology, cytology, skin/hair/nail samples, medical devices, and prepared slides. This is a configurable starting vocabulary, not a universal exhaustive standard. Always follow the performing laboratory's test-specific collection and handling instructions.
+
+Specimen vocabulary references:
+
+- [UW Medicine Microbiology Specimen Collection](https://testguide.labmed.uw.edu/guideline/micro_specimen_collection)
+- [UF Health Pathology Laboratories Microbiology Specimen Collection Procedures](https://pathlabs.ufl.edu/client-services/specimen-shipping/specimen-collection-procedures-microbiology/)
+- [UW Medicine CBC test guide](https://dlmp.uw.edu/test-guide/view/CBC)
 
 ---
 
@@ -679,6 +699,15 @@ As you work, add each service to the bill:
 5. Click **Save Item**
 
 These items form the patient's bill, which the cashier will process.
+
+### 7.7 Sending a Patient to Nursing or Midwifery
+
+1. Complete and save the consultation assessment first. The handoff uses that saved record rather than asking you to repeat it.
+2. Choose a specific nurse, **Department handoff: Nurse**, or **Department handoff: Midwife**.
+3. Select **Save & Send to Nurse**. The receiving team is notified and the patient enters its incoming handoff queue.
+4. Review any procedure orders in the patient's **Procedures** tab before sending. Use **Order Procedure** for work not yet performed; use **Record Completed** only after the procedure is done.
+
+The receiving team sees the patient's identity, referral reason and urgency, assessment and diagnosis, current vitals, recent medications and lab results, procedure requests, clinical instructions, and follow-up requirements. After acceptance, the team records care and closes the handoff. Procedure results and nursing notes remain in the shared patient record for clinician review.
 
 ---
 
@@ -727,6 +756,10 @@ The queue is divided into tabs:
 - The system shows the normal reference range
 - Values outside the normal range are automatically highlighted
 - Add any comments or observations
+
+For CBC orders, **Import analyzer CSV** accepts a controlled CSV file containing `accession_number`, `parameter`, and `value`, with optional `patient_number`, `units`, `reference`, and `flag` columns. Download the order-specific template, add one result per row, import it for preview, then apply and verify the values before submission. The accession (and any supplied patient number) must match the open order. Manual entry remains available.
+
+This CSV workflow is a normalized import fallback, not a direct analyzer connection. Before planning automatic transmission, the laboratory and equipment vendor must confirm the analyzer model, export format, connectivity, available HL7/API/interface, and whether results can be sent automatically. Do not use unverified vendor output or overwrite the order's identifiers.
 
 **4. Verify Results**
 - A senior technician reviews the results

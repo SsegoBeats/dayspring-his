@@ -1,5 +1,5 @@
 "use client"
-import { useState, useCallback } from "react"
+import { useState, useCallback, useEffect } from "react"
 import { useMedical } from "@/lib/medical-context"
 import type { Patient } from "@/lib/patient-context"
 import type { User } from "@/lib/auth-context"
@@ -37,6 +37,14 @@ interface ConsultationFormData {
   notes: string
 }
 
+interface NurseOption {
+  id: string
+  name: string
+  role?: string
+}
+
+const MIDWIFE_DEPARTMENT = "__department_midwife__"
+
 const EMPTY_FORM: ConsultationFormData = {
   bloodPressure: "", temperature: "", heartRate: "",
   respiratoryRate: "", oxygenSaturation: "",
@@ -50,18 +58,30 @@ export function ConsultationTab({ patient, user, onSaved }: ConsultationTabProps
   const [showCriticalAlert, setShowCriticalAlert] = useState(false)
   const [criticalAlerts, setCriticalAlerts] = useState<VitalSignsAlert[]>([])
   const [saving, setSaving] = useState(false)
+  const [sendingToNurse, setSendingToNurse] = useState(false)
+  const [nurses, setNurses] = useState<NurseOption[]>([])
+  const [selectedNurseId, setSelectedNurseId] = useState("")
+
+  useEffect(() => {
+    const loadNurses = async () => {
+      try {
+        const res = await fetch("/api/users/nurses", { credentials: "include" })
+        if (!res.ok) return
+        const data = await res.json()
+        setNurses(Array.isArray(data?.nurses) ? data.nurses : [])
+      } catch {
+        setNurses([])
+      }
+    }
+    void loadNurses()
+  }, [])
 
   const set = (field: keyof ConsultationFormData) =>
     (e: React.ChangeEvent<HTMLInputElement | HTMLTextAreaElement>) =>
       setForm((f) => ({ ...f, [field]: e.target.value }))
 
-  const doSave = useCallback(async () => {
-    if (!form.complaints.trim() && !form.impression.trim() && !form.diagnosis.trim()) {
-      toast.error("Enter at least Complaints, Impression, or Diagnosis before saving.")
-      return
-    }
-    setSaving(true)
-    const ok = await addMedicalRecord({
+  const saveConsultation = useCallback(async () => {
+    return addMedicalRecord({
       patientId: patient.id,
       patientName: `${patient.firstName} ${patient.lastName}`,
       doctorName: user.name,
@@ -80,17 +100,73 @@ export function ConsultationTab({ patient, user, onSaved }: ConsultationTabProps
         oxygenSaturation: form.oxygenSaturation,
       },
     })
+  }, [addMedicalRecord, form, patient, user])
+
+  const doSave = useCallback(async () => {
+    if (!form.complaints.trim() && !form.impression.trim() && !form.diagnosis.trim()) {
+      toast.error("Enter at least Complaints, Impression, or Diagnosis before saving.")
+      return
+    }
+    setSaving(true)
+    const record = await saveConsultation()
     setSaving(false)
     setShowCriticalAlert(false)
     setCriticalAlerts([])
-    if (ok) {
+    if (record) {
       setForm(EMPTY_FORM)
       toast.success("Consultation saved.")
       onSaved?.()
     } else {
-      toast.error("Failed to save consultation. Please try again.")
+      toast.error("Consultation was not saved. Please try again.")
     }
-  }, [form, patient, user, addMedicalRecord, onSaved])
+  }, [form, onSaved, saveConsultation])
+
+  const sendToNurse = useCallback(async () => {
+    const reason = [form.complaints, form.impression, form.diagnosis].filter(Boolean).join(" | ") || "Nurse review required"
+    const noteSummary = [form.history, form.treatmentPlan, form.notes].filter(Boolean).join("\n---\n") || "Follow-up required"
+
+    try {
+      setSendingToNurse(true)
+      const record = await saveConsultation()
+      if (!record) {
+        toast.error("Could not save consultation before sending to nurse.")
+        return
+      }
+
+      const payload = {
+        patientId: patient.id,
+        clinicalRecordId: record.id,
+        type: "internal",
+        receivingUserId: selectedNurseId && selectedNurseId !== MIDWIFE_DEPARTMENT ? selectedNurseId : null,
+        receivingDepartment: selectedNurseId === MIDWIFE_DEPARTMENT ? "Midwife" : selectedNurseId ? null : "Nurse",
+        facilityId: user.facilityId ?? null,
+        reason,
+        urgency: "routine",
+        notes: noteSummary,
+      }
+
+      const res = await fetch("/api/referrals", {
+        method: "POST",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify(payload),
+      })
+
+      const data = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        throw new Error(data?.error || "Failed to send to nurse")
+      }
+
+      setForm(EMPTY_FORM)
+      setSelectedNurseId("")
+      toast.success("Consultation saved and sent to nurse.")
+      onSaved?.()
+    } catch (error: any) {
+      toast.error(error?.message || "Unable to send to nurse.")
+    } finally {
+      setSendingToNurse(false)
+    }
+  }, [form, onSaved, patient.id, saveConsultation, selectedNurseId, user.facilityId])
 
   const handleSubmit = useCallback(() => {
     const parts = form.bloodPressure.split("/")
@@ -110,12 +186,12 @@ export function ConsultationTab({ patient, user, onSaved }: ConsultationTabProps
       setShowCriticalAlert(true)
       return
     }
-    doSave()
+    void doSave()
   }, [form, patient, doSave])
 
   const handleKeyDown = useCallback(
     (e: React.KeyboardEvent) => {
-      if (e.ctrlKey && e.key === "Enter") { e.preventDefault(); handleSubmit() }
+      if (e.ctrlKey && e.key === "Enter") { e.preventDefault(); void handleSubmit() }
     },
     [handleSubmit],
   )
@@ -221,9 +297,32 @@ export function ConsultationTab({ patient, user, onSaved }: ConsultationTabProps
         </div>
       </div>
 
-      <Button onClick={handleSubmit} disabled={saving} className="w-full bg-teal-700 text-white hover:bg-teal-800">
-        {saving ? "Saving…" : <>Save Consultation <span className="ml-2 text-xs opacity-70">(Ctrl+Enter)</span></>}
-      </Button>
+      <div className="space-y-3 rounded-md border border-sky-200 bg-sky-50/60 p-3">
+        <div className="space-y-1.5">
+          <Label htmlFor="nurse-select">Send to Nurse or Midwife</Label>
+          <select
+            id="nurse-select"
+            value={selectedNurseId}
+            onChange={(e) => setSelectedNurseId(e.target.value)}
+            className="w-full rounded-md border border-slate-300 bg-white px-3 py-2 text-sm outline-none ring-0 focus:border-sky-500"
+          >
+            <option value="">Department handoff: Nurse</option>
+            <option value={MIDWIFE_DEPARTMENT}>Department handoff: Midwife</option>
+            {nurses.map((nurse) => (
+              <option key={nurse.id} value={nurse.id}>{nurse.name}</option>
+            ))}
+          </select>
+        </div>
+
+        <div className="flex flex-col gap-2 sm:flex-row">
+          <Button onClick={handleSubmit} disabled={saving || sendingToNurse} className="flex-1 bg-teal-700 text-white hover:bg-teal-800">
+            {saving ? "Saving…" : <>Save Consultation <span className="ml-2 text-xs opacity-70">(Ctrl+Enter)</span></>}
+          </Button>
+          <Button onClick={() => { void sendToNurse() }} disabled={saving || sendingToNurse} variant="outline" className="flex-1 border-sky-500 text-sky-700 hover:bg-sky-50">
+            {sendingToNurse ? "Sending…" : "Save & Send to Nurse"}
+          </Button>
+        </div>
+      </div>
 
       {/* Critical Vitals AlertDialog */}
       <AlertDialog open={showCriticalAlert} onOpenChange={setShowCriticalAlert}>

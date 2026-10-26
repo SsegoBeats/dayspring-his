@@ -11,6 +11,7 @@ import { toast } from "sonner"
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger, DialogFooter } from "@/components/ui/dialog"
 import { Textarea } from "@/components/ui/textarea"
 import { Label } from "@/components/ui/label"
+import { Input } from "@/components/ui/input"
 
 interface Procedure {
   id: string
@@ -22,6 +23,17 @@ interface Procedure {
   ordered_by_name?: string
   completed_by_name?: string
   notes?: string
+  procedure_date?: string | null
+  procedure_time?: string | null
+  performed_by_name?: string | null
+  performer_name?: string | null
+  reason_indication?: string | null
+  findings?: string | null
+  procedure_notes?: string | null
+  outcome?: string | null
+  follow_up_instructions?: string | null
+  is_other_procedure?: boolean
+  other_procedure_name?: string | null
 }
 
 interface ProceduresViewProps {
@@ -34,8 +46,33 @@ export function ProceduresView({ patientId }: ProceduresViewProps) {
   const [loading, setLoading] = useState(true)
   const [completeDialogOpen, setCompleteDialogOpen] = useState(false)
   const [selectedProcedure, setSelectedProcedure] = useState<Procedure | null>(null)
-  const [completionNotes, setCompletionNotes] = useState('')
+  const [completionForm, setCompletionForm] = useState({
+    procedureDate: "",
+    procedureTime: "",
+    performedBy: "",
+    reasonIndication: "",
+    findings: "",
+    procedureNotes: "",
+    outcome: "",
+    followUpInstructions: "",
+  })
   const [submitting, setSubmitting] = useState(false)
+
+  const openCompletionForm = (procedure: Procedure) => {
+    const now = new Date()
+    setSelectedProcedure(procedure)
+    setCompletionForm({
+      procedureDate: `${now.getFullYear()}-${String(now.getMonth() + 1).padStart(2, "0")}-${String(now.getDate()).padStart(2, "0")}`,
+      procedureTime: now.toTimeString().slice(0, 5),
+      performedBy: user?.name || "",
+      reasonIndication: procedure.reason_indication || "",
+      findings: procedure.findings || "",
+      procedureNotes: procedure.procedure_notes || procedure.notes || "",
+      outcome: procedure.outcome || "",
+      followUpInstructions: procedure.follow_up_instructions || "",
+    })
+    setCompleteDialogOpen(true)
+  }
 
   const loadProcedures = async () => {
     try {
@@ -70,7 +107,14 @@ export function ProceduresView({ patientId }: ProceduresViewProps) {
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({
           procedureId: selectedProcedure.id,
-          notes: completionNotes.trim() || null,
+          procedureDate: completionForm.procedureDate,
+          procedureTime: completionForm.procedureTime,
+          performedBy: completionForm.performedBy.trim(),
+          reasonIndication: completionForm.reasonIndication.trim(),
+          findings: completionForm.findings.trim(),
+          procedureNotes: completionForm.procedureNotes.trim(),
+          outcome: completionForm.outcome.trim(),
+          followUpInstructions: completionForm.followUpInstructions.trim(),
         }),
       })
 
@@ -81,7 +125,6 @@ export function ProceduresView({ patientId }: ProceduresViewProps) {
 
       toast.success('Procedure marked as completed')
       setCompleteDialogOpen(false)
-      setCompletionNotes('')
       setSelectedProcedure(null)
       await loadProcedures()
     } catch (error: any) {
@@ -139,7 +182,14 @@ export function ProceduresView({ patientId }: ProceduresViewProps) {
         <TableBody>
           {procedures.map((proc) => (
             <TableRow key={proc.id}>
-              <TableCell className="font-medium">{proc.procedure_name}</TableCell>
+              <TableCell className="font-medium">
+                <div>{proc.procedure_name}</div>
+                {proc.reason_indication && <p className="mt-1 text-xs text-muted-foreground">Indication: {proc.reason_indication}</p>}
+                {proc.procedure_notes && <p className="mt-1 text-xs text-muted-foreground">Instructions: {proc.procedure_notes}</p>}
+                {proc.findings && <p className="mt-1 text-xs text-muted-foreground">Findings: {proc.findings}</p>}
+                {proc.outcome && <p className="mt-1 text-xs text-muted-foreground">Outcome: {proc.outcome}</p>}
+                {proc.follow_up_instructions && <p className="mt-1 text-xs text-muted-foreground">Follow-up: {proc.follow_up_instructions}</p>}
+              </TableCell>
               <TableCell className="text-sm text-muted-foreground">{proc.procedure_type}</TableCell>
               <TableCell className="text-sm">
                 {new Date(proc.ordered_at).toLocaleString()}
@@ -156,13 +206,10 @@ export function ProceduresView({ patientId }: ProceduresViewProps) {
                       <Button
                         size="sm"
                         variant="outline"
-                        onClick={() => {
-                          setSelectedProcedure(proc)
-                          setCompletionNotes(proc.notes || '')
-                        }}
+                        onClick={() => openCompletionForm(proc)}
                       >
                         <CheckCircle className="mr-2 h-4 w-4" />
-                        Mark Complete
+                        Document & Complete
                       </Button>
                     </DialogTrigger>
                     <DialogContent>
@@ -174,20 +221,42 @@ export function ProceduresView({ patientId }: ProceduresViewProps) {
                           <p className="text-sm font-medium">Procedure: {proc.procedure_name}</p>
                           <p className="text-xs text-muted-foreground">Type: {proc.procedure_type}</p>
                         </div>
-                        <div>
-                          <Label htmlFor="completion-notes">Completion Notes (optional)</Label>
-                          <Textarea
-                            id="completion-notes"
-                            value={completionNotes}
-                            onChange={(e) => setCompletionNotes(e.target.value)}
-                            placeholder="Any observations or notes about the procedure"
-                          />
+                        <div className="grid gap-3 sm:grid-cols-2">
+                          <div className="space-y-1">
+                            <Label htmlFor="procedure-date">Date performed</Label>
+                            <Input id="procedure-date" type="date" value={completionForm.procedureDate}
+                              onChange={(e) => setCompletionForm((form) => ({ ...form, procedureDate: e.target.value }))} required />
+                          </div>
+                          <div className="space-y-1">
+                            <Label htmlFor="procedure-time">Time performed</Label>
+                            <Input id="procedure-time" type="time" value={completionForm.procedureTime}
+                              onChange={(e) => setCompletionForm((form) => ({ ...form, procedureTime: e.target.value }))} required />
+                          </div>
+                          <div className="space-y-1 sm:col-span-2">
+                            <Label htmlFor="procedure-performer">Person who performed it</Label>
+                            <Input id="procedure-performer" value={completionForm.performedBy}
+                              onChange={(e) => setCompletionForm((form) => ({ ...form, performedBy: e.target.value }))} required />
+                          </div>
                         </div>
+                        {([
+                          ["reasonIndication", "Reason / indication", "Clinical reason for the procedure"],
+                          ["findings", "Findings", "Findings during or after the procedure"],
+                          ["procedureNotes", "Procedure notes", "Technique, steps, or relevant observations"],
+                          ["outcome", "Outcome", "Immediate result or response"],
+                          ["followUpInstructions", "Follow-up instructions", "Aftercare and follow-up plan"],
+                        ] as const).map(([field, label, placeholder]) => (
+                          <div key={field} className="space-y-1">
+                            <Label htmlFor={`procedure-${field}`}>{label}</Label>
+                            <Textarea id={`procedure-${field}`} value={completionForm[field]}
+                              onChange={(e) => setCompletionForm((form) => ({ ...form, [field]: e.target.value }))}
+                              placeholder={placeholder} />
+                          </div>
+                        ))}
                       </div>
                       <DialogFooter>
                         <Button variant="outline" onClick={() => setCompleteDialogOpen(false)}>Cancel</Button>
                         <Button onClick={handleComplete} disabled={submitting}>
-                          {submitting ? 'Saving...' : 'Mark as Completed'}
+                          {submitting ? 'Saving...' : 'Save Procedure Record'}
                         </Button>
                       </DialogFooter>
                     </DialogContent>

@@ -67,7 +67,7 @@ export function PrescriptionTab({ patient, user: _user, onSaved }: PrescriptionT
       const data = await res.json().catch(() => ({}))
       const validations: Array<{ severity?: string; message?: string }> = Array.isArray(data.validations) ? data.validations : []
       const hasCritical = data.hasCritical === true
-      if (!res.ok) { toast.error(data.error || "Failed to save prescription"); return }
+      if (!res.ok) { toast.error(data.error || "Prescription was not saved. Please try again."); return }
       if (hasCritical && validations.some((v) => v.severity === "Critical")) {
         toast.error("Prescription saved with critical warnings – please review.", { duration: 8000 })
       } else if (validations.length > 0) {
@@ -85,7 +85,7 @@ export function PrescriptionTab({ patient, user: _user, onSaved }: PrescriptionT
       setForm((f) => ({ ...f, medications: [{ ...EMPTY_MED }] }))
       onSaved?.()
     } catch {
-      toast.error("Failed to save prescription")
+      toast.error("Prescription was not saved. Please try again.")
     } finally {
       setSaving(false)
     }

@@ -11,15 +11,25 @@ export async function GET(req: Request) {
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "pharmacy", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
+    const params: any[] = []
+    let where = ""
+    if (auth.role !== "Hospital Admin") {
+      where = "WHERE (g.received_by = $1 OR po.created_by = $1)"
+      params.push(auth.userId)
+    }
+
     const { rows } = await queryWithSession({ role: auth.role, userId: auth.userId },
       `SELECT g.*, s.name AS supplier_name, u.name AS received_by_name,
               COUNT(gi.id) AS item_count
          FROM goods_received_notes g
     LEFT JOIN suppliers s ON s.id = g.supplier_id
+    LEFT JOIN purchase_orders po ON po.id = g.purchase_order_id
     LEFT JOIN users u ON u.id = g.received_by
     LEFT JOIN grn_items gi ON gi.grn_id = g.id
+        ${where}
      GROUP BY g.id, s.name, u.name
      ORDER BY g.received_at DESC LIMIT 200`
+      , params
     )
     return NextResponse.json({ grns: rows })
   } catch (err: any) {

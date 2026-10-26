@@ -18,6 +18,7 @@ export async function POST(request: Request) {
       return new Response('DHIS2 credentials not configured', { status: 500 })
     }
     const res = await postToDhis2(dhisUrl, dhisToken, dvs)
+    if (!res) throw new Error('DHIS2 request did not return a response')
     return NextResponse.json({ pushed: true, status: res.status })
   }
 

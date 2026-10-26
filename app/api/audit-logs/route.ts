@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { query } from "@/lib/db"
+import { AUDIT_ENTRIES_CTE } from "@/lib/audit"
 
 // Helper function to check authentication
 async function checkAuth() {
@@ -83,7 +84,8 @@ export async function GET(req: NextRequest) {
     if (search) {
       whereConditions.push(`(
         al.details->>'description' ILIKE $${paramIndex} OR
-        u.name ILIKE $${paramIndex} OR
+        al.details->'metadata'->>'patientId' ILIKE $${paramIndex} OR
+        COALESCE(u.name, al.actor_name) ILIKE $${paramIndex} OR
         al.entity_type ILIKE $${paramIndex}
       )`)
       params.push(`%${search}%`)
@@ -103,13 +105,13 @@ export async function GET(req: NextRequest) {
     }
 
     if (startDate) {
-      whereConditions.push(`al.created_at >= $${paramIndex}`)
+      whereConditions.push(`al.timestamp >= $${paramIndex}`)
       params.push(startDate)
       paramIndex++
     }
 
     if (endDate) {
-      whereConditions.push(`al.created_at <= $${paramIndex}`)
+      whereConditions.push(`al.timestamp <= $${paramIndex}`)
       params.push(endDate)
       paramIndex++
     }
@@ -118,8 +120,9 @@ export async function GET(req: NextRequest) {
 
     // Get total count
     const countQuery = `
+      ${AUDIT_ENTRIES_CTE}
       SELECT COUNT(*) as total
-      FROM audit_logs al
+      FROM audit_entries al
       LEFT JOIN users u ON u.id = al.user_id
       ${whereClause}
     `
@@ -128,21 +131,22 @@ export async function GET(req: NextRequest) {
 
     // Get audit logs with user information
     const logsQuery = `
+      ${AUDIT_ENTRIES_CTE}
       SELECT 
         al.id,
-        al.created_at as timestamp,
+        al.timestamp,
         al.user_id,
-        u.name as user_name,
+        COALESCE(u.name, al.actor_name) as user_name,
         u.role as user_role,
         al.action,
         al.entity_type,
         al.entity_id,
         al.details,
         al.ip_address
-      FROM audit_logs al
+      FROM audit_entries al
       LEFT JOIN users u ON u.id = al.user_id
       ${whereClause}
-      ORDER BY al.created_at DESC
+      ORDER BY al.timestamp DESC
       LIMIT $${paramIndex} OFFSET $${paramIndex + 1}
     `
     params.push(limit, offset)
@@ -154,14 +158,14 @@ export async function GET(req: NextRequest) {
       id: row.id,
       timestamp: row.timestamp,
       userId: row.user_id,
-      userName: row.user_name || (row.user_id ? 'Unknown User' : 'System Process'),
-      userRole: row.user_role || (row.user_id ? 'Unknown' : 'System'),
+      userName: row.user_name || (row.user_id || row.details?.category === "CLINICAL" ? 'Unknown User' : 'System Process'),
+      userRole: row.user_role || (row.user_id || row.details?.category === "CLINICAL" ? 'Unknown' : 'System'),
       action: row.action,
       category: row.details?.category || 'SYSTEM',
       entityType: row.entity_type,
       entityId: row.entity_id,
       description: row.details?.description || `${row.action} ${row.entity_type}`,
-      ipAddress: row.ip_address || '127.0.0.1',
+      ipAddress: row.ip_address || undefined,
       changes: row.details?.changes || [],
       metadata: row.details?.metadata || {}
     }))

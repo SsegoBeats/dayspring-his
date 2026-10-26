@@ -11,6 +11,7 @@ import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
 import { Textarea } from "@/components/ui/textarea"
 import { Syringe } from "lucide-react"
+import { toast } from "sonner"
 
 interface ImmunizationDialogProps {
   open: boolean
@@ -28,23 +29,28 @@ export function ImmunizationDialog({ open, onOpenChange, patientId }: Immunizati
     batchNumber: "",
     notes: "",
   })
+  const [saving, setSaving] = useState(false)
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
-
-    addImmunization({
-      patientId,
-      vaccineName: formData.vaccineName,
-      dateAdministered: formData.dateAdministered,
-      nextDueDate: formData.nextDueDate || undefined,
-      administeredBy: user?.name || "Unknown",
-      batchNumber: formData.batchNumber || undefined,
-      notes: formData.notes || undefined,
-    })
-
-    // Reset form
-    setFormData({ vaccineName: "", dateAdministered: "", nextDueDate: "", batchNumber: "", notes: "" })
-    onOpenChange(false)
+    setSaving(true)
+    try {
+      await addImmunization({
+        patientId,
+        vaccineName: formData.vaccineName,
+        dateAdministered: formData.dateAdministered,
+        nextDueDate: formData.nextDueDate || undefined,
+        administeredBy: user?.name || "Unknown",
+        batchNumber: formData.batchNumber || undefined,
+        notes: formData.notes || undefined,
+      })
+      setFormData({ vaccineName: "", dateAdministered: "", nextDueDate: "", batchNumber: "", notes: "" })
+      onOpenChange(false)
+    } catch (error) {
+      toast.error(error instanceof Error ? error.message : "Failed to save immunization")
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -115,7 +121,7 @@ export function ImmunizationDialog({ open, onOpenChange, patientId }: Immunizati
             <Button type="button" variant="outline" onClick={() => onOpenChange(false)}>
               Cancel
             </Button>
-            <Button type="submit">Add Immunization</Button>
+            <Button type="submit" disabled={saving}>{saving ? "Saving..." : "Add Immunization"}</Button>
           </div>
         </form>
       </DialogContent>

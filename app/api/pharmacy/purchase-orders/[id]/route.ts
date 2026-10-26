@@ -3,6 +3,18 @@ import { cookies } from "next/headers"
 import { verifyToken, can } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
 
+async function canAccessPurchaseOrder(auth: { role: string; userId: string }, purchaseOrderId: string) {
+  if (auth.role === "Hospital Admin") return true
+
+  const { rows } = await queryWithSession<{ created_by: string | null }>(
+    { role: auth.role, userId: auth.userId },
+    `SELECT created_by FROM purchase_orders WHERE id = $1 LIMIT 1`,
+    [purchaseOrderId],
+  )
+  if (!rows.length) return false
+  return rows[0].created_by === auth.userId
+}
+
 export async function GET(_req: Request, { params }: { params: Promise<{ id: string }> }) {
   try {
     const { id } = await params
@@ -11,6 +23,9 @@ export async function GET(_req: Request, { params }: { params: Promise<{ id: str
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "pharmacy", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!(await canAccessPurchaseOrder({ role: auth.role, userId: auth.userId }, id))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     const { rows: [po] } = await queryWithSession({ role: auth.role, userId: auth.userId },
       `SELECT po.*, s.name AS supplier_name FROM purchase_orders po
@@ -37,6 +52,9 @@ export async function PATCH(req: Request, { params }: { params: Promise<{ id: st
     const auth = token ? verifyToken(token) : null
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "purchase_orders", "update")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    if (!(await canAccessPurchaseOrder({ role: auth.role, userId: auth.userId }, id))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     const body = await req.json().catch(() => ({}))
     const { action, cancellation_reason, notes, expected_delivery_date, supplier_id } = body

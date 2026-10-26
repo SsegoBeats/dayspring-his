@@ -8,6 +8,12 @@ import { isValidPhoneNumber, normalizePhoneNumber } from "@/lib/phone"
 const PhoneSchema = z.string().transform((value) => normalizePhoneNumber(value, "UG")).refine((value) => isValidPhoneNumber(value), {
   message: "Phone must be a valid international number with country code (e.g., +256700123456)",
 })
+const OptionalPhoneSchema = z.preprocess((value) => {
+  if (value === null || value === undefined) return null
+  if (typeof value !== "string") return value
+  const trimmed = value.trim()
+  return trimmed ? trimmed : null
+}, PhoneSchema.nullable())
 const UgNIN = z.string().regex(/^[A-Z0-9]{14}$/).optional().nullable()
 
 const PatientSchema = z.object({
@@ -18,7 +24,7 @@ const PatientSchema = z.object({
   ageValue: z.number().int().min(0).optional().nullable(),
   ageUnit: z.enum(["years", "months", "days"]).optional().nullable(),
   gender: z.enum(["Male","Female","Other"]).default("Other"),
-  phone: PhoneSchema,
+  phone: OptionalPhoneSchema,
   address: z.string().optional().nullable(),
   nin: UgNIN,
   district: z.string().optional().nullable(),
@@ -30,12 +36,12 @@ const PatientSchema = z.object({
   allergies: z.string().optional().nullable(),
   // Emergency contact
   emergencyContactName: z.string().optional().nullable(),
-  emergencyContactPhone: PhoneSchema.optional().nullable(),
+  emergencyContactPhone: OptionalPhoneSchema.optional().nullable(),
   nextOfKinName: z.string().optional().nullable(), // Legacy field
   nextOfKinFirstName: z.string().optional().nullable(),
   nextOfKinLastName: z.string().optional().nullable(),
   nextOfKinCountry: z.string().optional().nullable(),
-  nextOfKinPhone: PhoneSchema.optional().nullable(),
+  nextOfKinPhone: OptionalPhoneSchema.optional().nullable(),
   nextOfKinRelation: z.string().optional().nullable(),
   nextOfKinResidence: z.string().optional().nullable(),
   insuranceProvider: z.string().optional().nullable(),
@@ -55,11 +61,12 @@ export async function POST(req: Request) {
     }
   }).parse(body)
 
-  // Duplicate detection: same phone OR same name with matching DOB/age
+  // Duplicate detection: same phone (only when provided) OR same name with matching DOB/age
   try {
     const { rows: dup } = await query(
-      `SELECT id FROM patients WHERE phone = $1
-         OR (
+      `SELECT id FROM patients WHERE (
+           ($1::text IS NOT NULL AND phone = $1)
+         ) OR (
            first_name ILIKE $2 AND last_name ILIKE $3 AND (
              ($4::date IS NOT NULL AND date_of_birth = $4) OR
              ($4::date IS NULL AND $5::int IS NOT NULL AND age_years = $5)
@@ -157,7 +164,8 @@ export async function GET(req: Request) {
     const cookieStore = await cookies()
     const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     const auth = token ? verifyToken(token) : null
-    if (!auth || !can(auth.role, "patients", "read")) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    if (!can(auth.role, "patients", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
     const url = new URL(req.url)
     const q = (url.searchParams.get("q") || "").trim()
     const byId = (url.searchParams.get("id") || "").trim()
@@ -311,13 +319,14 @@ export async function GET(req: Request) {
         t.avpu as latest_avpu,
         t.mode as latest_triage_mode,
         t.mobility as latest_triage_mobility,
+        t.discriminators as latest_triage_discriminators,
         t.metadata as latest_triage_metadata,
         t.recorded_at as latest_triage_date
       FROM patients p
       LEFT JOIN LATERAL (
         SELECT category, chief_complaint, temperature, heart_rate, blood_pressure_systolic, 
                blood_pressure_diastolic, respiratory_rate, oxygen_saturation, avpu, 
-               mode, mobility, metadata,
+               mode, mobility, discriminators, metadata,
                COALESCE(recorded_at, created_at) as recorded_at
         FROM triage_assessments
         WHERE patient_id = p.id
@@ -504,6 +513,34 @@ export async function PATCH(req: Request) {
       }
     }
 
+    // Validate and normalize patient/emergency/NOK phones when present.
+    let normalizedPhone: string | null | undefined = undefined
+    if (has('phone')) {
+      const parsed = OptionalPhoneSchema.safeParse(body.phone)
+      if (!parsed.success) {
+        return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid phone format" }, { status: 400 })
+      }
+      normalizedPhone = parsed.data
+    }
+
+    let normalizedEmergencyPhone: string | null | undefined = undefined
+    if (has('emergencyContactPhone')) {
+      const parsed = OptionalPhoneSchema.safeParse(body.emergencyContactPhone)
+      if (!parsed.success) {
+        return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid emergency contact phone format" }, { status: 400 })
+      }
+      normalizedEmergencyPhone = parsed.data
+    }
+
+    let normalizedNextOfKinPhone: string | null | undefined = undefined
+    if (has('nextOfKinPhone')) {
+      const parsed = OptionalPhoneSchema.safeParse(body.nextOfKinPhone)
+      if (!parsed.success) {
+        return NextResponse.json({ error: parsed.error.issues[0]?.message || "Invalid next of kin phone format" }, { status: 400 })
+      }
+      normalizedNextOfKinPhone = parsed.data
+    }
+
     // Compute combined NOK name only when either first/last are provided
     const hasNokFirst = has('nextOfKinFirstName')
     const hasNokLast = has('nextOfKinLastName')
@@ -517,7 +554,7 @@ export async function PATCH(req: Request) {
       ['last_name', has('lastName') ? body.lastName : undefined],
       ['age_years', has('ageYears') ? (typeof body.ageYears === 'number' ? body.ageYears : (body.ageYears ?? null)) : undefined],
       ['gender', has('gender') ? body.gender : undefined],
-      ['phone', has('phone') ? body.phone : undefined],
+      ['phone', normalizedPhone],
       ['address', has('address') ? (body.address ?? null) : undefined],
       ['nin', normalizedNin],
       ['district', has('district') ? (body.district ?? null) : undefined],
@@ -526,14 +563,14 @@ export async function PATCH(req: Request) {
       ['village', has('village') ? (body.village ?? null) : undefined],
       ['occupation', has('occupation') ? (body.occupation ?? null) : undefined],
       ['emergency_contact_name', has('emergencyContactName') ? (body.emergencyContactName ?? null) : undefined],
-      ['emergency_contact_phone', has('emergencyContactPhone') ? (body.emergencyContactPhone ?? null) : undefined],
+      ['emergency_contact_phone', normalizedEmergencyPhone],
       ['blood_group', has('bloodGroup') ? (body.bloodGroup ?? null) : undefined],
       ['allergies', has('allergies') ? (body.allergies ?? null) : undefined],
       // Keep legacy combined NOK name in sync when fields are provided
       ['next_of_kin_name', nokCombined],
       ['next_of_kin_first_name', has('nextOfKinFirstName') ? (body.nextOfKinFirstName ?? null) : undefined],
       ['next_of_kin_last_name', has('nextOfKinLastName') ? (body.nextOfKinLastName ?? null) : undefined],
-      ['next_of_kin_phone', has('nextOfKinPhone') ? (body.nextOfKinPhone ?? null) : undefined],
+      ['next_of_kin_phone', normalizedNextOfKinPhone],
       ['next_of_kin_relation', has('nextOfKinRelation') ? (body.nextOfKinRelation ?? null) : undefined],
       ['next_of_kin_residence', has('nextOfKinResidence') ? (body.nextOfKinResidence ?? null) : undefined],
       ['insurance_provider', has('insuranceProvider') ? (body.insuranceProvider ?? null) : undefined],

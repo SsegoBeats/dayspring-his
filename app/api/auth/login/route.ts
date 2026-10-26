@@ -6,6 +6,7 @@ import { rateLimitPg } from "@/lib/rate-limit-pg"
 import { writeAuditLog } from "@/lib/audit"
 import { query } from "@/lib/db"
 import { normalizeRole } from "@/lib/auth-roles"
+import { buildLoginRequestKey, isDatabaseConfiguredForLogin, loginRequestGuard } from "@/lib/login-request-guard"
 
 const LoginSchema = z.object({
   email: z.string().email(),
@@ -22,7 +23,16 @@ export async function POST(req: Request) {
 
     const body = await req.json()
     const { email, password, role } = LoginSchema.parse(body)
+    if (!isDatabaseConfiguredForLogin()) {
+      return NextResponse.json({ error: "Authentication service is not configured. Please contact the administrator." }, { status: 503 })
+    }
     const normalizedRole = normalizeRole(role)
+    const requestKey = buildLoginRequestKey(email, normalizedRole || role)
+    if (!loginRequestGuard.begin(requestKey)) {
+      return NextResponse.json({ error: "Login already in progress. Please wait a moment and try again." }, { status: 429 })
+    }
+
+    try {
     if (!normalizedRole) {
       return NextResponse.json({ error: "Please select a valid role." }, { status: 400 })
     }
@@ -145,6 +155,9 @@ export async function POST(req: Request) {
       ip 
     })
     return res
+    } finally {
+      loginRequestGuard.finish(requestKey)
+    }
   } catch (err: any) {
     if (err?.name === "ZodError") {
       return NextResponse.json({ error: "Validation error", details: err.issues }, { status: 400 })

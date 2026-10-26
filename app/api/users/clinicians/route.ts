@@ -11,7 +11,7 @@ export async function GET() {
   const isAdmin = auth.role === 'Hospital Admin'
   const { rows } = await queryWithSession(
     { role: auth.role, userId: auth.userId },
-    `SELECT id, name, ${isAdmin ? 'email, ' : ''}role FROM users WHERE role IN ('Clinician','Midwife','Dentist') AND is_active = true ORDER BY name ASC`,
+    `SELECT id, name, ${isAdmin ? 'email, ' : ''}role FROM users WHERE role IN ('Clinician','Midwife','Dentist','Nurse') AND is_active = true ORDER BY name ASC`,
   )
   return NextResponse.json({ clinicians: rows })
 }

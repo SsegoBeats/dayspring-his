@@ -87,10 +87,24 @@ export interface Immunization {
   id: string
   patientId: string
   vaccineName: string
-  dateAdministered: string
+  dateAdministered?: string
+  administeredAt?: string
   nextDueDate?: string
+  overdueDate?: string
+  ageTime?: string
+  scheduleCode?: string
+  dose?: string
+  status?: "Due" | "Given" | "Overdue" | "Not Given" | "Contraindicated" | "Refused"
+  statusReason?: string
   administeredBy: string
+  route?: string
+  administrationSite?: string
+  manufacturer?: string
   batchNumber?: string
+  isOtherVaccine?: boolean
+  otherVaccineReason?: string
+  contraindicationReason?: string
+  refusalReason?: string
   notes?: string
 }
 
@@ -104,16 +118,38 @@ export interface ChronicCondition {
   notes?: string
 }
 
+export interface Procedure {
+  id: string
+  patientId: string
+  patientName: string
+  orderedByName?: string
+  completedByName?: string
+  procedureName: string
+  procedureType?: string
+  status?: "ordered" | "in_progress" | "completed" | "cancelled"
+  date?: string
+  time?: string
+  performedBy?: string
+  reasonIndication?: string
+  findings?: string
+  procedureNotes?: string
+  outcome?: string
+  followUpInstructions?: string
+  isOtherProcedure?: boolean
+  otherProcedureName?: string
+}
+
 interface MedicalContextType {
   medicalRecords: MedicalRecord[]
   prescriptions: Prescription[]
   labResults: LabResult[]
+  procedures: Procedure[]
   medicalDocuments: MedicalDocument[]
   allergies: Allergy[]
   immunizations: Immunization[]
   chronicConditions: ChronicCondition[]
   refreshMedicalData: () => Promise<void>
-  addMedicalRecord: (record: Omit<MedicalRecord, "id">) => Promise<boolean>
+  addMedicalRecord: (record: Omit<MedicalRecord, "id">) => Promise<MedicalRecord | null>
   addPrescription: (prescription: Omit<Prescription, "id">) => void
   updatePrescription: (id: string, updates: Partial<Prescription>) => void
   addLabResult: (labResult: Omit<LabResult, "id">) => void
@@ -121,11 +157,13 @@ interface MedicalContextType {
   getPatientMedicalRecords: (patientId: string) => MedicalRecord[]
   getPatientPrescriptions: (patientId: string) => Prescription[]
   getPatientLabResults: (patientId: string) => LabResult[]
+  getPatientProcedures: (patientId: string) => Procedure[]
   addMedicalDocument: (document: Omit<MedicalDocument, "id">) => void
   getPatientDocuments: (patientId: string) => MedicalDocument[]
   addAllergy: (allergy: Omit<Allergy, "id">) => void
   getPatientAllergies: (patientId: string) => Allergy[]
-  addImmunization: (immunization: Omit<Immunization, "id">) => void
+  addImmunization: (immunization: Omit<Immunization, "id">) => Promise<void>
+  updateImmunization: (id: string, updates: Partial<Immunization>) => Promise<void>
   getPatientImmunizations: (patientId: string) => Immunization[]
   addChronicCondition: (condition: Omit<ChronicCondition, "id">) => void
   updateChronicCondition: (id: string, updates: Partial<ChronicCondition>) => void
@@ -139,11 +177,12 @@ async function fetchAndMapMedicalData(): Promise<{
   recs: MedicalRecord[]
   pres: Prescription[]
   labs: LabResult[]
+  procedures: Procedure[]
   allergyList: Allergy[]
   immunizationList: Immunization[]
   chronicList: ChronicCondition[]
   docList: MedicalDocument[]
-} | null> {
+}> {
   const [res, allergyRes, immunizationRes, chronicRes, docRes] = await Promise.all([
     fetch("/api/medical", { credentials: "include" }),
     fetch("/api/medical/allergies", { credentials: "include" }),
@@ -151,7 +190,9 @@ async function fetchAndMapMedicalData(): Promise<{
     fetch("/api/medical/chronic-conditions", { credentials: "include" }),
     fetch("/api/medical/documents", { credentials: "include" }),
   ])
-  if (!res.ok) return null
+  if (!res.ok) {
+    throw new Error(`Failed to fetch /api/medical: ${res.status}`)
+  }
   const data = await res.json()
   const recs: MedicalRecord[] = (data.medicalRecords || []).map((r: any) => {
     const hasVitals =
@@ -184,6 +225,7 @@ async function fetchAndMapMedicalData(): Promise<{
       history: r.history || "",
       impression: r.impression || "",
       treatment: r.treatment_plan || "",
+      notes: r.notes || "",
       ...(vitalSigns && { vitalSigns }),
     }
   })
@@ -239,6 +281,27 @@ async function fetchAndMapMedicalData(): Promise<{
     assignedToName: l.assigned_radiologist_name || undefined,
   }))
 
+  const procedures: Procedure[] = (data.procedures || []).map((p: any) => ({
+    id: p.id,
+    patientId: p.patient_id,
+    patientName: p.patient_name ? String(p.patient_name).trim() : "",
+    orderedByName: p.ordered_by_name ? String(p.ordered_by_name).trim() : undefined,
+    completedByName: p.completed_by_name ? String(p.completed_by_name).trim() : undefined,
+    procedureName: p.procedure_name || p.other_procedure_name || "Procedure",
+    procedureType: p.procedure_type || undefined,
+    status: (p.status || "ordered").toString().toLowerCase() as Procedure["status"],
+    date: p.performed_at ? new Date(p.performed_at).toISOString().slice(0, 10) : p.ordered_at ? new Date(p.ordered_at).toISOString().slice(0, 10) : undefined,
+    time: p.performed_at ? new Date(p.performed_at).toISOString().slice(11, 16) : p.ordered_at ? new Date(p.ordered_at).toISOString().slice(11, 16) : undefined,
+    performedBy: p.performed_by_name || undefined,
+    reasonIndication: p.reason_indication || undefined,
+    findings: p.findings || undefined,
+    procedureNotes: p.procedure_notes || undefined,
+    outcome: p.outcome || undefined,
+    followUpInstructions: p.follow_up_instructions || undefined,
+    isOtherProcedure: p.is_other_procedure === true || Boolean(p.other_procedure_name),
+    otherProcedureName: p.other_procedure_name || undefined,
+  }))
+
   const allergyData = allergyRes.ok ? await allergyRes.json() : { allergies: [] }
   const allergyList: Allergy[] = (allergyData.allergies || []).map((a: any) => ({
     id: a.id,
@@ -256,9 +319,23 @@ async function fetchAndMapMedicalData(): Promise<{
     patientId: i.patient_id,
     vaccineName: i.vaccine_name,
     dateAdministered: i.date_administered ? String(i.date_administered).slice(0, 10) : "",
+    administeredAt: i.administered_at ? new Date(i.administered_at).toISOString() : undefined,
     nextDueDate: i.next_due_date ? String(i.next_due_date).slice(0, 10) : undefined,
+    overdueDate: i.overdue_date ? String(i.overdue_date).slice(0, 10) : undefined,
+    ageTime: i.age_time || undefined,
+    scheduleCode: i.schedule_code || undefined,
+    dose: i.dose || undefined,
+    status: i.status || undefined,
+    statusReason: i.status_reason || undefined,
     administeredBy: i.administered_by || "",
+    route: i.route || undefined,
+    administrationSite: i.administration_site || undefined,
+    manufacturer: i.manufacturer || undefined,
     batchNumber: i.batch_number || undefined,
+    isOtherVaccine: i.is_other_vaccine === true,
+    otherVaccineReason: i.other_vaccine_reason || undefined,
+    contraindicationReason: i.contraindication_reason || undefined,
+    refusalReason: i.refusal_reason || undefined,
     notes: i.notes || undefined,
   }))
 
@@ -286,7 +363,7 @@ async function fetchAndMapMedicalData(): Promise<{
     notes: d.notes || undefined,
   }))
 
-  return { recs, pres, labs, allergyList, immunizationList, chronicList, docList }
+  return { recs, pres, labs, procedures, allergyList, immunizationList, chronicList, docList }
 }
 
 export function MedicalProvider({ children }: { children: ReactNode }) {
@@ -294,6 +371,7 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
   const [medicalRecords, setMedicalRecords] = useState<MedicalRecord[]>([])
   const [prescriptions, setPrescriptions] = useState<Prescription[]>([])
   const [labResults, setLabResults] = useState<LabResult[]>([])
+  const [procedures, setProcedures] = useState<Procedure[]>([])
   const [medicalDocuments, setMedicalDocuments] = useState<MedicalDocument[]>([])
   const [allergies, setAllergies] = useState<Allergy[]>([])
   const [immunizations, setImmunizations] = useState<Immunization[]>([])
@@ -305,34 +383,18 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
     if (!hasMedicalAccess) return
     try {
       const result = await fetchAndMapMedicalData()
-      if (result) {
-        setMedicalRecords(result.recs)
-        setPrescriptions(result.pres)
-        setLabResults(result.labs)
-        setAllergies(result.allergyList)
-        setImmunizations(result.immunizationList)
-        setChronicConditions(result.chronicList)
-        setMedicalDocuments(result.docList)
-      } else {
-        setMedicalRecords([])
-        setPrescriptions([])
-        setLabResults([])
-        setAllergies([])
-        setImmunizations([])
-        setChronicConditions([])
-        setMedicalDocuments([])
-      }
+      setMedicalRecords(result.recs)
+      setPrescriptions(result.pres)
+      setLabResults(result.labs)
+      setProcedures(result.procedures)
+      setAllergies(result.allergyList)
+      setImmunizations(result.immunizationList)
+      setChronicConditions(result.chronicList)
+      setMedicalDocuments(result.docList)
     } catch (err) {
       if (process.env.NODE_ENV === "development") {
         console.warn("[MedicalContext] Error fetching medical data:", err)
       }
-      setMedicalRecords([])
-      setPrescriptions([])
-      setLabResults([])
-      setAllergies([])
-      setImmunizations([])
-      setChronicConditions([])
-      setMedicalDocuments([])
     }
   }
 
@@ -342,11 +404,7 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [hasMedicalAccess])
 
-  const addMedicalRecord = async (record: Omit<MedicalRecord, "id">): Promise<boolean> => {
-    const newRecord: MedicalRecord = {
-      ...record,
-      id: `MR${String(medicalRecords.length + 1).padStart(3, "0")}`,
-    }
+  const addMedicalRecord = async (record: Omit<MedicalRecord, "id">): Promise<MedicalRecord | null> => {
     try {
       const res = await fetch("/api/medical/records", {
         method: "POST",
@@ -365,12 +423,22 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
             : {}),
         }),
       })
-      if (!res.ok) return false
-      setMedicalRecords((prev) => [...prev, newRecord])
+
+      const payload = await res.json().catch(() => null)
+      if (!res.ok || !payload?.record) {
+        if (process.env.NODE_ENV === "development") {
+          console.warn("[MedicalContext] Failed to save medical record:", payload)
+        }
+        return null
+      }
+
       await loadMedicalData()
-      return true
-    } catch {
-      return false
+      return payload.record
+    } catch (err) {
+      if (process.env.NODE_ENV === "development") {
+        console.warn("[MedicalContext] Exception saving medical record:", err)
+      }
+      return null
     }
   }
 
@@ -448,6 +516,10 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
     return labResults.filter((lr) => lr.patientId === patientId)
   }
 
+  const getPatientProcedures = (patientId: string) => {
+    return procedures.filter((procedure) => procedure.patientId === patientId)
+  }
+
   const addMedicalDocument = (document: Omit<MedicalDocument, "id">) => {
     const newDocument: MedicalDocument = {
       ...document,
@@ -495,36 +567,76 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
     return allergies.filter((a) => a.patientId === patientId)
   }
 
-  const addImmunization = (immunization: Omit<Immunization, "id">) => {
-    const tempId = `IMM${String(immunizations.length + 1).padStart(3, "0")}`
-    const newImmunization: Immunization = { ...immunization, id: tempId }
-    setImmunizations((prev) => [...prev, newImmunization])
-    ;(async () => {
-      try {
-        const res = await fetch("/api/medical/immunizations", {
-          method: "POST",
-          credentials: "include",
-          headers: { "Content-Type": "application/json" },
-          body: JSON.stringify({
-            patientId: immunization.patientId,
-            vaccineName: immunization.vaccineName,
-            dateAdministered: immunization.dateAdministered,
-            nextDueDate: immunization.nextDueDate || undefined,
-            administeredBy: immunization.administeredBy,
-            batchNumber: immunization.batchNumber,
-            notes: immunization.notes,
-          }),
-        })
-        if (res.ok) {
-          const data = await res.json()
-          setImmunizations((prev) =>
-            prev.map((i) => (i.id === tempId ? { ...i, id: data.immunization.id } : i)),
-          )
-        }
-      } catch {
-        // Non-fatal: local state already updated
-      }
-    })()
+  const addImmunization = async (immunization: Omit<Immunization, "id">): Promise<void> => {
+    const res = await fetch("/api/medical/immunizations", {
+      method: "POST",
+      credentials: "include",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({
+        patientId: immunization.patientId,
+        vaccineName: immunization.vaccineName,
+        dateAdministered: immunization.dateAdministered,
+        administeredAt: immunization.administeredAt,
+        nextDueDate: immunization.nextDueDate || undefined,
+        overdueDate: immunization.overdueDate || undefined,
+        ageTime: immunization.ageTime || undefined,
+        scheduleCode: immunization.scheduleCode || undefined,
+        dose: immunization.dose || undefined,
+        status: immunization.status || undefined,
+        statusReason: immunization.statusReason || undefined,
+        administeredBy: immunization.administeredBy,
+        route: immunization.route || undefined,
+        administrationSite: immunization.administrationSite || undefined,
+        manufacturer: immunization.manufacturer || undefined,
+        batchNumber: immunization.batchNumber,
+        isOtherVaccine: immunization.isOtherVaccine === true,
+        otherVaccineReason: immunization.otherVaccineReason || undefined,
+        contraindicationReason: immunization.contraindicationReason || undefined,
+        refusalReason: immunization.refusalReason || undefined,
+        notes: immunization.notes,
+      }),
+    })
+    const data = await res.json().catch(() => null)
+    if (!res.ok || !data?.immunization?.id) {
+      throw new Error(data?.error || "Failed to save immunization")
+    }
+    setImmunizations((prev) => [...prev, { ...immunization, id: data.immunization.id }])
+  }
+
+  const updateImmunization = async (id: string, updates: Partial<Immunization>) => {
+    setImmunizations((prev) => prev.map((i) => (i.id === id ? { ...i, ...updates } : i)))
+    try {
+      await fetch(`/api/medical/immunizations?id=${encodeURIComponent(id)}`, {
+        method: "PATCH",
+        credentials: "include",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          vaccineName: updates.vaccineName,
+          dateAdministered: updates.dateAdministered,
+          administeredAt: updates.administeredAt,
+          nextDueDate: updates.nextDueDate,
+          overdueDate: updates.overdueDate,
+          ageTime: updates.ageTime,
+          scheduleCode: updates.scheduleCode,
+          dose: updates.dose,
+          status: updates.status,
+          statusReason: updates.statusReason,
+          administeredBy: updates.administeredBy,
+          route: updates.route,
+          administrationSite: updates.administrationSite,
+          manufacturer: updates.manufacturer,
+          batchNumber: updates.batchNumber,
+          isOtherVaccine: updates.isOtherVaccine,
+          otherVaccineReason: updates.otherVaccineReason,
+          contraindicationReason: updates.contraindicationReason,
+          refusalReason: updates.refusalReason,
+          notes: updates.notes,
+        }),
+      })
+      await loadMedicalData()
+    } catch {
+      // Non-fatal: local state already updated
+    }
   }
 
   const getPatientImmunizations = (patientId: string) => {
@@ -589,7 +701,6 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
   const getPatientTimeline = (patientId: string) => {
     const timeline: any[] = []
 
-    // Add medical records
     getPatientMedicalRecords(patientId).forEach((record) => {
       timeline.push({
         type: "consultation",
@@ -598,7 +709,6 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
       })
     })
 
-    // Add prescriptions
     getPatientPrescriptions(patientId).forEach((prescription) => {
       timeline.push({
         type: "prescription",
@@ -607,7 +717,6 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
       })
     })
 
-    // Add lab results
     getPatientLabResults(patientId).forEach((labResult) => {
       timeline.push({
         type: "lab-result",
@@ -616,7 +725,14 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
       })
     })
 
-    // Add documents
+    getPatientProcedures(patientId).forEach((procedure) => {
+      timeline.push({
+        type: "procedure",
+        date: procedure.date || procedure.time || new Date().toISOString(),
+        data: procedure,
+      })
+    })
+
     getPatientDocuments(patientId).forEach((document) => {
       timeline.push({
         type: "document",
@@ -625,7 +741,6 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
       })
     })
 
-    // Add immunizations
     getPatientImmunizations(patientId).forEach((immunization) => {
       timeline.push({
         type: "immunization",
@@ -634,7 +749,6 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
       })
     })
 
-    // Sort by date (newest first)
     return timeline.sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
   }
 
@@ -644,6 +758,7 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
         medicalRecords,
         prescriptions,
         labResults,
+        procedures,
         medicalDocuments,
         allergies,
         immunizations,
@@ -657,11 +772,13 @@ export function MedicalProvider({ children }: { children: ReactNode }) {
         getPatientMedicalRecords,
         getPatientPrescriptions,
         getPatientLabResults,
+        getPatientProcedures,
         addMedicalDocument,
         getPatientDocuments,
         addAllergy,
         getPatientAllergies,
         addImmunization,
+        updateImmunization,
         getPatientImmunizations,
         addChronicCondition,
         updateChronicCondition,

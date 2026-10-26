@@ -4,6 +4,33 @@ import { z } from "zod"
 import { verifyToken, can } from "@/lib/security"
 import { queryWithSession } from "@/lib/db"
 
+async function canAccessDentalRecord(auth: { role: string; userId: string }, recordId: string) {
+  if (auth.role === "Hospital Admin") return true
+
+  const session = { role: auth.role, userId: auth.userId }
+  const roleIsDentist = auth.role === "Dentist"
+
+  const scopeQuery = roleIsDentist
+    ? `SELECT 1
+         FROM dental_records dr
+         JOIN patients p ON p.id = dr.patient_id
+         LEFT JOIN users u ON u.id = $2
+        WHERE dr.id = $1
+          AND dr.dentist_id = $2
+          AND (u.facility_id IS NULL OR p.facility_id::text = u.facility_id::text)
+        LIMIT 1`
+    : `SELECT 1
+         FROM dental_records dr
+         JOIN patients p ON p.id = dr.patient_id
+         LEFT JOIN users u ON u.id = $2
+        WHERE dr.id = $1
+          AND (u.facility_id IS NULL OR p.facility_id::text = u.facility_id::text)
+        LIMIT 1`
+
+  const { rows } = await queryWithSession(session, scopeQuery, [recordId, auth.userId])
+  return rows.length > 0
+}
+
 const UpdateDentalSchema = z.object({
   diagnosis: z.string().optional().nullable(),
   procedurePerformed: z.string().optional().nullable(),
@@ -26,6 +53,9 @@ export async function PATCH(
 
     const { id } = await params
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+    if (!(await canAccessDentalRecord(auth, id))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     const body = await req.json().catch(() => ({}))
     const input = UpdateDentalSchema.parse(body)
@@ -108,6 +138,9 @@ export async function DELETE(
 
     const { id } = await params
     if (!id) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+    if (!(await canAccessDentalRecord(auth, id))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     const { rows } = await queryWithSession(
       { role: auth.role, userId: auth.userId },

@@ -12,9 +12,9 @@ export async function GET() {
     if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     if (!can(auth.role, "medical", "read")) return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
-    const [records, prescriptions, labs] = await Promise.all([
+    const [records, prescriptions, labs, procedures] = await Promise.all([
       queryWithSession({ role: auth.role, userId: auth.userId },
-        `SELECT mr.id, mr.patient_id, mr.doctor_id, mr.visit_date, mr.chief_complaint, mr.diagnosis, mr.treatment_plan, mr.notes,
+        `SELECT mr.id, mr.patient_id, mr.doctor_id, mr.visit_date, mr.chief_complaint, mr.history, mr.impression, mr.diagnosis, mr.treatment_plan, mr.notes,
                 u.name AS doctor_name,
                 TRIM(CONCAT(p.first_name, ' ', p.last_name)) AS patient_name,
                 vs.blood_pressure_systolic, vs.blood_pressure_diastolic, vs.heart_rate, vs.temperature,
@@ -64,16 +64,47 @@ export async function GET() {
           ORDER BY lt.ordered_at DESC
           LIMIT 500`,
       ),
+      queryWithSession(
+        { role: auth.role, userId: auth.userId },
+        `SELECT p.id,
+                p.patient_id,
+                p.ordered_by,
+                p.procedure_name,
+                p.procedure_type,
+                p.status,
+                p.notes,
+                p.performed_at,
+                p.performed_by_name,
+                p.reason_indication,
+                p.findings,
+                p.procedure_notes,
+                p.outcome,
+                p.follow_up_instructions,
+                p.is_other_procedure,
+                p.other_procedure_name,
+                p.ordered_at,
+                p.completed_at,
+                p.created_at,
+                u.name AS ordered_by_name,
+                u2.name AS completed_by_name,
+                TRIM(CONCAT(pt.first_name, ' ', pt.last_name)) AS patient_name
+           FROM procedures p
+           LEFT JOIN users u ON u.id = p.ordered_by
+           LEFT JOIN users u2 ON u2.id = p.completed_by
+           LEFT JOIN patients pt ON pt.id = p.patient_id
+          ORDER BY p.ordered_at DESC
+          LIMIT 500`,
+      ),
     ])
     // Audit bulk read of clinical data (non-blocking — failure must not break the response)
     writeAuditLog({
       userId: auth.userId,
       action: "READ",
       entityType: "MedicalRecords",
-      details: { recordCount: records.rows.length, prescriptionCount: prescriptions.rows.length, labCount: labs.rows.length, role: auth.role },
+      details: { recordCount: records.rows.length, prescriptionCount: prescriptions.rows.length, labCount: labs.rows.length, procedureCount: procedures.rows.length, role: auth.role },
     }).catch(() => {})
 
-    return NextResponse.json({ medicalRecords: records.rows, prescriptions: prescriptions.rows, labResults: labs.rows })
+    return NextResponse.json({ medicalRecords: records.rows, prescriptions: prescriptions.rows, labResults: labs.rows, procedures: procedures.rows })
   } catch (err: any) {
     console.error("Error in /api/medical:", err)
     return NextResponse.json({ error: "Failed to fetch medical data" }, { status: 500 })

@@ -4,6 +4,30 @@ import { verifyToken, can } from "@/lib/security"
 import { queryWithSession, query, withSession } from "@/lib/db"
 import { createPaymentForBillWithClient } from "@/lib/billing-payments"
 
+async function canAccessBillByFacility(auth: { role: string; userId: string }, billId: string) {
+  if (auth.role === "Hospital Admin") return true
+
+  const userRes = await queryWithSession<{ facility_id?: string }>(
+    { role: auth.role, userId: auth.userId },
+    `SELECT facility_id FROM users WHERE id = $1 LIMIT 1`,
+    [auth.userId],
+  )
+  const facilityId = userRes.rows[0]?.facility_id
+  if (!facilityId) return true
+
+  const scoped = await queryWithSession(
+    { role: auth.role, userId: auth.userId },
+    `SELECT 1
+       FROM bills b
+       JOIN patients p ON p.id = b.patient_id
+      WHERE b.id = $1
+        AND p.facility_id::text = $2
+      LIMIT 1`,
+    [billId, String(facilityId)],
+  )
+  return scoped.rows.length > 0
+}
+
 export async function GET(
   _req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -19,6 +43,9 @@ export async function GET(
 
     const { id: billId } = await params
     if (!billId) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+    if (!(await canAccessBillByFacility(auth, billId))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     const [billRes, itemsRes] = await Promise.all([
       queryWithSession(
@@ -83,6 +110,9 @@ export async function PATCH(
     }
     const { id: billId } = await params
     if (!billId) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+    if (!(await canAccessBillByFacility(auth, billId))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     const body = (await req.json().catch(() => ({}))) as {
       status?: string
@@ -262,6 +292,9 @@ export async function PUT(
     }
     const { id: billId } = await params
     if (!billId) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+    if (!(await canAccessBillByFacility(auth, billId))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     const body = (await req.json().catch(() => ({}))) as {
       items?: {
@@ -373,6 +406,9 @@ export async function DELETE(
     }
     const { id: billId } = await params
     if (!billId) return NextResponse.json({ error: "Missing id" }, { status: 400 })
+    if (!(await canAccessBillByFacility(auth, billId))) {
+      return NextResponse.json({ error: "Not found" }, { status: 404 })
+    }
 
     const billRes = await queryWithSession(
       { role: auth.role, userId: auth.userId },

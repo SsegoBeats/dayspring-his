@@ -26,6 +26,12 @@ async function ensureRateLimitTable(): Promise<void> {
 }
 
 export async function rateLimitPg(key: string, limit: number, windowSeconds: number): Promise<boolean> {
+  const connectionString = process.env.DATABASE_URL
+  if (!connectionString) {
+    console.warn("[rate-limit] DATABASE_URL not configured; bypassing database-backed rate limit.")
+    return true
+  }
+
   try {
     const now = new Date()
     const windowStart = new Date(Math.floor(now.getTime() / (windowSeconds * 1000)) * windowSeconds * 1000)

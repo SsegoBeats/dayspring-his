@@ -20,6 +20,26 @@ function toFloat(val: unknown): number | null {
   return m ? parseFloat(m[0]) : null
 }
 
+function normalizeUuid(value: unknown): string | null {
+  if (!value) return null
+  const v = String(value).trim()
+  return UUID_RE.test(v) ? v : null
+}
+
+function isOptionalPositiveInteger(value: unknown): boolean {
+  if (value === null || value === undefined || value === "") return true
+  if (typeof value !== "number" && typeof value !== "string") return false
+  const number = Number(value)
+  return Number.isInteger(number) && number > 0
+}
+
+function isOptionalPositiveNumber(value: unknown): boolean {
+  if (value === null || value === undefined || value === "") return true
+  if (typeof value !== "number" && typeof value !== "string") return false
+  const number = Number(value)
+  return Number.isFinite(number) && number > 0
+}
+
 export async function PATCH(
   req: Request,
   { params }: { params: Promise<{ id: string }> },
@@ -47,6 +67,12 @@ export async function PATCH(
     }
 
     const body = (await req.json().catch(() => ({}))) as Record<string, unknown>
+    if (!isOptionalPositiveInteger(body.pulseRate) || !isOptionalPositiveInteger(body.respiratoryRate)) {
+      return NextResponse.json({ error: "Pulse and respiratory rate must be positive whole numbers" }, { status: 400 })
+    }
+    if (!isOptionalPositiveNumber(body.weightKg)) {
+      return NextResponse.json({ error: "Weight must be a positive number" }, { status: 400 })
+    }
     const fieldMap: Array<[string, unknown]> = ([
       ["visit_date", body.visitDate],
       ["days_postpartum", body.daysPostpartum !== undefined ? toInt(body.daysPostpartum) : undefined],
@@ -58,7 +84,28 @@ export async function PATCH(
       ["breastfeeding_status", body.breastfeedingStatus],
       ["baby_weight_g", body.babyWeightG !== undefined ? toInt(body.babyWeightG) : undefined],
       ["baby_condition", body.babyCondition],
+      ["nutrition_assessment", body.nutritionAssessment],
+      ["mother_nutrition_status", body.motherNutritionStatus],
+      ["newborn_id", body.newbornId !== undefined ? normalizeUuid(body.newbornId) : undefined],
+      ["newborn_feeding_status", body.newbornFeedingStatus],
+      ["cord_status", body.cordStatus],
+      ["maternal_danger_signs", body.maternalDangerSigns !== undefined ? JSON.stringify(body.maternalDangerSigns) : undefined],
+      ["newborn_danger_signs", body.newbornDangerSigns !== undefined ? JSON.stringify(body.newbornDangerSigns) : undefined],
       ["notes", body.notes],
+      ["general_assessment", body.generalAssessment],
+      ["pulse_rate", body.pulseRate !== undefined ? toInt(body.pulseRate) : undefined],
+      ["respiratory_rate", body.respiratoryRate !== undefined ? toInt(body.respiratoryRate) : undefined],
+      ["weight_kg", body.weightKg !== undefined ? toFloat(body.weightKg) : undefined],
+      ["other_observations", body.otherObservations],
+      ["nutrition_intake", body.nutritionIntake],
+      ["nutrition_food_access", body.nutritionFoodAccess],
+      ["nutrition_supplements", body.nutritionSupplements],
+      ["nutrition_counselling", body.nutritionCounselling],
+      ["cord_assessment", body.cordAssessment],
+      ["cord_care_provided", body.cordCareProvided],
+      ["cord_advice", body.cordAdvice],
+      ["cord_concerns", body.cordConcerns],
+      ["cord_follow_up", body.cordFollowUp],
     ] as Array<[string, unknown]>).filter(([, v]) => v !== undefined)
 
     if (fieldMap.length === 0) return NextResponse.json({ error: "No fields to update" }, { status: 400 })

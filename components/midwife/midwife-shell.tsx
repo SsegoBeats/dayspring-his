@@ -9,16 +9,24 @@ import { MidwifeOverview } from "@/components/midwife/midwife-overview"
 import { MidwifePatientRecords } from "@/components/midwife/midwife-patient-records"
 import { MidwifeANCVisits } from "@/components/midwife/midwife-anc-visits"
 import { MidwifeLaborDelivery } from "@/components/midwife/midwife-labor-delivery"
+import { MidwifeFamilyPlanning } from "@/components/midwife/midwife-family-planning"
+import { MidwifePostnatal } from "@/components/midwife/midwife-postnatal"
+import { MidwifeTriage } from "@/components/midwife/midwife-triage"
 import { MidwifeClinicalActions } from "@/components/midwife/midwife-clinical-actions"
 import { MidwifeExports } from "@/components/midwife/midwife-exports"
+import { MidwifeImmunizations } from "@/components/midwife/midwife-immunizations"
 
-type Tab = "overview" | "patients" | "anc" | "labor" | "clinical" | "exports"
+type Tab = "overview" | "patients" | "anc" | "labor" | "postnatal" | "triage" | "family-planning" | "immunizations" | "clinical" | "exports"
 
 const TABS: { id: Tab; label: string }[] = [
   { id: "overview", label: "Overview" },
   { id: "patients", label: "Patients" },
   { id: "anc", label: "ANC Visits" },
   { id: "labor", label: "Labor & Delivery" },
+  { id: "postnatal", label: "Postnatal" },
+  { id: "triage", label: "Triage" },
+  { id: "family-planning", label: "Family Planning" },
+  { id: "immunizations", label: "Immunization" },
   { id: "clinical", label: "Clinical" },
   { id: "exports", label: "Exports" },
 ]
@@ -28,6 +36,7 @@ export function MidwifeShell() {
   const [activeTab, setActiveTab] = useState<Tab>("overview")
   const [ancOpenNew, setAncOpenNew] = useState(false)
   const [laborOpenNew, setLaborOpenNew] = useState(false)
+  const [postnatalOpenNew, setPostnatalOpenNew] = useState(false)
   const [clinicalSection, setClinicalSection] = useState<"rx" | "lab" | "referral" | null>("rx")
 
   function navigateTo(tab: string, section?: string) {
@@ -40,6 +49,11 @@ export function MidwifeShell() {
       setLaborOpenNew(true)
     } else {
       setLaborOpenNew(false)
+    }
+    if (tab === "postnatal" && section === "new") {
+      setPostnatalOpenNew(true)
+    } else {
+      setPostnatalOpenNew(false)
     }
     setActiveTab(tab as Tab)
     if (tab === "clinical" && section) {
@@ -115,6 +129,15 @@ export function MidwifeShell() {
             key={laborOpenNew ? "labor-new" : "labor"}
           />
         )}
+        {activeTab === "postnatal" && (
+          <MidwifePostnatal
+            openNewOnMount={postnatalOpenNew}
+            key={postnatalOpenNew ? "postnatal-new" : "postnatal"}
+          />
+        )}
+        {activeTab === "triage" && <MidwifeTriage />}
+        {activeTab === "family-planning" && <MidwifeFamilyPlanning />}
+        {activeTab === "immunizations" && <MidwifeImmunizations />}
         {activeTab === "clinical" && <MidwifeClinicalActions defaultSection={clinicalSection} />}
         {activeTab === "exports" && <MidwifeExports />}
       </div>

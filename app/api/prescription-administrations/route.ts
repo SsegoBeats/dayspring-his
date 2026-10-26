@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server"
-import { query } from "@/lib/db"
-import { verifyToken } from "@/lib/security"
+import { cookies } from "next/headers"
+import { query, queryWithSession } from "@/lib/db"
+import { can, verifyToken } from "@/lib/security"
 import { z } from "zod"
 
 const AdministerDoseSchema = z.object({
@@ -12,15 +13,19 @@ const AdministerDoseSchema = z.object({
 
 export async function POST(req: Request) {
   try {
-    const token = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1] || 
-                  req.headers.get("cookie")?.match(/session_dev=([^;]+)/)?.[1]
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
 
     const payload = await verifyToken(token)
-    if (!payload || payload.role !== 'Nurse') {
+    if (!payload) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+    }
+
+    if (payload.role !== 'Nurse') {
       return NextResponse.json({ 
         error: "Only Nurses can record medication administration" 
       }, { status: 403 })
@@ -29,7 +34,8 @@ export async function POST(req: Request) {
     const body = await req.json()
     const data = AdministerDoseSchema.parse(body)
 
-    const result = await query<{ id: string }>(
+    const result = await queryWithSession<{ id: string }>(
+      { role: payload.role, userId: payload.userId },
       `INSERT INTO prescription_administrations (
         prescription_id, administered_by, dose_given, route, notes
       ) VALUES ($1, $2, $3, $4, $5)
@@ -40,7 +46,7 @@ export async function POST(req: Request) {
         data.doseGiven,
         data.route || null,
         data.notes || null,
-      ]
+      ],
     )
 
     return NextResponse.json({ id: result.rows[0].id, success: true })
@@ -56,8 +62,8 @@ export async function POST(req: Request) {
 
 export async function GET(req: Request) {
   try {
-    const token = req.headers.get("cookie")?.match(/session=([^;]+)/)?.[1] || 
-                  req.headers.get("cookie")?.match(/session_dev=([^;]+)/)?.[1]
+    const cookieStore = await cookies()
+    const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
     
     if (!token) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
@@ -67,6 +73,9 @@ export async function GET(req: Request) {
     if (!payload) {
       return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
     }
+    if (!can(payload.role, "medical", "read") && !can(payload.role, "pharmacy", "read")) {
+      return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+    }
 
     const url = new URL(req.url)
     const searchParams = url.searchParams
@@ -74,11 +83,12 @@ export async function GET(req: Request) {
 
     const patientId = searchParams.get("patientId")
     if (patientId) {
-      const result = await query<{
+      const result = await queryWithSession<{
         id: string; prescription_id: string; administered_at: string
         dose_given: string; route: string | null; notes: string | null
         nurse_name: string | null
       }>(
+        { role: payload.role, userId: payload.userId },
         `SELECT pa.id, pa.prescription_id, pa.administered_at, pa.dose_given, pa.route, pa.notes,
                 u.name AS nurse_name
          FROM prescription_administrations pa
@@ -96,13 +106,14 @@ export async function GET(req: Request) {
       return NextResponse.json({ error: 'Prescription ID required' }, { status: 400 })
     }
 
-    const result = await query<any>(
+    const result = await queryWithSession<any>(
+      { role: payload.role, userId: payload.userId },
       `SELECT pa.*, u.name as nurse_name
        FROM prescription_administrations pa
        LEFT JOIN users u ON pa.administered_by = u.id
        WHERE pa.prescription_id = $1
        ORDER BY pa.administered_at DESC`,
-      [prescriptionId]
+      [prescriptionId],
     )
 
     return NextResponse.json({ administrations: result.rows })

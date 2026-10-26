@@ -73,6 +73,9 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
     try {
       // Client-side validation for professional inline feedback
       const nextErrors: { [k: string]: string } = {}
+      const trimmedPhone = formData.phone.trim()
+      const trimmedEmergencyPhone = formData.emergencyPhone.trim()
+
       if (!formData.firstName.trim()) nextErrors.firstName = "First name is required"
       if (!formData.lastName.trim()) nextErrors.lastName = "Last name is required"
       if (!formData.ageValue) { nextErrors.ageValue = "Age is required" }
@@ -82,8 +85,8 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
         const max = maxMap[formData.ageUnit]
         if (isNaN(n) || n < 0 || n > max) nextErrors.ageValue = `Age must be 0–${max} ${formData.ageUnit}`
       }
-      if (!isValidPhoneNumber(formData.phone)) nextErrors.phone = "Phone must be a valid international number with country code"
-      if (formData.emergencyPhone && !isValidPhoneNumber(formData.emergencyPhone)) nextErrors.emergencyPhone = "Invalid emergency phone format"
+      if (trimmedPhone && !isValidPhoneNumber(trimmedPhone)) nextErrors.phone = "Phone must be a valid international number with country code"
+      if (trimmedEmergencyPhone && !isValidPhoneNumber(trimmedEmergencyPhone)) nextErrors.emergencyPhone = "Invalid emergency phone format"
       if (formData.nin && !/^[A-Z0-9]{14}$/i.test(formData.nin)) nextErrors.nin = "NIN must be 14 letters/digits"
       if (Object.keys(nextErrors).length) {
         setErrors(nextErrors)
@@ -120,7 +123,7 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
           ageValue: formData.ageValue ? Number(formData.ageValue) : null,
           ageUnit: formData.ageUnit,
           gender: formData.gender === "male" ? "Male" : formData.gender === "female" ? "Female" : "Other",
-          phone: normalizePhoneNumber(formData.phone, "UG"),
+          phone: trimmedPhone ? normalizePhoneNumber(trimmedPhone, "UG") : null,
           address: formData.address || null,
           nin: formData.nin || null,
           district: formData.district || null,
@@ -583,10 +586,10 @@ export function PatientRegistration({ onSuccess }: PatientRegistrationProps) {
                 <div className="max-w-sm">
                   <PhoneInput
                     id="phone"
-                    label="Phone Number *"
+                    label="Phone Number (Optional)"
                     value={formData.phone}
                     onChange={(value) => setFormData({ ...formData, phone: value })}
-                    required
+                    required={false}
                     defaultCountry="UG"
                   />
                   {errors.phone && <div className="mt-1 text-xs text-red-600">{errors.phone}</div>}

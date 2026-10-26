@@ -41,6 +41,7 @@ async function main() {
 
     const { rows } = await client.query("SELECT COUNT(*)::int AS count FROM loinc_tests")
     if (rows[0].count > 0) {
+      await ensureLabSpecimenCatalog(client)
       console.log(`loinc_tests already has ${rows[0].count} rows. Skipping import.`)
       return
     }
@@ -89,10 +90,19 @@ async function main() {
       total += batch.length
     }
 
+    await ensureLabSpecimenCatalog(client)
     console.log(`LOINC import complete. Total rows inserted: ${total}`)
   } finally {
     client.release()
     await pool.end()
+  }
+}
+
+async function ensureLabSpecimenCatalog(client) {
+  for (const filename of ["0051_lab_specimen_catalog.sql", "0052_expand_lab_specimen_catalog.sql"]) {
+    const migrationPath = path.join(process.cwd(), "migrations", filename)
+    const migrationSql = fs.readFileSync(migrationPath, "utf8")
+    await client.query(migrationSql)
   }
 }
 

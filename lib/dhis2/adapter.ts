@@ -35,7 +35,7 @@ export function buildDataValueSet({ orgUnit, period, data, dataSet = 'TODO_DATAS
         ...(entry?.comment ? { comment: entry.comment } : {}),
       }
     })
-    .filter(Boolean)
+    .filter((entry): entry is NonNullable<typeof entry> => entry !== null)
 
   return {
     dataSet,

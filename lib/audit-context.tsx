@@ -42,6 +42,7 @@ export type AuditCategory =
   | "PAYMENT"
   | "PHARMACY"
   | "NURSING"
+  | "CLINICAL"
   | "USER_MANAGEMENT"
   | "SYSTEM"
 

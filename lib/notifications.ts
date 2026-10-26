@@ -51,7 +51,15 @@ export async function resolveNotificationAuth(req: Request) {
   return token ? verifyToken(token) : null
 }
 
-export async function ensureNotificationInfrastructure() {
+export async function ensureNotificationInfrastructure(_options?: {
+  userId?: string
+  title?: string
+  message?: string
+  type?: string
+  priority?: string
+  relatedPatientId?: string
+  payload?: unknown
+}) {
   // Notification infrastructure is provisioned through SQL migrations.
   // Keep the helper so older call sites remain valid without doing request-time DDL.
 }

@@ -1,5 +1,5 @@
 "use client"
-import { useState, useEffect } from "react"
+import { useState, useEffect, useCallback } from "react"
 import { usePatients } from "@/lib/patient-context"
 import { useMedical } from "@/lib/medical-context"
 import { useAuth } from "@/lib/auth-context"
@@ -13,13 +13,14 @@ import { ConsultationTab } from "./consultation-tabs/consultation-tab"
 import { PrescriptionTab } from "./consultation-tabs/prescription-tab"
 import { LabsTab } from "./consultation-tabs/labs-tab"
 import { HistoryTab } from "./consultation-tabs/history-tab"
+import { ProceduresTab } from "./consultation-tabs/procedures-tab"
 import { DentalTab } from "./consultation-tabs/dental-tab"
 import { AllergiesTab } from "./consultation-tabs/allergies-tab"
 import { ChronicConditionsTab } from "./consultation-tabs/chronic-conditions-tab"
 import { ImmunizationsTab } from "./consultation-tabs/immunizations-tab"
 import { DocumentsTab } from "./consultation-tabs/documents-tab"
 
-export type ConsultTab = "consultation" | "prescription" | "labs" | "history" | "dental" | "allergies" | "conditions" | "immunizations" | "documents"
+export type ConsultTab = "consultation" | "prescription" | "labs" | "history" | "procedures" | "dental" | "allergies" | "conditions" | "immunizations" | "documents"
 
 interface PatientConsultationProps {
   patientId: string
@@ -43,15 +44,29 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
   const handleClose = onClose ?? onBack ?? (() => {})
 
   const { getPatient } = usePatients()
-  const { getPatientMedicalRecords, getPatientPrescriptions } = useMedical()
+  const { getPatientMedicalRecords, getPatientPrescriptions, refreshMedicalData } = useMedical()
   const { user } = useAuth()
-  const { tests: labTests } = useLab()
+  const { tests: labTests, refresh: refreshLabTests } = useLab()
 
   const patient = getPatient(patientId)
   const medicalHistory = getPatientMedicalRecords(patientId)
   const prescriptions = getPatientPrescriptions(patientId)
   const latestRecord = medicalHistory.length ? medicalHistory[medicalHistory.length - 1] : null
   const labResults = labTests.filter((t) => t.patientId === patientId)
+
+  const refreshPatientRecord = useCallback(async () => {
+    try {
+      await refreshMedicalData()
+      await refreshLabTests({ patientId })
+    } catch {
+      // refresh is best-effort; the clinician should still be able to open the chart
+    }
+  }, [patientId, refreshMedicalData, refreshLabTests])
+
+  useEffect(() => {
+    if (!patientId) return
+    void refreshPatientRecord()
+  }, [patientId, refreshPatientRecord])
 
   const [activeTab, setActiveTab] = useState<ConsultTab>(initialTab)
   const [dentalHistory, setDentalHistory] = useState<DentalRecordSummary[]>([])
@@ -91,14 +106,28 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
     }
   }
 
-  // SSE stream for live lab updates — kept in state so it can be passed to LabsTab during render
-  const [labStream, setLabStream] = useState<EventSource | null>(null)
+  // Poll for live lab updates instead of using SSE; the Vercel HTTP/2 stack is unstable for
+  // long-lived streams and causes reconnect failures during active consultations.
   useEffect(() => {
-    const es = new EventSource(`/api/lab-tests/stream?patientId=${patientId}`, { withCredentials: true })
-    setLabStream(es)
-    es.onerror = () => { es.close(); setLabStream(null) }
-    return () => { es.close(); setLabStream(null) }
-  }, [patientId])
+    let cancelled = false
+    const refresh = async () => {
+      if (cancelled) return
+      try {
+        await refreshLabTests()
+      } catch {
+        // silent: the consultation remains usable if polling briefly fails
+      }
+    }
+
+    void refresh()
+    const timer = window.setInterval(() => { void refresh() }, 15000)
+    return () => {
+      cancelled = true
+      window.clearInterval(timer)
+    }
+  }, [patientId, refreshLabTests])
+
+  const labStream = null
 
   if (!patient || !user) {
     return (
@@ -123,6 +152,7 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
     { id: "prescription", label: "Prescription" },
     { id: "labs", label: "Labs" },
     { id: "history", label: "History" },
+    { id: "procedures", label: "Procedures" },
     ...(user.role === "Dentist" ? [{ id: "dental" as ConsultTab, label: "Dental" }] : []),
     { id: "allergies" as ConsultTab, label: "Allergies" },
     { id: "conditions" as ConsultTab, label: "Conditions" },
@@ -150,6 +180,9 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
               {patient.gender && (
                 <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-700 capitalize">{patient.gender}</span>
               )}
+              {patient.triageCategory && (
+                <span className="rounded-full border border-amber-200 bg-amber-50 px-2 py-0.5 text-xs text-amber-700">Triage: {patient.triageCategory}</span>
+              )}
               {patient.bloodGroup && (
                 <span className="rounded-full bg-teal-50 px-2 py-0.5 text-xs text-teal-700">{patient.bloodGroup}</span>
               )}
@@ -159,6 +192,57 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
                 </span>
               )}
             </div>
+            {(patient.triageComplaint || patient.triageVitals?.systolic != null || patient.triageVitals?.heartRate != null || patient.triageObservations || patient.triageDiscriminators?.length) && (
+              <div className="rounded-md border border-amber-100 bg-amber-50/60 px-3 py-2 text-xs text-slate-700">
+                <div className="font-semibold text-amber-800">Latest Triage Context</div>
+                {patient.triageComplaint && <div>Complaint: {patient.triageComplaint}</div>}
+                {patient.triageDiscriminators && patient.triageDiscriminators.length > 0 && (
+                  <div className="mt-1">Clinical indicators: {patient.triageDiscriminators.join(", ")}</div>
+                )}
+                <div className="mt-1 flex flex-wrap gap-2 text-slate-600">
+                  {patient.triageVitals?.systolic != null && patient.triageVitals?.diastolic != null && (
+                    <span>BP {patient.triageVitals.systolic}/{patient.triageVitals.diastolic}</span>
+                  )}
+                  {patient.triageVitals?.heartRate != null && <span>HR {patient.triageVitals.heartRate}</span>}
+                  {patient.triageVitals?.respiratoryRate != null && <span>RR {patient.triageVitals.respiratoryRate}</span>}
+                  {patient.triageVitals?.temperature != null && <span>Temp {patient.triageVitals.temperature} C</span>}
+                  {patient.triageVitals?.spo2 != null && <span>SpO2 {patient.triageVitals.spo2}%</span>}
+                  {patient.triageVitals?.avpu && <span>AVPU {patient.triageVitals.avpu}</span>}
+                  {patient.triageDate && <span>Recorded {String(patient.triageDate).slice(0, 16).replace("T", " ")}</span>}
+                </div>
+                {patient.triageObservations && (
+                  <>
+                    <div className="mt-1 flex flex-wrap gap-2 text-slate-600">
+                      {patient.triageObservations.painLevel != null && <span>Pain {patient.triageObservations.painLevel}/10</span>}
+                      {patient.triageObservations.isPregnant && (
+                        <span>Pregnant{patient.triageObservations.pregnancyWeeks != null ? ` · ${patient.triageObservations.pregnancyWeeks} weeks` : ""}</span>
+                      )}
+                      {patient.triageObservations.isPostpartum && (
+                        <span>Postpartum{patient.triageObservations.postpartumDays != null ? ` · day ${patient.triageObservations.postpartumDays}` : ""}</span>
+                      )}
+                      {patient.triageObservations.hasTrauma && (
+                        <span>Trauma{patient.triageObservations.traumaType ? ` · ${patient.triageObservations.traumaType}` : ""}</span>
+                      )}
+                      {patient.triageObservations.burnsPercentage != null && <span>Burns {patient.triageObservations.burnsPercentage}%</span>}
+                      {patient.triageObservations.weight != null && <span>Weight {patient.triageObservations.weight} kg</span>}
+                      {patient.triageObservations.heightCm != null && <span>Height {patient.triageObservations.heightCm} cm</span>}
+                      {patient.triageObservations.bloodGlucose != null && <span>Glucose {patient.triageObservations.bloodGlucose} mmol/L</span>}
+                      {patient.triageObservations.capillaryRefill != null && <span>Capillary refill {patient.triageObservations.capillaryRefill}s</span>}
+                      {patient.triageObservations.muacCm != null && <span>MUAC {patient.triageObservations.muacCm} cm</span>}
+                      {patient.triageObservations.hasRespiratoryDistress && <span>Respiratory distress</span>}
+                      {patient.triageObservations.hasChestPain && <span>Chest pain</span>}
+                      {patient.triageObservations.hasSevereBleeding && <span>Severe bleeding</span>}
+                    </div>
+                    {patient.triageObservations.traumaMechanism && (
+                      <div className="mt-1">Trauma mechanism: {patient.triageObservations.traumaMechanism}</div>
+                    )}
+                    {patient.triageObservations.notes && (
+                      <div className="mt-1">Observations: {patient.triageObservations.notes}</div>
+                    )}
+                  </>
+                )}
+              </div>
+            )}
           </div>
           <div className="flex items-center gap-2">
             <Button
@@ -212,6 +296,7 @@ export function PatientConsultation({ patientId, onClose, onBack, initialTab = "
         {activeTab === "prescription" && <PrescriptionTab patient={patient} user={user} />}
         {activeTab === "labs" && <LabsTab patient={patient} user={user} labStream={labStream} />}
         {activeTab === "history" && <HistoryTab patient={patient} user={user} />}
+        {activeTab === "procedures" && <ProceduresTab patient={patient} user={user} />}
         {activeTab === "dental" && user.role === "Dentist" && (
           <DentalTab patient={patient} user={user} onRecordsChange={setDentalHistory} />
         )}

@@ -74,6 +74,9 @@ export function DashboardLayout({ children }: DashboardLayoutProps) {
               <p className="text-xs text-muted-foreground">{user && getRoleLabel(user.role)}</p>
             </div>
             <NotificationsBell userRole={user?.role} />
+            <Button asChild variant="ghost" size="sm">
+              <Link href="/workflow">Patient Flow</Link>
+            </Button>
             {showAncLink && (
               <Button asChild variant="ghost" size="sm">
                 <Link href="/midwife">Midwifery Portal</Link>
@@ -667,7 +670,6 @@ function AdminDeletionWatcher({ userRole }: { userRole?: string }) {
     </Dialog>
   )
 }
-
 
 
 

@@ -186,6 +186,16 @@ const HAEMOGLOBIN_ELECTROPHORESIS: LabParameter[] = [
   { name: "HbC",   units: "%",  reference: "Absent"  },
 ]
 
+const HIV_ART_MONITORING: LabParameter[] = [
+  { name: "HIV-1/2 Antibody", units: "", reference: "Non-Reactive" },
+  { name: "CD4 Count", units: "cells/µL", reference: "500–1500" },
+  { name: "CD4 %", units: "%", reference: "25–45" },
+  { name: "Viral Load", units: "copies/mL", reference: "Undetectable" },
+  { name: "ART Adherence", units: "", reference: "Adherent" },
+  { name: "WHO Clinical Stage", units: "", reference: "Stage I–IV" },
+  { name: "Regimen", units: "", reference: "N/A" },
+]
+
 /** Canonical name → parameter list map. Keys are lowercase for matching. */
 const TEMPLATES: Record<string, LabParameter[]> = {
   // CBC and variants
@@ -260,9 +270,17 @@ const TEMPLATES: Record<string, LabParameter[]> = {
   "malaria antigen": MALARIA_RDT,
 
   // HIV
-  "hiv rapid": HIV_RAPID,
-  "hiv test": HIV_RAPID,
-  "hiv": HIV_RAPID,
+  "hiv rapid": HIV_ART_MONITORING,
+  "hiv test": HIV_ART_MONITORING,
+  "hiv": HIV_ART_MONITORING,
+  "cd4": HIV_ART_MONITORING,
+  "cd4 count": HIV_ART_MONITORING,
+  "cd4 percentage": HIV_ART_MONITORING,
+  "viral load": HIV_ART_MONITORING,
+  "viral_load": HIV_ART_MONITORING,
+  "art adherence": HIV_ART_MONITORING,
+  "art review": HIV_ART_MONITORING,
+  "anti-retroviral": HIV_ART_MONITORING,
 
   // Blood culture
   "blood culture": BLOOD_CULTURE,

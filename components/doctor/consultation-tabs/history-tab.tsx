@@ -3,6 +3,7 @@ import { useState, useEffect } from "react"
 import type { Patient } from "@/lib/patient-context"
 import type { User } from "@/lib/auth-context"
 import { useMedical } from "@/lib/medical-context"
+import { useNursing } from "@/lib/nursing-context"
 import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
 import { Label } from "@/components/ui/label"
@@ -75,7 +76,27 @@ function validateObstetricForm(form: ObstetricFormState): string | null {
 
 export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
   const { getPatientMedicalRecords } = useMedical()
+  const { getPatientVitals, getPatientNotes, refreshPatient } = useNursing()
   const medicalHistory = getPatientMedicalRecords(patient.id)
+
+  const [nursingDataLoading, setNursingDataLoading] = useState(true)
+  const nursingVitals = getPatientVitals(patient.id)
+  const nursingNotes = getPatientNotes(patient.id)
+
+  useEffect(() => {
+    let cancelled = false
+    setNursingDataLoading(true)
+    refreshPatient(patient.id)
+      .catch(() => {
+        if (!cancelled) toast.error("Failed to load nursing observations")
+      })
+      .finally(() => {
+        if (!cancelled) setNursingDataLoading(false)
+      })
+    return () => {
+      cancelled = true
+    }
+  }, [patient.id, refreshPatient])
 
   const [obstetricHistory, setObstetricHistory] = useState<ObstetricRecord[]>([])
   const [obsForm, setObsForm] = useState<ObstetricFormState>(EMPTY_OB_FORM)
@@ -84,6 +105,12 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
   const [savingEdit, setSavingEdit] = useState(false)
   // Fix 1: saving guard for new assessment
   const [savingNew, setSavingNew] = useState(false)
+  const recentNursingVitals = [...nursingVitals]
+    .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
+    .slice(0, 5)
+  const recentNursingNotes = [...nursingNotes]
+    .sort((a, b) => `${b.date} ${b.time}`.localeCompare(`${a.date} ${a.time}`))
+    .slice(0, 5)
 
   // Fix 5: DRY refetch helper
   const refreshObstetricHistory = async () => {
@@ -142,14 +169,14 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Failed to save")
+        throw new Error(data.error || "Obstetric assessment was not saved.")
       }
       toast.success("Obstetric assessment saved.")
       setObsForm(EMPTY_OB_FORM)
       // Fix 5: use shared refetch helper
       await refreshObstetricHistory()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to save obstetric assessment")
+      toast.error(e instanceof Error ? e.message : "Obstetric assessment was not saved. Please try again.")
     } finally {
       // Fix 1: clear saving guard
       setSavingNew(false)
@@ -196,14 +223,14 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
       })
       if (!res.ok) {
         const data = await res.json().catch(() => ({}))
-        throw new Error(data.error || "Failed to update")
+        throw new Error(data.error || "Obstetric update was not saved.")
       }
       toast.success("Obstetric assessment updated.")
       setEditingId(null)
       // Fix 5: use shared refetch helper
       await refreshObstetricHistory()
     } catch (e: unknown) {
-      toast.error(e instanceof Error ? e.message : "Failed to update")
+      toast.error(e instanceof Error ? e.message : "Obstetric update was not saved. Please try again.")
     } finally { setSavingEdit(false) }
   }
 
@@ -329,6 +356,57 @@ export function HistoryTab({ patient, user: _user }: HistoryTabProps) {
           </div>
         )}
       </div>
+
+      <section aria-label="Nursing observations" className="rounded-xl border border-sky-100 bg-sky-50/30 p-4">
+        <h3 className="mb-3 text-xs font-semibold uppercase tracking-widest text-sky-600">
+          Recent Nursing Observations
+        </h3>
+        {nursingDataLoading ? (
+          <p className="text-sm text-slate-500">Loading nursing observations...</p>
+        ) : recentNursingVitals.length === 0 && recentNursingNotes.length === 0 ? (
+          <p className="text-sm text-slate-500">No nursing observations recorded yet.</p>
+        ) : (
+          <div className="space-y-4">
+            {recentNursingVitals.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-800">Vital signs</p>
+                {recentNursingVitals.map((vital) => (
+                  <div key={vital.id} className="rounded-lg border border-sky-100 bg-white p-3 text-sm">
+                    <div className="mb-2 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-slate-500">
+                      <span>{vital.date} {vital.time}</span>
+                      <span>{vital.nurseName || "Nursing staff"}</span>
+                    </div>
+                    <div className="flex flex-wrap gap-x-4 gap-y-1 text-slate-700">
+                      {vital.bloodPressure && <span>BP: {vital.bloodPressure} mmHg</span>}
+                      {vital.heartRate && <span>HR: {vital.heartRate} bpm</span>}
+                      {vital.temperature && <span>Temp: {vital.temperature} C</span>}
+                      {vital.respiratoryRate && <span>RR: {vital.respiratoryRate}/min</span>}
+                      {vital.oxygenSaturation && <span>SpO2: {vital.oxygenSaturation}%</span>}
+                      {vital.weight && <span>Weight: {vital.weight} kg</span>}
+                      {vital.height && <span>Height: {vital.height} cm</span>}
+                    </div>
+                    {vital.notes && <p className="mt-2 text-slate-600">{vital.notes}</p>}
+                  </div>
+                ))}
+              </div>
+            )}
+            {recentNursingNotes.length > 0 && (
+              <div className="space-y-2">
+                <p className="text-sm font-medium text-slate-800">Nursing notes</p>
+                {recentNursingNotes.map((note) => (
+                  <div key={note.id} className="rounded-lg border border-sky-100 bg-white p-3 text-sm">
+                    <div className="mb-1 flex flex-wrap justify-between gap-x-3 gap-y-1 text-xs text-slate-500">
+                      <span>{note.date} {note.time} · {note.category}</span>
+                      <span>{note.nurseName || "Nursing staff"}</span>
+                    </div>
+                    <p className="whitespace-pre-wrap text-slate-700">{note.note}</p>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
+      </section>
 
       {/* Edit obstetric dialog */}
       <Dialog open={!!editingId} onOpenChange={(o) => { if (!o) setEditingId(null) }}>

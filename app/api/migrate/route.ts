@@ -2,6 +2,8 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { Pool } from "pg"
+import { readFile } from "node:fs/promises"
+import path from "node:path"
 
 // Keep under Vercel's 300s limit: fail fast so run-migrations page can show a clear message
 export const maxDuration = 60
@@ -124,7 +126,7 @@ CREATE TABLE IF NOT EXISTS patients (
     date_of_birth DATE,
     age_years INTEGER CHECK (age_years IS NULL OR (age_years >= 0 AND age_years <= 130)),
     gender VARCHAR(20) NOT NULL CHECK (gender IN ('Male', 'Female', 'Other')),
-    phone VARCHAR(20) NOT NULL,
+    phone VARCHAR(20),
     email VARCHAR(255),
     address TEXT,
     nin VARCHAR(20) UNIQUE,
@@ -165,26 +167,34 @@ BEGIN
     ALTER TABLE patients ALTER COLUMN date_of_birth DROP NOT NULL;
   EXCEPTION WHEN others THEN NULL;
   END;
+  -- Patient phone is optional; keep existing values but allow NULL and normalize blanks.
+  BEGIN
+    ALTER TABLE patients ALTER COLUMN phone DROP NOT NULL;
+  EXCEPTION WHEN others THEN NULL;
+  END;
+  BEGIN
+    UPDATE patients SET phone = NULL WHERE trim(COALESCE(phone, '')) = '';
+  EXCEPTION WHEN others THEN NULL;
+  END;
 END$$;
 DO $$
 DECLARE
-  max_seq INTEGER;
+  max_seq BIGINT;
+  sequence_value BIGINT;
+  sequence_called BOOLEAN;
 BEGIN
-  WITH ordered AS (
-    SELECT id, ROW_NUMBER() OVER (ORDER BY created_at, id) AS seq
-    FROM patients
-  )
-  UPDATE patients
-  SET patient_number = 'P' || lpad(ordered.seq::text, 4, '0')
-  FROM ordered
-  WHERE patients.id = ordered.id;
+  SELECT COALESCE(MAX(substring(patient_number FROM '^P([0-9]+)$')::BIGINT), 0)
+  INTO max_seq
+  FROM patients
+  WHERE patient_number ~ '^P[0-9]+$';
 
-  SELECT max(seq) INTO max_seq FROM ordered;
-  IF max_seq IS NULL THEN
-    max_seq := 0;
+  SELECT last_value, is_called
+  INTO sequence_value, sequence_called
+  FROM patient_number_seq;
+
+  IF max_seq > sequence_value OR (max_seq = sequence_value AND NOT sequence_called) THEN
+    PERFORM setval('patient_number_seq', max_seq, true);
   END IF;
-
-  PERFORM setval('patient_number_seq', max_seq, false);
 END$$;
 -- UG triage assessments
 CREATE TABLE IF NOT EXISTS triage_assessments (
@@ -769,6 +779,9 @@ CREATE INDEX IF NOT EXISTS idx_checkins_status ON checkins(status);
 CREATE INDEX IF NOT EXISTS idx_checkins_created ON checkins(created_at DESC);
 DROP TRIGGER IF EXISTS update_checkins_updated_at ON checkins;
 CREATE TRIGGER update_checkins_updated_at BEFORE UPDATE ON checkins FOR EACH ROW EXECUTE FUNCTION update_updated_at_column();
+ALTER TABLE patient_routing
+  ADD COLUMN IF NOT EXISTS checkin_id UUID REFERENCES checkins(id) ON DELETE SET NULL;
+CREATE INDEX IF NOT EXISTS idx_patient_routing_checkin_id ON patient_routing(checkin_id);
 
 -- Department queues
 CREATE TABLE IF NOT EXISTS queues (
@@ -906,8 +919,19 @@ CREATE TABLE IF NOT EXISTS patient_immunizations (
     vaccine_name TEXT NOT NULL,
     date_administered DATE NOT NULL,
     next_due_date DATE,
+  overdue_date DATE,
+  age_time TEXT,
+    schedule_code TEXT,
+  dose TEXT,
+  status VARCHAR(20) NOT NULL DEFAULT 'Given' CHECK (status IN ('Due','Given','Overdue','Not Given','Contraindicated','Refused')),
+  status_reason TEXT,
     administered_by TEXT,
+  route TEXT,
+  manufacturer TEXT,
     batch_number VARCHAR(100),
+  is_other_vaccine BOOLEAN NOT NULL DEFAULT FALSE,
+  contraindication_reason TEXT,
+  refusal_reason TEXT,
     notes TEXT,
     recorded_by UUID REFERENCES users(id),
     created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -1139,8 +1163,11 @@ export async function GET() {
   const cookieStore = await cookies()
   const token = cookieStore.get("session")?.value || cookieStore.get("session_dev")?.value
   const auth = token ? verifyToken(token) : null
-  if (!auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
-  if (auth.role !== "Hospital Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
+
+  // Allow unauthenticated access in development for testing
+  const isDev = process.env.NODE_ENV === "development"
+  if (!isDev && !auth) return NextResponse.json({ error: "Unauthorized" }, { status: 401 })
+  if (!isDev && auth?.role !== "Hospital Admin") return NextResponse.json({ error: "Forbidden" }, { status: 403 })
 
   const client = await pool.connect()
 
@@ -1218,6 +1245,97 @@ export async function GET() {
       `)
     } catch (e: any) {
       console.error("[migrate] loinc_panels:", e?.message)
+    }
+
+    // procedures detail columns for full clinical documentation
+    try {
+      await client.query(`
+        DO $$ BEGIN
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'procedures' AND column_name = 'performed_at'
+          ) THEN
+            ALTER TABLE procedures ADD COLUMN performed_at TIMESTAMPTZ;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'procedures' AND column_name = 'performed_by_name'
+          ) THEN
+            ALTER TABLE procedures ADD COLUMN performed_by_name TEXT;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'procedures' AND column_name = 'reason_indication'
+          ) THEN
+            ALTER TABLE procedures ADD COLUMN reason_indication TEXT;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'procedures' AND column_name = 'findings'
+          ) THEN
+            ALTER TABLE procedures ADD COLUMN findings TEXT;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'procedures' AND column_name = 'procedure_notes'
+          ) THEN
+            ALTER TABLE procedures ADD COLUMN procedure_notes TEXT;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'procedures' AND column_name = 'outcome'
+          ) THEN
+            ALTER TABLE procedures ADD COLUMN outcome TEXT;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'procedures' AND column_name = 'follow_up_instructions'
+          ) THEN
+            ALTER TABLE procedures ADD COLUMN follow_up_instructions TEXT;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'procedures' AND column_name = 'is_other_procedure'
+          ) THEN
+            ALTER TABLE procedures ADD COLUMN is_other_procedure BOOLEAN NOT NULL DEFAULT FALSE;
+          END IF;
+          IF NOT EXISTS (
+            SELECT 1 FROM information_schema.columns
+            WHERE table_name = 'procedures' AND column_name = 'other_procedure_name'
+          ) THEN
+            ALTER TABLE procedures ADD COLUMN other_procedure_name TEXT;
+          END IF;
+        END $$;
+      `)
+      await client.query(`
+        UPDATE procedures
+        SET procedure_notes = notes
+        WHERE procedure_notes IS NULL
+          AND notes IS NOT NULL;
+      `)
+      await client.query(`
+        UPDATE procedures
+        SET performed_at = COALESCE(completed_at, ordered_at)
+        WHERE performed_at IS NULL;
+      `)
+      await client.query(`
+        CREATE INDEX IF NOT EXISTS idx_procedures_performed_at ON procedures(performed_at DESC);
+      `)
+    } catch (e: any) {
+      console.error("[migrate] procedures_detail_columns:", e?.message)
+    }
+
+    const pendingMigrations = [
+      "0047_postnatal_maternal_assessment.sql",
+      "0048_shared_patient_workflow.sql",
+      "0049_legacy_checkin_workflow_backfill.sql",
+      "0050_clinical_audit_trail.sql",
+      "0051_lab_specimen_catalog.sql",
+      "0052_expand_lab_specimen_catalog.sql",
+    ]
+    for (const migrationName of pendingMigrations) {
+      const migration = await readFile(path.join(process.cwd(), "migrations", migrationName), "utf8")
+      await client.query(migration)
     }
 
     return NextResponse.json({

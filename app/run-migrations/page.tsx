@@ -80,6 +80,7 @@ export default function RunMigrationsPage() {
               <li>Create all database tables (users, patients, appointments, etc.)</li>
               <li>Set up indexes for performance</li>
               <li>Create database triggers and functions</li>
+              <li>Enable the append-only clinical audit trail</li>
             </ul>
 
             <Button onClick={runMigrations} disabled={running} className="w-full" size="lg">

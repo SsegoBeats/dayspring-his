@@ -1,15 +1,13 @@
 import { NextResponse } from 'next/server'
 import { z } from 'zod'
-import { verifyToken } from '@/lib/security'
+import { verifyRequestToken } from '@/lib/security'
 import { queryWithSession } from '@/lib/db'
 
 const CreateMapping = z.object({ resourceType: z.string(), field: z.string(), dataElement: z.string(), facilityId: z.string().optional() })
 
 export async function GET(req: Request) {
   try {
-    const authHeader = req.headers.get('authorization') || ''
-    const token = authHeader.replace(/^Bearer\s+/i, '')
-    const user = verifyToken(token)
+    const user = verifyRequestToken(req)
     if (!user || (user.role !== 'Hospital Admin' && user.role !== 'admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const { rows } = await queryWithSession({ role: user.role, userId: user.userId }, 'SELECT id, resource_type as "resourceType", field, data_element as "dataElement", facility_id as "facilityId", created_at FROM dhis2_mappings ORDER BY id DESC')
@@ -21,9 +19,7 @@ export async function GET(req: Request) {
 
 export async function POST(req: Request) {
   try {
-    const authHeader = req.headers.get('authorization') || ''
-    const token = authHeader.replace(/^Bearer\s+/i, '')
-    const user = verifyToken(token)
+    const user = verifyRequestToken(req)
     if (!user || (user.role !== 'Hospital Admin' && user.role !== 'admin')) return NextResponse.json({ error: 'Forbidden' }, { status: 403 })
 
     const body = await req.json()

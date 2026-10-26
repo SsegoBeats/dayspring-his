@@ -7,6 +7,7 @@ import { EmailSettings } from "@/components/settings/email-settings"
 import { PasswordSettings } from "@/components/settings/password-settings"
 import { ProfileSettings, NotificationSettings, PreferenceSettings } from "@/components/settings/preference-settings"
 import { OrgSettings } from "@/components/settings/org-settings"
+import { LabSpecimenSettings } from "@/components/settings/lab-specimen-settings"
 import { Settings } from "lucide-react"
 import { toast } from "sonner"
 import { useSearchParams } from "next/navigation"
@@ -31,6 +32,7 @@ function SettingsContent() {
       <SettingsColumns
         primary={
           <>
+            <LabSpecimenSettings />
             <OrgSettings />
             <ProfileSettings />
             <PreferenceSettings />

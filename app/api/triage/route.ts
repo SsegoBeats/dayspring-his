@@ -218,6 +218,23 @@ export async function POST(req: Request) {
       ],
     )
 
+    const workflowPriority = category === "Routine" ? "Standard" : category
+    await queryWithSession(
+      { role: auth.role, userId: auth.userId },
+      `UPDATE patient_routing
+          SET priority = $1
+        WHERE id = (
+          SELECT id
+            FROM patient_routing
+           WHERE patient_id = $2
+             AND checkin_id IS NOT NULL
+             AND status IN ('Pending', 'Acknowledged')
+           ORDER BY created_at DESC
+           LIMIT 1
+        )`,
+      [workflowPriority, t.patientId],
+    )
+
     // Update patient's current triage category
     await queryWithSession(
       { role: auth.role, userId: auth.userId },

@@ -28,7 +28,7 @@ export async function GET(req: Request) {
     id: p.id,
     identifier: [{ system: "MRN", value: p.mrn }],
     name: [{ family: p.last_name, given: [p.first_name] }],
-    telecom: [{ system: "phone", value: p.phone }],
+    ...(p.phone ? { telecom: [{ system: "phone", value: p.phone }] } : {}),
     gender: p.gender,
     birthDate: String(p.dob).slice(0, 10),
   }
