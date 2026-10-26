@@ -3,9 +3,6 @@ import path from 'path'
 /** @type {import('next').NextConfig} */
 const nextConfig = {
   turbopack: {},
-  outputFileTracingIncludes: {
-    "/api/migrate": ["./migrations/*.sql"],
-  },
   typescript: {
     ignoreBuildErrors: true,
   },
@@ -13,6 +10,11 @@ const nextConfig = {
     unoptimized: true,
   },
   webpack: (config, { dev }) => {
+    config.module.rules.push({
+      test: /\.sql$/i,
+      type: 'asset/source',
+    })
+
     if (dev) {
       // Merge any existing ignored patterns with our project-specific ignores.
       const existingIgnored = Array.isArray(config.watchOptions?.ignored)

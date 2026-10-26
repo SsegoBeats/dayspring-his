@@ -2,8 +2,12 @@ import { NextResponse } from "next/server"
 import { cookies } from "next/headers"
 import { verifyToken } from "@/lib/security"
 import { Pool } from "pg"
-import { readFile } from "node:fs/promises"
-import path from "node:path"
+import postnatalMaternalAssessmentMigration from "../../../migrations/0047_postnatal_maternal_assessment.sql"
+import sharedPatientWorkflowMigration from "../../../migrations/0048_shared_patient_workflow.sql"
+import legacyCheckinWorkflowBackfillMigration from "../../../migrations/0049_legacy_checkin_workflow_backfill.sql"
+import clinicalAuditTrailMigration from "../../../migrations/0050_clinical_audit_trail.sql"
+import labSpecimenCatalogMigration from "../../../migrations/0051_lab_specimen_catalog.sql"
+import expandedLabSpecimenCatalogMigration from "../../../migrations/0052_expand_lab_specimen_catalog.sql"
 
 // Keep under Vercel's 300s limit: fail fast so run-migrations page can show a clear message
 export const maxDuration = 60
@@ -1326,15 +1330,14 @@ export async function GET() {
     }
 
     const pendingMigrations = [
-      "0047_postnatal_maternal_assessment.sql",
-      "0048_shared_patient_workflow.sql",
-      "0049_legacy_checkin_workflow_backfill.sql",
-      "0050_clinical_audit_trail.sql",
-      "0051_lab_specimen_catalog.sql",
-      "0052_expand_lab_specimen_catalog.sql",
+      postnatalMaternalAssessmentMigration,
+      sharedPatientWorkflowMigration,
+      legacyCheckinWorkflowBackfillMigration,
+      clinicalAuditTrailMigration,
+      labSpecimenCatalogMigration,
+      expandedLabSpecimenCatalogMigration,
     ]
-    for (const migrationName of pendingMigrations) {
-      const migration = await readFile(path.join(process.cwd(), "migrations", migrationName), "utf8")
+    for (const migration of pendingMigrations) {
       await client.query(migration)
     }
 
