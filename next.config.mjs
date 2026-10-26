@@ -4,7 +4,7 @@ import path from 'path'
 const nextConfig = {
   turbopack: {},
   outputFileTracingIncludes: {
-    "/api/migrate": ["./migrations/0050_clinical_audit_trail.sql"],
+    "/api/migrate": ["./migrations/*.sql"],
   },
   typescript: {
     ignoreBuildErrors: true,
